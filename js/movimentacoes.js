@@ -59,6 +59,7 @@ document.addEventListener('DOMContentLoaded', async function() {
         document.getElementById('entrada-produto').addEventListener('change', (e) => {
             const product = productsMap[e.target.value];
             document.getElementById('entrada-codigo-display').textContent = product ? product.codigo : '-';
+            document.getElementById('entrada-codigoglobal-display').textContent = product ? product.codigo_global : '-'; // ACRESCENTADO
             document.getElementById('entrada-descricao-display').textContent = product ? product.descricao : '-';
             document.getElementById('entrada-un-display').textContent = product ? product.un_compra : '-';
         });
@@ -66,6 +67,7 @@ document.addEventListener('DOMContentLoaded', async function() {
         document.getElementById('saida-produto').addEventListener('change', (e) => {
             const product = productsMap[e.target.value];
             document.getElementById('saida-codigo-display').textContent = product ? product.codigo : '-';
+            document.getElementById('saida-codigoglobal-display').textContent = product ? product.codigo_global : '-'; // ACRESCENTADO
             document.getElementById('saida-descricao-display').textContent = product ? product.descricao : '-';
             document.getElementById('saida-un-display').textContent = product ? product.un : '-';
             document.getElementById('saida-estoque-display').textContent = product ? (product.estoque || 0) : '-';
