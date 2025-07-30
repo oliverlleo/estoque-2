@@ -5,6 +5,7 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Dashboard - Controle de Estoque</title>
     <link rel="stylesheet" href="css/style.css">
+    <script src="https://cdn.jsdelivr.net/npm/feather-icons/dist/feather.min.js"></script>
 </head>
 <body>
     <aside class="sidebar">
@@ -13,11 +14,11 @@
         </div>
         <nav>
             <ul>
-                <li><a href="index.html" class="active">Dashboard</a></li>
-                <li><a href="configuracoes.html">Configurações</a></li>
-                <li><a href="produtos.html">Produtos</a></li>
-                <li><a href="movimentacoes.html">Movimentações</a></li>
-                <li><a href="consultas.html">Consultas</a></li>
+                <li><a href="index.html" class="active"><i data-feather="home"></i>Dashboard</a></li>
+                <li><a href="configuracoes.html"><i data-feather="settings"></i>Configurações</a></li>
+                <li><a href="produtos.html"><i data-feather="box"></i>Produtos</a></li>
+                <li><a href="movimentacoes.html"><i data-feather="git-commit"></i>Movimentações</a></li>
+                <li><a href="consultas.html"><i data-feather="search"></i>Consultas</a></li>
             </ul>
         </nav>
     </aside>
@@ -31,5 +32,6 @@
         </section>
     </main>
     <script type="module" src="js/main.js"></script>
+    <script> feather.replace() </script>
 </body>
 </html>
