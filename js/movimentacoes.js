@@ -24,31 +24,28 @@ document.addEventListener('DOMContentLoaded', async function() {
         productsSnapshot.forEach(doc => {
             const product = doc.data();
             productsMap[doc.id] = { id: doc.id, ...product };
-
-            // Monta o texto da opção com código, descrição e código global (se existir)
             const codigo = product.codigo || 'S/C';
             const descricao = product.descricao || 'Produto sem descrição';
             const codigoGlobal = product.codigo_global ? `(${product.codigo_global})` : '';
-
             const optionText = `${codigo} - ${descricao} ${codigoGlobal}`.trim();
-
             productOptions.push(`<option value="${doc.id}">${optionText}</option>`);
         });
         document.getElementById('entrada-produto').innerHTML = productOptions.join('');
         document.getElementById('saida-produto').innerHTML = productOptions.join('');
 
-        // Load other config data
+        // Load other config data (CORRIGIDO)
         const configsToLoad = [
-            { name: 'tipo-entrada', collection: 'tipos_entrada', field: 'nome' },
-            { name: 'tipo-saida', collection: 'tipos_saida', field: 'nome' },
-            { name: 'obra', collection: 'obras', field: 'nome' },
+            { id: 'entrada-tipo', collection: 'tipos_entrada', field: 'nome', defaultOption: 'Tipo de Entrada...' },
+            { id: 'saida-tipo', collection: 'tipos_saida', field: 'nome', defaultOption: 'Tipo de Saída...' },
+            { id: 'saida-obra', collection: 'obras', field: 'nome', defaultOption: 'Selecione a Obra...' },
         ];
+
         for (const cfg of configsToLoad) {
-            const select = document.getElementById(`${cfg.name === 'obra' ? 'saida-' : 'entrada-'}${cfg.name}`);
+            const select = document.getElementById(cfg.id);
             if(select) {
                  const snapshot = await getDocs(collection(db, cfg.collection));
                  configData[cfg.collection] = {};
-                 select.innerHTML = `<option value="">Selecione ${cfg.name.replace('-', ' ')}...</option>`;
+                 select.innerHTML = `<option value="">${cfg.defaultOption}</option>`;
                  snapshot.forEach(doc => {
                      configData[cfg.collection][doc.id] = doc.data();
                      select.innerHTML += `<option value="${doc.id}">${doc.data()[cfg.field]}</option>`;
