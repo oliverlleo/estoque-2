@@ -1,0 +1,249 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Configurações - Controle de Estoque</title>
+    <link rel="stylesheet" href="css/style.css">
+</head>
+<body>
+    <aside class="sidebar">
+        <div class="sidebar-header">
+            <h2>Estoque</h2>
+        </div>
+        <nav>
+            <ul>
+                <li><a href="index.html">Dashboard</a></li>
+                <li><a href="configuracoes.html" class="active">Configurações</a></li>
+                <li><a href="produtos.html">Produtos</a></li>
+                <li><a href="movimentacoes.html">Movimentações</a></li>
+                <li><a href="consultas.html">Consultas</a></li>
+            </ul>
+        </nav>
+    </aside>
+    <main class="main-content">
+        <header>
+            <h1>Configurações</h1>
+        </header>
+        <section class="content">
+            <div class="config-container">
+
+                <!-- Fornecedores -->
+                <details class="config-section" open>
+                    <summary>
+                        <h3>Cadastro de Fornecedores</h3>
+                    </summary>
+                    <div class="config-content">
+                        <form id="form-fornecedor" class="config-form">
+                            <input type="hidden" id="fornecedor-id">
+                            <input type="text" id="fornecedor-nome" placeholder="Nome do Fornecedor" required>
+                            <input type="number" id="fornecedor-imposto" placeholder="Imposto (ST)" step="0.01" required>
+                            <button type="submit">Salvar</button>
+                        </form>
+                        <input type="text" class="filter-input" data-table="table-fornecedores" placeholder="Filtrar...">
+                        <div class="table-wrapper">
+                            <table id="table-fornecedores" class="config-table">
+                                <thead>
+                                    <tr>
+                                        <th>Nome</th>
+                                        <th>Imposto (ST)</th>
+                                        <th>Ações</th>
+                                    </tr>
+                                </thead>
+                                <tbody></tbody>
+                            </table>
+                        </div>
+                    </div>
+                </details>
+
+                <!-- Grupos -->
+                <details class="config-section">
+                    <summary>
+                        <h3>Cadastro de Grupos</h3>
+                    </summary>
+                    <div class="config-content">
+                        <form id="form-grupo" class="config-form">
+                            <input type="hidden" id="grupo-id">
+                            <input type="text" id="grupo-nome" placeholder="Nome do Grupo" required>
+                            <button type="submit">Salvar</button>
+                        </form>
+                        <input type="text" class="filter-input" data-table="table-grupos" placeholder="Filtrar...">
+                        <div class="table-wrapper">
+                            <table id="table-grupos" class="config-table">
+                                <thead>
+                                    <tr>
+                                        <th>Nome</th>
+                                        <th>Ações</th>
+                                    </tr>
+                                </thead>
+                                <tbody></tbody>
+                            </table>
+                        </div>
+                    </div>
+                </details>
+
+                <!-- Aplicação -->
+                <details class="config-section">
+                    <summary>
+                        <h3>Cadastro de Aplicações</h3>
+                    </summary>
+                    <div class="config-content">
+                        <form id="form-aplicacao" class="config-form">
+                            <input type="hidden" id="aplicacao-id">
+                            <input type="text" id="aplicacao-nome" placeholder="Nome da Aplicação" required>
+                            <button type="submit">Salvar</button>
+                        </form>
+                        <input type="text" class="filter-input" data-table="table-aplicacoes" placeholder="Filtrar...">
+                        <div class="table-wrapper">
+                            <table id="table-aplicacoes" class="config-table">
+                                <thead>
+                                    <tr>
+                                        <th>Nome</th>
+                                        <th>Ações</th>
+                                    </tr>
+                                </thead>
+                                <tbody></tbody>
+                            </table>
+                        </div>
+                    </div>
+                </details>
+
+                <!-- Conjunto -->
+                <details class="config-section">
+                    <summary>
+                        <h3>Cadastro de Conjuntos</h3>
+                    </summary>
+                    <div class="config-content">
+                        <form id="form-conjunto" class="config-form">
+                            <input type="hidden" id="conjunto-id">
+                            <input type="text" id="conjunto-nome" placeholder="Nome do Conjunto" required>
+                            <button type="submit">Salvar</button>
+                        </form>
+                        <input type="text" class="filter-input" data-table="table-conjuntos" placeholder="Filtrar...">
+                        <div class="table-wrapper">
+                            <table id="table-conjuntos" class="config-table">
+                                <thead>
+                                    <tr>
+                                        <th>Nome</th>
+                                        <th>Ações</th>
+                                    </tr>
+                                </thead>
+                                <tbody></tbody>
+                            </table>
+                        </div>
+                    </div>
+                </details>
+
+                <!-- Endereçamento -->
+                <details class="config-section">
+                    <summary>
+                        <h3>Cadastro de Endereçamento</h3>
+                    </summary>
+                    <div class="config-content">
+                        <form id="form-enderecamento" class="config-form">
+                            <input type="hidden" id="enderecamento-id">
+                            <input type="text" id="enderecamento-codigo" placeholder="Código" required>
+                            <input type="text" id="enderecamento-local" placeholder="Local" required>
+                            <button type="submit">Salvar</button>
+                        </form>
+                        <input type="text" class="filter-input" data-table="table-enderecamentos" placeholder="Filtrar...">
+                        <div class="table-wrapper">
+                            <table id="table-enderecamentos" class="config-table">
+                                <thead>
+                                    <tr>
+                                        <th>Código</th>
+                                        <th>Local</th>
+                                        <th>Ações</th>
+                                    </tr>
+                                </thead>
+                                <tbody></tbody>
+                            </table>
+                        </div>
+                    </div>
+                </details>
+
+                <!-- Tipo de Entrada -->
+                <details class="config-section">
+                    <summary>
+                        <h3>Cadastro de Tipos de Entrada</h3>
+                    </summary>
+                    <div class="config-content">
+                        <form id="form-tipo-entrada" class="config-form">
+                            <input type="hidden" id="tipo-entrada-id">
+                            <input type="text" id="tipo-entrada-nome" placeholder="Nome do Tipo de Entrada" required>
+                            <button type="submit">Salvar</button>
+                        </form>
+                        <input type="text" class="filter-input" data-table="table-tipos-entrada" placeholder="Filtrar...">
+                        <div class="table-wrapper">
+                            <table id="table-tipos-entrada" class="config-table">
+                                <thead>
+                                    <tr>
+                                        <th>Nome</th>
+                                        <th>Ações</th>
+                                    </tr>
+                                </thead>
+                                <tbody></tbody>
+                            </table>
+                        </div>
+                    </div>
+                </details>
+
+                <!-- Tipo de Saída -->
+                <details class="config-section">
+                    <summary>
+                        <h3>Cadastro de Tipos de Saída</h3>
+                    </summary>
+                    <div class="config-content">
+                        <form id="form-tipo-saida" class="config-form">
+                            <input type="hidden" id="tipo-saida-id">
+                            <input type="text" id="tipo-saida-nome" placeholder="Nome do Tipo de Saída" required>
+                            <button type="submit">Salvar</button>
+                        </form>
+                        <input type="text" class="filter-input" data-table="table-tipos-saida" placeholder="Filtrar...">
+                        <div class="table-wrapper">
+                            <table id="table-tipos-saida" class="config-table">
+                                <thead>
+                                    <tr>
+                                        <th>Nome</th>
+                                        <th>Ações</th>
+                                    </tr>
+                                </thead>
+                                <tbody></tbody>
+                            </table>
+                        </div>
+                    </div>
+                </details>
+
+                <!-- Obra -->
+                <details class="config-section">
+                    <summary>
+                        <h3>Cadastro de Obras</h3>
+                    </summary>
+                    <div class="config-content">
+                        <form id="form-obra" class="config-form">
+                            <input type="hidden" id="obra-id">
+                            <input type="text" id="obra-nome" placeholder="Nome da Obra" required>
+                            <button type="submit">Salvar</button>
+                        </form>
+                        <input type="text" class="filter-input" data-table="table-obras" placeholder="Filtrar...">
+                        <div class="table-wrapper">
+                            <table id="table-obras" class="config-table">
+                                <thead>
+                                    <tr>
+                                        <th>Nome</th>
+                                        <th>Ações</th>
+                                    </tr>
+                                </thead>
+                                <tbody></tbody>
+                            </table>
+                        </div>
+                    </div>
+                </details>
+
+            </div>
+        </section>
+    </main>
+    <script type="module" src="js/main.js"></script>
+    <script type="module" src="js/configuracoes.js"></script>
+</body>
+</html>
