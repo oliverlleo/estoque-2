@@ -5,6 +5,7 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Produtos - Controle de Estoque</title>
     <link rel="stylesheet" href="css/style.css">
+    <script src="https://cdn.jsdelivr.net/npm/feather-icons/dist/feather.min.js"></script>
 </head>
 <body>
     <aside class="sidebar">
@@ -13,11 +14,11 @@
         </div>
         <nav>
             <ul>
-                <li><a href="index.html">Dashboard</a></li>
-                <li><a href="configuracoes.html">Configurações</a></li>
-                <li><a href="produtos.html" class="active">Produtos</a></li>
-                <li><a href="movimentacoes.html">Movimentações</a></li>
-                <li><a href="consultas.html">Consultas</a></li>
+                <li><a href="index.html"><i data-feather="home"></i>Dashboard</a></li>
+                <li><a href="configuracoes.html"><i data-feather="settings"></i>Configurações</a></li>
+                <li><a href="produtos.html" class="active"><i data-feather="box"></i>Produtos</a></li>
+                <li><a href="movimentacoes.html"><i data-feather="git-commit"></i>Movimentações</a></li>
+                <li><a href="consultas.html"><i data-feather="search"></i>Consultas</a></li>
             </ul>
         </nav>
     </aside>
@@ -26,55 +27,56 @@
             <h1>Cadastro de Produtos</h1>
         </header>
         <section class="content">
-            <div class="product-container">
-                <h3>Formulário de Produto</h3>
-                <form id="form-produto" class="product-form">
-                    <input type="hidden" id="produto-id">
-                    <input type="text" id="produto-codigo" placeholder="Código" required>
-                    <input type="text" id="produto-codigo_global" placeholder="Código Global">
-                    <input type="text" id="produto-descricao" placeholder="Descrição" required>
-                    <input type="text" id="produto-un" placeholder="UN Estoque" required>
-                    <input type="text" id="produto-un_compra" placeholder="UN Compra (ex: 1 Pç = 5,8m)">
-                    <input type="text" id="produto-cor" placeholder="Cor">
-                    <select id="produto-fornecedor" required><option value="">Selecione o Fornecedor...</option></select>
-                    <select id="produto-grupo" required><option value="">Selecione o Grupo...</option></select>
-                    <select id="produto-aplicacao" required><option value="">Selecione a Aplicação...</option></select>
-                    <select id="produto-conjunto" required><option value="">Selecione o Conjunto...</option></select>
-                    <select id="produto-enderecamento" required><option value="">Selecione o Endereçamento...</option></select>
-                    <button type="submit">Salvar Produto</button>
-                </form>
+            <div class="card">
+                <div class="card-header"><h3>Formulário de Produto</h3></div>
+                <div class="card-body">
+                    <form id="form-produto" style="display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 15px;">
+                        <input type="hidden" id="produto-id">
+                        <input type="text" id="produto-codigo" placeholder="Código" required class="form-control">
+                        <input type="text" id="produto-codigo_global" placeholder="Código Global" class="form-control">
+                        <input type="text" id="produto-descricao" placeholder="Descrição" required class="form-control">
+                        <input type="text" id="produto-un" placeholder="UN Estoque" required class="form-control">
+                        <input type="text" id="produto-un_compra" placeholder="UN Compra (ex: 1 Pç = 5,8m)" class="form-control">
+                        <input type="text" id="produto-cor" placeholder="Cor" class="form-control">
+                        <select id="produto-fornecedor" required class="form-control"><option value="">Selecione o Fornecedor...</option></select>
+                        <select id="produto-grupo" required class="form-control"><option value="">Selecione o Grupo...</option></select>
+                        <select id="produto-aplicacao" required class="form-control"><option value="">Selecione a Aplicação...</option></select>
+                        <select id="produto-conjunto" required class="form-control"><option value="">Selecione o Conjunto...</option></select>
+                        <select id="produto-enderecamento" required class="form-control"><option value="">Selecione o Endereçamento...</option></select>
+                        <button type="submit" class="btn btn-success" style="grid-column: 1 / -1;">Salvar Produto</button>
+                    </form>
+                </div>
             </div>
 
-            <div class="table-container">
-                <h3>Produtos Cadastrados</h3>
-                <input type="text" id="filter-produtos" class="filter-input" placeholder="Filtrar produtos...">
-                <div class="table-wrapper">
-                    <table id="table-produtos" class="config-table">
-                        <thead>
-                            <tr>
-                                <th>Código</th>
-                                <th>Cód. Global</th>
-                                <th>Descrição</th>
-                                <th>UN</th>
-                                <th>UN Compra</th>
-                                <th>Cor</th>
-                                <th>Fornecedor</th>
-                                <th>Grupo</th>
-                                <!-- <th>Aplicação</th>
-                                <th>Conjunto</th> -->
-                                <th>Endereçamento</th>
-                                <th>Ações</th>
-                            </tr>
-                        </thead>
-                        <tbody>
-                            <!-- Product data here -->
-                        </tbody>
-                    </table>
+            <div class="card">
+                 <div class="card-header"><h3>Produtos Cadastrados</h3></div>
+                 <div class="card-body">
+                    <input type="text" id="filter-produtos" class="form-control" placeholder="Filtrar produtos..." style="margin-bottom: 15px;">
+                    <div class="table-wrapper">
+                        <table id="table-produtos" class="table">
+                            <thead>
+                                <tr>
+                                    <th>Código</th>
+                                    <th>Cód. Global</th>
+                                    <th>Descrição</th>
+                                    <th>UN</th>
+                                    <th>UN Compra</th>
+                                    <th>Cor</th>
+                                    <th>Fornecedor</th>
+                                    <th>Grupo</th>
+                                    <th>Endereçamento</th>
+                                    <th>Ações</th>
+                                </tr>
+                            </thead>
+                            <tbody></tbody>
+                        </table>
+                    </div>
                 </div>
             </div>
         </section>
     </main>
     <script type="module" src="js/main.js"></script>
     <script type="module" src="js/produtos.js"></script>
+    <script> feather.replace() </script>
 </body>
 </html>

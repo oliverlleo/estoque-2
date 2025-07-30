@@ -1,3 +1,5 @@
+@import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap');
+
 /* Basic Reset */
 * {
     margin: 0;
@@ -6,16 +8,16 @@
 }
 
 body {
-    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
-    background-color: #f4f7f9;
-    color: #333;
+    font-family: 'Inter', -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+    background-color: #f8f9fa;
+    color: #212529;
     display: flex;
 }
 
 /* Sidebar */
 .sidebar {
     width: 250px;
-    background-color: #2c3e50;
+    background-color: #212529;
     color: #ecf0f1;
     display: flex;
     flex-direction: column;
@@ -39,7 +41,9 @@ body {
 }
 
 .sidebar nav ul li a {
-    display: block;
+    display: flex;
+    align-items: center;
+    gap: 0.75rem;
     padding: 15px 20px;
     color: #ecf0f1;
     text-decoration: none;
@@ -48,7 +52,7 @@ body {
 
 .sidebar nav ul li a:hover,
 .sidebar nav ul li a.active {
-    background-color: #3498db;
+    background-color: #0d6efd;
     color: #fff;
 }
 
@@ -85,108 +89,85 @@ body {
     }
 }
 
-/* Config Page Styles */
-.config-container {
-    display: flex;
-    flex-direction: column;
-    gap: 20px;
-}
-
-.config-section {
+/* Generic Components */
+.card {
     background-color: #fff;
-    border: 1px solid #dfe6e9;
-    border-radius: 8px;
+    border: 1px solid #dee2e6;
+    border-radius: 0.25rem;
+    margin-bottom: 1.5rem;
 }
 
-.config-section summary {
-    padding: 15px;
-    font-weight: bold;
-    cursor: pointer;
-    list-style: none;
-    display: flex;
-    justify-content: space-between;
-    align-items: center;
+.card-header {
+    padding: 1rem 1.25rem;
+    border-bottom: 1px solid #dee2e6;
 }
 
-.config-section summary h3 {
-    color: #2c3e50;
+.card-header h3 {
+    font-size: 1.25rem;
+    font-weight: 600;
+    margin: 0;
 }
 
-.config-section[open] > summary {
-    border-bottom: 1px solid #dfe6e9;
+.card-body {
+    padding: 1.25rem;
 }
 
-.config-content {
-    padding: 20px;
-}
-
-.config-form {
-    display: flex;
-    gap: 10px;
-    margin-bottom: 20px;
-    flex-wrap: wrap;
-}
-
-.config-form input {
-    padding: 10px;
-    border: 1px solid #b2bec3;
-    border-radius: 4px;
-    flex-grow: 1;
-}
-
-.config-form button {
-    padding: 10px 15px;
-    border: none;
-    background-color: #3498db;
-    color: white;
-    border-radius: 4px;
-    cursor: pointer;
-    transition: background-color 0.3s;
-}
-
-.config-form button:hover {
-    background-color: #2980b9;
-}
-
-.filter-input {
+.form-control {
+    display: block;
     width: 100%;
-    padding: 10px;
-    margin-bottom: 15px;
-    border: 1px solid #b2bec3;
-    border-radius: 4px;
+    padding: 0.5rem 0.75rem;
+    font-size: 1rem;
+    border: 1px solid #ced4da;
+    border-radius: 0.25rem;
 }
 
-.table-wrapper {
-    max-height: 400px;
-    overflow-y: auto;
+.btn {
+    display: inline-block;
+    font-weight: 500;
+    color: #fff;
+    text-align: center;
+    border: 1px solid transparent;
+    padding: 0.5rem 1rem;
+    font-size: 1rem;
+    border-radius: 0.25rem;
+    cursor: pointer;
 }
 
-.config-table {
+.btn-success {
+    background-color: #198754;
+}
+
+.btn-danger {
+    background-color: #dc3545;
+}
+/* Legacy styles from previous implementation might need to be adapted or replaced */
+/* For example, table styles can be generalized */
+.table {
     width: 100%;
     border-collapse: collapse;
 }
 
-.config-table th, .config-table td {
+.table th, .table td {
     padding: 12px;
     text-align: left;
-    border-bottom: 1px solid #dfe6e9;
+    border-bottom: 1px solid #dee2e6;
 }
 
-.config-table th {
+.table th {
     background-color: #f8f9fa;
     font-weight: 600;
 }
 
-.config-table tbody tr:hover {
+.table tbody tr:hover {
     background-color: #f1f2f6;
 }
 
-.config-table .actions {
+.table .actions {
     display: flex;
     gap: 10px;
 }
 
-.config-table .btn-edit, .config-table .btn-delete {
+.table .btn-edit, .table .btn-delete {
     padding: 5px 10px;
     border: none;
     border-radius: 4px;
@@ -202,49 +183,7 @@ body {
     background-color: #d9534f;
 }
 
-/* Product Page Styles */
-.product-container {
-    background-color: #fff;
-    padding: 20px;
-    border-radius: 8px;
-    margin-bottom: 20px;
-}
-
-.product-form {
-    display: grid;
-    grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
-    gap: 15px;
-}
-
-.product-form input, .product-form select {
-    padding: 10px;
-    border: 1px solid #b2bec3;
-    border-radius: 4px;
-}
-
-.product-form button {
-    grid-column: 1 / -1; /* Span across all columns */
-    padding: 12px 15px;
-    border: none;
-    background-color: #27ae60;
-    color: white;
-    border-radius: 4px;
-    cursor: pointer;
-    transition: background-color 0.3s;
-    font-size: 1rem;
-}
-
-.product-form button:hover {
-    background-color: #229954;
-}
-
-.table-container {
-    background-color: #fff;
-    padding: 20px;
-    border-radius: 8px;
-}
-
-/* Movement Page Styles */
+/* Movement Page Specific Styles */
 .movement-forms-container {
     display: grid;
     grid-template-columns: 1fr 1fr;
@@ -274,67 +213,10 @@ body {
     border-left: 5px solid #c0392b; /* Red for exit */
 }
 
-.movement-form {
-    display: flex;
-    flex-direction: column;
-    gap: 15px;
-}
-
-.movement-form input, .movement-form select {
-    padding: 10px;
-    border: 1px solid #b2bec3;
-    border-radius: 4px;
-}
-
-.movement-form button {
-    padding: 12px 15px;
-    border: none;
-    color: white;
-    border-radius: 4px;
-    cursor: pointer;
-    transition: background-color 0.3s;
-    font-size: 1rem;
-}
-
-#form-entrada button {
-    background-color: #27ae60;
-}
-#form-entrada button:hover {
-    background-color: #229954;
-}
-
-#form-saida button {
-    background-color: #c0392b;
-}
-#form-saida button:hover {
-    background-color: #a93226;
-}
-
 .auto-filled-field {
     font-size: 0.9rem;
     color: #555;
     background-color: #f8f9fa;
     padding: 8px;
     border-radius: 4px;
-}
-
-@media (max-width: 992px) {
-    .movement-forms-container {
-        grid-template-columns: 1fr;
-    }
-}
-
-/* Query Page Styles */
-.filters-container {
-    display: flex;
-    gap: 10px;
-    margin-bottom: 20px;
-    flex-wrap: wrap;
-}
-
-.filter-input-inline {
-    padding: 10px;
-    border: 1px solid #b2bec3;
-    border-radius: 4px;
-    flex-grow: 1;
 }
