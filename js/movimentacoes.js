@@ -100,7 +100,7 @@ document.addEventListener('DOMContentLoaded', async function() {
                 const movementRef = doc(collection(db, 'movimentacoes'));
                 const movementData = {
                     tipo: 'entrada',
-                    produtoId,
+                    productId,
                     quantidade,
                     data: serverTimestamp(),
                     tipo_entradaId: document.getElementById('entrada-tipo').value,
@@ -152,7 +152,7 @@ document.addEventListener('DOMContentLoaded', async function() {
                 const movementRef = doc(collection(db, 'movimentacoes'));
                 const movementData = {
                     tipo: 'saida',
-                    produtoId,
+                    productId,
                     quantidade,
                     data: serverTimestamp(),
                     tipo_saidaId: document.getElementById('saida-tipo').value,
