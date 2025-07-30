@@ -22,8 +22,17 @@ document.addEventListener('DOMContentLoaded', async function() {
         productsMap = {};
         const productOptions = ['<option value="">Selecione o Produto...</option>'];
         productsSnapshot.forEach(doc => {
-            productsMap[doc.id] = { id: doc.id, ...doc.data() };
-            productOptions.push(`<option value="${doc.id}">${doc.data().descricao}</option>`);
+            const product = doc.data();
+            productsMap[doc.id] = { id: doc.id, ...product };
+
+            // Monta o texto da opção com código, descrição e código global (se existir)
+            const codigo = product.codigo || 'S/C';
+            const descricao = product.descricao || 'Produto sem descrição';
+            const codigoGlobal = product.codigo_global ? `(${product.codigo_global})` : '';
+
+            const optionText = `${codigo} - ${descricao} ${codigoGlobal}`.trim();
+
+            productOptions.push(`<option value="${doc.id}">${optionText}</option>`);
         });
         document.getElementById('entrada-produto').innerHTML = productOptions.join('');
         document.getElementById('saida-produto').innerHTML = productOptions.join('');
