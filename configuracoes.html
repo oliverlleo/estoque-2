@@ -27,161 +27,19 @@
             <h1>Configurações</h1>
         </header>
         <section class="content">
+            <div id="config-buttons-container" class="config-buttons-container">
+                </div>
 
-            <!-- Fornecedores -->
-            <div class="card">
-                <div class="card-header"><h3>Cadastro de Fornecedores</h3></div>
-                <div class="card-body">
-                    <form id="form-fornecedor" style="display: flex; gap: 10px; margin-bottom: 20px;">
-                        <input type="hidden" id="fornecedor-id">
-                        <input type="text" id="fornecedor-nome" placeholder="Nome do Fornecedor" required class="form-control">
-                        <input type="number" id="fornecedor-imposto" placeholder="Imposto (ST)" step="0.01" required class="form-control">
-                        <button type="submit" class="btn btn-success">Salvar</button>
-                    </form>
-                    <input type="text" class="filter-input form-control" data-table="table-fornecedores" placeholder="Filtrar Fornecedores...">
-                    <div class="table-wrapper" style="margin-top: 15px;">
-                        <table id="table-fornecedores" class="table">
-                            <thead><tr><th>Nome</th><th>Imposto (ST)</th><th>Ações</th></tr></thead>
-                            <tbody></tbody>
-                        </table>
+            <div id="config-modal" class="modal">
+                <div class="modal-content">
+                    <div class="modal-header">
+                        <h3 id="modal-title">Título do Modal</h3>
+                        <span class="close-button">&times;</span>
                     </div>
+                    <div id="modal-body" class="modal-body">
+                        </div>
                 </div>
             </div>
-
-            <!-- Grupos -->
-            <div class="card">
-                <div class="card-header"><h3>Cadastro de Grupos</h3></div>
-                <div class="card-body">
-                    <form id="form-grupo" style="display: flex; gap: 10px; margin-bottom: 20px;">
-                        <input type="hidden" id="grupo-id">
-                        <input type="text" id="grupo-nome" placeholder="Nome do Grupo" required class="form-control">
-                        <button type="submit" class="btn btn-success">Salvar</button>
-                    </form>
-                    <input type="text" class="filter-input form-control" data-table="table-grupos" placeholder="Filtrar Grupos...">
-                    <div class="table-wrapper" style="margin-top: 15px;">
-                        <table id="table-grupos" class="table">
-                            <thead><tr><th>Nome</th><th>Ações</th></tr></thead>
-                            <tbody></tbody>
-                        </table>
-                    </div>
-                </div>
-            </div>
-
-            <!-- Aplicação -->
-            <div class="card">
-                <div class="card-header"><h3>Cadastro de Aplicações</h3></div>
-                <div class="card-body">
-                    <form id="form-aplicacao" style="display: flex; gap: 10px; margin-bottom: 20px;">
-                        <input type="hidden" id="aplicacao-id">
-                        <input type="text" id="aplicacao-nome" placeholder="Nome da Aplicação" required class="form-control">
-                        <button type="submit" class="btn btn-success">Salvar</button>
-                    </form>
-                    <input type="text" class="filter-input form-control" data-table="table-aplicacoes" placeholder="Filtrar Aplicações...">
-                    <div class="table-wrapper" style="margin-top: 15px;">
-                        <table id="table-aplicacoes" class="table">
-                            <thead><tr><th>Nome</th><th>Ações</th></tr></thead>
-                            <tbody></tbody>
-                        </table>
-                    </div>
-                </div>
-            </div>
-
-            <!-- Conjunto -->
-            <div class="card">
-                <div class="card-header"><h3>Cadastro de Conjuntos</h3></div>
-                <div class="card-body">
-                    <form id="form-conjunto" style="display: flex; gap: 10px; margin-bottom: 20px;">
-                        <input type="hidden" id="conjunto-id">
-                        <input type="text" id="conjunto-nome" placeholder="Nome do Conjunto" required class="form-control">
-                        <button type="submit" class="btn btn-success">Salvar</button>
-                    </form>
-                    <input type="text" class="filter-input form-control" data-table="table-conjuntos" placeholder="Filtrar Conjuntos...">
-                    <div class="table-wrapper" style="margin-top: 15px;">
-                        <table id="table-conjuntos" class="table">
-                            <thead><tr><th>Nome</th><th>Ações</th></tr></thead>
-                            <tbody></tbody>
-                        </table>
-                    </div>
-                </div>
-            </div>
-
-            <!-- Endereçamento -->
-            <div class="card">
-                <div class="card-header"><h3>Cadastro de Endereçamento</h3></div>
-                <div class="card-body">
-                    <form id="form-enderecamento" style="display: flex; gap: 10px; margin-bottom: 20px;">
-                        <input type="hidden" id="enderecamento-id">
-                        <input type="text" id="enderecamento-codigo" placeholder="Código" required class="form-control">
-                        <input type="text" id="enderecamento-local" placeholder="Local" required class="form-control">
-                        <button type="submit" class="btn btn-success">Salvar</button>
-                    </form>
-                    <input type="text" class="filter-input form-control" data-table="table-enderecamentos" placeholder="Filtrar Endereçamento...">
-                    <div class="table-wrapper" style="margin-top: 15px;">
-                        <table id="table-enderecamentos" class="table">
-                            <thead><tr><th>Código</th><th>Local</th><th>Ações</th></tr></thead>
-                            <tbody></tbody>
-                        </table>
-                    </div>
-                </div>
-            </div>
-
-            <!-- Tipo de Entrada -->
-            <div class="card">
-                <div class="card-header"><h3>Cadastro de Tipos de Entrada</h3></div>
-                <div class="card-body">
-                    <form id="form-tipo-entrada" style="display: flex; gap: 10px; margin-bottom: 20px;">
-                        <input type="hidden" id="tipo-entrada-id">
-                        <input type="text" id="tipo-entrada-nome" placeholder="Nome do Tipo de Entrada" required class="form-control">
-                        <button type="submit" class="btn btn-success">Salvar</button>
-                    </form>
-                    <input type="text" class="filter-input form-control" data-table="table-tipos-entrada" placeholder="Filtrar Tipos de Entrada...">
-                    <div class="table-wrapper" style="margin-top: 15px;">
-                        <table id="table-tipos-entrada" class="table">
-                            <thead><tr><th>Nome</th><th>Ações</th></tr></thead>
-                            <tbody></tbody>
-                        </table>
-                    </div>
-                </div>
-            </div>
-
-            <!-- Tipo de Saída -->
-            <div class="card">
-                <div class="card-header"><h3>Cadastro de Tipos de Saída</h3></div>
-                <div class="card-body">
-                    <form id="form-tipo-saida" style="display: flex; gap: 10px; margin-bottom: 20px;">
-                        <input type="hidden" id="tipo-saida-id">
-                        <input type="text" id="tipo-saida-nome" placeholder="Nome do Tipo de Saída" required class="form-control">
-                        <button type="submit" class="btn btn-success">Salvar</button>
-                    </form>
-                    <input type="text" class="filter-input form-control" data-table="table-tipos-saida" placeholder="Filtrar Tipos de Saída...">
-                    <div class="table-wrapper" style="margin-top: 15px;">
-                        <table id="table-tipos-saida" class="table">
-                            <thead><tr><th>Nome</th><th>Ações</th></tr></thead>
-                            <tbody></tbody>
-                        </table>
-                    </div>
-                </div>
-            </div>
-
-            <!-- Obra -->
-            <div class="card">
-                <div class="card-header"><h3>Cadastro de Obras</h3></div>
-                <div class="card-body">
-                    <form id="form-obra" style="display: flex; gap: 10px; margin-bottom: 20px;">
-                        <input type="hidden" id="obra-id">
-                        <input type="text" id="obra-nome" placeholder="Nome da Obra" required class="form-control">
-                        <button type="submit" class="btn btn-success">Salvar</button>
-                    </form>
-                    <input type="text" class="filter-input form-control" data-table="table-obras" placeholder="Filtrar Obras...">
-                    <div class="table-wrapper" style="margin-top: 15px;">
-                        <table id="table-obras" class="table">
-                            <thead><tr><th>Nome</th><th>Ações</th></tr></thead>
-                            <tbody></tbody>
-                        </table>
-                    </div>
-                </div>
-            </div>
-
         </section>
     </main>
     <script type="module" src="js/main.js"></script>
