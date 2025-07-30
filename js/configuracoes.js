@@ -7,58 +7,58 @@ document.addEventListener('DOMContentLoaded', function() {
     const configs = [
         {
             name: "fornecedor",
+            tableName: "fornecedores",
             collectionName: "fornecedores",
             fields: { nome: "Nome do Fornecedor", imposto: "Imposto (ST)" },
-            tableHeaders: ["Nome", "Imposto (ST)"],
             render: (docData) => `<td>${docData.nome}</td><td>${docData.imposto}</td>`
         },
         {
             name: "grupo",
+            tableName: "grupos",
             collectionName: "grupos",
             fields: { nome: "Nome do Grupo" },
-            tableHeaders: ["Nome"],
             render: (docData) => `<td>${docData.nome}</td>`
         },
         {
             name: "aplicacao",
+            tableName: "aplicacoes",
             collectionName: "aplicacoes",
             fields: { nome: "Nome da Aplicação" },
-            tableHeaders: ["Nome"],
             render: (docData) => `<td>${docData.nome}</td>`
         },
         {
             name: "conjunto",
+            tableName: "conjuntos",
             collectionName: "conjuntos",
             fields: { nome: "Nome do Conjunto" },
-            tableHeaders: ["Nome"],
             render: (docData) => `<td>${docData.nome}</td>`
         },
         {
             name: "enderecamento",
+            tableName: "enderecamentos",
             collectionName: "enderecamentos",
             fields: { codigo: "Código", local: "Local" },
-            tableHeaders: ["Código", "Local"],
             render: (docData) => `<td>${docData.codigo}</td><td>${docData.local}</td>`
         },
         {
             name: "tipo-entrada",
+            tableName: "tipos-entrada",
             collectionName: "tipos_entrada",
             fields: { nome: "Nome do Tipo de Entrada" },
-            tableHeaders: ["Nome"],
             render: (docData) => `<td>${docData.nome}</td>`
         },
         {
             name: "tipo-saida",
+            tableName: "tipos-saida",
             collectionName: "tipos_saida",
             fields: { nome: "Nome do Tipo de Saída" },
-            tableHeaders: ["Nome"],
             render: (docData) => `<td>${docData.nome}</td>`
         },
         {
             name: "obra",
+            tableName: "obras",
             collectionName: "obras",
             fields: { nome: "Nome da Obra" },
-            tableHeaders: ["Nome"],
             render: (docData) => `<td>${docData.nome}</td>`
         }
     ];
@@ -67,8 +67,8 @@ document.addEventListener('DOMContentLoaded', function() {
 
     function setupCrud(config) {
         const form = document.getElementById(`form-${config.name}`);
-        const tableBody = document.querySelector(`#table-${config.name} tbody`);
-        const filterInput = document.querySelector(`.filter-input[data-table="table-${config.name}"]`);
+        const tableBody = document.querySelector(`#table-${config.tableName} tbody`);
+        const filterInput = document.querySelector(`.filter-input[data-table="table-${config.tableName}"]`);
         let currentData = [];
 
         // Save (Create/Update)
