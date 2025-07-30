@@ -181,24 +181,47 @@ document.addEventListener('DOMContentLoaded', async function() {
 
     function renderTable(data) {
         tableBody.innerHTML = '';
-        data.sort((a,b) => b.data.toMillis() - a.data.toMillis()); // Sort by most recent
+        // Ordena pela data mais recente
+        data.sort((a,b) => b.data.toMillis() - a.data.toMillis());
+
         data.forEach(mov => {
             const row = document.createElement('tr');
-            const produtoDesc = productsMap[mov.produtoId]?.descricao || 'N/A';
+            const product = productsMap[mov.productId];
 
-            let valorTotal = '-';
-            if (mov.tipo === 'entrada') {
-                valorTotal = (mov.quantidade * mov.valor_unitario) + mov.icms + mov.ipi + mov.frete;
-                valorTotal = `R$ ${valorTotal.toFixed(2)}`;
+            // --- Cálculos e formatação para os novos campos ---
+
+            // Para movimentações de entrada, calcula o custo unitário total
+            let custoUnitario = '-';
+            if (mov.tipo === 'entrada' && mov.quantidade > 0) {
+                const valorTotalEntrada = (mov.quantidade * (mov.valor_unitario || 0)) + (mov.icms || 0) + (mov.ipi || 0) + (mov.frete || 0);
+                const custo = valorTotalEntrada / mov.quantidade;
+                custoUnitario = `R$ ${custo.toFixed(2)}`;
             }
+
+            // Formata valores monetários ou exibe '-' se não aplicável
+            const valorUnitarioFmt = mov.valor_unitario ? `R$ ${mov.valor_unitario.toFixed(2)}` : '-';
+            const icmsFmt = mov.icms ? `R$ ${mov.icms.toFixed(2)}` : '-';
+            const ipiFmt = mov.ipi ? `R$ ${mov.ipi.toFixed(2)}` : '-';
+            const freteFmt = mov.frete ? `R$ ${mov.frete.toFixed(2)}` : '-';
+
+            // --- Montagem da linha da tabela (HTML) ---
 
             row.innerHTML = `
                 <td>${new Date(mov.data.seconds * 1000).toLocaleString('pt-BR')}</td>
                 <td class="${mov.tipo}">${mov.tipo.toUpperCase()}</td>
-                <td>${produtoDesc}</td>
+                <td>${product?.codigo || 'N/A'}</td>
+                <td>${product?.codigo_global || '-'}</td>
+                <td>${product?.descricao || 'Produto não encontrado'}</td>
+                <td>${product?.un || 'N/A'}</td>
                 <td>${mov.quantidade}</td>
-                <td>${valorTotal}</td>
-                <td>${mov.requisitante || mov.nf || '-'}</td>
+                <td>${mov.medida || '-'}</td>
+                <td>${mov.nf || '-'}</td>
+                <td>${valorUnitarioFmt}</td>
+                <td>${icmsFmt}</td>
+                <td>${ipiFmt}</td>
+                <td>${freteFmt}</td>
+                <td>${custoUnitario}</td>
+                <td>${mov.requisitante || '-'}</td>
                 <td>${configData.obras?.[mov.obraId]?.nome || '-'}</td>
                 <td>${mov.observacao || '-'}</td>
             `;
