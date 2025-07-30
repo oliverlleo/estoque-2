@@ -10,7 +10,8 @@ document.addEventListener('DOMContentLoaded', function() {
         { name: "Grupos", id: "grupo", collectionName: "grupos", fields: { nome: "Nome do Grupo" }, render: (d) => `<td>${d.nome}</td>`, tableHeaders: "<th>Nome</th>" },
         { name: "Aplicações", id: "aplicacao", collectionName: "aplicacoes", fields: { nome: "Nome da Aplicação" }, render: (d) => `<td>${d.nome}</td>`, tableHeaders: "<th>Nome</th>" },
         { name: "Conjuntos", id: "conjunto", collectionName: "conjuntos", fields: { nome: "Nome do Conjunto" }, render: (d) => `<td>${d.nome}</td>`, tableHeaders: "<th>Nome</th>" },
-        { name: "Endereçamento", id: "enderecamento", collectionName: "enderecamentos", fields: { codigo: "Código", local: "Local" }, render: (d) => `<td>${d.codigo}</td><td>${d.local}</td>`, tableHeaders: "<th>Código</th><th>Local</th>" },
+        { name: "Locais", id: "local", collectionName: "locais", fields: { nome: "Nome do Local" }, render: (d) => `<td>${d.nome}</td>`, tableHeaders: "<th>Nome</th>" },
+        { name: "Endereçamento", id: "enderecamento", collectionName: "enderecamentos", fields: { codigo: "Código" /* Removido local */ }, render: (d) => `<td>${d.codigo}</td><td>${d.localNome || 'N/A'}</td>`, tableHeaders: "<th>Código</th><th>Local</th>" },
         { name: "Tipos de Entrada", id: "tipo-entrada", collectionName: "tipos_entrada", fields: { nome: "Nome do Tipo de Entrada" }, render: (d) => `<td>${d.nome}</td>`, tableHeaders: "<th>Nome</th>" },
         { name: "Tipos de Saída", id: "tipo-saida", collectionName: "tipos_saida", fields: { nome: "Nome do Tipo de Saída" }, render: (d) => `<td>${d.nome}</td>`, tableHeaders: "<th>Nome</th>" },
         { name: "Obras", id: "obra", collectionName: "obras", fields: { nome: "Nome da Obra" }, render: (d) => `<td>${d.nome}</td>`, tableHeaders: "<th>Nome</th>" }
@@ -61,11 +62,16 @@ document.addEventListener('DOMContentLoaded', function() {
 
     // --- 3. Gerador de HTML para o corpo do modal ---
     function generateModalContent(config) {
-        const formFields = Object.entries(config.fields).map(([key, placeholder]) => {
+        let formFields = Object.entries(config.fields).map(([key, placeholder]) => {
             const inputType = (key.includes('imposto') || key.includes('valor')) ? 'number' : 'text';
             const step = inputType === 'number' ? 'step="0.01"' : '';
             return `<input type="${inputType}" id="${config.id}-${key}" placeholder="${placeholder}" required class="form-control" ${step}>`;
         }).join('');
+
+        // Caso especial para Endereçamento
+        if (config.id === 'enderecamento') {
+            formFields += `<select id="enderecamento-localId" required class="form-control"><option value="">Selecione o Local...</option></select>`;
+        }
 
         return `
             <div class="card">
@@ -95,12 +101,29 @@ document.addEventListener('DOMContentLoaded', function() {
 
     // --- 4. Lógica CRUD adaptada para o Modal ---
     function setupModalCrud(config) {
-        // Selecionar elementos DENTRO do modal
         const form = modal.querySelector(`#form-${config.id}`);
         const tableBody = modal.querySelector(`#table-${config.id} tbody`);
         const filterInput = modal.querySelector(`#filter-${config.id}`);
         let currentData = [];
-        let unsubscribe; // Para parar de ouvir o snapshot quando o modal fechar
+        let unsubscribe;
+        let locaisMap = {}; // Para mapear ID do local ao nome
+
+        // --- Carregamento especial para Endereçamento ---
+        if (config.id === 'enderecamento') {
+            const localSelect = form.querySelector('#enderecamento-localId');
+            const locaisColRef = collection(db, 'locais');
+            onSnapshot(locaisColRef, (snapshot) => {
+                localSelect.innerHTML = '<option value="">Selecione o Local...</option>';
+                locaisMap = {};
+                snapshot.docs.forEach(doc => {
+                    locaisMap[doc.id] = doc.data().nome;
+                    const option = document.createElement('option');
+                    option.value = doc.id;
+                    option.textContent = doc.data().nome;
+                    localSelect.appendChild(option);
+                });
+            });
+        }
 
         // Save (Create/Update)
         form.addEventListener('submit', async (e) => {
@@ -109,6 +132,10 @@ document.addEventListener('DOMContentLoaded', function() {
             const data = {};
             for (const key in config.fields) {
                 data[key] = form.querySelector(`#${config.id}-${key}`).value;
+            }
+            // --- Salvamento especial para Endereçamento ---
+            if (config.id === 'enderecamento') {
+                data.localId = form.querySelector('#enderecamento-localId').value;
             }
 
             try {
@@ -131,6 +158,10 @@ document.addEventListener('DOMContentLoaded', function() {
         const renderTable = (data) => {
             tableBody.innerHTML = '';
             data.forEach(item => {
+                // Adiciona o nome do local para renderização
+                if (config.id === 'enderecamento') {
+                    item.data.localNome = locaisMap[item.data.localId] || 'Local não encontrado';
+                }
                 const row = document.createElement('tr');
                 row.innerHTML = `
                     ${config.render(item.data)}
@@ -163,6 +194,10 @@ document.addEventListener('DOMContentLoaded', function() {
                     for (const key in config.fields) {
                         form.querySelector(`#${config.id}-${key}`).value = item.data[key];
                     }
+                     // --- Preenchimento especial para Endereçamento ---
+                    if (config.id === 'enderecamento') {
+                        form.querySelector('#enderecamento-localId').value = item.data.localId;
+                    }
                     form.scrollIntoView({ behavior: 'smooth' });
                 }
             }
@@ -184,6 +219,13 @@ document.addEventListener('DOMContentLoaded', function() {
         filterInput.addEventListener('input', (e) => {
             const searchTerm = e.target.value.toLowerCase();
             const filteredData = currentData.filter(item => {
+                // Adapta o filtro para Endereçamento
+                 if (config.id === 'enderecamento') {
+                    const localNome = (locaisMap[item.data.localId] || '').toLowerCase();
+                    return Object.values(item.data).some(value =>
+                        String(value).toLowerCase().includes(searchTerm)
+                    ) || localNome.includes(searchTerm);
+                }
                 return Object.values(item.data).some(value =>
                     String(value).toLowerCase().includes(searchTerm)
                 );
@@ -196,8 +238,8 @@ document.addEventListener('DOMContentLoaded', function() {
             for(const mutation of mutationsList) {
                 if (mutation.type === 'attributes' && mutation.attributeName === 'style') {
                     if (modal.style.display === 'none' && unsubscribe) {
-                        unsubscribe(); // Para de ouvir as atualizações do Firestore
-                        observer.disconnect(); // Para de observar o modal
+                        unsubscribe();
+                        observer.disconnect();
                         return;
                     }
                 }
