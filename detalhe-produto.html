@@ -220,6 +220,45 @@
         #btn-confirmar-baixa {
             margin-top: 25px;
         }
+
+    /* Adicionado para Estilizar TODOS os campos no Modal */
+    .modal-body .form-control {
+        background-color: var(--bg-color);
+        border: 1px solid var(--border-color);
+        color: var(--primary-text-color);
+        border-radius: 5px;
+        padding: 16px; /* Aumenta a área de clique/toque */
+        font-size: 1rem;
+        font-family: 'Inter', sans-serif;
+        width: 100%;
+        -webkit-appearance: none; /* Remove estilos padrão do iOS em selects */
+        -moz-appearance: none;
+        appearance: none;
+    }
+
+    .modal-body select.form-control {
+        background-image: url("data:image/svg+xml,%3csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 16 16'%3e%3cpath fill='none' stroke='%23A0A0B9' stroke-linecap='round' stroke-linejoin='round' stroke-width='2' d='M2 5l6 6 6-6'/%3e%3c/svg%3e");
+        background-repeat: no-repeat;
+        background-position: right 1rem center;
+        background-size: 1em;
+    }
+
+    .modal-body .form-control:focus {
+        outline: none;
+        border-color: var(--accent-color);
+        box-shadow: 0 0 0 2px rgba(229, 62, 62, 0.2);
+    }
+
+    .modal-body .form-control::placeholder {
+        color: var(--secondary-text-color);
+        opacity: 0.7;
+    }
+
+    .modal-body .form-control:disabled {
+        background-color: #3a3a55; /* Um pouco diferente para indicar desabilitado */
+        cursor: not-allowed;
+        opacity: 0.6;
+    }
     </style>
 </head>
 <body>
