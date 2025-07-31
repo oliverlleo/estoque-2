@@ -1,0 +1,45 @@
+<!DOCTYPE html>
+    <html lang="pt-BR">
+    <head>
+        <meta charset="UTF-8">
+        <meta name="viewport" content="width=device-width, initial-scale=1.0">
+        <title>Detalhes do Produto - Controle de Estoque</title>
+        <link rel="stylesheet" href="css/style.css">
+        <script src="https://cdn.jsdelivr.net/npm/feather-icons/dist/feather.min.js"></script>
+    </head>
+    <body>
+        <main class="main-content" style="margin-left: 0; padding: 15px;">
+            <header>
+                <h1>Detalhes do Produto</h1>
+            </header>
+            <section id="product-details-content" class="content">
+                <div class="card">
+                    <div class="card-body" id="details-container">
+                        <p>Carregando dados do produto...</p>
+                    </div>
+                </div>
+                <button id="btn-abrir-modal-baixa" class="btn btn-danger" style="width: 100%; margin-top: 20px; padding: 15px; font-size: 1.2rem;">Dar Baixa no Estoque</button>
+            </section>
+        </main>
+
+        <div id="baixa-modal" class="modal">
+            <div class="modal-content">
+                <div class="modal-header" style="background-color: #dc3545;">
+                    <h3>Registrar Saída</h3>
+                    <span id="baixa-modal-close" class="close-button">&times;</span>
+                </div>
+                <div class="modal-body">
+                    <form id="form-baixa-estoque">
+                        <div class="form-grid-4-col" style="grid-template-columns: 1fr;">
+                            </div>
+                        <button type="submit" id="btn-confirmar-baixa" class="btn btn-danger" style="width: 100%; margin-top: 20px;">Confirmar Saída</button>
+                    </form>
+                </div>
+            </div>
+        </div>
+
+        <script type="module" src="js/firebase-config.js"></script>
+        <script type="module" src="js/detalhe-produto.js"></script>
+        <script> feather.replace() </script>
+    </body>
+    </html>
