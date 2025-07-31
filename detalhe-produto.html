@@ -75,10 +75,14 @@
             padding: 25px;
         }
 
+        /* CORREÇÃO: Layout em grid para alinhar os detalhes do produto */
         #details-container p {
+            display: grid;
+            grid-template-columns: 110px auto; /* Coluna para o rótulo e outra para o valor */
+            gap: 15px; /* Espaço entre rótulo e valor */
             margin-bottom: 12px;
             font-size: 1rem;
-            display: flex;
+            align-items: baseline;
         }
         #details-container p:last-child {
             margin-bottom: 0;
@@ -87,8 +91,6 @@
         #details-container strong {
             font-weight: 600;
             color: var(--secondary-text-color);
-            width: 120px;
-            flex-shrink: 0;
         }
 
         /* Botão Principal */
