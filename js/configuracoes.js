@@ -14,7 +14,15 @@ document.addEventListener('DOMContentLoaded', function() {
         { name: "Endereçamento", id: "enderecamento", collectionName: "enderecamentos", fields: { codigo: "Código" /* Removido local */ }, render: (d) => `<td>${d.codigo}</td><td>${d.localNome || 'N/A'}</td>`, tableHeaders: "<th>Código</th><th>Local</th>" },
         { name: "Tipos de Entrada", id: "tipo-entrada", collectionName: "tipos_entrada", fields: { nome: "Nome do Tipo de Entrada" }, render: (d) => `<td>${d.nome}</td>`, tableHeaders: "<th>Nome</th>" },
         { name: "Tipos de Saída", id: "tipo-saida", collectionName: "tipos_saida", fields: { nome: "Nome do Tipo de Saída" }, render: (d) => `<td>${d.nome}</td>`, tableHeaders: "<th>Nome</th>" },
-        { name: "Obras", id: "obra", collectionName: "obras", fields: { nome: "Nome da Obra" }, render: (d) => `<td>${d.nome}</td>`, tableHeaders: "<th>Nome</th>" }
+        { name: "Obras", id: "obra", collectionName: "obras", fields: { nome: "Nome da Obra" }, render: (d) => `<td>${d.nome}</td>`, tableHeaders: "<th>Nome</th>" },
+        {
+            name: "Unidades de Compra",
+            id: "unidade-compra",
+            collectionName: "unidades_compra",
+            fields: { nome: "Nome da Unidade (ex: Metro)", sigla: "Sigla (ex: m)" },
+            render: (d) => `<td>${d.nome}</td><td>${d.sigla}</td>`,
+            tableHeaders: "<th>Nome</th><th>Sigla</th>"
+        }
     ];
 
     const buttonsContainer = document.getElementById('config-buttons-container');

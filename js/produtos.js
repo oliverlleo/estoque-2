@@ -17,11 +17,11 @@ document.addEventListener('DOMContentLoaded', async function() {
         { name: 'grupo', collectionName: 'grupos', displayField: 'nome' },
         { name: 'aplicacao', collectionName: 'aplicacoes', displayField: 'nome' },
         { name: 'conjunto', collectionName: 'conjuntos', displayField: 'nome' },
-        { name: 'locais', collectionName: 'locais', displayField: 'nome' }, // ADICIONADO
+        { name: 'locais', collectionName: 'locais', displayField: 'nome' },
+        { name: 'unidade-compra', collectionName: 'unidades_compra', displayField: 'nome' }, // Corrigido para corresponder ao novo select
         {
             name: 'enderecamento',
             collectionName: 'enderecamentos',
-            // A função de exibição agora precisa dos locais
             displayFunction: (doc, allConfigs) => {
                 const localNome = allConfigs.locais[doc.localId]?.nome || 'N/A';
                 return `${doc.codigo} - ${localNome}`;
@@ -30,13 +30,19 @@ document.addEventListener('DOMContentLoaded', async function() {
     ];
 
     for (const config of configCollections) {
-        const selectElement = document.getElementById(`produto-${config.name}`);
+        // O ID do select para unidades de compra é 'produto-unidade-compra'
+        const selectId = config.name === 'unidade-compra' ? 'produto-unidade-compra' : `produto-${config.name}`;
+        const selectElement = document.getElementById(selectId);
         const colRef = collection(db, config.collectionName);
         const snapshot = await getDocs(colRef);
 
         configData[config.collectionName] = {};
         if (selectElement) {
-             selectElement.innerHTML = `<option value="">Selecione ${config.name}...</option>`; // Reset
+             // O option padrão para unidade de compra é diferente
+             const defaultOptionText = config.name === 'unidade-compra'
+                ? 'Nenhuma / Mesma do Estoque'
+                : `Selecione ${config.name}...`;
+             selectElement.innerHTML = `<option value="">${defaultOptionText}</option>`;
         }
 
         snapshot.docs.forEach(doc => {
@@ -47,7 +53,6 @@ document.addEventListener('DOMContentLoaded', async function() {
             if (selectElement) {
                 const option = document.createElement('option');
                 option.value = id;
-                // Passa todos os dados de configuração para a função de exibição
                 option.textContent = config.displayFunction ? config.displayFunction(data, configData) : data[config.displayField];
                 selectElement.appendChild(option);
             }
@@ -58,19 +63,22 @@ document.addEventListener('DOMContentLoaded', async function() {
     form.addEventListener('submit', async (e) => {
         e.preventDefault();
         const productId = document.getElementById('produto-id').value;
+        const fatorConversao = parseFloat(document.getElementById('produto-fator-conversao').value);
 
         const product = {
             codigo: document.getElementById('produto-codigo').value,
             codigo_global: document.getElementById('produto-codigo_global').value,
             descricao: document.getElementById('produto-descricao').value,
             un: document.getElementById('produto-un').value,
-            un_compra: document.getElementById('produto-un_compra').value,
             cor: document.getElementById('produto-cor').value,
             fornecedorId: document.getElementById('produto-fornecedor').value,
             grupoId: document.getElementById('produto-grupo').value,
             aplicacaoId: document.getElementById('produto-aplicacao').value,
             conjuntoId: document.getElementById('produto-conjunto').value,
             enderecamentoId: document.getElementById('produto-enderecamento').value,
+            // Novos campos da regra de conversão
+            unidade_compraId: document.getElementById('produto-unidade-compra').value,
+            fator_conversao: (fatorConversao > 0) ? fatorConversao : 1,
         };
 
         try {
@@ -78,11 +86,15 @@ document.addEventListener('DOMContentLoaded', async function() {
                 await setDoc(doc(db, 'produtos', productId), product, { merge: true });
                 alert('Produto atualizado com sucesso!');
             } else {
+                // Ao criar, garantir que o estoque inicial seja 0
+                product.estoque = 0;
                 await addDoc(collection(db, 'produtos'), product);
                 alert('Produto cadastrado com sucesso!');
             }
             form.reset();
             document.getElementById('produto-id').value = '';
+            // Resetar o valor padrão do select de unidade de compra
+            document.getElementById('produto-unidade-compra').value = "";
         } catch (error) {
             console.error("Erro ao salvar produto:", error);
             alert(`Erro ao salvar: ${error.message}`);
@@ -102,12 +114,19 @@ document.addEventListener('DOMContentLoaded', async function() {
             const localNome = enderecamentoDoc ? configData.locais[enderecamentoDoc.localId]?.nome : 'N/A';
             const enderecamento = enderecamentoDoc ? `${enderecamentoDoc.codigo} - ${localNome}` : 'N/A';
 
+            // Lógica para exibir a regra de conversão
+            const unidadeCompra = configData.unidades_compra[pData.unidade_compraId]?.nome || '';
+            const fator = pData.fator_conversao;
+            let regraConversao = '';
+            if (unidadeCompra && fator && fator !== 1) {
+                regraConversao = `1 ${pData.un} = ${fator} ${unidadeCompra}`;
+            }
+
             row.innerHTML = `
                 <td>${pData.codigo}</td>
                 <td>${pData.codigo_global}</td>
                 <td>${pData.descricao}</td>
                 <td>${pData.un}</td>
-                <td>${pData.un_compra}</td>
                 <td>${pData.cor}</td>
                 <td>${fornecedor}</td>
                 <td>${grupo}</td>
@@ -141,13 +160,16 @@ document.addEventListener('DOMContentLoaded', async function() {
                 document.getElementById('produto-codigo_global').value = product.data.codigo_global;
                 document.getElementById('produto-descricao').value = product.data.descricao;
                 document.getElementById('produto-un').value = product.data.un;
-                document.getElementById('produto-un_compra').value = product.data.un_compra;
                 document.getElementById('produto-cor').value = product.data.cor;
                 document.getElementById('produto-fornecedor').value = product.data.fornecedorId;
                 document.getElementById('produto-grupo').value = product.data.grupoId;
                 document.getElementById('produto-aplicacao').value = product.data.aplicacaoId;
                 document.getElementById('produto-conjunto').value = product.data.conjuntoId;
                 document.getElementById('produto-enderecamento').value = product.data.enderecamentoId;
+                // Preencher os novos campos
+                document.getElementById('produto-unidade-compra').value = product.data.unidade_compraId || '';
+                document.getElementById('produto-fator-conversao').value = product.data.fator_conversao || '';
+
                 form.scrollIntoView({ behavior: 'smooth' });
             }
         }

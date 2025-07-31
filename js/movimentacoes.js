@@ -75,12 +75,30 @@ document.addEventListener('DOMContentLoaded', async function() {
                     const productDoc = await transaction.get(productRef);
                     if (!productDoc.exists()) throw "Produto não encontrado!";
 
-                    const newEstoque = (productDoc.data().estoque || 0) + quantidade;
+                    const productData = productDoc.data();
+                    const quantidadeInformada = parseFloat(document.getElementById('mov-quantidade').value);
+
+                    let quantidadeParaEstoque = quantidadeInformada;
+                    const fatorConversao = productData.fator_conversao || 1;
+
+                    if (productData.unidade_compraId && fatorConversao > 0 && fatorConversao !== 1) {
+                        quantidadeParaEstoque = quantidadeInformada / fatorConversao;
+                    }
+
+                    const currentEstoque = productData.estoque || 0;
+                    const newEstoque = currentEstoque + quantidadeParaEstoque;
+
                     transaction.update(productRef, { estoque: newEstoque });
 
                     const movementRef = doc(collection(db, 'movimentacoes'));
                     const movementData = {
-                        tipo: 'entrada', productId, quantidade, data: serverTimestamp(),
+                        tipo: 'entrada',
+                        productId,
+                        data: serverTimestamp(),
+                        quantidade: quantidadeParaEstoque, // A quantidade que efetivamente entrou no estoque
+                        quantidade_compra: quantidadeInformada, // A quantidade que veio na nota fiscal
+                        unidade_compraId: productData.unidade_compraId || null, // A unidade da nota fiscal
+                        fator_conversao_aplicado: fatorConversao, // Salva o fator usado para rastreabilidade
                         tipo_entradaId: document.getElementById('mov-tipo-entrada').value,
                         nf: document.getElementById('mov-nf').value,
                         valor_unitario: parseFloat(document.getElementById('mov-valor-unitario').value) || 0,
@@ -169,12 +187,11 @@ document.addEventListener('DOMContentLoaded', async function() {
     function updateProductInfo() {
         const productId = document.getElementById('mov-produto').value;
         const product = productsMap[productId];
-        const isEntrada = toggle.checked;
 
         document.getElementById('mov-codigo-display').textContent = product ? product.codigo : '-';
         document.getElementById('mov-codigoglobal-display').textContent = product ? (product.codigo_global || '-') : '-';
         document.getElementById('mov-descricao-display').textContent = product ? product.descricao : '-';
-        document.getElementById('mov-un-display').textContent = product ? (isEntrada ? product.un_compra : product.un) : '-';
+        document.getElementById('mov-un-display').textContent = product ? product.un : '-'; // Sempre exibir a unidade de estoque
         document.getElementById('mov-estoque-display').textContent = product ? (product.estoque || 0) : '-';
     }
     document.getElementById('mov-produto').addEventListener('change', updateProductInfo);
