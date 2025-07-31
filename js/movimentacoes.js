@@ -89,8 +89,9 @@ document.addEventListener('DOMContentLoaded', async function() {
 
                         if (conversaoDoc.exists()) {
                             const regra = conversaoDoc.data();
-                            const fator_qtd_compra = parseFloat(regra.qtd_compra);
-                            const fator_qtd_padrao = parseFloat(regra.qtd_padrao);
+
+                            const fator_qtd_compra = parseFloat(String(regra.qtd_compra).replace(',', '.'));
+                            const fator_qtd_padrao = parseFloat(String(regra.qtd_padrao).replace(',', '.'));
 
                             if (fator_qtd_compra > 0) {
                                 quantidadeParaEstoque = (quantidadeInformada / fator_qtd_compra) * fator_qtd_padrao;
