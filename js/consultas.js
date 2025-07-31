@@ -13,77 +13,96 @@ document.addEventListener('DOMContentLoaded', async function() {
 
     let consolidatedData = [];
 
-    async function fetchDataAndCalculate() {
-        // 1. Fetch all necessary data
-        const [productsSnapshot, movementsSnapshot, locationsSnapshot, locaisSnapshot] = await Promise.all([
-            getDocs(collection(db, 'produtos')),
-            getDocs(collection(db, 'movimentacoes')),
-            getDocs(collection(db, 'enderecamentos')),
-            getDocs(collection(db, 'locais')) // ADICIONADO
-        ]);
+async function fetchDataAndCalculate() {
+    // 1. Fetch all necessary data (sem alterações aqui)
+    const [productsSnapshot, movementsSnapshot, locationsSnapshot, locaisSnapshot] = await Promise.all([
+        getDocs(collection(db, 'produtos')),
+        getDocs(collection(db, 'movimentacoes')),
+        getDocs(collection(db, 'enderecamentos')),
+        getDocs(collection(db, 'locais'))
+    ]);
 
-        const products = {};
-        productsSnapshot.forEach(doc => {
-            products[doc.id] = { id: doc.id, ...doc.data() };
-        });
+    const products = {};
+    productsSnapshot.forEach(doc => {
+        products[doc.id] = { id: doc.id, ...doc.data() };
+    });
 
-        const locations = {};
-        locationsSnapshot.forEach(doc => {
-            locations[doc.id] = doc.data();
-        });
+    const locations = {};
+    locationsSnapshot.forEach(doc => {
+        locations[doc.id] = doc.data();
+    });
 
-        const locais = {}; // ADICIONADO
-        locaisSnapshot.forEach(doc => { // ADICIONADO
-            locais[doc.id] = doc.data(); // ADICIONADO
-        });
+    const locais = {};
+    locaisSnapshot.forEach(doc => {
+        locais[doc.id] = doc.data();
+    });
 
-        const movementsByProduct = {};
-        movementsSnapshot.forEach(doc => {
-            const mov = doc.data();
-            if (!movementsByProduct[mov.produtoId]) {
-                movementsByProduct[mov.produtoId] = [];
+    const movementsByProduct = {};
+    movementsSnapshot.forEach(doc => {
+        const mov = doc.data();
+        if (!movementsByProduct[mov.produtoId]) {
+            movementsByProduct[mov.produtoId] = [];
+        }
+        movementsByProduct[mov.produtoId].push(mov);
+    });
+
+    // 2. Process and calculate for each product (LÓGICA CORRIGIDA)
+    consolidatedData = Object.values(products).map(product => {
+        const productMovements = movementsByProduct[product.id] || [];
+
+        // =======================================================================
+        // INÍCIO DA LÓGICA DE CÁLCULO DE ESTOQUE REAL
+        // =======================================================================
+        let totalEntradas = 0;
+        let totalSaidas = 0;
+
+        productMovements.forEach(mov => {
+            if (mov.tipo === 'entrada') {
+                totalEntradas += mov.quantidade || 0;
+            } else if (mov.tipo === 'saida') {
+                totalSaidas += mov.quantidade || 0;
             }
-            movementsByProduct[mov.produtoId].push(mov);
         });
 
-        // 2. Process and calculate for each product
-        consolidatedData = Object.values(products).map(product => {
-            const productMovements = movementsByProduct[product.id] || [];
-            const entryMovements = productMovements.filter(m => m.tipo === 'entrada' && m.valor_unitario > 0);
+        const estoqueAtual = totalEntradas - totalSaidas;
+        // =======================================================================
+        // FIM DA LÓGICA DE CÁLCULO DE ESTOQUE REAL
+        // =======================================================================
 
-            let totalCost = 0;
-            let totalQuantity = 0;
-            entryMovements.forEach(m => {
-                const entryTotalValue = (m.quantidade * m.valor_unitario) + (m.icms || 0) + (m.ipi || 0) + (m.frete || 0);
-                totalCost += entryTotalValue;
-                totalQuantity += m.quantidade;
-            });
-
-            const valorMedio = totalQuantity > 0 ? totalCost / totalQuantity : 0;
-            const valorTotalEstoque = (product.estoque || 0) * valorMedio;
-
-            // Lógica de endereçamento atualizada
-            const enderecamentoDoc = locations[product.enderecamentoId];
-            const localNome = enderecamentoDoc ? (locais[enderecamentoDoc.localId]?.nome || 'N/A') : 'N/A';
-            const local = enderecamentoDoc ? `${enderecamentoDoc.codigo} - ${localNome}` : 'N/A';
-
-
-            const medidas = productMovements
-                .filter(m => m.medida)
-                .map(m => `${m.medida} (${m.tipo})`)
-                .join(', ');
-
-            return {
-                ...product,
-                valorMedio,
-                valorTotalEstoque,
-                local,
-                medidas
-            };
+        const entryMovements = productMovements.filter(m => m.tipo === 'entrada' && m.valor_unitario > 0);
+        let totalCost = 0;
+        let totalQuantity = 0;
+        entryMovements.forEach(m => {
+            const entryTotalValue = (m.quantidade * m.valor_unitario) + (m.icms || 0) + (m.ipi || 0) + (m.frete || 0);
+            totalCost += entryTotalValue;
+            totalQuantity += m.quantidade;
         });
 
-        renderTable(consolidatedData);
-    }
+        const valorMedio = totalQuantity > 0 ? totalCost / totalQuantity : 0;
+        // Usa o estoque REAL para calcular o valor total
+        const valorTotalEstoque = estoqueAtual * valorMedio;
+
+        const enderecamentoDoc = locations[product.enderecamentoId];
+        const localNome = enderecamentoDoc ? (locais[enderecamentoDoc.localId]?.nome || 'N/A') : 'N/A';
+        const local = enderecamentoDoc ? `${enderecamentoDoc.codigo} - ${localNome}` : 'N/A';
+
+        const medidas = productMovements
+            .filter(m => m.medida)
+            .map(m => `${m.medida} (${m.tipo})`)
+            .join(', ');
+
+        return {
+            ...product,
+            estoqueAtual, // Passa o novo valor calculado
+            valorMedio,
+            valorTotalEstoque,
+            local,
+            medidas
+        };
+    });
+
+    renderTable(consolidatedData);
+}
 
     // 3. Render Table
     function renderTable(data) {
@@ -100,8 +119,7 @@ document.addEventListener('DOMContentLoaded', async function() {
                 <td>${item.codigo}</td>
                 <td>${item.codigo_global}</td>
                 <td>${item.descricao}</td>
-                <td>${item.estoque || 0}</td>
-                <td>${item.un}</td>
+                <td>${item.estoqueAtual || 0}</td> <td>${item.un}</td>
                 <td>R$ ${item.valorMedio.toFixed(2)}</td>
                 <td>R$ ${item.valorTotalEstoque.toFixed(2)}</td>
                 <td>${item.local}</td>
