@@ -27,51 +27,49 @@
             <h1>Movimentação de Estoque</h1>
         </header>
         <section class="content">
-            <div class="movement-forms-container">
-                <!-- Formulário de Entrada -->
-                <div class="card" id="entry-wrapper">
-                    <div class="card-header"><h3>Registrar Entrada ➕</h3></div>
-                    <div class="card-body">
-                        <form id="form-entrada" style="display: flex; flex-direction: column; gap: 10px;">
-                            <select id="entrada-produto" required class="form-control"><option value="">Selecione o Produto...</option></select>
-                            <select id="entrada-tipo" required class="form-control"><option value="">Tipo de Entrada...</option></select>
-                            <p class="auto-filled-field"><strong>Código:</strong> <span id="entrada-codigo-display">-</span></p>
-    <p class="auto-filled-field"><strong>Cód. Padrão:</strong> <span id="entrada-codigoglobal-display">-</span></p>
-                            <p class="auto-filled-field"><strong>Descrição:</strong> <span id="entrada-descricao-display">-</span></p>
-                            <p class="auto-filled-field"><strong>UN Compra:</strong> <span id="entrada-un-display">-</span></p>
-                            <input type="number" id="entrada-quantidade" placeholder="Quantidade" required step="any" class="form-control">
-                            <input type="text" id="entrada-nf" placeholder="Nº Nota Fiscal" class="form-control">
-                            <input type="number" id="entrada-valor-unitario" placeholder="Valor Unitário" step="0.01" class="form-control">
-                            <input type="number" id="entrada-icms" placeholder="ICMS Total" step="0.01" class="form-control">
-                            <input type="number" id="entrada-ipi" placeholder="IPI Total" step="0.01" class="form-control">
-                            <input type="number" id="entrada-frete" placeholder="Frete Total" step="0.01" class="form-control">
-                            <input type="text" id="entrada-observacao" placeholder="Observação" class="form-control">
-                            <input type="text" id="entrada-medida" placeholder="Medida (se sobra)" class="form-control">
-                            <button type="submit" class="btn btn-success">Confirmar Entrada</button>
-                        </form>
+            <div class="card" id="movement-wrapper">
+                <div class="card-header">
+                    <div style="display: flex; justify-content: space-between; align-items: center;">
+                        <h3>Registrar Movimentação</h3>
+                        <div class="toggle-container">
+                            <span id="toggle-label-saida" style="font-weight: bold; color: #dc3545;">Saída</span>
+                            <label class="toggle-switch">
+                                <input type="checkbox" id="movement-toggle">
+                                <span class="slider"></span>
+                            </label>
+                            <span id="toggle-label-entrada" style="font-weight: normal; color: #6c757d;">Entrada</span>
+                        </div>
                     </div>
                 </div>
+                <div class="card-body">
+                    <form id="form-movimentacao">
+                        <div class="form-grid-4-col">
+                            <select id="mov-produto" required class="form-control" style="grid-column: 1 / -1;"><option value="">Selecione o Produto...</option></select>
 
-                <!-- Formulário de Saída -->
-                <div class="card" id="exit-wrapper">
-                    <div class="card-header"><h3>Registrar Saída ➖</h3></div>
-                    <div class="card-body">
-                        <form id="form-saida" style="display: flex; flex-direction: column; gap: 10px;">
-                            <select id="saida-produto" required class="form-control"><option value="">Selecione o Produto...</option></select>
-                            <select id="saida-tipo" required class="form-control"><option value="">Tipo de Saída...</option></select>
-                            <p class="auto-filled-field"><strong>Código:</strong> <span id="saida-codigo-display">-</span></p>
-    <p class="auto-filled-field"><strong>Cód. Padrão:</strong> <span id="saida-codigoglobal-display">-</span></p>
-                            <p class="auto-filled-field"><strong>Descrição:</strong> <span id="saida-descricao-display">-</span></p>
-                            <p class="auto-filled-field"><strong>UN Estoque:</strong> <span id="saida-un-display">-</span></p>
-                            <p class="auto-filled-field"><strong>Estoque Atual:</strong> <span id="saida-estoque-display">-</span></p>
-                            <input type="number" id="saida-quantidade" placeholder="Quantidade a Retirar" required step="any" class="form-control">
-                            <input type="text" id="saida-requisitante" placeholder="Requisitante" class="form-control">
-                            <select id="saida-obra" class="form-control"><option value="">Selecione a Obra...</option></select>
-                            <input type="text" id="saida-medida" placeholder="Medida (se pedaço)" class="form-control">
-                            <input type="text" id="saida-observacao" placeholder="Observação" class="form-control">
-                            <button type="submit" class="btn btn-danger">Confirmar Saída</button>
-                        </form>
-                    </div>
+                            <p class="auto-filled-field"><strong>Código:</strong> <span id="mov-codigo-display">-</span></p>
+                            <p class="auto-filled-field"><strong>Cód. Padrão:</strong> <span id="mov-codigoglobal-display">-</span></p>
+                            <p class="auto-filled-field"><strong>Descrição:</strong> <span id="mov-descricao-display">-</span></p>
+                            <p class="auto-filled-field" id="mov-un-display-wrapper"><strong>UN:</strong> <span id="mov-un-display">-</span></p>
+
+                            <input type="number" id="mov-quantidade" placeholder="Quantidade" required step="any" class="form-control">
+                            <input type="text" id="mov-medida" placeholder="Medida (pedaço/sobra)" class="form-control">
+
+                            <select id="mov-tipo-entrada" class="form-control"><option value="">Tipo de Entrada...</option></select>
+                            <input type="text" id="mov-nf" placeholder="Nº Nota Fiscal" class="form-control">
+                            <input type="number" id="mov-valor-unitario" placeholder="Valor Unitário" step="0.01" class="form-control">
+                            <input type="number" id="mov-icms" placeholder="ICMS Total" step="0.01" class="form-control">
+                            <input type="number" id="mov-ipi" placeholder="IPI Total" step="0.01" class="form-control">
+                            <input type="number" id="mov-frete" placeholder="Frete Total" step="0.01" class="form-control">
+
+                            <select id="mov-tipo-saida" class="form-control"><option value="">Tipo de Saída...</option></select>
+                            <input type="text" id="mov-requisitante" placeholder="Requisitante" class="form-control">
+                            <select id="mov-obra" class="form-control"><option value="">Selecione a Obra...</option></select>
+                            <p class="auto-filled-field" id="mov-estoque-display-wrapper"><strong>Estoque Atual:</strong> <span id="mov-estoque-display">-</span></p>
+
+                            <input type="text" id="mov-observacao" placeholder="Observação" class="form-control" style="grid-column: 1 / -1;">
+                        </div>
+                        <button type="submit" id="btn-movimentacao" class="btn" style="width: 100%; margin-top: 20px;">Confirmar</button>
+                    </form>
                 </div>
             </div>
 
@@ -82,7 +80,9 @@
                         <input type="text" class="form-control filter-input" data-column="data" placeholder="Filtrar por Data...">
                         <input type="text" class="form-control filter-input" data-column="tipo" placeholder="Filtrar por Tipo...">
                         <input type="text" class="form-control filter-input" data-column="codigo" placeholder="Filtrar por Código...">
+                        <input type="text" class="form-control filter-input" data-column="codigo_global" placeholder="Filtrar por Cód. Padrão...">
                         <input type="text" class="form-control filter-input" data-column="descricao" placeholder="Filtrar por Descrição...">
+                        <input type="text" class="form-control filter-input" data-column="quantidade" placeholder="Filtrar por Qtde...">
                         <input type="text" class="form-control filter-input" data-column="nf" placeholder="Filtrar por NF...">
                         <input type="text" class="form-control filter-input" data-column="requisitante" placeholder="Filtrar por Requisitante...">
                         <input type="text" class="form-control filter-input" data-column="obraId" placeholder="Filtrar por Obra...">
@@ -117,6 +117,17 @@
             </div>
         </section>
     </main>
+    <div id="info-modal" class="modal">
+        <div class="modal-content" style="max-width: 500px;">
+            <div class="modal-header" id="info-modal-header">
+                <h3 id="info-modal-title">Aviso do Sistema</h3>
+                <span class="close-button" id="info-modal-close">&times;</span>
+            </div>
+            <div id="info-modal-body" class="modal-body">
+                <p id="info-modal-message">Mensagem de aviso aqui.</p>
+            </div>
+        </div>
+    </div>
     <script type="module" src="js/main.js"></script>
     <script type="module" src="js/movimentacoes.js"></script>
     <script> feather.replace() </script>
