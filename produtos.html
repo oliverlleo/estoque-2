@@ -36,8 +36,10 @@
                         <input type="text" id="produto-codigo_global" placeholder="Código Global" class="form-control">
                         <input type="text" id="produto-descricao" placeholder="Descrição" required class="form-control">
                         <input type="text" id="produto-un" placeholder="UN Estoque" required class="form-control">
-                        <input type="text" id="produto-un_compra" placeholder="UN Compra (ex: 1 Pç = 5,8m)" class="form-control">
                         <input type="text" id="produto-cor" placeholder="Cor" class="form-control">
+                        <select id="produto-conversao" class="form-control">
+                            <option value="">Nenhuma conversão aplicada</option>
+                        </select>
                         <select id="produto-fornecedor" required class="form-control"><option value="">Selecione o Fornecedor...</option></select>
                         <select id="produto-grupo" required class="form-control"><option value="">Selecione o Grupo...</option></select>
                         <select id="produto-aplicacao" required class="form-control"><option value="">Selecione a Aplicação...</option></select>
@@ -60,7 +62,6 @@
                                     <th>Cód. Global</th>
                                     <th>Descrição</th>
                                     <th>UN</th>
-                                    <th>UN Compra</th>
                                     <th>Cor</th>
                                     <th>Fornecedor</th>
                                     <th>Grupo</th>

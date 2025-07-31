@@ -17,11 +17,10 @@ document.addEventListener('DOMContentLoaded', async function() {
         { name: 'grupo', collectionName: 'grupos', displayField: 'nome' },
         { name: 'aplicacao', collectionName: 'aplicacoes', displayField: 'nome' },
         { name: 'conjunto', collectionName: 'conjuntos', displayField: 'nome' },
-        { name: 'locais', collectionName: 'locais', displayField: 'nome' }, // ADICIONADO
+        { name: 'locais', collectionName: 'locais', displayField: 'nome' },
         {
             name: 'enderecamento',
             collectionName: 'enderecamentos',
-            // A função de exibição agora precisa dos locais
             displayFunction: (doc, allConfigs) => {
                 const localNome = allConfigs.locais[doc.localId]?.nome || 'N/A';
                 return `${doc.codigo} - ${localNome}`;
@@ -36,7 +35,7 @@ document.addEventListener('DOMContentLoaded', async function() {
 
         configData[config.collectionName] = {};
         if (selectElement) {
-             selectElement.innerHTML = `<option value="">Selecione ${config.name}...</option>`; // Reset
+             selectElement.innerHTML = `<option value="">Selecione ${config.name}...</option>`;
         }
 
         snapshot.docs.forEach(doc => {
@@ -47,12 +46,21 @@ document.addEventListener('DOMContentLoaded', async function() {
             if (selectElement) {
                 const option = document.createElement('option');
                 option.value = id;
-                // Passa todos os dados de configuração para a função de exibição
                 option.textContent = config.displayFunction ? config.displayFunction(data, configData) : data[config.displayField];
                 selectElement.appendChild(option);
             }
         });
     }
+
+    // Populate Conversions Select
+    const conversaoSelect = document.getElementById('produto-conversao');
+    const conversoesSnapshot = await getDocs(collection(db, 'conversoes'));
+    conversoesSnapshot.forEach(doc => {
+        const conversao = doc.data();
+        const displayText = `${conversao.qtd_compra}${conversao.medida_compra} X ${conversao.qtd_padrao}${conversao.medida_padrao}`;
+        conversaoSelect.innerHTML += `<option value="${doc.id}" title="${conversao.nome_regra}">${displayText}</option>`;
+    });
+
 
     // 2. Handle Product Form Submission (Create/Update)
     form.addEventListener('submit', async (e) => {
@@ -64,13 +72,13 @@ document.addEventListener('DOMContentLoaded', async function() {
             codigo_global: document.getElementById('produto-codigo_global').value,
             descricao: document.getElementById('produto-descricao').value,
             un: document.getElementById('produto-un').value,
-            un_compra: document.getElementById('produto-un_compra').value,
             cor: document.getElementById('produto-cor').value,
             fornecedorId: document.getElementById('produto-fornecedor').value,
             grupoId: document.getElementById('produto-grupo').value,
             aplicacaoId: document.getElementById('produto-aplicacao').value,
             conjuntoId: document.getElementById('produto-conjunto').value,
             enderecamentoId: document.getElementById('produto-enderecamento').value,
+            conversaoId: document.getElementById('produto-conversao').value
         };
 
         try {
@@ -107,7 +115,6 @@ document.addEventListener('DOMContentLoaded', async function() {
                 <td>${pData.codigo_global}</td>
                 <td>${pData.descricao}</td>
                 <td>${pData.un}</td>
-                <td>${pData.un_compra}</td>
                 <td>${pData.cor}</td>
                 <td>${fornecedor}</td>
                 <td>${grupo}</td>
@@ -141,13 +148,13 @@ document.addEventListener('DOMContentLoaded', async function() {
                 document.getElementById('produto-codigo_global').value = product.data.codigo_global;
                 document.getElementById('produto-descricao').value = product.data.descricao;
                 document.getElementById('produto-un').value = product.data.un;
-                document.getElementById('produto-un_compra').value = product.data.un_compra;
                 document.getElementById('produto-cor').value = product.data.cor;
                 document.getElementById('produto-fornecedor').value = product.data.fornecedorId;
                 document.getElementById('produto-grupo').value = product.data.grupoId;
                 document.getElementById('produto-aplicacao').value = product.data.aplicacaoId;
                 document.getElementById('produto-conjunto').value = product.data.conjuntoId;
                 document.getElementById('produto-enderecamento').value = product.data.enderecamentoId;
+                document.getElementById('produto-conversao').value = product.data.conversaoId || "";
                 form.scrollIntoView({ behavior: 'smooth' });
             }
         }

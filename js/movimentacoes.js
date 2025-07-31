@@ -73,23 +73,33 @@ document.addEventListener('DOMContentLoaded', async function() {
                 await runTransaction(db, async (transaction) => {
                     const productRef = doc(db, 'produtos', productId);
                     const productDoc = await transaction.get(productRef);
-                    if (!productDoc.exists()) throw "Produto não encontrado!";
 
-                    const tipoEntradaId = document.getElementById('mov-tipo-entrada').value;
-                    const tipoEntradaData = configData.tipos_entrada[tipoEntradaId];
+                    if (!productDoc.exists()) { throw "Produto não encontrado!"; }
+
+                    const productData = productDoc.data();
+                    const conversaoId = productData.conversaoId;
+
                     const quantidadeInformada = parseFloat(document.getElementById('mov-quantidade').value);
                     let quantidadeParaEstoque = quantidadeInformada;
+                    let quantidadeOriginalCompra = quantidadeInformada;
 
-                    if (tipoEntradaData && tipoEntradaData.qtd_compra && tipoEntradaData.qtd_padrao) {
-                        const fator = parseFloat(tipoEntradaData.qtd_compra) / parseFloat(tipoEntradaData.qtd_padrao);
-                        if (fator > 0) {
-                            quantidadeParaEstoque = quantidadeInformada / fator;
+                    if (conversaoId) {
+                        const conversaoRef = doc(db, 'conversoes', conversaoId);
+                        const conversaoDoc = await transaction.get(conversaoRef);
+
+                        if (conversaoDoc.exists()) {
+                            const regra = conversaoDoc.data();
+                            const fator_qtd_compra = parseFloat(regra.qtd_compra);
+                            const fator_qtd_padrao = parseFloat(regra.qtd_padrao);
+
+                            if (fator_qtd_compra > 0) {
+                                quantidadeParaEstoque = (quantidadeInformada / fator_qtd_compra) * fator_qtd_padrao;
+                            }
                         }
                     }
 
-                    const currentEstoque = productDoc.data().estoque || 0;
+                    const currentEstoque = productData.estoque || 0;
                     const newEstoque = currentEstoque + quantidadeParaEstoque;
-
                     transaction.update(productRef, { estoque: newEstoque });
 
                     const movementRef = doc(collection(db, 'movimentacoes'));
@@ -97,9 +107,7 @@ document.addEventListener('DOMContentLoaded', async function() {
                         tipo: 'entrada',
                         productId,
                         data: serverTimestamp(),
-                        quantidade: quantidadeParaEstoque,
-                        quantidade_compra: quantidadeInformada,
-                        tipo_entradaId: tipoEntradaId,
+                        tipo_entradaId: document.getElementById('mov-tipo-entrada').value,
                         nf: document.getElementById('mov-nf').value,
                         valor_unitario: parseFloat(document.getElementById('mov-valor-unitario').value) || 0,
                         icms: parseFloat(document.getElementById('mov-icms').value) || 0,
@@ -107,7 +115,10 @@ document.addEventListener('DOMContentLoaded', async function() {
                         frete: parseFloat(document.getElementById('mov-frete').value) || 0,
                         observacao: document.getElementById('mov-observacao').value,
                         medida: document.getElementById('mov-medida').value,
+                        quantidade: quantidadeParaEstoque,
+                        quantidade_compra: quantidadeOriginalCompra
                     };
+
                     transaction.set(movementRef, movementData);
                 });
                 alert('Entrada registrada com sucesso!');
