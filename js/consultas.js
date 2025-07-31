@@ -14,7 +14,6 @@ document.addEventListener('DOMContentLoaded', async function() {
     let consolidatedData = [];
 
     async function fetchDataAndCalculate() {
-        // 1. Fetch all necessary data
         const [productsSnapshot, movementsSnapshot, locationsSnapshot, locaisSnapshot] = await Promise.all([
             getDocs(collection(db, 'produtos')),
             getDocs(collection(db, 'movimentacoes')),
@@ -40,31 +39,34 @@ document.addEventListener('DOMContentLoaded', async function() {
         const movementsByProduct = {};
         movementsSnapshot.forEach(doc => {
             const mov = doc.data();
-            if (!movementsByProduct[mov.productId]) {
-                movementsByProduct[mov.productId] = [];
+            if (mov.productId) {
+                if (!movementsByProduct[mov.productId]) {
+                    movementsByProduct[mov.productId] = [];
+                }
+                movementsByProduct[mov.productId].push(mov);
             }
-            movementsByProduct[mov.productId].push(mov);
         });
 
-        // 2. Process, calculate and consolidate
+        const updatePromises = [];
+
         consolidatedData = Object.values(products).map(product => {
             const productMovements = movementsByProduct[product.id] || [];
 
-            let estoqueAtual = 0; // Apenas para itens inteiros
-            let inventarioPedacos = {}; // Ex: { "1500mm": 2, "2000mm": 1 }
+            let estoqueAtual = 0;
+            let inventarioPedacos = {};
 
             productMovements.forEach(mov => {
                 const isPiece = mov.medida && mov.medida.trim() !== '';
+                const quantidade = parseFloat(mov.quantidade) || 0;
 
-                if (isPiece) { // É um pedaço
+                if (isPiece) {
                     const medida = mov.medida.trim();
                     if (mov.tipo === 'entrada') {
                         inventarioPedacos[medida] = (inventarioPedacos[medida] || 0) + 1;
                     } else if (mov.tipo === 'saida') {
                         inventarioPedacos[medida] = (inventarioPedacos[medida] || 0) - 1;
                     }
-                } else { // É um item inteiro
-                    const quantidade = parseFloat(mov.quantidade) || 0;
+                } else {
                     if (mov.tipo === 'entrada') {
                         estoqueAtual += quantidade;
                     } else if (mov.tipo === 'saida') {
@@ -73,24 +75,26 @@ document.addEventListener('DOMContentLoaded', async function() {
                 }
             });
 
-            // Calcula o saldo total de pedaços
+            if (product.estoque !== estoqueAtual) {
+                const productRef = doc(db, 'produtos', product.id);
+                updatePromises.push(updateDoc(productRef, { estoque: estoqueAtual }));
+            }
+
             const saldoPedaco = Object.values(inventarioPedacos).reduce((sum, count) => sum + count, 0);
 
-            // Lógica de cálculo de valor médio (mantida como antes)
-            const entryMovements = productMovements.filter(m => m.tipo === 'entrada' && m.valor_unitario > 0);
+            const entryMovements = productMovements.filter(m => m.tipo === 'entrada' && (m.valor_unitario || 0) > 0);
             let totalCost = 0;
-            let totalQuantity = 0;
+            let totalQuantityForAvg = 0;
             entryMovements.forEach(m => {
-                // Apenas entradas de itens inteiros devem impactar o valor médio
                 if (!m.medida || m.medida.trim() === '') {
                     const entryTotalValue = (m.quantidade * m.valor_unitario) + (m.icms || 0) + (m.ipi || 0) + (m.frete || 0);
                     totalCost += entryTotalValue;
-                    totalQuantity += m.quantidade;
+                    totalQuantityForAvg += m.quantidade;
                 }
             });
 
-            const valorMedio = totalQuantity > 0 ? totalCost / totalQuantity : 0;
-            const valorTotalEstoque = estoqueAtual * valorMedio; // Valor total apenas de itens inteiros
+            const valorMedio = totalQuantityForAvg > 0 ? totalCost / totalQuantityForAvg : 0;
+            const valorTotalEstoque = (estoqueAtual || 0) * valorMedio;
 
             const enderecamentoDoc = locations[product.enderecamentoId];
             const localNome = enderecamentoDoc ? (locais[enderecamentoDoc.localId]?.nome || 'N/A') : 'N/A';
@@ -107,30 +111,18 @@ document.addEventListener('DOMContentLoaded', async function() {
             };
         });
 
-        // A atualização do estoque no Firebase pode ser feita em um processo separado ou mantida
-        // por enquanto, vamos focar na exibição correta.
-        const updatePromises = consolidatedData.map(product => {
-            const productRef = doc(db, 'produtos', product.id);
-            // Atualiza apenas o estoque de itens inteiros no documento do produto
-            return updateDoc(productRef, { estoque: product.estoque });
-        });
-
-        await Promise.all(updatePromises).catch(console.error);
-
+        if (updatePromises.length > 0) {
+            await Promise.all(updatePromises);
+        }
 
         renderTable(consolidatedData);
     }
 
-    // 4. Render Table
     function renderTable(data) {
         tableBody.innerHTML = '';
-        if(data.length === 0) {
-            tableBody.innerHTML = '<tr><td colspan="10" style="text-align:center;">Nenhum produto encontrado.</td></tr>';
-            return;
-        }
-
         data.forEach(item => {
             const row = document.createElement('tr');
+            row.className = 'main-row';
             row.innerHTML = `
                 <td>${item.codigo}</td>
                 <td>${item.codigo_global}</td>
@@ -142,32 +134,47 @@ document.addEventListener('DOMContentLoaded', async function() {
                 <td>R$ ${item.valorTotalEstoque.toFixed(2)}</td>
                 <td>${item.local}</td>
                 <td>
-                    ${item.saldoPedaco > 0 ? `<button class="btn-ver-pedacos" data-product-id="${item.id}"><i data-feather="chevron-down"></i></button>` : '-'}
+                    ${(item.saldoPedaco || 0) > 0 ? `<button class="btn-ver-pedacos" data-product-id="${item.id}"><i data-feather="chevron-down"></i></button>` : '-'}
                 </td>
             `;
             tableBody.appendChild(row);
 
-            if (item.saldoPedaco > 0) {
+            if ((item.saldoPedaco || 0) > 0) {
                 const detailsRow = document.createElement('tr');
                 detailsRow.className = `details-row details-for-${item.id}`;
-                detailsRow.style.display = 'none'; // Começa escondida
+                detailsRow.style.display = 'none';
 
-                let detailsHtml = '<ul>';
+                let detailsHtml = '<ul style="margin: 0; padding-left: 20px;">';
                 for (const [medida, qtd] of Object.entries(item.inventarioPedacos)) {
                     if (qtd > 0) {
-                        detailsHtml += `<li><strong>${qtd}</strong> pedaço(s) de <strong>${medida}</strong></li>`;
+                        detailsHtml += `<li style="padding: 4px 0;"><strong>${qtd}</strong> pedaço(s) de <strong>${medida}</strong></li>`;
                     }
                 }
                 detailsHtml += '</ul>';
 
-                detailsRow.innerHTML = `<td colspan="10">${detailsHtml}</td>`;
+                detailsRow.innerHTML = `<td colspan="10" style="background-color: #f8f9fa;">${detailsHtml}</td>`;
                 tableBody.appendChild(detailsRow);
             }
         });
-        feather.replace(); // Para renderizar os ícones
+        feather.replace();
     }
 
-    // 5. Filtering logic
+    tableBody.addEventListener('click', function(event) {
+        const button = event.target.closest('.btn-ver-pedacos');
+        if (button) {
+            const productId = button.dataset.productId;
+            const detailsRow = document.querySelector(`.details-for-${productId}`);
+            const icon = button.querySelector('i');
+
+            if (detailsRow) {
+                const isVisible = detailsRow.style.display !== 'none';
+                detailsRow.style.display = isVisible ? 'none' : 'table-row';
+                icon.setAttribute('data-feather', isVisible ? 'chevron-down' : 'chevron-up');
+                feather.replace();
+            }
+        }
+    });
+
     function applyFilters() {
         const filterValues = {
             codigo: filters.codigo.value.toLowerCase(),
@@ -176,9 +183,9 @@ document.addEventListener('DOMContentLoaded', async function() {
         };
 
         const filteredData = consolidatedData.filter(item => {
-            const matchesCodigo = item.codigo.toLowerCase().includes(filterValues.codigo);
-            const matchesDescricao = item.descricao.toLowerCase().includes(filterValues.descricao);
-            const matchesLocal = item.local.toLowerCase().includes(filterValues.local);
+            const matchesCodigo = (item.codigo || '').toLowerCase().includes(filterValues.codigo);
+            const matchesDescricao = (item.descricao || '').toLowerCase().includes(filterValues.descricao);
+            const matchesLocal = (item.local || '').toLowerCase().includes(filterValues.local);
             return matchesCodigo && matchesDescricao && matchesLocal;
         });
 
@@ -187,24 +194,8 @@ document.addEventListener('DOMContentLoaded', async function() {
 
     Object.values(filters).forEach(input => input.addEventListener('input', applyFilters));
 
-    // Event listener para os botões de expandir
-    tableBody.addEventListener('click', function(event) {
-        const button = event.target.closest('.btn-ver-pedacos');
-        if (button) {
-            const productId = button.dataset.productId;
-            const detailsRow = document.querySelector(`.details-for-${productId}`);
-            if (detailsRow) {
-                const isVisible = detailsRow.style.display !== 'none';
-                detailsRow.style.display = isVisible ? 'none' : 'table-row';
-                button.innerHTML = isVisible ? '<i data-feather="chevron-down"></i>' : '<i data-feather="chevron-up"></i>';
-                feather.replace();
-            }
-        }
-    });
-
-    // Initial Load
     fetchDataAndCalculate().catch(error => {
         console.error("Erro ao carregar dados da consulta:", error);
-        tableBody.innerHTML = `<tr><td colspan="9" style="text-align:center; color: red;">Erro ao carregar dados: ${error.message}</td></tr>`;
+        tableBody.innerHTML = `<tr><td colspan="10" style="text-align:center; color: red;">Erro ao carregar dados: ${error.message}</td></tr>`;
     });
 });

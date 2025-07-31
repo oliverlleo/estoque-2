@@ -6,24 +6,6 @@ function showInfoModal(message) {
 import { db } from './firebase-config.js';
 import { collection, getDocs, onSnapshot, runTransaction, doc, serverTimestamp } from "https://www.gstatic.com/firebasejs/9.6.1/firebase-firestore.js";
 
-// Retorna o inventário de pedaços para um produto específico
-async function getPieceInventory(productId) {
-    const movementsSnapshot = await getDocs(collection(db, 'movimentacoes'));
-    let inventario = {};
-    movementsSnapshot.forEach(doc => {
-        const mov = doc.data();
-        if (mov.productId === productId && mov.medida && mov.medida.trim() !== '') {
-            const medida = mov.medida.trim();
-            if (mov.tipo === 'entrada') {
-                inventario[medida] = (inventario[medida] || 0) + 1;
-            } else if (mov.tipo === 'saida') {
-                inventario[medida] = (inventario[medida] || 0) - 1;
-            }
-        }
-    });
-    return inventario;
-}
-
 document.addEventListener('DOMContentLoaded', async function() {
     // Lógica para fechar o modal de informação
     const infoModal = document.getElementById('info-modal');
@@ -86,45 +68,9 @@ document.addEventListener('DOMContentLoaded', async function() {
             document.getElementById('toggle-label-entrada').style.color = '#6c757d';
         }
         updateProductInfo();
-        updateMedidaField(); // Adicionado para atualizar o campo de medida dinamicamente
     }
 
     toggle.addEventListener('change', handleToggleChange);
-
-    const medidaTextInput = document.getElementById('mov-medida');
-
-    async function updateMedidaField() {
-        const isEntrada = document.getElementById('movement-toggle').checked;
-        const productId = document.getElementById('mov-produto').value;
-
-        // Limpa/remove o select antigo se existir
-        const oldSelect = document.getElementById('mov-medida-select');
-        if (oldSelect) {
-            oldSelect.remove();
-        }
-
-        if (!isEntrada && productId) { // É uma SAÍDA e um produto foi selecionado
-            medidaTextInput.style.display = 'none'; // Esconde o input de texto
-
-            const inventory = await getPieceInventory(productId);
-            const availablePieces = Object.entries(inventory).filter(([medida, qtd]) => qtd > 0);
-
-            if (availablePieces.length > 0) {
-                const select = document.createElement('select');
-                select.id = 'mov-medida-select';
-                select.className = 'form-control';
-                select.innerHTML = '<option value="">Selecione o Pedaço...</option>';
-                availablePieces.forEach(([medida, qtd]) => {
-                    select.innerHTML += `<option value="${medida}">${medida} (${qtd} em estoque)</option>`;
-                });
-                medidaTextInput.insertAdjacentElement('afterend', select);
-            }
-        } else { // É uma ENTRADA ou nenhum produto selecionado
-            medidaTextInput.style.display = ''; // Mostra o input de texto
-        }
-    }
-
-    document.getElementById('mov-produto').addEventListener('change', updateMedidaField);
 
     // --- Lógica de Submissão do Formulário Unificado ---
     formMovimentacao.addEventListener('submit', async (e) => {
@@ -217,16 +163,13 @@ document.addEventListener('DOMContentLoaded', async function() {
                     transaction.update(productRef, { estoque: newEstoque });
 
                     const movementRef = doc(collection(db, 'movimentacoes'));
-                    const selectMedida = document.getElementById('mov-medida-select');
-                    const medidaValue = selectMedida ? selectMedida.value : document.getElementById('mov-medida').value;
-
                     const movementData = {
                         tipo: 'saida', productId, quantidade, data: serverTimestamp(),
                         tipo_saidaId: document.getElementById('mov-tipo-saida').value,
                         requisitante: document.getElementById('mov-requisitante').value,
                         obraId: document.getElementById('mov-obra').value,
                         observacao: document.getElementById('mov-observacao').value,
-                        medida: medidaValue,
+                        medida: document.getElementById('mov-medida').value,
                     };
                     transaction.set(movementRef, movementData);
                 });
