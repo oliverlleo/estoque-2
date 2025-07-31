@@ -394,3 +394,7 @@ input:checked + .slider {
 input:checked + .slider:before {
     transform: translateX(26px);
 }
+
+#info-modal-header {
+    background-color: #0d6efd; /* Azul informativo do Bootstrap */
+}

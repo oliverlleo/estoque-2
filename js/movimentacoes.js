@@ -1,7 +1,23 @@
+function showInfoModal(message) {
+    document.getElementById('info-modal-message').textContent = message;
+    document.getElementById('info-modal').style.display = 'block';
+}
+
 import { db } from './firebase-config.js';
 import { collection, getDocs, onSnapshot, runTransaction, doc, serverTimestamp } from "https://www.gstatic.com/firebasejs/9.6.1/firebase-firestore.js";
 
 document.addEventListener('DOMContentLoaded', async function() {
+    // Lógica para fechar o modal de informação
+    const infoModal = document.getElementById('info-modal');
+    const infoModalClose = document.getElementById('info-modal-close');
+    infoModalClose.onclick = () => infoModal.style.display = 'none';
+
+    window.addEventListener('click', (event) => {
+        if (event.target == infoModal) {
+            infoModal.style.display = 'none';
+        }
+    });
+
     // --- DOM Elements ---
     const formMovimentacao = document.getElementById('form-movimentacao');
     const toggle = document.getElementById('movement-toggle');
@@ -89,12 +105,16 @@ document.addEventListener('DOMContentLoaded', async function() {
 
                         if (conversaoDoc.exists()) {
                             const regra = conversaoDoc.data();
-
                             const fator_qtd_compra = parseFloat(String(regra.qtd_compra).replace(',', '.'));
                             const fator_qtd_padrao = parseFloat(String(regra.qtd_padrao).replace(',', '.'));
 
                             if (fator_qtd_compra > 0) {
                                 quantidadeParaEstoque = (quantidadeInformada / fator_qtd_compra) * fator_qtd_padrao;
+                            }
+
+                            const medidaPadrao = regra.medida_padrao || "";
+                            if (medidaPadrao.toUpperCase() === 'PÇ' && !Number.isInteger(quantidadeParaEstoque)) {
+                                throw new Error(`O cálculo resultou em um valor quebrado (${quantidadeParaEstoque.toFixed(2)} PÇ). Entradas para esta unidade devem resultar em um número inteiro.`);
                             }
                         }
                     }
@@ -127,7 +147,7 @@ document.addEventListener('DOMContentLoaded', async function() {
                 handleToggleChange();
             } catch (error) {
                 console.error("Erro na transação de entrada:", error);
-                alert(`Erro ao registrar entrada: ${error}`);
+                showInfoModal(error.message);
             }
         } else {
             try {
