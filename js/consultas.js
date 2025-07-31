@@ -1,5 +1,5 @@
 import { db } from './firebase-config.js';
-import { collection, getDocs } from "https://www.gstatic.com/firebasejs/9.6.1/firebase-firestore.js";
+import { collection, getDocs, doc, updateDoc } from "https://www.gstatic.com/firebasejs/9.6.1/firebase-firestore.js";
 
 document.addEventListener('DOMContentLoaded', async function() {
     console.log("Página de Consultas carregada.");
@@ -19,7 +19,7 @@ document.addEventListener('DOMContentLoaded', async function() {
             getDocs(collection(db, 'produtos')),
             getDocs(collection(db, 'movimentacoes')),
             getDocs(collection(db, 'enderecamentos')),
-            getDocs(collection(db, 'locais')) // ADICIONADO
+            getDocs(collection(db, 'locais'))
         ]);
 
         const products = {};
@@ -32,9 +32,9 @@ document.addEventListener('DOMContentLoaded', async function() {
             locations[doc.id] = doc.data();
         });
 
-        const locais = {}; // ADICIONADO
-        locaisSnapshot.forEach(doc => { // ADICIONADO
-            locais[doc.id] = doc.data(); // ADICIONADO
+        const locais = {};
+        locaisSnapshot.forEach(doc => {
+            locais[doc.id] = doc.data();
         });
 
         const movementsByProduct = {};
@@ -46,12 +46,12 @@ document.addEventListener('DOMContentLoaded', async function() {
             movementsByProduct[mov.produtoId].push(mov);
         });
 
-        // 2. Process and calculate for each product
-        consolidatedData = Object.values(products).map(product => {
-            const productMovements = movementsByProduct[product.id] || [];
+        // 2. Process, calculate, and update stock
+        const updatePromises = [];
 
-            // --- INÍCIO DA LÓGICA ADICIONADA ---
-            // Recalcula o estoque com base nas movimentações
+        // First, calculate the correct stock for each product and identify which ones need updating.
+        const processedProducts = Object.values(products).map(product => {
+            const productMovements = movementsByProduct[product.id] || [];
             let calculatedStock = 0;
             productMovements.forEach(mov => {
                 if (mov.tipo === 'entrada') {
@@ -60,8 +60,31 @@ document.addEventListener('DOMContentLoaded', async function() {
                     calculatedStock -= (mov.quantidade || 0);
                 }
             });
-            // --- FIM DA LÓGICA ADICIONADA ---
 
+            // If the stock in the DB is incorrect, schedule a correction.
+            if (product.estoque !== calculatedStock) {
+                console.log(`Scheduling stock correction for ${product.codigo}: ${product.estoque} -> ${calculatedStock}`);
+                const productRef = doc(db, 'produtos', product.id);
+                updatePromises.push(updateDoc(productRef, { estoque: calculatedStock }));
+            }
+
+            // Return the product with the correct stock value for immediate use.
+            return {
+                ...product,
+                estoque: calculatedStock
+            };
+        });
+
+        // If there are any corrections to be made, execute them all in parallel.
+        if (updatePromises.length > 0) {
+            console.log(`Sending ${updatePromises.length} stock updates to Firebase...`);
+            await Promise.all(updatePromises);
+            console.log("Firebase stock updates completed.");
+        }
+
+        // Now, generate the final consolidated data for the table using the corrected stock values.
+        consolidatedData = processedProducts.map(product => {
+            const productMovements = movementsByProduct[product.id] || [];
             const entryMovements = productMovements.filter(m => m.tipo === 'entrada' && m.valor_unitario > 0);
 
             let totalCost = 0;
@@ -73,8 +96,8 @@ document.addEventListener('DOMContentLoaded', async function() {
             });
 
             const valorMedio = totalQuantity > 0 ? totalCost / totalQuantity : 0;
-            // Usa o estoque recém-calculado
-            const valorTotalEstoque = calculatedStock * valorMedio;
+            // Use the corrected stock for the total value calculation.
+            const valorTotalEstoque = product.estoque * valorMedio;
 
             const enderecamentoDoc = locations[product.enderecamentoId];
             const localNome = enderecamentoDoc ? (locais[enderecamentoDoc.localId]?.nome || 'N/A') : 'N/A';
@@ -87,7 +110,7 @@ document.addEventListener('DOMContentLoaded', async function() {
 
             return {
                 ...product,
-                estoque: calculatedStock, // Usa o estoque calculado
+                // 'estoque' is already correct from the 'processedProducts' map.
                 valorMedio,
                 valorTotalEstoque,
                 local,
