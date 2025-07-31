@@ -220,39 +220,87 @@ document.addEventListener('DOMContentLoaded', async function() {
             }
         } else { // Saída
             try {
-                await runTransaction(db, async (transaction) => {
-                    const productRef = doc(db, 'produtos', productId);
-                    const productDoc = await transaction.get(productRef);
-                    if (!productDoc.exists()) throw "Produto não encontrado!";
+                // 'medidaValue', 'isPiece', and 'quantidade' are already defined adaptively above.
 
-                    // Se não for um pedaço, verifica o estoque principal. A lógica de estoque de pedaços é implícita.
-                    if (!isPiece) {
+                // Lógica de Saída para ESTOQUE PADRÃO (sem medida)
+                if (!isPiece) {
+                    await runTransaction(db, async (transaction) => {
+                        const productRef = doc(db, 'produtos', productId);
+                        const productDoc = await transaction.get(productRef);
+                        if (!productDoc.exists()) throw new Error("Produto não encontrado!");
+
                         const currentEstoque = productDoc.data().estoque || 0;
-                        if (currentEstoque < quantidade) throw `Estoque insuficiente! Disponível: ${currentEstoque}`;
+                        if (currentEstoque < quantidade) {
+                            throw new Error(`Estoque insuficiente! Disponível: ${currentEstoque}`);
+                        }
+
                         const newEstoque = currentEstoque - quantidade;
                         transaction.update(productRef, { estoque: newEstoque });
+
+                        const movementRef = doc(collection(db, 'movimentacoes'));
+                        const movementData = {
+                            tipo: 'saida',
+                            productId,
+                            quantidade,
+                            data: serverTimestamp(),
+                            tipo_saidaId: document.getElementById('mov-tipo-saida').value,
+                            requisitante: document.getElementById('mov-requisitante').value,
+                            obraId: document.getElementById('mov-obra').value,
+                            observacao: document.getElementById('mov-observacao').value,
+                            medida: medidaValue,
+                        };
+                        transaction.set(movementRef, movementData);
+                    });
+                }
+                // Lógica de Saída para PEDAÇOS (com medida)
+                else {
+                    // 1. Calcular o saldo atual para esta medida específica usando os dados em memória
+                    const movementsForThisPiece = allMovements.filter(m => m.productId === productId && m.medida === medidaValue);
+                    let saldoDoPedaco = 0;
+                    movementsForThisPiece.forEach(mov => {
+                        const movQtd = parseFloat(mov.quantidade) || 0;
+                        if (mov.tipo === 'entrada') {
+                            saldoDoPedaco += movQtd;
+                        } else if (mov.tipo === 'saida') {
+                            saldoDoPedaco -= movQtd;
+                        }
+                    });
+
+                    // 2. Validar se há estoque suficiente do pedaço
+                    if (saldoDoPedaco < quantidade) { // 'quantidade' for pieces is 1
+                        throw new Error(`Estoque de pedaços de '${medidaValue}' insuficiente! Disponível: ${saldoDoPedaco}`);
                     }
 
-                    const movementRef = doc(collection(db, 'movimentacoes'));
-                    const movementData = {
-                        tipo: 'saida',
-                        productId,
-                        quantidade,
-                        data: serverTimestamp(),
-                        tipo_saidaId: document.getElementById('mov-tipo-saida').value,
-                        requisitante: document.getElementById('mov-requisitante').value,
-                        obraId: document.getElementById('mov-obra').value,
-                        observacao: document.getElementById('mov-observacao').value,
-                        medida: medidaValue, // Usa o valor adaptativo
-                    };
-                    transaction.set(movementRef, movementData);
-                });
+                    // 3. Executar a transação (apenas registra o movimento, não altera o produto)
+                    await runTransaction(db, async (transaction) => {
+                        // Verificação de segurança para garantir que o produto ainda existe
+                        const productRef = doc(db, 'produtos', productId);
+                        const productDoc = await transaction.get(productRef);
+                        if (!productDoc.exists()) throw new Error("Produto não encontrado no momento da transação!");
+
+                        // Não há alteração no documento do produto, apenas registramos a saída
+                        const movementRef = doc(collection(db, 'movimentacoes'));
+                        const movementData = {
+                            tipo: 'saida',
+                            productId,
+                            quantidade,
+                            medida: medidaValue, // Medida é crucial aqui
+                            data: serverTimestamp(),
+                            tipo_saidaId: document.getElementById('mov-tipo-saida').value,
+                            requisitante: document.getElementById('mov-requisitante').value,
+                            obraId: document.getElementById('mov-obra').value,
+                            observacao: document.getElementById('mov-observacao').value
+                        };
+                        transaction.set(movementRef, movementData);
+                    });
+                }
+
                 alert('Saída registrada com sucesso!');
                 formMovimentacao.reset();
                 handleToggleChange(); // Reseta o formulário para o estado inicial
             } catch (error) {
-                console.error("Erro na transação de saída:", error);
-                alert(`Erro ao registrar saída: ${error}`);
+                console.error("Erro ao registrar saída:", error);
+                showInfoModal(error.message);
             }
         }
     });
