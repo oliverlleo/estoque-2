@@ -78,49 +78,38 @@
             <div class="card">
                 <div class="card-header"><h3>Histórico de Movimentações</h3></div>
                 <div class="card-body">
-                    <input type="text" id="filter-movimentacoes" class="form-control" placeholder="Filtrar histórico..." style="margin-bottom: 15px;">
+                    <div id="history-filters-container" class="filters-container">
+                        <input type="text" class="form-control filter-input" data-column="data" placeholder="Filtrar por Data...">
+                        <input type="text" class="form-control filter-input" data-column="tipo" placeholder="Filtrar por Tipo...">
+                        <input type="text" class="form-control filter-input" data-column="codigo" placeholder="Filtrar por Código...">
+                        <input type="text" class="form-control filter-input" data-column="descricao" placeholder="Filtrar por Descrição...">
+                        <input type="text" class="form-control filter-input" data-column="nf" placeholder="Filtrar por NF...">
+                        <input type="text" class="form-control filter-input" data-column="requisitante" placeholder="Filtrar por Requisitante...">
+                        <input type="text" class="form-control filter-input" data-column="obraId" placeholder="Filtrar por Obra...">
+                    </div>
                     <div class="table-wrapper">
                         <table id="table-movimentacoes" class="table">
-    <thead>
-        <tr id="headers-row">
-            <th data-column="data">Data</th>
-            <th data-column="tipo">Tipo</th>
-            <th data-column="codigo">Código</th>
-            <th data-column="codigo_global">Cód. Padrão</th>
-            <th data-column="descricao">Descrição</th>
-            <th data-column="un">UN</th>
-            <th data-column="quantidade">Qtde</th>
-            <th data-column="medida">Medida</th>
-            <th data-column="nf">Nº NF</th>
-            <th data-column="valor_unitario">Valor Unit.</th>
-            <th data-column="icms">ICMS</th>
-            <th data-column="ipi">IPI</th>
-            <th data-column="frete">Frete</th>
-            <th data-column="custoUnitario">Custo Unit.</th>
-            <th data-column="requisitante">Requisitante</th>
-            <th data-column="obraId">Obra</th>
-            <th data-column="observacao">Obs.</th>
-        </tr>
-        <tr id="filters-row">
-            <td><input type="text" class="form-control filter-input" data-column="data"></td>
-            <td><input type="text" class="form-control filter-input" data-column="tipo"></td>
-            <td><input type="text" class="form-control filter-input" data-column="codigo"></td>
-            <td><input type="text" class="form-control filter-input" data-column="codigo_global"></td>
-            <td><input type="text" class="form-control filter-input" data-column="descricao"></td>
-            <td><input type="text" class="form-control filter-input" data-column="un"></td>
-            <td><input type="text" class="form-control filter-input" data-column="quantidade"></td>
-            <td><input type="text" class="form-control filter-input" data-column="medida"></td>
-            <td><input type="text" class="form-control filter-input" data-column="nf"></td>
-            <td><input type="text" class="form-control filter-input" data-column="valor_unitario"></td>
-            <td><input type="text" class="form-control filter-input" data-column="icms"></td>
-            <td><input type="text" class="form-control filter-input" data-column="ipi"></td>
-            <td><input type="text" class="form-control filter-input" data-column="frete"></td>
-            <td><input type="text" class="form-control filter-input" data-column="custoUnitario"></td>
-            <td><input type="text" class="form-control filter-input" data-column="requisitante"></td>
-            <td><input type="text" class="form-control filter-input" data-column="obraId"></td>
-            <td><input type="text" class="form-control filter-input" data-column="observacao"></td>
-        </tr>
-    </thead>
+                            <thead>
+                                <tr id="headers-row">
+                                    <th data-column="data">Data</th>
+                                    <th data-column="tipo">Tipo</th>
+                                    <th data-column="codigo">Código</th>
+                                    <th data-column="codigo_global">Cód. Padrão</th>
+                                    <th data-column="descricao">Descrição</th>
+                                    <th data-column="un">UN</th>
+                                    <th data-column="quantidade">Qtde</th>
+                                    <th data-column="medida">Medida</th>
+                                    <th data-column="nf">Nº NF</th>
+                                    <th data-column="valor_unitario">Valor Unit.</th>
+                                    <th data-column="icms">ICMS</th>
+                                    <th data-column="ipi">IPI</th>
+                                    <th data-column="frete">Frete</th>
+                                    <th data-column="custoUnitario">Custo Unit.</th>
+                                    <th data-column="requisitante">Requisitante</th>
+                                    <th data-column="obraId">Obra</th>
+                                    <th data-column="observacao">Obs.</th>
+                                </tr>
+                            </thead>
                             <tbody></tbody>
                         </table>
                     </div>

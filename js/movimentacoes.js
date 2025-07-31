@@ -293,11 +293,13 @@ document.addEventListener('DOMContentLoaded', async function() {
         updateTable();
     });
 
-    document.getElementById('filters-row').addEventListener('input', e => {
-        const column = e.target.dataset.column;
-        const value = e.target.value;
-        filterState[column] = value;
-        updateTable();
+    document.getElementById('history-filters-container').addEventListener('input', e => {
+        if (e.target.classList.contains('filter-input')) {
+            const column = e.target.dataset.column;
+            const value = e.target.value;
+            filterState[column] = value;
+            updateTable();
+        }
     });
 
     // --- Init ---
