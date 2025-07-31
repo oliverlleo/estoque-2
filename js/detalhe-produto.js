@@ -63,11 +63,12 @@ import { db } from './firebase-config.js';
                 <p><strong>Endereçamento:</strong> ${enderecamentoCompleto}</p>
             `;
 
-            setupModalForm(product, inventarioPedacos);
+            const saldoPedaco = Object.values(inventarioPedacos).reduce((a, b) => a + b, 0);
+            setupModalForm(product, inventarioPedacos, estoqueAtual, saldoPedaco);
         }
 
         // --- Configurar o formulário do Modal ---
-        async function setupModalForm(product, inventory) {
+        async function setupModalForm(product, inventory, estoqueAtual, saldoPedaco) {
             const formContainer = formBaixa.querySelector('.form-grid-4-col');
 
             // Carregar configurações de Tipos de Saída e Obras
@@ -94,14 +95,24 @@ import { db } from './firebase-config.js';
 
 
             formContainer.innerHTML = `
-                <p class="auto-filled-field"><strong>Produto:</strong> ${product.descricao}</p>
-                <input type="number" id="baixa-quantidade" placeholder="Quantidade (${product.un})" step="any" class="form-control" required>
-                ${medidaFieldHtml}
-                <input type="text" id="baixa-requisitante" placeholder="Requisitante" class="form-control" required>
-                <select id="baixa-obra" class="form-control" required>${obrasOptions}</select>
-                <select id="baixa-tipo-saida" class="form-control" required>${tiposSaidaOptions}</select>
-                <input type="text" id="baixa-observacao" placeholder="Observação" class="form-control">
-            `;
+        <div id="modal-product-info" style="grid-column: 1 / -1; margin-bottom: 15px; padding-bottom: 15px; border-bottom: 1px solid #444466;">
+            <p style="margin: 0 0 8px 0;"><strong>Produto:</strong> ${product.descricao}</p>
+            <p style="margin: 0 0 8px 0; font-size: 0.9em; color: #A0A0B9;">
+                <span style="margin-right: 15px;"><strong>Código:</strong> ${product.codigo}</span>
+                <span><strong>Cód. Padrão:</strong> ${product.codigo_global || '-'}</span>
+            </p>
+            <p style="margin: 0; font-size: 0.9em; color: #A0A0B9;">
+                <span style="margin-right: 15px;"><strong>Estoque:</strong> ${estoqueAtual} ${product.un}</span>
+                <span><strong>Saldo Pedaços:</strong> ${saldoPedaco}</span>
+            </p>
+        </div>
+        <input type="number" id="baixa-quantidade" placeholder="Quantidade (${product.un})" step="any" class="form-control" required>
+        ${medidaFieldHtml}
+        <input type="text" id="baixa-requisitante" placeholder="Requisitante" class="form-control" required>
+        <select id="baixa-obra" class="form-control" required>${obrasOptions}</select>
+        <select id="baixa-tipo-saida" class="form-control" required>${tiposSaidaOptions}</select>
+        <input type="text" id="baixa-observacao" placeholder="Observação" class="form-control">
+    `;
 
             // Lógica para habilitar/desabilitar quantidade se um pedaço for selecionado
             const medidaSelect = document.getElementById('baixa-medida');
