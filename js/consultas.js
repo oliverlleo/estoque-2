@@ -14,7 +14,6 @@ document.addEventListener('DOMContentLoaded', async function() {
     let consolidatedData = [];
 
     async function fetchDataAndCalculate() {
-        // 1. Fetch all necessary data
         const [productsSnapshot, movementsSnapshot, locationsSnapshot, locaisSnapshot] = await Promise.all([
             getDocs(collection(db, 'produtos')),
             getDocs(collection(db, 'movimentacoes')),
@@ -27,7 +26,6 @@ document.addEventListener('DOMContentLoaded', async function() {
             products[doc.id] = { id: doc.id, ...doc.data() };
         });
 
-        // CORREÇÃO: Criar os mapas para locations e locais
         const locations = {};
         locationsSnapshot.forEach(doc => {
             locations[doc.id] = doc.data();
@@ -38,42 +36,78 @@ document.addEventListener('DOMContentLoaded', async function() {
             locais[doc.id] = doc.data();
         });
 
-
         const movementsByProduct = {};
         movementsSnapshot.forEach(doc => {
             const mov = doc.data();
-            // CORREÇÃO CRÍTICA: Usar 'productId' (minúsculo) como está no Firebase
-            if (!movementsByProduct[mov.productId]) {
-                movementsByProduct[mov.productId] = [];
+            if (mov.productId) {
+                if (!movementsByProduct[mov.productId]) {
+                    movementsByProduct[mov.productId] = [];
+                }
+                movementsByProduct[mov.productId].push(mov);
             }
-            movementsByProduct[mov.productId].push(mov);
         });
-
 
         const updatePromises = [];
 
-        // 2. Process, calculate and schedule updates
-        const processedProducts = Object.values(products).map(product => {
-            let calculatedStock = 0;
+        consolidatedData = Object.values(products).map(product => {
             const productMovements = movementsByProduct[product.id] || [];
 
+            let estoqueAtual = 0;
+            let inventarioPedacos = {};
+
             productMovements.forEach(mov => {
-                const quantity = parseFloat(mov.quantidade) || 0;
-                if (mov.tipo === 'entrada') {
-                    calculatedStock += quantity;
-                } else if (mov.tipo === 'saida') {
-                    calculatedStock -= quantity;
+                const isPiece = mov.medida && mov.medida.trim() !== '';
+                const quantidade = parseFloat(mov.quantidade) || 0;
+
+                if (isPiece) {
+                    const medida = mov.medida.trim();
+                    if (mov.tipo === 'entrada') {
+                        inventarioPedacos[medida] = (inventarioPedacos[medida] || 0) + 1;
+                    } else if (mov.tipo === 'saida') {
+                        inventarioPedacos[medida] = (inventarioPedacos[medida] || 0) - 1;
+                    }
+                } else {
+                    if (mov.tipo === 'entrada') {
+                        estoqueAtual += quantidade;
+                    } else if (mov.tipo === 'saida') {
+                        estoqueAtual -= quantidade;
+                    }
                 }
             });
 
-            if (product.estoque !== calculatedStock) {
+            if (product.estoque !== estoqueAtual) {
                 const productRef = doc(db, 'produtos', product.id);
-                updatePromises.push(updateDoc(productRef, { estoque: calculatedStock }));
+                updatePromises.push(updateDoc(productRef, { estoque: estoqueAtual }));
             }
+
+            const saldoPedaco = Object.values(inventarioPedacos).reduce((sum, count) => sum + count, 0);
+
+            const entryMovements = productMovements.filter(m => m.tipo === 'entrada' && (m.valor_unitario || 0) > 0);
+            let totalCost = 0;
+            let totalQuantityForAvg = 0;
+            entryMovements.forEach(m => {
+                if (!m.medida || m.medida.trim() === '') {
+                    const entryTotalValue = (m.quantidade * m.valor_unitario) + (m.icms || 0) + (m.ipi || 0) + (m.frete || 0);
+                    totalCost += entryTotalValue;
+                    totalQuantityForAvg += m.quantidade;
+                }
+            });
+
+            const valorMedio = totalQuantityForAvg > 0 ? totalCost / totalQuantityForAvg : 0;
+            const valorTotalEstoque = (estoqueAtual || 0) * valorMedio;
+
+            const enderecamentoDoc = locations[product.enderecamentoId];
+            const localNome = enderecamentoDoc ? (locais[enderecamentoDoc.localId]?.nome || 'N/A') : 'N/A';
+            const local = enderecamentoDoc ? `${enderecamentoDoc.codigo} - ${localNome}` : 'N/A';
 
             return {
                 ...product,
-                estoque: calculatedStock
+                estoque: estoqueAtual,
+                saldoPedaco: saldoPedaco,
+                inventarioPedacos: inventarioPedacos,
+                valorMedio,
+                valorTotalEstoque,
+                local
             };
         });
 
@@ -81,70 +115,66 @@ document.addEventListener('DOMContentLoaded', async function() {
             await Promise.all(updatePromises);
         }
 
-        // 3. Consolidate data for rendering
-        consolidatedData = processedProducts.map(product => {
-            const productMovements = movementsByProduct[product.id] || [];
-            const entryMovements = productMovements.filter(m => m.tipo === 'entrada' && m.valor_unitario > 0);
-
-            let totalCost = 0;
-            let totalQuantity = 0;
-            entryMovements.forEach(m => {
-                const entryTotalValue = (m.quantidade * m.valor_unitario) + (m.icms || 0) + (m.ipi || 0) + (m.frete || 0);
-                totalCost += entryTotalValue;
-                totalQuantity += m.quantidade;
-            });
-
-            const valorMedio = totalQuantity > 0 ? totalCost / totalQuantity : 0;
-            const valorTotalEstoque = (product.estoque || 0) * valorMedio;
-
-            const enderecamentoDoc = locations[product.enderecamentoId];
-            const localNome = enderecamentoDoc ? (locais[enderecamentoDoc.localId]?.nome || 'N/A') : 'N/A';
-            const local = enderecamentoDoc ? `${enderecamentoDoc.codigo} - ${localNome}` : 'N/A';
-
-            const medidas = productMovements
-                .filter(m => m.medida)
-                .map(m => `${m.medida} (${m.tipo})`)
-                .join(', ');
-
-            return {
-                ...product,
-                valorMedio,
-                valorTotalEstoque,
-                local,
-                medidas
-            };
-        });
-
         renderTable(consolidatedData);
     }
 
-    // 4. Render Table
     function renderTable(data) {
-        tableBody.innerHTML = '<tr><td colspan="9" style="text-align:center;">Carregando...</td></tr>';
-        if(data.length === 0) {
-            tableBody.innerHTML = '<tr><td colspan="9" style="text-align:center;">Nenhum produto encontrado.</td></tr>';
-            return;
-        }
-
         tableBody.innerHTML = '';
         data.forEach(item => {
             const row = document.createElement('tr');
+            row.className = 'main-row';
             row.innerHTML = `
                 <td>${item.codigo}</td>
                 <td>${item.codigo_global}</td>
                 <td>${item.descricao}</td>
                 <td>${item.estoque || 0}</td>
                 <td>${item.un}</td>
+                <td>${item.saldoPedaco || 0}</td>
                 <td>R$ ${item.valorMedio.toFixed(2)}</td>
-                <td>${item.valorTotalEstoque.toFixed(2)}</td>
+                <td>R$ ${item.valorTotalEstoque.toFixed(2)}</td>
                 <td>${item.local}</td>
-                <td>${item.medidas || '-'}</td>
+                <td>
+                    ${(item.saldoPedaco || 0) > 0 ? `<button class="btn-ver-pedacos" data-product-id="${item.id}"><i data-feather="chevron-down"></i></button>` : '-'}
+                </td>
             `;
             tableBody.appendChild(row);
+
+            if ((item.saldoPedaco || 0) > 0) {
+                const detailsRow = document.createElement('tr');
+                detailsRow.className = `details-row details-for-${item.id}`;
+                detailsRow.style.display = 'none';
+
+                let detailsHtml = '<ul style="margin: 0; padding-left: 20px;">';
+                for (const [medida, qtd] of Object.entries(item.inventarioPedacos)) {
+                    if (qtd > 0) {
+                        detailsHtml += `<li style="padding: 4px 0;"><strong>${qtd}</strong> pedaço(s) de <strong>${medida}</strong></li>`;
+                    }
+                }
+                detailsHtml += '</ul>';
+
+                detailsRow.innerHTML = `<td colspan="10" style="background-color: #f8f9fa;">${detailsHtml}</td>`;
+                tableBody.appendChild(detailsRow);
+            }
         });
+        feather.replace();
     }
 
-    // 5. Filtering logic
+    tableBody.addEventListener('click', function(event) {
+        const button = event.target.closest('.btn-ver-pedacos');
+        if (button) {
+            const productId = button.dataset.productId;
+            const detailsRow = document.querySelector(`.details-for-${productId}`);
+            const icon = button.querySelector('i');
+
+            if (detailsRow) {
+                const isVisible = detailsRow.style.display !== 'none';
+                detailsRow.style.display = isVisible ? 'none' : 'table-row';
+                icon.setAttribute('data-feather', isVisible ? 'chevron-down' : 'chevron-up');
+                feather.replace();
+            }
+        }
+    });
+
     function applyFilters() {
         const filterValues = {
             codigo: filters.codigo.value.toLowerCase(),
@@ -153,9 +183,9 @@ document.addEventListener('DOMContentLoaded', async function() {
         };
 
         const filteredData = consolidatedData.filter(item => {
-            const matchesCodigo = item.codigo.toLowerCase().includes(filterValues.codigo);
-            const matchesDescricao = item.descricao.toLowerCase().includes(filterValues.descricao);
-            const matchesLocal = item.local.toLowerCase().includes(filterValues.local);
+            const matchesCodigo = (item.codigo || '').toLowerCase().includes(filterValues.codigo);
+            const matchesDescricao = (item.descricao || '').toLowerCase().includes(filterValues.descricao);
+            const matchesLocal = (item.local || '').toLowerCase().includes(filterValues.local);
             return matchesCodigo && matchesDescricao && matchesLocal;
         });
 
@@ -164,9 +194,8 @@ document.addEventListener('DOMContentLoaded', async function() {
 
     Object.values(filters).forEach(input => input.addEventListener('input', applyFilters));
 
-    // Initial Load
     fetchDataAndCalculate().catch(error => {
         console.error("Erro ao carregar dados da consulta:", error);
-        tableBody.innerHTML = `<tr><td colspan="9" style="text-align:center; color: red;">Erro ao carregar dados: ${error.message}</td></tr>`;
+        tableBody.innerHTML = `<tr><td colspan="10" style="text-align:center; color: red;">Erro ao carregar dados: ${error.message}</td></tr>`;
     });
 });

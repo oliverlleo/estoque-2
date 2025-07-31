@@ -398,3 +398,33 @@ input:checked + .slider:before {
 #info-modal-header {
     background-color: #0d6efd; /* Azul informativo do Bootstrap */
 }
+
+/* Estilos para Célula de Tipo na Tabela de Movimentações (VERSÃO CORRIGIDA) */
+
+#table-movimentacoes td.entrada,
+#table-movimentacoes td.saida {
+    color: white;
+    text-align: center;
+    font-weight: 600;
+    border-radius: 4px;
+    border-bottom: 2px solid #fff;
+}
+
+#table-movimentacoes td.entrada {
+    background-color: #198754; /* Verde (btn-success) */
+}
+
+#table-movimentacoes td.saida {
+    background-color: #dc3545; /* Vermelho (btn-danger) */
+}
+
+/* Mantém a cor da célula mesmo com o efeito hover da linha da tabela.
+  Esta regra é mais específica e por isso prevalece sobre a regra de hover genérica.
+*/
+#table-movimentacoes tr:hover td.entrada {
+    background-color: #198754;
+}
+
+#table-movimentacoes tr:hover td.saida {
+    background-color: #dc3545;
+}
