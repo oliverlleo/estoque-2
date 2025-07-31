@@ -41,7 +41,7 @@
         .main-content {
             width: 100%;
             max-width: 600px;
-            padding: 0; /* Removido padding para dar ao header/section controle total */
+            padding: 0;
         }
 
         header h1 {
@@ -122,7 +122,8 @@
 
         /* Estilos do Modal */
         .modal {
-            display: none; /* Oculto por padrão */
+            /* CORREÇÃO: A visibilidade é controlada pelo JS. O CSS só cuida da aparência. */
+            display: none; 
             position: fixed;
             z-index: 1000;
             left: 0;
@@ -132,13 +133,6 @@
             background-color: rgba(0, 0, 0, 0.7);
             justify-content: center;
             align-items: center;
-            opacity: 0;
-            transition: opacity 0.3s ease;
-        }
-        
-        .modal.show {
-            display: flex;
-            opacity: 1;
         }
 
         .modal-content {
@@ -147,18 +141,6 @@
             width: 90%;
             max-width: 450px;
             border: 1px solid var(--border-color);
-            animation: slideIn 0.3s ease-out;
-        }
-
-        @keyframes slideIn {
-            from {
-                transform: translateY(-20px);
-                opacity: 0;
-            }
-            to {
-                transform: translateY(0);
-                opacity: 1;
-            }
         }
 
         .modal-header {
@@ -196,7 +178,6 @@
             gap: 20px;
         }
 
-        /* Os estilos abaixo serão aplicados aos elementos criados pelo JS */
         .form-group {
             display: flex;
             flex-direction: column;
@@ -255,7 +236,7 @@
             <div class="modal-body">
                 <form id="form-baixa-estoque">
                     <div class="form-grid-4-col">
-                        <!-- CORREÇÃO: Este contêiner agora está vazio para que o JS possa preenchê-lo. -->
+                        <!-- Este contêiner está vazio para que o JS possa preenchê-lo. -->
                     </div>
                     <button type="submit" id="btn-confirmar-baixa" class="btn btn-danger">Confirmar Saída</button>
                 </form>
