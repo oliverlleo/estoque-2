@@ -1,45 +1,278 @@
 <!DOCTYPE html>
-    <html lang="pt-BR">
-    <head>
-        <meta charset="UTF-8">
-        <meta name="viewport" content="width=device-width, initial-scale=1.0">
-        <title>Detalhes do Produto - Controle de Estoque</title>
-        <link rel="stylesheet" href="css/style.css">
-        <script src="https://cdn.jsdelivr.net/npm/feather-icons/dist/feather.min.js"></script>
-    </head>
-    <body>
-        <main class="main-content" style="margin-left: 0; padding: 15px;">
-            <header>
-                <h1>Detalhes do Produto</h1>
-            </header>
-            <section id="product-details-content" class="content">
-                <div class="card">
-                    <div class="card-body" id="details-container">
-                        <p>Carregando dados do produto...</p>
-                    </div>
-                </div>
-                <button id="btn-abrir-modal-baixa" class="btn btn-danger" style="width: 100%; margin-top: 20px; padding: 15px; font-size: 1.2rem;">Dar Baixa no Estoque</button>
-            </section>
-        </main>
+<html lang="pt-BR">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Detalhes do Produto - Controle de Estoque</title>
+    <script src="https://cdn.jsdelivr.net/npm/feather-icons/dist/feather.min.js"></script>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600;700&display=swap" rel="stylesheet">
+    <style>
+        /* Reset e Estilos Base */
+        :root {
+            --bg-color: #1E1E2E; /* Fundo principal escuro */
+            --surface-color: #2D2D44; /* Cor para cards e modais */
+            --primary-text-color: #F5F5F5; /* Cor do texto principal */
+            --secondary-text-color: #A0A0B9; /* Cor do texto secundário e labels */
+            --accent-color: #E53E3E; /* Cor de destaque (vermelho/coral) */
+            --accent-hover-color: #C53030; /* Cor de destaque no hover */
+            --border-color: #444466;
+        }
 
-        <div id="baixa-modal" class="modal">
-            <div class="modal-content">
-                <div class="modal-header" style="background-color: #dc3545;">
-                    <h3>Registrar Saída</h3>
-                    <span id="baixa-modal-close" class="close-button">&times;</span>
-                </div>
-                <div class="modal-body">
-                    <form id="form-baixa-estoque">
-                        <div class="form-grid-4-col" style="grid-template-columns: 1fr;">
-                            </div>
-                        <button type="submit" id="btn-confirmar-baixa" class="btn btn-danger" style="width: 100%; margin-top: 20px;">Confirmar Saída</button>
-                    </form>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: 'Inter', sans-serif;
+            background-color: var(--bg-color);
+            color: var(--primary-text-color);
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            min-height: 100vh;
+            padding: 20px;
+        }
+
+        /* Layout Principal */
+        .main-content {
+            width: 100%;
+            max-width: 600px;
+            padding: 0; /* Removido padding para dar ao header/section controle total */
+        }
+
+        header h1 {
+            font-size: 2rem;
+            font-weight: 700;
+            text-align: center;
+            margin-bottom: 25px;
+            position: relative;
+            padding-bottom: 10px;
+        }
+
+        header h1::after {
+            content: '';
+            position: absolute;
+            bottom: 0;
+            left: 50%;
+            transform: translateX(-50%);
+            width: 50px;
+            height: 3px;
+            background-color: var(--accent-color);
+        }
+
+        /* Card de Detalhes */
+        .card {
+            background-color: var(--surface-color);
+            border-radius: 8px;
+            border: 1px solid var(--border-color);
+        }
+
+        .card-body {
+            padding: 25px;
+        }
+
+        #details-container p {
+            margin-bottom: 12px;
+            font-size: 1rem;
+            display: flex;
+        }
+        #details-container p:last-child {
+            margin-bottom: 0;
+        }
+
+        #details-container strong {
+            font-weight: 600;
+            color: var(--secondary-text-color);
+            width: 120px;
+            flex-shrink: 0;
+        }
+
+        /* Botão Principal */
+        .btn {
+            display: block;
+            width: 100%;
+            padding: 15px;
+            font-size: 1rem;
+            font-weight: 600;
+            text-transform: uppercase;
+            letter-spacing: 1px;
+            text-align: center;
+            border: none;
+            border-radius: 5px;
+            cursor: pointer;
+            transition: background-color 0.2s ease-in-out;
+        }
+
+        .btn-danger {
+            background-color: var(--accent-color);
+            color: var(--primary-text-color);
+        }
+
+        .btn-danger:hover {
+            background-color: var(--accent-hover-color);
+        }
+
+        #btn-abrir-modal-baixa {
+            margin-top: 20px;
+        }
+
+        /* Estilos do Modal */
+        .modal {
+            display: none; /* Oculto por padrão */
+            position: fixed;
+            z-index: 1000;
+            left: 0;
+            top: 0;
+            width: 100%;
+            height: 100%;
+            background-color: rgba(0, 0, 0, 0.7);
+            justify-content: center;
+            align-items: center;
+            opacity: 0;
+            transition: opacity 0.3s ease;
+        }
+        
+        .modal.show {
+            display: flex;
+            opacity: 1;
+        }
+
+        .modal-content {
+            background-color: var(--surface-color);
+            border-radius: 8px;
+            width: 90%;
+            max-width: 450px;
+            border: 1px solid var(--border-color);
+            animation: slideIn 0.3s ease-out;
+        }
+
+        @keyframes slideIn {
+            from {
+                transform: translateY(-20px);
+                opacity: 0;
+            }
+            to {
+                transform: translateY(0);
+                opacity: 1;
+            }
+        }
+
+        .modal-header {
+            padding: 15px 20px;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            border-bottom: 1px solid var(--border-color);
+        }
+
+        .modal-header h3 {
+            margin: 0;
+            font-size: 1.25rem;
+            font-weight: 600;
+        }
+
+        .close-button {
+            font-size: 28px;
+            font-weight: 400;
+            color: var(--secondary-text-color);
+            cursor: pointer;
+            transition: color 0.2s ease;
+        }
+        .close-button:hover {
+            color: var(--primary-text-color);
+        }
+
+        .modal-body {
+            padding: 25px;
+        }
+
+        /* Formulário no Modal */
+        .form-grid-4-col {
+            display: grid;
+            gap: 20px;
+        }
+
+        .form-group {
+            display: flex;
+            flex-direction: column;
+        }
+
+        .form-group label {
+            font-size: 0.875rem;
+            font-weight: 600;
+            color: var(--secondary-text-color);
+            margin-bottom: 8px;
+            text-transform: uppercase;
+        }
+
+        .form-group input {
+            background-color: var(--bg-color);
+            border: 1px solid var(--border-color);
+            color: var(--primary-text-color);
+            border-radius: 5px;
+            padding: 12px;
+            font-size: 1rem;
+            font-family: 'Inter', sans-serif;
+            width: 100%;
+        }
+
+        .form-group input:focus {
+            outline: none;
+            border-color: var(--accent-color);
+        }
+
+        #btn-confirmar-baixa {
+            margin-top: 20px;
+        }
+    </style>
+</head>
+<body>
+    <main class="main-content">
+        <header>
+            <h1>Detalhes do Produto</h1>
+        </header>
+        <section id="product-details-content" class="content">
+            <div class="card">
+                <div class="card-body" id="details-container">
+                    <p>Carregando dados do produto...</p>
                 </div>
             </div>
-        </div>
+            <button id="btn-abrir-modal-baixa" class="btn btn-danger">Dar Baixa no Estoque</button>
+        </section>
+    </main>
 
-        <script type="module" src="js/firebase-config.js"></script>
-        <script type="module" src="js/detalhe-produto.js"></script>
-        <script> feather.replace() </script>
-    </body>
-    </html>
+    <div id="baixa-modal" class="modal">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h3>Registrar Saída</h3>
+                <span id="baixa-modal-close" class="close-button">&times;</span>
+            </div>
+            <div class="modal-body">
+                <form id="form-baixa-estoque">
+                    <div class="form-grid-4-col">
+                        <!-- Adicionando os campos do formulário para o design funcionar -->
+                        <div class="form-group">
+                            <label for="quantidade-saida">Quantidade</label>
+                            <input type="number" id="quantidade-saida" name="quantidade-saida" min="1" required>
+                        </div>
+                        <div class="form-group">
+                            <label for="motivo-saida">Motivo</label>
+                            <input type="text" id="motivo-saida" name="motivo-saida" required>
+                        </div>
+                    </div>
+                    <button type="submit" id="btn-confirmar-baixa" class="btn btn-danger">Confirmar Saída</button>
+                </form>
+            </div>
+        </div>
+    </div>
+
+    <!-- Scripts originais mantidos intactos -->
+    <script type="module" src="js/firebase-config.js"></script>
+    <script type="module" src="js/detalhe-produto.js"></script>
+    <script> feather.replace() </script>
+</body>
+</html>
