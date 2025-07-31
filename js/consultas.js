@@ -49,6 +49,19 @@ document.addEventListener('DOMContentLoaded', async function() {
         // 2. Process and calculate for each product
         consolidatedData = Object.values(products).map(product => {
             const productMovements = movementsByProduct[product.id] || [];
+
+            // --- INÍCIO DA LÓGICA ADICIONADA ---
+            // Recalcula o estoque com base nas movimentações
+            let calculatedStock = 0;
+            productMovements.forEach(mov => {
+                if (mov.tipo === 'entrada') {
+                    calculatedStock += (mov.quantidade || 0);
+                } else if (mov.tipo === 'saida') {
+                    calculatedStock -= (mov.quantidade || 0);
+                }
+            });
+            // --- FIM DA LÓGICA ADICIONADA ---
+
             const entryMovements = productMovements.filter(m => m.tipo === 'entrada' && m.valor_unitario > 0);
 
             let totalCost = 0;
@@ -60,13 +73,12 @@ document.addEventListener('DOMContentLoaded', async function() {
             });
 
             const valorMedio = totalQuantity > 0 ? totalCost / totalQuantity : 0;
-            const valorTotalEstoque = (product.estoque || 0) * valorMedio;
+            // Usa o estoque recém-calculado
+            const valorTotalEstoque = calculatedStock * valorMedio;
 
-            // Lógica de endereçamento atualizada
             const enderecamentoDoc = locations[product.enderecamentoId];
             const localNome = enderecamentoDoc ? (locais[enderecamentoDoc.localId]?.nome || 'N/A') : 'N/A';
             const local = enderecamentoDoc ? `${enderecamentoDoc.codigo} - ${localNome}` : 'N/A';
-
 
             const medidas = productMovements
                 .filter(m => m.medida)
@@ -75,6 +87,7 @@ document.addEventListener('DOMContentLoaded', async function() {
 
             return {
                 ...product,
+                estoque: calculatedStock, // Usa o estoque calculado
                 valorMedio,
                 valorTotalEstoque,
                 local,
