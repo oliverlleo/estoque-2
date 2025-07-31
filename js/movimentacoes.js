@@ -75,17 +75,19 @@ document.addEventListener('DOMContentLoaded', async function() {
                     const productDoc = await transaction.get(productRef);
                     if (!productDoc.exists()) throw "Produto não encontrado!";
 
-                    const productData = productDoc.data();
+                    const tipoEntradaId = document.getElementById('mov-tipo-entrada').value;
+                    const tipoEntradaData = configData.tipos_entrada[tipoEntradaId];
                     const quantidadeInformada = parseFloat(document.getElementById('mov-quantidade').value);
-
                     let quantidadeParaEstoque = quantidadeInformada;
-                    const fatorConversao = productData.fator_conversao || 1;
 
-                    if (productData.unidade_compraId && fatorConversao > 0 && fatorConversao !== 1) {
-                        quantidadeParaEstoque = quantidadeInformada / fatorConversao;
+                    if (tipoEntradaData && tipoEntradaData.qtd_compra && tipoEntradaData.qtd_padrao) {
+                        const fator = parseFloat(tipoEntradaData.qtd_compra) / parseFloat(tipoEntradaData.qtd_padrao);
+                        if (fator > 0) {
+                            quantidadeParaEstoque = quantidadeInformada / fator;
+                        }
                     }
 
-                    const currentEstoque = productData.estoque || 0;
+                    const currentEstoque = productDoc.data().estoque || 0;
                     const newEstoque = currentEstoque + quantidadeParaEstoque;
 
                     transaction.update(productRef, { estoque: newEstoque });
@@ -95,11 +97,9 @@ document.addEventListener('DOMContentLoaded', async function() {
                         tipo: 'entrada',
                         productId,
                         data: serverTimestamp(),
-                        quantidade: quantidadeParaEstoque, // A quantidade que efetivamente entrou no estoque
-                        quantidade_compra: quantidadeInformada, // A quantidade que veio na nota fiscal
-                        unidade_compraId: productData.unidade_compraId || null, // A unidade da nota fiscal
-                        fator_conversao_aplicado: fatorConversao, // Salva o fator usado para rastreabilidade
-                        tipo_entradaId: document.getElementById('mov-tipo-entrada').value,
+                        quantidade: quantidadeParaEstoque,
+                        quantidade_compra: quantidadeInformada,
+                        tipo_entradaId: tipoEntradaId,
                         nf: document.getElementById('mov-nf').value,
                         valor_unitario: parseFloat(document.getElementById('mov-valor-unitario').value) || 0,
                         icms: parseFloat(document.getElementById('mov-icms').value) || 0,
@@ -191,7 +191,7 @@ document.addEventListener('DOMContentLoaded', async function() {
         document.getElementById('mov-codigo-display').textContent = product ? product.codigo : '-';
         document.getElementById('mov-codigoglobal-display').textContent = product ? (product.codigo_global || '-') : '-';
         document.getElementById('mov-descricao-display').textContent = product ? product.descricao : '-';
-        document.getElementById('mov-un-display').textContent = product ? product.un : '-'; // Sempre exibir a unidade de estoque
+        document.getElementById('mov-un-display').textContent = product ? product.un : '-';
         document.getElementById('mov-estoque-display').textContent = product ? (product.estoque || 0) : '-';
     }
     document.getElementById('mov-produto').addEventListener('change', updateProductInfo);

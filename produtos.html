@@ -36,29 +36,13 @@
                         <input type="text" id="produto-codigo_global" placeholder="Código Global" class="form-control">
                         <input type="text" id="produto-descricao" placeholder="Descrição" required class="form-control">
                         <input type="text" id="produto-un" placeholder="UN Estoque" required class="form-control">
+                        <input type="text" id="produto-un_compra" placeholder="UN Compra (ex: 1 Pç = 5,8m)" class="form-control">
                         <input type="text" id="produto-cor" placeholder="Cor" class="form-control">
                         <select id="produto-fornecedor" required class="form-control"><option value="">Selecione o Fornecedor...</option></select>
                         <select id="produto-grupo" required class="form-control"><option value="">Selecione o Grupo...</option></select>
                         <select id="produto-aplicacao" required class="form-control"><option value="">Selecione a Aplicação...</option></select>
                         <select id="produto-conjunto" required class="form-control"><option value="">Selecione o Conjunto...</option></select>
                         <select id="produto-enderecamento" required class="form-control"><option value="">Selecione o Endereçamento...</option></select>
-
-                        <div style="grid-column: 1 / -1; border-top: 1px solid #ccc; padding-top: 15px; margin-top: 10px;">
-                            <p style="margin-bottom: 10px; font-weight: 500;">Regra de Conversão (para entradas por nota fiscal):</p>
-                            <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 15px;">
-                                <div>
-                                    <label for="produto-unidade-compra">Se a unidade de compra for:</label>
-                                    <select id="produto-unidade-compra" class="form-control">
-                                        <option value="">Nenhuma / Mesma do Estoque</option>
-                                    </select>
-                                </div>
-                                <div>
-                                    <label for="produto-fator-conversao">Quantos você compra para 1 UN de Estoque?</label>
-                                    <input type="number" id="produto-fator-conversao" placeholder="Ex: 5.8" step="any" class="form-control">
-                                </div>
-                            </div>
-                        </div>
-
                         <button type="submit" class="btn btn-success" style="grid-column: 1 / -1;">Salvar Produto</button>
                     </form>
                 </div>
@@ -76,6 +60,7 @@
                                     <th>Cód. Global</th>
                                     <th>Descrição</th>
                                     <th>UN</th>
+                                    <th>UN Compra</th>
                                     <th>Cor</th>
                                     <th>Fornecedor</th>
                                     <th>Grupo</th>
