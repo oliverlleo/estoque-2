@@ -19,7 +19,7 @@ document.addEventListener('DOMContentLoaded', async function() {
             getDocs(collection(db, 'produtos')),
             getDocs(collection(db, 'movimentacoes')),
             getDocs(collection(db, 'enderecamentos')),
-            getDocs(collection(db, 'locais'))
+            getDocs(collection(db, 'locais')) // ADICIONADO
         ]);
 
         const products = {};
@@ -32,9 +32,9 @@ document.addEventListener('DOMContentLoaded', async function() {
             locations[doc.id] = doc.data();
         });
 
-        const locais = {};
-        locaisSnapshot.forEach(doc => {
-            locais[doc.id] = doc.data();
+        const locais = {}; // ADICIONADO
+        locaisSnapshot.forEach(doc => { // ADICIONADO
+            locais[doc.id] = doc.data(); // ADICIONADO
         });
 
         const movementsByProduct = {};
@@ -54,10 +54,14 @@ document.addEventListener('DOMContentLoaded', async function() {
             const productMovements = movementsByProduct[product.id] || [];
             let calculatedStock = 0;
             productMovements.forEach(mov => {
+                // --- ESTA É A CORREÇÃO CRUCIAL ---
+                // Garante que a quantidade seja tratada como um número de ponto flutuante.
+                const quantity = parseFloat(mov.quantidade) || 0;
+
                 if (mov.tipo === 'entrada') {
-                    calculatedStock += (mov.quantidade || 0);
+                    calculatedStock += quantity;
                 } else if (mov.tipo === 'saida') {
-                    calculatedStock -= (mov.quantidade || 0);
+                    calculatedStock -= quantity;
                 }
             });
 
