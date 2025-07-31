@@ -42,6 +42,7 @@ document.addEventListener('DOMContentLoaded', async function() {
             { id: 'entrada-tipo', collection: 'tipos_entrada', field: 'nome', defaultOption: 'Tipo de Entrada...' },
             { id: 'saida-tipo', collection: 'tipos_saida', field: 'nome', defaultOption: 'Tipo de Saída...' },
             { id: 'saida-obra', collection: 'obras', field: 'nome', defaultOption: 'Selecione a Obra...' },
+            { id: 'unused-id', collection: 'unidades_compra', field: 'nome', defaultOption: 'Unidades' }
         ];
 
         for (const cfg of configsToLoad) {
@@ -65,7 +66,9 @@ document.addEventListener('DOMContentLoaded', async function() {
             document.getElementById('entrada-codigo-display').textContent = product ? product.codigo : '-';
             document.getElementById('entrada-codigoglobal-display').textContent = product ? (product.codigo_global || '-') : '-';
             document.getElementById('entrada-descricao-display').textContent = product ? product.descricao : '-';
-            document.getElementById('entrada-un-display').textContent = product ? product.un_compra : '-';
+            const unidadeCompraId = product ? product.unidade_compraId : null;
+            const unidadeCompraNome = unidadeCompraId ? configData.unidades_compra[unidadeCompraId]?.nome : (product ? product.un : '-');
+            document.getElementById('entrada-un-display').textContent = unidadeCompraNome;
         });
         document.getElementById('saida-produto').addEventListener('change', (e) => {
             const product = productsMap[e.target.value];
@@ -95,14 +98,29 @@ document.addEventListener('DOMContentLoaded', async function() {
 
                 if (!productDoc.exists()) { throw "Produto não encontrado!"; }
 
-                const currentEstoque = productDoc.data().estoque || 0;
-                const newEstoque = currentEstoque + quantidade;
+                const productData = productDoc.data();
+                let quantidadeEntrada = parseFloat(document.getElementById('entrada-quantidade').value);
+                let quantidadeCompra = quantidadeEntrada; // Salva a quantidade original
+
+                // AQUI ESTÁ A LÓGICA DE CONVERSÃO
+                const fatorConversao = productData.fator_conversao || 1;
+                if (fatorConversao > 1) { // Só converte se o fator for significativo
+                    quantidadeEntrada = quantidadeEntrada / fatorConversao;
+                }
+
+                const currentEstoque = productData.estoque || 0;
+                const newEstoque = currentEstoque + quantidadeEntrada; // Soma a quantidade JÁ CONVERTIDA
 
                 transaction.update(productRef, { estoque: newEstoque });
 
                 const movementRef = doc(collection(db, 'movimentacoes'));
                 const movementData = {
-                    tipo: 'entrada', productId, quantidade, data: serverTimestamp(),
+                    tipo: 'entrada',
+                    productId,
+                    quantidade: quantidadeEntrada, // Salva a quantidade convertida
+                    quantidade_compra: quantidadeCompra, // NOVO CAMPO: salva a quantidade original da NF
+                    unidade_compraId: productData.unidade_compraId, // NOVO CAMPO: salva a unidade da compra
+                    data: serverTimestamp(),
                     tipo_entradaId: document.getElementById('entrada-tipo').value,
                     nf: document.getElementById('entrada-nf').value,
                     valor_unitario: parseFloat(document.getElementById('entrada-valor-unitario').value) || 0,

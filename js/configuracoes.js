@@ -8,6 +8,14 @@ document.addEventListener('DOMContentLoaded', function() {
         // Mantenha a mesma estrutura de configuração que você já tinha
         { name: "Fornecedores", id: "fornecedor", collectionName: "fornecedores", fields: { nome: "Nome do Fornecedor", imposto: "Imposto (ST)" }, render: (d) => `<td>${d.nome}</td><td>${d.imposto || 0}</td>`, tableHeaders: "<th>Nome</th><th>Imposto (ST)</th>" },
         { name: "Grupos", id: "grupo", collectionName: "grupos", fields: { nome: "Nome do Grupo" }, render: (d) => `<td>${d.nome}</td>`, tableHeaders: "<th>Nome</th>" },
+        {
+            name: "Unidades de Compra",
+            id: "unidade-compra",
+            collectionName: "unidades_compra",
+            fields: { nome: "Nome da Unidade (ex: Metro)", sigla: "Sigla (ex: m)" },
+            render: (d) => `<td>${d.nome}</td><td>${d.sigla}</td>`,
+            tableHeaders: "<th>Nome</th><th>Sigla</th>"
+        },
         { name: "Aplicações", id: "aplicacao", collectionName: "aplicacoes", fields: { nome: "Nome da Aplicação" }, render: (d) => `<td>${d.nome}</td>`, tableHeaders: "<th>Nome</th>" },
         { name: "Conjuntos", id: "conjunto", collectionName: "conjuntos", fields: { nome: "Nome do Conjunto" }, render: (d) => `<td>${d.nome}</td>`, tableHeaders: "<th>Nome</th>" },
         { name: "Locais", id: "local", collectionName: "locais", fields: { nome: "Nome do Local" }, render: (d) => `<td>${d.nome}</td>`, tableHeaders: "<th>Nome</th>" },

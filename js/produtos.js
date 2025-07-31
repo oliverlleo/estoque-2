@@ -15,6 +15,7 @@ document.addEventListener('DOMContentLoaded', async function() {
     const configCollections = [
         { name: 'fornecedor', collectionName: 'fornecedores', displayField: 'nome' },
         { name: 'grupo', collectionName: 'grupos', displayField: 'nome' },
+        { name: 'unidade-compra', collectionName: 'unidades_compra', displayField: 'nome' },
         { name: 'aplicacao', collectionName: 'aplicacoes', displayField: 'nome' },
         { name: 'conjunto', collectionName: 'conjuntos', displayField: 'nome' },
         { name: 'locais', collectionName: 'locais', displayField: 'nome' }, // ADICIONADO
@@ -64,7 +65,8 @@ document.addEventListener('DOMContentLoaded', async function() {
             codigo_global: document.getElementById('produto-codigo_global').value,
             descricao: document.getElementById('produto-descricao').value,
             un: document.getElementById('produto-un').value,
-            un_compra: document.getElementById('produto-un_compra').value,
+            unidade_compraId: document.getElementById('produto-unidade-compra').value,
+            fator_conversao: parseFloat(document.getElementById('produto-fator-conversao').value) || 1,
             cor: document.getElementById('produto-cor').value,
             fornecedorId: document.getElementById('produto-fornecedor').value,
             grupoId: document.getElementById('produto-grupo').value,
@@ -101,13 +103,16 @@ document.addEventListener('DOMContentLoaded', async function() {
             const enderecamentoDoc = configData.enderecamentos[pData.enderecamentoId];
             const localNome = enderecamentoDoc ? configData.locais[enderecamentoDoc.localId]?.nome : 'N/A';
             const enderecamento = enderecamentoDoc ? `${enderecamentoDoc.codigo} - ${localNome}` : 'N/A';
+            const unidadeCompra = configData.unidades_compra[pData.unidade_compraId]?.nome || 'N/A';
+            const fatorConversao = pData.fator_conversao || 1;
 
             row.innerHTML = `
                 <td>${pData.codigo}</td>
                 <td>${pData.codigo_global}</td>
                 <td>${pData.descricao}</td>
                 <td>${pData.un}</td>
-                <td>${pData.un_compra}</td>
+                <td>${unidadeCompra}</td>
+                <td>${fatorConversao}</td>
                 <td>${pData.cor}</td>
                 <td>${fornecedor}</td>
                 <td>${grupo}</td>
@@ -141,7 +146,8 @@ document.addEventListener('DOMContentLoaded', async function() {
                 document.getElementById('produto-codigo_global').value = product.data.codigo_global;
                 document.getElementById('produto-descricao').value = product.data.descricao;
                 document.getElementById('produto-un').value = product.data.un;
-                document.getElementById('produto-un_compra').value = product.data.un_compra;
+                document.getElementById('produto-unidade-compra').value = product.data.unidade_compraId;
+                document.getElementById('produto-fator-conversao').value = product.data.fator_conversao;
                 document.getElementById('produto-cor').value = product.data.cor;
                 document.getElementById('produto-fornecedor').value = product.data.fornecedorId;
                 document.getElementById('produto-grupo').value = product.data.grupoId;
