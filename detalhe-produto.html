@@ -72,37 +72,33 @@
         }
 
         .card-body {
-            padding: 30px; /* Mais espaço interno */
+            padding: 25px;
         }
 
-        /* REVISÃO COMPLETA DO VISUAL DOS DETALHES */
+        /* REFAZENDO COMPLETAMENTE O VISUAL DOS DETALHES */
         #details-container p {
-            display: grid;
-            grid-template-columns: max-content auto; /* Coluna do rótulo se ajusta ao conteúdo */
-            gap: 20px; /* Mais espaço entre rótulo e valor */
-            align-items: center; /* Alinha verticalmente */
+            margin: 0;
+            padding: 16px 0; /* Espaçamento vertical para cada item */
+            border-bottom: 1px solid var(--border-color);
             font-size: 1rem;
-            padding-bottom: 15px;
-            margin-bottom: 15px;
-            border-bottom: 1px solid var(--border-color); /* Separador entre os itens */
+            line-height: 1.5;
+        }
+        #details-container p:first-child {
+            padding-top: 0;
         }
         #details-container p:last-child {
-            margin-bottom: 0;
+            border-bottom: none;
             padding-bottom: 0;
-            border-bottom: none; /* Remove o separador do último item */
         }
 
         #details-container strong {
+            display: inline-block; /* Permite definir largura e margem */
+            width: 130px; /* Largura fixa para os rótulos, criando alinhamento de coluna */
             font-weight: 600;
-            color: var(--secondary-text-color); /* Cor mais sutil para o rótulo */
+            color: var(--secondary-text-color);
+            margin-right: 15px; /* Espaço entre o rótulo e o valor */
         }
         
-        /* O valor (texto que não é strong) recebe a cor primária */
-        #details-container span {
-             color: var(--primary-text-color);
-        }
-
-
         /* Botão Principal */
         .btn {
             display: block;
