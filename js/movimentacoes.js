@@ -8,12 +8,16 @@ document.addEventListener('DOMContentLoaded', async function() {
     const formEntrada = document.getElementById('form-entrada');
     const formSaida = document.getElementById('form-saida');
     const tableBody = document.querySelector('#table-movimentacoes tbody');
-    const filterInput = document.getElementById('filter-movimentacoes');
 
     // --- Data Stores ---
     let productsMap = {};
     let configData = {};
-    let movementsData = [];
+    let allMovements = [];
+
+    // --- Table State ---
+    let sortState = { column: 'data', direction: 'desc' };
+    let filterState = {};
+    let initialDataLoaded = false; // <-- Variável de controle CRÍTICA
 
     // --- Initial Data Loading ---
     async function loadInitialData() {
@@ -22,28 +26,34 @@ document.addEventListener('DOMContentLoaded', async function() {
         productsMap = {};
         const productOptions = ['<option value="">Selecione o Produto...</option>'];
         productsSnapshot.forEach(doc => {
-            productsMap[doc.id] = { id: doc.id, ...doc.data() };
-            productOptions.push(`<option value="${doc.id}">${doc.data().descricao}</option>`);
+            const product = doc.data();
+            productsMap[doc.id] = { id: doc.id, ...product };
+            const codigo = product.codigo || 'S/C';
+            const descricao = product.descricao || 'Produto sem descrição';
+            const codigoGlobal = product.codigo_global ? `(${product.codigo_global})` : '';
+            const optionText = `${codigo} - ${descricao} ${codigoGlobal}`.trim();
+            productOptions.push(`<option value="${doc.id}">${optionText}</option>`);
         });
         document.getElementById('entrada-produto').innerHTML = productOptions.join('');
         document.getElementById('saida-produto').innerHTML = productOptions.join('');
 
         // Load other config data
         const configsToLoad = [
-            { name: 'tipo-entrada', collection: 'tipos_entrada', field: 'nome' },
-            { name: 'tipo-saida', collection: 'tipos_saida', field: 'nome' },
-            { name: 'obra', collection: 'obras', field: 'nome' },
+            { id: 'entrada-tipo', collection: 'tipos_entrada', field: 'nome', defaultOption: 'Tipo de Entrada...' },
+            { id: 'saida-tipo', collection: 'tipos_saida', field: 'nome', defaultOption: 'Tipo de Saída...' },
+            { id: 'saida-obra', collection: 'obras', field: 'nome', defaultOption: 'Selecione a Obra...' },
         ];
+
         for (const cfg of configsToLoad) {
-            const select = document.getElementById(`${cfg.name === 'obra' ? 'saida-' : 'entrada-'}${cfg.name}`);
+            const select = document.getElementById(cfg.id);
             if(select) {
-                 const snapshot = await getDocs(collection(db, cfg.collection));
-                 configData[cfg.collection] = {};
-                 select.innerHTML = `<option value="">Selecione ${cfg.name.replace('-', ' ')}...</option>`;
-                 snapshot.forEach(doc => {
-                     configData[cfg.collection][doc.id] = doc.data();
-                     select.innerHTML += `<option value="${doc.id}">${doc.data()[cfg.field]}</option>`;
-                 });
+                const snapshot = await getDocs(collection(db, cfg.collection));
+                configData[cfg.collection] = {};
+                select.innerHTML = `<option value="">${cfg.defaultOption}</option>`;
+                snapshot.forEach(doc => {
+                    configData[cfg.collection][doc.id] = doc.data();
+                    select.innerHTML += `<option value="${doc.id}">${doc.data()[cfg.field]}</option>`;
+                });
             }
         }
     }
@@ -53,20 +63,21 @@ document.addEventListener('DOMContentLoaded', async function() {
         document.getElementById('entrada-produto').addEventListener('change', (e) => {
             const product = productsMap[e.target.value];
             document.getElementById('entrada-codigo-display').textContent = product ? product.codigo : '-';
+            document.getElementById('entrada-codigoglobal-display').textContent = product ? (product.codigo_global || '-') : '-';
             document.getElementById('entrada-descricao-display').textContent = product ? product.descricao : '-';
             document.getElementById('entrada-un-display').textContent = product ? product.un_compra : '-';
         });
-
         document.getElementById('saida-produto').addEventListener('change', (e) => {
             const product = productsMap[e.target.value];
             document.getElementById('saida-codigo-display').textContent = product ? product.codigo : '-';
+            document.getElementById('saida-codigoglobal-display').textContent = product ? (product.codigo_global || '-') : '-';
             document.getElementById('saida-descricao-display').textContent = product ? product.descricao : '-';
             document.getElementById('saida-un-display').textContent = product ? product.un : '-';
             document.getElementById('saida-estoque-display').textContent = product ? (product.estoque || 0) : '-';
         });
     }
 
-    // --- Core Logic (Transactions) ---
+    // --- Transaction Logic (Forms) ---
     formEntrada.addEventListener('submit', async (e) => {
         e.preventDefault();
         const productId = document.getElementById('entrada-produto').value;
@@ -82,9 +93,7 @@ document.addEventListener('DOMContentLoaded', async function() {
                 const productRef = doc(db, 'produtos', productId);
                 const productDoc = await transaction.get(productRef);
 
-                if (!productDoc.exists()) {
-                    throw "Produto não encontrado!";
-                }
+                if (!productDoc.exists()) { throw "Produto não encontrado!"; }
 
                 const currentEstoque = productDoc.data().estoque || 0;
                 const newEstoque = currentEstoque + quantidade;
@@ -93,10 +102,7 @@ document.addEventListener('DOMContentLoaded', async function() {
 
                 const movementRef = doc(collection(db, 'movimentacoes'));
                 const movementData = {
-                    tipo: 'entrada',
-                    produtoId,
-                    quantidade,
-                    data: serverTimestamp(),
+                    tipo: 'entrada', productId, quantidade, data: serverTimestamp(),
                     tipo_entradaId: document.getElementById('entrada-tipo').value,
                     nf: document.getElementById('entrada-nf').value,
                     valor_unitario: parseFloat(document.getElementById('entrada-valor-unitario').value) || 0,
@@ -121,7 +127,7 @@ document.addEventListener('DOMContentLoaded', async function() {
         const productId = document.getElementById('saida-produto').value;
         const quantidade = parseFloat(document.getElementById('saida-quantidade').value);
 
-         if (!productId || isNaN(quantidade) || quantidade <= 0) {
+        if (!productId || isNaN(quantidade) || quantidade <= 0) {
             alert('Por favor, preencha o produto e a quantidade corretamente.');
             return;
         }
@@ -131,9 +137,7 @@ document.addEventListener('DOMContentLoaded', async function() {
                 const productRef = doc(db, 'produtos', productId);
                 const productDoc = await transaction.get(productRef);
 
-                if (!productDoc.exists()) {
-                    throw "Produto não encontrado!";
-                }
+                if (!productDoc.exists()) { throw "Produto não encontrado!"; }
 
                 const currentEstoque = productDoc.data().estoque || 0;
                 if (currentEstoque < quantidade) {
@@ -145,10 +149,7 @@ document.addEventListener('DOMContentLoaded', async function() {
 
                 const movementRef = doc(collection(db, 'movimentacoes'));
                 const movementData = {
-                    tipo: 'saida',
-                    produtoId,
-                    quantidade,
-                    data: serverTimestamp(),
+                    tipo: 'saida', productId, quantidade, data: serverTimestamp(),
                     tipo_saidaId: document.getElementById('saida-tipo').value,
                     requisitante: document.getElementById('saida-requisitante').value,
                     obraId: document.getElementById('saida-obra').value,
@@ -165,41 +166,158 @@ document.addEventListener('DOMContentLoaded', async function() {
         }
     });
 
-    // --- Real-time Table Rendering ---
-    onSnapshot(collection(db, 'movimentacoes'), (snapshot) => {
-        movementsData = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
-        renderTable(movementsData);
-    });
 
-    function renderTable(data) {
-        tableBody.innerHTML = '';
-        data.sort((a,b) => b.data.toMillis() - a.data.toMillis()); // Sort by most recent
-        data.forEach(mov => {
-            const row = document.createElement('tr');
-            const produtoDesc = productsMap[mov.produtoId]?.descricao || 'N/A';
+    // --- Core Table Logic ---
+    function updateTable() {
+        let processedMovements = allMovements.map(mov => {
+            const product = productsMap[mov.productId] || {};
+            let custoUnitario = 0;
+            if (mov.tipo === 'entrada' && mov.quantidade > 0) {
+                const valorTotal = (mov.quantidade * (mov.valor_unitario || 0)) + (mov.icms || 0) + (mov.ipi || 0) + (mov.frete || 0);
+                custoUnitario = valorTotal / mov.quantidade;
+            }
+            return {
+                ...mov,
+                _search_data: {
+                    data: mov.data ? new Date(mov.data.seconds * 1000).toLocaleString('pt-BR') : '',
+                    tipo: mov.tipo || '',
+                    codigo: product.codigo || '',
+                    codigo_global: product.codigo_global || '',
+                    descricao: product.descricao || '',
+                    un: product.un || '',
+                    quantidade: mov.quantidade?.toString() || '',
+                    medida: mov.medida || '',
+                    nf: mov.nf || '',
+                    valor_unitario: (mov.valor_unitario || 0).toString(),
+                    icms: (mov.icms || 0).toString(),
+                    ipi: (mov.ipi || 0).toString(),
+                    frete: (mov.frete || 0).toString(),
+                    custoUnitario: custoUnitario.toFixed(2),
+                    requisitante: mov.requisitante || '',
+                    obraId: configData.obras?.[mov.obraId]?.nome || '',
+                    observacao: mov.observacao || ''
+                }
+            };
+        });
 
-            let valorTotal = '-';
-            if (mov.tipo === 'entrada') {
-                valorTotal = (mov.quantidade * mov.valor_unitario) + mov.icms + mov.ipi + mov.frete;
-                valorTotal = `R$ ${valorTotal.toFixed(2)}`;
+        // 1. Apply Filters
+        let filteredMovements = processedMovements.filter(mov => {
+            for (const column in filterState) {
+                const filterValue = filterState[column]?.toLowerCase();
+                if (!filterValue) continue;
+
+                const cellValue = mov._search_data[column]?.toLowerCase();
+                if (cellValue === undefined || !cellValue.includes(filterValue)) {
+                    return false;
+                }
+            }
+            return true;
+        });
+
+        // 2. Apply Sorting
+        filteredMovements.sort((a, b) => {
+            let valA = a._search_data[sortState.column];
+            let valB = b._search_data[sortState.column];
+
+            // Trata a coluna de data como timestamp para ordenar corretamente
+            if (sortState.column === 'data') {
+                valA = a.data ? a.data.toMillis() : 0;
+                valB = b.data ? b.data.toMillis() : 0;
             }
 
+            const numericColumns = ['quantidade', 'valor_unitario', 'icms', 'ipi', 'frete', 'custoUnitario'];
+            if (numericColumns.includes(sortState.column)) {
+                valA = parseFloat(valA) || 0;
+                valB = parseFloat(valB) || 0;
+            }
+
+            if (valA < valB) return sortState.direction === 'asc' ? -1 : 1;
+            if (valA > valB) return sortState.direction === 'asc' ? 1 : -1;
+            return 0;
+        });
+
+        renderTable(filteredMovements);
+    }
+
+    // --- Real-time Table Rendering ---
+    function renderTable(data) {
+        tableBody.innerHTML = '';
+        data.forEach(mov => {
+            const row = document.createElement('tr');
+            const searchData = mov._search_data;
+
+            const valorUnitarioFmt = mov.valor_unitario ? `R$ ${mov.valor_unitario.toFixed(2)}` : '-';
+            const icmsFmt = mov.icms ? `R$ ${mov.icms.toFixed(2)}` : '-';
+            const ipiFmt = mov.ipi ? `R$ ${mov.ipi.toFixed(2)}` : '-';
+            const freteFmt = mov.frete ? `R$ ${mov.frete.toFixed(2)}` : '-';
+            const custoUnitarioFmt = parseFloat(searchData.custoUnitario) > 0 ? `R$ ${searchData.custoUnitario}` : '-';
+
             row.innerHTML = `
-                <td>${new Date(mov.data.seconds * 1000).toLocaleString('pt-BR')}</td>
-                <td class="${mov.tipo}">${mov.tipo.toUpperCase()}</td>
-                <td>${produtoDesc}</td>
-                <td>${mov.quantidade}</td>
-                <td>${valorTotal}</td>
-                <td>${mov.requisitante || mov.nf || '-'}</td>
-                <td>${configData.obras?.[mov.obraId]?.nome || '-'}</td>
-                <td>${mov.observacao || '-'}</td>
+                <td>${searchData.data}</td>
+                <td class="${searchData.tipo}">${searchData.tipo.toUpperCase()}</td>
+                <td>${searchData.codigo || 'N/A'}</td>
+                <td>${searchData.codigo_global || '-'}</td>
+                <td>${searchData.descricao || 'Produto não encontrado'}</td>
+                <td>${searchData.un || 'N/A'}</td>
+                <td>${searchData.quantidade}</td>
+                <td>${searchData.medida || '-'}</td>
+                <td>${searchData.nf || '-'}</td>
+                <td>${valorUnitarioFmt}</td>
+                <td>${icmsFmt}</td>
+                <td>${ipiFmt}</td>
+                <td>${freteFmt}</td>
+                <td>${custoUnitarioFmt}</td>
+                <td>${searchData.requisitante || '-'}</td>
+                <td>${searchData.obraId || '-'}</td>
+                <td>${searchData.observacao || '-'}</td>
             `;
             tableBody.appendChild(row);
         });
     }
 
+    // --- Event Listeners for Sorting and Filtering ---
+    document.getElementById('headers-row').addEventListener('click', e => {
+        const newColumn = e.target.dataset.column;
+        if (!newColumn) return;
+
+        if (newColumn === sortState.column) {
+            sortState.direction = sortState.direction === 'asc' ? 'desc' : 'asc';
+        } else {
+            sortState.column = newColumn;
+            sortState.direction = 'desc';
+        }
+
+        document.querySelectorAll('#headers-row th').forEach(th => th.classList.remove('sort-asc', 'sort-desc'));
+        e.target.classList.add(`sort-${sortState.direction}`);
+
+        updateTable();
+    });
+
+    document.getElementById('history-filters-container').addEventListener('input', e => {
+        if (e.target.classList.contains('filter-input')) {
+            const column = e.target.dataset.column;
+            const value = e.target.value;
+            filterState[column] = value;
+            updateTable();
+        }
+    });
+
     // --- Init ---
+
+    onSnapshot(collection(db, 'movimentacoes'), (snapshot) => {
+        allMovements = snapshot.docs.map(doc => {
+            const data = doc.data();
+            return { id: doc.id, ...data };
+        });
+        // Só renderiza a tabela se os dados de suporte já foram carregados
+        if (initialDataLoaded) {
+            updateTable();
+        }
+    });
+
     loadInitialData().then(() => {
         setupAutoFill();
+        initialDataLoaded = true; // SINAL VERDE: dados de suporte carregados
+        updateTable(); // Agora sim, renderiza a tabela com tudo pronto
     });
 });

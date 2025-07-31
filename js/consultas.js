@@ -15,10 +15,11 @@ document.addEventListener('DOMContentLoaded', async function() {
 
     async function fetchDataAndCalculate() {
         // 1. Fetch all necessary data
-        const [productsSnapshot, movementsSnapshot, locationsSnapshot] = await Promise.all([
+        const [productsSnapshot, movementsSnapshot, locationsSnapshot, locaisSnapshot] = await Promise.all([
             getDocs(collection(db, 'produtos')),
             getDocs(collection(db, 'movimentacoes')),
-            getDocs(collection(db, 'enderecamentos'))
+            getDocs(collection(db, 'enderecamentos')),
+            getDocs(collection(db, 'locais')) // ADICIONADO
         ]);
 
         const products = {};
@@ -29,6 +30,11 @@ document.addEventListener('DOMContentLoaded', async function() {
         const locations = {};
         locationsSnapshot.forEach(doc => {
             locations[doc.id] = doc.data();
+        });
+
+        const locais = {}; // ADICIONADO
+        locaisSnapshot.forEach(doc => { // ADICIONADO
+            locais[doc.id] = doc.data(); // ADICIONADO
         });
 
         const movementsByProduct = {};
@@ -56,8 +62,11 @@ document.addEventListener('DOMContentLoaded', async function() {
             const valorMedio = totalQuantity > 0 ? totalCost / totalQuantity : 0;
             const valorTotalEstoque = (product.estoque || 0) * valorMedio;
 
-            const local = locations[product.enderecamentoId] ?
-                `${locations[product.enderecamentoId].codigo} - ${locations[product.enderecamentoId].local}` : 'N/A';
+            // Lógica de endereçamento atualizada
+            const enderecamentoDoc = locations[product.enderecamentoId];
+            const localNome = enderecamentoDoc ? (locais[enderecamentoDoc.localId]?.nome || 'N/A') : 'N/A';
+            const local = enderecamentoDoc ? `${enderecamentoDoc.codigo} - ${localNome}` : 'N/A';
+
 
             const medidas = productMovements
                 .filter(m => m.medida)

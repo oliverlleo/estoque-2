@@ -17,7 +17,16 @@ document.addEventListener('DOMContentLoaded', async function() {
         { name: 'grupo', collectionName: 'grupos', displayField: 'nome' },
         { name: 'aplicacao', collectionName: 'aplicacoes', displayField: 'nome' },
         { name: 'conjunto', collectionName: 'conjuntos', displayField: 'nome' },
-        { name: 'enderecamento', collectionName: 'enderecamentos', displayFunction: (doc) => `${doc.codigo} - ${doc.local}` }
+        { name: 'locais', collectionName: 'locais', displayField: 'nome' }, // ADICIONADO
+        {
+            name: 'enderecamento',
+            collectionName: 'enderecamentos',
+            // A função de exibição agora precisa dos locais
+            displayFunction: (doc, allConfigs) => {
+                const localNome = allConfigs.locais[doc.localId]?.nome || 'N/A';
+                return `${doc.codigo} - ${localNome}`;
+            }
+        }
     ];
 
     for (const config of configCollections) {
@@ -26,17 +35,22 @@ document.addEventListener('DOMContentLoaded', async function() {
         const snapshot = await getDocs(colRef);
 
         configData[config.collectionName] = {};
-        selectElement.innerHTML = `<option value="">Selecione ${config.name}...</option>`; // Reset
+        if (selectElement) {
+             selectElement.innerHTML = `<option value="">Selecione ${config.name}...</option>`; // Reset
+        }
 
         snapshot.docs.forEach(doc => {
             const id = doc.id;
             const data = doc.data();
             configData[config.collectionName][id] = data;
 
-            const option = document.createElement('option');
-            option.value = id;
-            option.textContent = config.displayFunction ? config.displayFunction(data) : data[config.displayField];
-            selectElement.appendChild(option);
+            if (selectElement) {
+                const option = document.createElement('option');
+                option.value = id;
+                // Passa todos os dados de configuração para a função de exibição
+                option.textContent = config.displayFunction ? config.displayFunction(data, configData) : data[config.displayField];
+                selectElement.appendChild(option);
+            }
         });
     }
 
@@ -85,7 +99,8 @@ document.addEventListener('DOMContentLoaded', async function() {
             const fornecedor = configData.fornecedores[pData.fornecedorId]?.nome || 'N/A';
             const grupo = configData.grupos[pData.grupoId]?.nome || 'N/A';
             const enderecamentoDoc = configData.enderecamentos[pData.enderecamentoId];
-            const enderecamento = enderecamentoDoc ? `${enderecamentoDoc.codigo} - ${enderecamentoDoc.local}` : 'N/A';
+            const localNome = enderecamentoDoc ? configData.locais[enderecamentoDoc.localId]?.nome : 'N/A';
+            const enderecamento = enderecamentoDoc ? `${enderecamentoDoc.codigo} - ${localNome}` : 'N/A';
 
             row.innerHTML = `
                 <td>${pData.codigo}</td>
