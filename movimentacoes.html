@@ -81,27 +81,46 @@
                     <input type="text" id="filter-movimentacoes" class="form-control" placeholder="Filtrar histórico..." style="margin-bottom: 15px;">
                     <div class="table-wrapper">
                         <table id="table-movimentacoes" class="table">
-                            <thead>
-                                <tr>
-                                    <th>Data</th>
-                                    <th>Tipo</th>
-                                    <th>Código</th>
-                                    <th>Cód. Padrão</th>
-                                    <th>Descrição</th>
-                                    <th>UN</th>
-                                    <th>Qtde</th>
-                                    <th>Medida</th>
-                                    <th>Nº NF</th>
-                                    <th>Valor Unit.</th>
-                                    <th>ICMS</th>
-                                    <th>IPI</th>
-                                    <th>Frete</th>
-                                    <th>Custo Unit.</th>
-                                    <th>Requisitante</th>
-                                    <th>Obra</th>
-                                    <th>Obs.</th>
-                                </tr>
-                            </thead>
+    <thead>
+        <tr id="headers-row">
+            <th data-column="data">Data</th>
+            <th data-column="tipo">Tipo</th>
+            <th data-column="codigo">Código</th>
+            <th data-column="codigo_global">Cód. Padrão</th>
+            <th data-column="descricao">Descrição</th>
+            <th data-column="un">UN</th>
+            <th data-column="quantidade">Qtde</th>
+            <th data-column="medida">Medida</th>
+            <th data-column="nf">Nº NF</th>
+            <th data-column="valor_unitario">Valor Unit.</th>
+            <th data-column="icms">ICMS</th>
+            <th data-column="ipi">IPI</th>
+            <th data-column="frete">Frete</th>
+            <th data-column="custoUnitario">Custo Unit.</th>
+            <th data-column="requisitante">Requisitante</th>
+            <th data-column="obraId">Obra</th>
+            <th data-column="observacao">Obs.</th>
+        </tr>
+        <tr id="filters-row">
+            <td><input type="text" class="form-control filter-input" data-column="data"></td>
+            <td><input type="text" class="form-control filter-input" data-column="tipo"></td>
+            <td><input type="text" class="form-control filter-input" data-column="codigo"></td>
+            <td><input type="text" class="form-control filter-input" data-column="codigo_global"></td>
+            <td><input type="text" class="form-control filter-input" data-column="descricao"></td>
+            <td><input type="text" class="form-control filter-input" data-column="un"></td>
+            <td><input type="text" class="form-control filter-input" data-column="quantidade"></td>
+            <td><input type="text" class="form-control filter-input" data-column="medida"></td>
+            <td><input type="text" class="form-control filter-input" data-column="nf"></td>
+            <td><input type="text" class="form-control filter-input" data-column="valor_unitario"></td>
+            <td><input type="text" class="form-control filter-input" data-column="icms"></td>
+            <td><input type="text" class="form-control filter-input" data-column="ipi"></td>
+            <td><input type="text" class="form-control filter-input" data-column="frete"></td>
+            <td><input type="text" class="form-control filter-input" data-column="custoUnitario"></td>
+            <td><input type="text" class="form-control filter-input" data-column="requisitante"></td>
+            <td><input type="text" class="form-control filter-input" data-column="obraId"></td>
+            <td><input type="text" class="form-control filter-input" data-column="observacao"></td>
+        </tr>
+    </thead>
                             <tbody></tbody>
                         </table>
                     </div>

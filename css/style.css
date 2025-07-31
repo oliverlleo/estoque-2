@@ -294,3 +294,35 @@ body {
     grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
     gap: 1rem;
 }
+
+/* Estilos para filtros e ordenação da tabela */
+#filters-row .form-control {
+    padding: 0.25rem 0.5rem;
+    font-size: 0.8rem;
+}
+
+#headers-row th {
+    cursor: pointer;
+    position: relative;
+}
+
+#headers-row th:hover {
+    background-color: #e9ecef;
+}
+
+#headers-row th::after {
+    content: '';
+    position: absolute;
+    right: 8px;
+    top: 50%;
+    margin-top: -8px;
+    border: 4px solid transparent;
+}
+
+#headers-row th.sort-asc::after {
+    border-bottom-color: #212529;
+}
+
+#headers-row th.sort-desc::after {
+    border-top-color: #212529;
+}
