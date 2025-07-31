@@ -1,54 +1,92 @@
-// js/consultas.js - VERSÃO DE DIAGNÓSTICO
+// js/consultas.js - VERSÃO FINAL E CORRIGIDA
 
 import { db } from './firebase-config.js';
 import { collection, getDocs, doc, updateDoc } from "https://www.gstatic.com/firebasejs/9.6.1/firebase-firestore.js";
 
-async function fetchDataAndCalculate() {
-    console.log("--- INICIANDO DIAGNÓSTICO ---");
+/**
+ * Função que roda em segundo plano para corrigir permanentemente os saldos no Firebase.
+ * É chamada automaticamente e não trava a exibição da página.
+ */
+async function sincronizarSaldosNoBanco(dadosParaSincronizar) {
+    try {
+        const updatePromises = dadosParaSincronizar.map(item => {
+            const estoqueSalvo = parseFloat(item.estoque) || 0;
+            const estoqueReal = parseFloat(item.estoqueAtual) || 0;
 
-    // 1. Busca os dados
-    const [productsSnapshot, movementsSnapshot] = await Promise.all([
-        getDocs(collection(db, 'produtos')),
-        getDocs(collection(db, 'movimentacoes'))
-    ]);
-    console.log(`Encontrados ${productsSnapshot.size} produtos e ${movementsSnapshot.size} movimentações.`);
-
-    // 2. Cria um mapa de todos os produtos encontrados
-    const productsById = new Map();
-    console.log("--- IDs de todos os PRODUTOS encontrados no banco de dados ---");
-    productsSnapshot.forEach(doc => {
-        // Imprime cada ID de produto que ele encontrou
-        console.log(`ID de Produto na lista: "${doc.id}"`);
-        productsById.set(doc.id, { id: doc.id, ...doc.data() });
-    });
-    console.log("---------------------------------------------------------");
-
-    // 3. Tenta ligar cada movimentação a um produto
-    const movementsByProduct = new Map();
-    console.log("--- Verificando cada MOVIMENTAÇÃO para encontrar seu produto pai ---");
-    movementsSnapshot.forEach(doc => {
-        const mov = doc.data();
-        const produtoIdNaMovimentacao = mov.produtoId;
-
-        // Imprime o ID que está dentro da movimentação
-        console.log(`Verificando movimentação... tentando encontrar o produto com ID: "${produtoIdNaMovimentacao}"`);
-
-        // Verifica se o ID da movimentação existe no mapa de produtos
-        if (productsById.has(produtoIdNaMovimentacao)) {
-            console.log(`   -> SUCESSO! Produto encontrado. Ligando movimentação ao produto.`);
-            const product = productsById.get(produtoIdNaMovimentacao);
-            if (!movementsByProduct.has(product.id)) {
-                movementsByProduct.set(product.id, []);
+            // Para otimizar, só atualiza o banco se houver uma diferença real.
+            if (Math.abs(estoqueSalvo - estoqueReal) > 0.0001) {
+                const productRef = doc(db, 'produtos', item.id);
+                return updateDoc(productRef, {
+                    estoque: estoqueReal
+                });
             }
-            movementsByProduct.get(product.id).push(mov);
-        } else {
-            // Se não encontrou, avisa qual ID ele procurou e não achou
-            console.error(`   -> FALHA! Movimentação ÓRFÃ. O ID "${produtoIdNaMovimentacao}" não foi encontrado na lista de produtos.`);
+            return null;
+        }).filter(p => p !== null);
+
+        if (updatePromises.length > 0) {
+            await Promise.all(updatePromises);
+            console.log(`[Sincronização] Concluída: ${updatePromises.length} produto(s) tiveram seu saldo corrigido no banco de dados.`);
+        }
+
+    } catch (error) {
+        console.error("[Sincronização] ERRO CRÍTICO AO TENTAR CORRIGIR O BANCO DE DADOS:", error);
+    }
+}
+
+/**
+ * Função principal que busca os dados, calcula o estoque real de forma robusta e prepara a exibição.
+ */
+async function fetchDataAndCalculate() {
+    // 1. Busca todos os dados necessários do Firebase.
+    const [productsSnapshot, movementsSnapshot, locationsSnapshot, locaisSnapshot] = await Promise.all([
+        getDocs(collection(db, 'produtos')),
+        getDocs(collection(db, 'movimentacoes')),
+        getDocs(collection(db, 'enderecamentos')),
+        getDocs(collection(db, 'locais'))
+    ]);
+
+    // 2. Cria dois "mapas" de produtos para uma busca à prova de falhas.
+    // Um para buscar pelo ID longo do Firebase e outro para buscar pelo código do produto.
+    const productsById = new Map();
+    const productsByCode = new Map();
+    productsSnapshot.forEach(doc => {
+        const productData = { id: doc.id, ...doc.data() };
+        productsById.set(doc.id, productData);
+        if (productData.codigo) {
+            productsByCode.set(productData.codigo, productData);
         }
     });
-    console.log("-----------------------------------------------------------------");
 
-    // 4. Calcula o estoque baseado nas ligações que conseguiu fazer
+    const locations = {};
+    locationsSnapshot.forEach(doc => { locations[doc.id] = doc.data(); });
+    const locais = {};
+    locaisSnapshot.forEach(doc => { locais[doc.id] = doc.data(); });
+
+    // 3. Agrupa as movimentações pelo ID de produto correto, usando a lógica de "ligação inteligente".
+    const movementsByProduct = new Map();
+    movementsSnapshot.forEach(doc => {
+        const mov = doc.data();
+        let produtoEncontrado = null;
+
+        // TENTATIVA 1: Tenta encontrar o produto pelo seu ID oficial (método correto).
+        produtoEncontrado = productsById.get(mov.produtoId);
+
+        // TENTATIVA 2 (Plano B): Se não encontrou, tenta encontrar pelo código.
+        // Isso corrige o problema de movimentações salvas com o código do produto em vez do ID.
+        if (!produtoEncontrado) {
+            produtoEncontrado = productsByCode.get(mov.produtoId);
+        }
+
+        // Se encontrou um produto por qualquer um dos métodos, associa a movimentação a ele.
+        if (produtoEncontrado) {
+            if (!movementsByProduct.has(produtoEncontrado.id)) {
+                movementsByProduct.set(produtoEncontrado.id, []);
+            }
+            movementsByProduct.get(produtoEncontrado.id).push(mov);
+        }
+    });
+
+    // 4. Processa os dados finais, calculando o estoque real.
     const consolidatedData = Array.from(productsById.values()).map(product => {
         const productMovements = movementsByProduct.get(product.id) || [];
 
@@ -65,21 +103,40 @@ async function fetchDataAndCalculate() {
         });
 
         const estoqueAtual = totalEntradas - totalSaidas;
-        console.log(`Produto "${product.codigo}": Saldo final calculado = ${estoqueAtual}`);
 
-        // O resto do código para popular os outros campos permanece o mesmo...
-        return { ...product, estoqueAtual };
+        // O resto da lógica para calcular valor médio e outros campos.
+        const entryMovements = productMovements.filter(m => m.tipo === 'entrada' && (parseFloat(String(m.valor_unitario || 0).replace(',', '.')) || 0) > 0);
+        let totalCost = 0;
+        let totalEntryQuantity = 0;
+        entryMovements.forEach(m => {
+            const quantidade = parseFloat(String(m.quantidade || 0).replace(',', '.')) || 0;
+            const valorUnitario = parseFloat(String(m.valor_unitario || 0).replace(',', '.')) || 0;
+            const icms = parseFloat(String(m.icms || 0).replace(',', '.')) || 0;
+            const ipi = parseFloat(String(m.ipi || 0).replace(',', '.')) || 0;
+            const frete = parseFloat(String(m.frete || 0).replace(',', '.')) || 0;
+            const entryTotalValue = (quantidade * valorUnitario) + icms + ipi + frete;
+            totalCost += entryTotalValue;
+            totalEntryQuantity += quantidade;
+        });
+        const valorMedio = totalEntryQuantity > 0 ? totalCost / totalEntryQuantity : 0;
+        const valorTotalEstoque = estoqueAtual * valorMedio;
+        const enderecamentoDoc = locations[product.enderecamentoId];
+        const localNome = enderecamentoDoc ? (locais[enderecamentoDoc.localId]?.nome || 'N/A') : 'N/A';
+        const local = enderecamentoDoc ? `${enderecamentoDoc.codigo} - ${localNome}` : 'N/A';
+        const medidas = productMovements.filter(m => m.medida).map(m => `${m.medida} (${m.tipo})`).join(', ');
+
+        return { ...product, estoqueAtual, valorMedio, valorTotalEstoque, local, medidas };
     });
 
-    console.log("--- DIAGNÓSTICO CONCLUÍDO ---");
+    // 5. Renderiza a tabela e dispara a correção no banco de dados.
     renderTable(consolidatedData);
-    // A sincronização pode ser comentada durante o diagnóstico para não poluir o log
-    // sincronizarSaldosNoBanco(consolidatedData);
+    sincronizarSaldosNoBanco(consolidatedData);
     return consolidatedData;
 }
 
-// A função renderTable e o listener DOMContentLoaded podem permanecer os mesmos.
-// ... (resto do arquivo)
+/**
+ * Função que desenha a tabela na tela, usando o valor de estoque correto.
+ */
 function renderTable(data) {
     const tableBody = document.querySelector('#table-consultas tbody');
     tableBody.innerHTML = '';
@@ -89,6 +146,7 @@ function renderTable(data) {
     }
     data.forEach(item => {
         const row = document.createElement('tr');
+        // Usa 'item.estoqueAtual' para exibir o saldo, ignorando o valor antigo.
         row.innerHTML = `
             <td>${item.codigo || ''}</td>
             <td>${item.codigo_global || ''}</td>
@@ -103,6 +161,10 @@ function renderTable(data) {
         tableBody.appendChild(row);
     });
 }
+
+/**
+ * Lógica principal da página, que organiza a execução das funções.
+ */
 document.addEventListener('DOMContentLoaded', async function() {
     const filters = {
         codigo: document.getElementById('filter-codigo'),
@@ -110,6 +172,7 @@ document.addEventListener('DOMContentLoaded', async function() {
         local: document.getElementById('filter-local')
     };
     let consolidatedData = [];
+
     function applyFilters() {
         const filterValues = {
             codigo: (filters.codigo.value || '').toLowerCase(),
@@ -124,7 +187,9 @@ document.addEventListener('DOMContentLoaded', async function() {
         });
         renderTable(filteredData);
     }
+
     Object.values(filters).forEach(input => input.addEventListener('input', applyFilters));
+
     try {
         consolidatedData = await fetchDataAndCalculate();
     } catch(error) {
