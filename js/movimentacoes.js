@@ -6,6 +6,27 @@ function showInfoModal(message) {
 import { db } from './firebase-config.js';
 import { collection, getDocs, onSnapshot, runTransaction, doc, serverTimestamp } from "https://www.gstatic.com/firebasejs/9.6.1/firebase-firestore.js";
 
+// --- NOVA FUNÇÃO PARA CALCULAR INVENTÁRIO DE PEDAÇOS ---
+async function getPieceInventory(productId) {
+    if (!productId) return {};
+    const movementsSnapshot = await getDocs(collection(db, 'movimentacoes'));
+    let inventario = {};
+    movementsSnapshot.forEach(doc => {
+        const mov = doc.data();
+        if (mov.productId === productId && mov.medida && mov.medida.trim() !== '') {
+            const medida = mov.medida.trim();
+            const quantidade = mov.quantidade ? parseInt(mov.quantidade) : 1; // Considera quantidade se houver, senão 1
+
+            if (mov.tipo === 'entrada') {
+                inventario[medida] = (inventario[medida] || 0) + quantidade;
+            } else if (mov.tipo === 'saida') {
+                inventario[medida] = (inventario[medida] || 0) - quantidade;
+            }
+        }
+    });
+    return inventario;
+}
+
 document.addEventListener('DOMContentLoaded', async function() {
     // Lógica para fechar o modal de informação
     const infoModal = document.getElementById('info-modal');
@@ -23,6 +44,7 @@ document.addEventListener('DOMContentLoaded', async function() {
     const toggle = document.getElementById('movement-toggle');
     const btnMovimentacao = document.getElementById('btn-movimentacao');
     const tableBody = document.querySelector('#table-movimentacoes tbody');
+    const medidaTextInput = document.getElementById('mov-medida'); // Referência ao input de texto original
 
     // --- Campos do Formulário ---
     const entradaFields = [
@@ -44,6 +66,44 @@ document.addEventListener('DOMContentLoaded', async function() {
     // --- Table State ---
     let sortState = { column: 'data', direction: 'desc' };
     let filterState = {};
+
+    // --- NOVA FUNÇÃO PARA ATUALIZAR O CAMPO DE MEDIDA ---
+    async function updateMedidaField() {
+        const isEntrada = toggle.checked;
+        const productId = document.getElementById('mov-produto').value;
+
+        const oldSelect = document.getElementById('mov-medida-select');
+        if (oldSelect) {
+            oldSelect.remove();
+        }
+
+        if (!isEntrada && productId) { // É SAÍDA e um produto foi selecionado
+            medidaTextInput.style.display = 'none';
+
+            const inventory = await getPieceInventory(productId);
+            const availablePieces = Object.entries(inventory).filter(([medida, qtd]) => qtd > 0);
+
+            if (availablePieces.length > 0) {
+                const select = document.createElement('select');
+                select.id = 'mov-medida-select';
+                select.className = 'form-control';
+                select.innerHTML = '<option value="">Selecione o Pedaço para Saída...</option>';
+                availablePieces.forEach(([medida, qtd]) => {
+                    select.innerHTML += `<option value="${medida}">${medida} (${qtd} em estoque)</option>`;
+                });
+                medidaTextInput.insertAdjacentElement('afterend', select);
+            } else {
+                 medidaTextInput.style.display = ''; // Mostra o input de texto se não houver pedaços
+                 medidaTextInput.placeholder = "Nenhum pedaço em estoque";
+                 medidaTextInput.disabled = true;
+            }
+
+        } else { // É ENTRADA ou nenhum produto selecionado
+            medidaTextInput.style.display = '';
+            medidaTextInput.placeholder = "Medida (pedaço/sobra)";
+            medidaTextInput.disabled = false;
+        }
+    }
 
     // --- Lógica do Interruptor (Toggle) ---
     function handleToggleChange() {
@@ -68,16 +128,25 @@ document.addEventListener('DOMContentLoaded', async function() {
             document.getElementById('toggle-label-entrada').style.color = '#6c757d';
         }
         updateProductInfo();
+        updateMedidaField(); // Chama a nova função para atualizar o campo
     }
 
     toggle.addEventListener('change', handleToggleChange);
+    document.getElementById('mov-produto').addEventListener('change', updateMedidaField); // Também atualiza ao mudar o produto
 
     // --- Lógica de Submissão do Formulário Unificado ---
     formMovimentacao.addEventListener('submit', async (e) => {
         e.preventDefault();
         const isEntrada = toggle.checked;
         const productId = document.getElementById('mov-produto').value;
-        const quantidade = parseFloat(document.getElementById('mov-quantidade').value);
+
+        // --- LÓGICA DE COLETA DE DADOS ADAPTATIVA ---
+        const medidaSelect = document.getElementById('mov-medida-select');
+        const medidaValue = medidaSelect ? medidaSelect.value : medidaTextInput.value;
+        const isPiece = medidaValue && medidaValue.trim() !== '';
+
+        // Para baixa de pedaços, a quantidade é sempre 1. Para outros, é o valor do campo.
+        const quantidade = isPiece && !isEntrada ? 1 : parseFloat(document.getElementById('mov-quantidade').value);
 
         if (!productId || isNaN(quantidade) || quantidade <= 0) {
             alert('Por favor, preencha o produto e a quantidade corretamente.');
@@ -149,33 +218,38 @@ document.addEventListener('DOMContentLoaded', async function() {
                 console.error("Erro na transação de entrada:", error);
                 showInfoModal(error.message);
             }
-        } else {
+        } else { // Saída
             try {
                 await runTransaction(db, async (transaction) => {
                     const productRef = doc(db, 'produtos', productId);
                     const productDoc = await transaction.get(productRef);
                     if (!productDoc.exists()) throw "Produto não encontrado!";
 
-                    const currentEstoque = productDoc.data().estoque || 0;
-                    if (currentEstoque < quantidade) throw `Estoque insuficiente! Disponível: ${currentEstoque}`;
-
-                    const newEstoque = currentEstoque - quantidade;
-                    transaction.update(productRef, { estoque: newEstoque });
+                    // Se não for um pedaço, verifica o estoque principal. A lógica de estoque de pedaços é implícita.
+                    if (!isPiece) {
+                        const currentEstoque = productDoc.data().estoque || 0;
+                        if (currentEstoque < quantidade) throw `Estoque insuficiente! Disponível: ${currentEstoque}`;
+                        const newEstoque = currentEstoque - quantidade;
+                        transaction.update(productRef, { estoque: newEstoque });
+                    }
 
                     const movementRef = doc(collection(db, 'movimentacoes'));
                     const movementData = {
-                        tipo: 'saida', productId, quantidade, data: serverTimestamp(),
+                        tipo: 'saida',
+                        productId,
+                        quantidade,
+                        data: serverTimestamp(),
                         tipo_saidaId: document.getElementById('mov-tipo-saida').value,
                         requisitante: document.getElementById('mov-requisitante').value,
                         obraId: document.getElementById('mov-obra').value,
                         observacao: document.getElementById('mov-observacao').value,
-                        medida: document.getElementById('mov-medida').value,
+                        medida: medidaValue, // Usa o valor adaptativo
                     };
                     transaction.set(movementRef, movementData);
                 });
                 alert('Saída registrada com sucesso!');
                 formMovimentacao.reset();
-                handleToggleChange();
+                handleToggleChange(); // Reseta o formulário para o estado inicial
             } catch (error) {
                 console.error("Erro na transação de saída:", error);
                 alert(`Erro ao registrar saída: ${error}`);

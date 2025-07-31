@@ -62,6 +62,20 @@ document.addEventListener('DOMContentLoaded', async function() {
     });
 
 
+    const btnImportar = document.getElementById('btn-importar-excel');
+    const btnExportar = document.getElementById('btn-exportar-modelo');
+    const fileInput = document.getElementById('import-excel-input');
+
+    // Listener para o botão de exportar
+    btnExportar.addEventListener('click', exportarModeloExcel);
+
+    // Listener para o botão de importar (que aciona o input de arquivo)
+    btnImportar.addEventListener('click', () => fileInput.click());
+
+    // Listener para quando um arquivo é selecionado
+    fileInput.addEventListener('change', handleFileImport);
+
+
     // 2. Handle Product Form Submission (Create/Update)
     form.addEventListener('submit', async (e) => {
         e.preventDefault();
@@ -178,3 +192,176 @@ document.addEventListener('DOMContentLoaded', async function() {
         renderTable(filteredData);
     });
 });
+
+// Substitua a função exportarModeloExcel antiga por esta
+async function exportarModeloExcel() {
+    alert("Gerando modelo inteligente... Por favor, aguarde.");
+    try {
+        // 1. Buscar todos os dados necessários do Firestore em paralelo
+        const dataSources = {
+            fornecedores: { collectionName: 'fornecedores', field: 'nome' },
+            grupos: { collectionName: 'grupos', field: 'nome' },
+            aplicacoes: { collectionName: 'aplicacoes', field: 'nome' },
+            conjuntos: { collectionName: 'conjuntos', field: 'nome' },
+            enderecamentos: { collectionName: 'enderecamentos', field: 'codigo' },
+            conversoes: { collectionName: 'conversoes', field: 'nome_regra' }
+        };
+
+        const fetchedData = {};
+        const promises = Object.keys(dataSources).map(async (key) => {
+            const source = dataSources[key];
+            const snapshot = await getDocs(collection(db, source.collectionName));
+            fetchedData[key] = snapshot.docs.map(doc => doc.data()[source.field]).filter(Boolean);
+        });
+        await Promise.all(promises);
+
+        // 2. Criar um novo Workbook (arquivo Excel)
+        const workbook = XLSX.utils.book_new();
+
+        // 3. Criar e adicionar as abas de dados (que ficarão ocultas)
+        Object.keys(fetchedData).forEach(key => {
+            const sheetName = `_dados_${key}`;
+            const data = fetchedData[key].map(item => [item]); // SheetJS espera um array de arrays
+            if (data.length > 0) {
+                const dataSheet = XLSX.utils.aoa_to_sheet(data);
+                XLSX.utils.book_append_sheet(workbook, dataSheet, sheetName);
+            }
+        });
+
+        // 4. Criar a aba principal de "Produtos"
+        const headers = ["codigo", "codigo_global", "descricao", "un", "cor", "fornecedor_nome", "grupo_nome", "aplicacao_nome", "conjunto_nome", "enderecamento_codigo", "conversao_nome_regra"];
+        const mainSheet = XLSX.utils.json_to_sheet([{}], { header: headers });
+
+        // 5. Adicionar a "Validação de Dados" (Dropdowns)
+        const validations = [
+            { col: 'F', source: '_dados_fornecedores' }, // fornecedor_nome
+            { col: 'G', source: '_dados_grupos' },       // grupo_nome
+            { col: 'H', source: '_dados_aplicacoes' },   // aplicacao_nome
+            { col: 'I', source: '_dados_conjuntos' },    // conjunto_nome
+            { col: 'J', source: '_dados_enderecamentos' },// enderecamento_codigo
+            { col: 'K', source: '_dados_conversoes' }     // conversao_nome_regra
+        ];
+
+        const numRowsToApplyValidation = 1000; // Aplicar validação para 1000 linhas
+        mainSheet['!dataValidations'] = [];
+
+        validations.forEach(v => {
+            if (workbook.SheetNames.includes(v.source)) { // Apenas adiciona validação se a aba de dados existir
+                mainSheet['!dataValidations'].push({
+                    sqref: `${v.col}2:${v.col}${numRowsToApplyValidation}`, // Ex: F2:F1000
+                    validation: {
+                        type: 'list',
+                        allowBlank: true,
+                        showDropDown: true,
+                        formula1: `=${v.source}!$A$1:$A$${fetchedData[v.source.replace('_dados_','')].length}`
+                    }
+                });
+            }
+        });
+
+        XLSX.utils.book_append_sheet(workbook, mainSheet, "Produtos");
+
+        // 6. Opcional: Ocultar as abas de dados
+        Object.keys(fetchedData).forEach(key => {
+            const sheetName = `_dados_${key}`;
+            if(workbook.Sheets[sheetName]) {
+                workbook.Sheets[sheetName].Hidden = 1;
+            }
+        });
+
+        // 7. Forçar o download do arquivo
+        XLSX.writeFile(workbook, "modelo_importacao_produtos_inteligente.xlsx");
+
+    } catch (error) {
+        console.error("Erro ao gerar modelo Excel:", error);
+        alert("Ocorreu um erro ao gerar o modelo. Verifique o console para mais detalhes.");
+    }
+}
+
+// Adicionar estas duas funções no final do arquivo js/produtos.js
+
+async function findIdByName(collectionName, fieldName, value) {
+    if (!value) return null;
+    const colRef = collection(db, collectionName);
+    const snapshot = await getDocs(colRef);
+    for (const doc of snapshot.docs) {
+        if (String(doc.data()[fieldName]).toLowerCase() === String(value).toLowerCase()) {
+            return doc.id;
+        }
+    }
+    return null; // Retorna null se não encontrar
+}
+
+async function handleFileImport(event) {
+    const file = event.target.files[0];
+    if (!file) return;
+
+    const reader = new FileReader();
+    reader.onload = async (e) => {
+        const data = new Uint8Array(e.target.result);
+        const workbook = XLSX.read(data, { type: 'array' });
+        const sheetName = workbook.SheetNames[0];
+        const worksheet = workbook.Sheets[sheetName];
+        const json = XLSX.utils.sheet_to_json(worksheet);
+
+        if (json.length === 0) {
+            alert("A planilha está vazia ou em um formato inválido.");
+            return;
+        }
+
+        let successCount = 0;
+        let errorCount = 0;
+        let errors = [];
+
+        alert(`Iniciando a importação de ${json.length} produtos. Aguarde...`);
+
+        for (const row of json) {
+            try {
+                // Mapeia os nomes da planilha para os IDs do Firestore
+                const fornecedorId = await findIdByName('fornecedores', 'nome', row.fornecedor_nome);
+                const grupoId = await findIdByName('grupos', 'nome', row.grupo_nome);
+                const aplicacaoId = await findIdByName('aplicacoes', 'nome', row.aplicacao_nome);
+                const conjuntoId = await findIdByName('conjuntos', 'nome', row.conjunto_nome);
+                const enderecamentoId = await findIdByName('enderecamentos', 'codigo', row.enderecamento_codigo);
+                const conversaoId = await findIdByName('conversoes', 'nome_regra', row.conversao_nome_regra);
+
+                // Validação simples: código e descrição são obrigatórios
+                if (!row.codigo || !row.descricao) {
+                    throw new Error(`Linha com código '${row.codigo}' não tem código ou descrição.`);
+                }
+
+                const product = {
+                    codigo: row.codigo,
+                    codigo_global: row.codigo_global || "",
+                    descricao: row.descricao,
+                    un: row.un || "",
+                    cor: row.cor || "",
+                    fornecedorId: fornecedorId || "",
+                    grupoId: grupoId || "",
+                    aplicacaoId: aplicacaoId || "",
+                    conjuntoId: conjuntoId || "",
+                    enderecamentoId: enderecamentoId || "",
+                    conversaoId: conversaoId || ""
+                };
+
+                // Adiciona o produto ao banco de dados
+                await addDoc(collection(db, 'produtos'), product);
+                successCount++;
+            } catch (error) {
+                errorCount++;
+                errors.push(`Erro na linha com código '${row.codigo || "N/A"}': ${error.message}`);
+                console.error("Erro ao importar linha:", row, error);
+            }
+        }
+
+        // Feedback final para o usuário
+        let finalMessage = `${successCount} produtos importados com sucesso!`;
+        if (errorCount > 0) {
+            finalMessage += `\n\n${errorCount} produtos falharam na importação.\n\nDetalhes dos erros:\n${errors.join("\n")}`;
+            console.log("Erros detalhados:", errors);
+        }
+        alert(finalMessage);
+        fileInput.value = ''; // Reseta o input de arquivo
+    };
+    reader.readAsArrayBuffer(file);
+}
