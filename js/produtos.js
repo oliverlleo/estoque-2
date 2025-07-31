@@ -193,38 +193,89 @@ document.addEventListener('DOMContentLoaded', async function() {
     });
 });
 
-// Adicionar esta função no final do arquivo js/produtos.js
+// Substitua a função exportarModeloExcel antiga por esta
+async function exportarModeloExcel() {
+    alert("Gerando modelo inteligente... Por favor, aguarde.");
+    try {
+        // 1. Buscar todos os dados necessários do Firestore em paralelo
+        const dataSources = {
+            fornecedores: { collectionName: 'fornecedores', field: 'nome' },
+            grupos: { collectionName: 'grupos', field: 'nome' },
+            aplicacoes: { collectionName: 'aplicacoes', field: 'nome' },
+            conjuntos: { collectionName: 'conjuntos', field: 'nome' },
+            enderecamentos: { collectionName: 'enderecamentos', field: 'codigo' },
+            conversoes: { collectionName: 'conversoes', field: 'nome_regra' }
+        };
 
-function exportarModeloExcel() {
-    // Cabeçalhos que o usuário deve preencher. Usamos nomes amigáveis.
-    const headers = [
-        "codigo", "codigo_global", "descricao", "un", "cor",
-        "fornecedor_nome", "grupo_nome", "aplicacao_nome",
-        "conjunto_nome", "enderecamento_codigo"
-    ];
+        const fetchedData = {};
+        const promises = Object.keys(dataSources).map(async (key) => {
+            const source = dataSources[key];
+            const snapshot = await getDocs(collection(db, source.collectionName));
+            fetchedData[key] = snapshot.docs.map(doc => doc.data()[source.field]).filter(Boolean);
+        });
+        await Promise.all(promises);
 
-    // Criando uma linha de exemplo para guiar o usuário
-    const exampleRow = {
-        "codigo": "PROD-001",
-        "codigo_global": "7890001",
-        "descricao": "PARAFUSO SEXTAVADO ROSCA MAQUINA",
-        "un": "PÇ",
-        "cor": "INOX",
-        "fornecedor_nome": "Nome do Fornecedor Exemplo",
-        "grupo_nome": "Nome do Grupo Exemplo",
-        "aplicacao_nome": "Nome da Aplicação Exemplo",
-        "conjunto_nome": "Nome do Conjunto Exemplo",
-        "enderecamento_codigo": "A01-01"
-    };
+        // 2. Criar um novo Workbook (arquivo Excel)
+        const workbook = XLSX.utils.book_new();
 
-    // Cria a planilha a partir dos dados (cabeçalho + exemplo)
-    const worksheet = XLSX.utils.json_to_sheet([exampleRow], { header: headers });
-    const workbook = XLSX.utils.book_new();
-    XLSX.utils.book_append_sheet(workbook, worksheet, "Produtos");
+        // 3. Criar e adicionar as abas de dados (que ficarão ocultas)
+        Object.keys(fetchedData).forEach(key => {
+            const sheetName = `_dados_${key}`;
+            const data = fetchedData[key].map(item => [item]); // SheetJS espera um array de arrays
+            if (data.length > 0) {
+                const dataSheet = XLSX.utils.aoa_to_sheet(data);
+                XLSX.utils.book_append_sheet(workbook, dataSheet, sheetName);
+            }
+        });
 
-    // Força o download do arquivo no navegador
-    XLSX.writeFile(workbook, "modelo_importacao_produtos.xlsx");
-    alert("O download do modelo Excel foi iniciado.");
+        // 4. Criar a aba principal de "Produtos"
+        const headers = ["codigo", "codigo_global", "descricao", "un", "cor", "fornecedor_nome", "grupo_nome", "aplicacao_nome", "conjunto_nome", "enderecamento_codigo", "conversao_nome_regra"];
+        const mainSheet = XLSX.utils.json_to_sheet([{}], { header: headers });
+
+        // 5. Adicionar a "Validação de Dados" (Dropdowns)
+        const validations = [
+            { col: 'F', source: '_dados_fornecedores' }, // fornecedor_nome
+            { col: 'G', source: '_dados_grupos' },       // grupo_nome
+            { col: 'H', source: '_dados_aplicacoes' },   // aplicacao_nome
+            { col: 'I', source: '_dados_conjuntos' },    // conjunto_nome
+            { col: 'J', source: '_dados_enderecamentos' },// enderecamento_codigo
+            { col: 'K', source: '_dados_conversoes' }     // conversao_nome_regra
+        ];
+
+        const numRowsToApplyValidation = 1000; // Aplicar validação para 1000 linhas
+        mainSheet['!dataValidations'] = [];
+
+        validations.forEach(v => {
+            if (workbook.SheetNames.includes(v.source)) { // Apenas adiciona validação se a aba de dados existir
+                mainSheet['!dataValidations'].push({
+                    sqref: `${v.col}2:${v.col}${numRowsToApplyValidation}`, // Ex: F2:F1000
+                    validation: {
+                        type: 'list',
+                        allowBlank: true,
+                        showDropDown: true,
+                        formula1: `=${v.source}!$A$1:$A$${fetchedData[v.source.replace('_dados_','')].length}`
+                    }
+                });
+            }
+        });
+
+        XLSX.utils.book_append_sheet(workbook, mainSheet, "Produtos");
+
+        // 6. Opcional: Ocultar as abas de dados
+        Object.keys(fetchedData).forEach(key => {
+            const sheetName = `_dados_${key}`;
+            if(workbook.Sheets[sheetName]) {
+                workbook.Sheets[sheetName].Hidden = 1;
+            }
+        });
+
+        // 7. Forçar o download do arquivo
+        XLSX.writeFile(workbook, "modelo_importacao_produtos_inteligente.xlsx");
+
+    } catch (error) {
+        console.error("Erro ao gerar modelo Excel:", error);
+        alert("Ocorreu um erro ao gerar o modelo. Verifique o console para mais detalhes.");
+    }
 }
 
 // Adicionar estas duas funções no final do arquivo js/produtos.js
@@ -272,6 +323,7 @@ async function handleFileImport(event) {
                 const aplicacaoId = await findIdByName('aplicacoes', 'nome', row.aplicacao_nome);
                 const conjuntoId = await findIdByName('conjuntos', 'nome', row.conjunto_nome);
                 const enderecamentoId = await findIdByName('enderecamentos', 'codigo', row.enderecamento_codigo);
+                const conversaoId = await findIdByName('conversoes', 'nome_regra', row.conversao_nome_regra);
 
                 // Validação simples: código e descrição são obrigatórios
                 if (!row.codigo || !row.descricao) {
@@ -289,7 +341,7 @@ async function handleFileImport(event) {
                     aplicacaoId: aplicacaoId || "",
                     conjuntoId: conjuntoId || "",
                     enderecamentoId: enderecamentoId || "",
-                    conversaoId: "" // Campo de conversão não incluído na importação simples
+                    conversaoId: conversaoId || ""
                 };
 
                 // Adiciona o produto ao banco de dados
