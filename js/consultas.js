@@ -27,7 +27,6 @@ document.addEventListener('DOMContentLoaded', async function() {
             products[doc.id] = { id: doc.id, ...doc.data() };
         });
 
-        // CORREÇÃO: Criar os mapas para locations e locais
         const locations = {};
         locationsSnapshot.forEach(doc => {
             locations[doc.id] = doc.data();
@@ -38,95 +37,98 @@ document.addEventListener('DOMContentLoaded', async function() {
             locais[doc.id] = doc.data();
         });
 
-
         const movementsByProduct = {};
         movementsSnapshot.forEach(doc => {
             const mov = doc.data();
-            // CORREÇÃO CRÍTICA: Usar 'productId' (minúsculo) como está no Firebase
             if (!movementsByProduct[mov.productId]) {
                 movementsByProduct[mov.productId] = [];
             }
             movementsByProduct[mov.productId].push(mov);
         });
 
-
-        const updatePromises = [];
-
-        // 2. Process, calculate and schedule updates
-        const processedProducts = Object.values(products).map(product => {
-            let calculatedStock = 0;
+        // 2. Process, calculate and consolidate
+        consolidatedData = Object.values(products).map(product => {
             const productMovements = movementsByProduct[product.id] || [];
 
+            let estoqueAtual = 0; // Apenas para itens inteiros
+            let inventarioPedacos = {}; // Ex: { "1500mm": 2, "2000mm": 1 }
+
             productMovements.forEach(mov => {
-                const quantity = parseFloat(mov.quantidade) || 0;
-                if (mov.tipo === 'entrada') {
-                    calculatedStock += quantity;
-                } else if (mov.tipo === 'saida') {
-                    calculatedStock -= quantity;
+                const isPiece = mov.medida && mov.medida.trim() !== '';
+
+                if (isPiece) { // É um pedaço
+                    const medida = mov.medida.trim();
+                    if (mov.tipo === 'entrada') {
+                        inventarioPedacos[medida] = (inventarioPedacos[medida] || 0) + 1;
+                    } else if (mov.tipo === 'saida') {
+                        inventarioPedacos[medida] = (inventarioPedacos[medida] || 0) - 1;
+                    }
+                } else { // É um item inteiro
+                    const quantidade = parseFloat(mov.quantidade) || 0;
+                    if (mov.tipo === 'entrada') {
+                        estoqueAtual += quantidade;
+                    } else if (mov.tipo === 'saida') {
+                        estoqueAtual -= quantidade;
+                    }
                 }
             });
 
-            if (product.estoque !== calculatedStock) {
-                const productRef = doc(db, 'produtos', product.id);
-                updatePromises.push(updateDoc(productRef, { estoque: calculatedStock }));
-            }
+            // Calcula o saldo total de pedaços
+            const saldoPedaco = Object.values(inventarioPedacos).reduce((sum, count) => sum + count, 0);
 
-            return {
-                ...product,
-                estoque: calculatedStock
-            };
-        });
-
-        if (updatePromises.length > 0) {
-            await Promise.all(updatePromises);
-        }
-
-        // 3. Consolidate data for rendering
-        consolidatedData = processedProducts.map(product => {
-            const productMovements = movementsByProduct[product.id] || [];
+            // Lógica de cálculo de valor médio (mantida como antes)
             const entryMovements = productMovements.filter(m => m.tipo === 'entrada' && m.valor_unitario > 0);
-
             let totalCost = 0;
             let totalQuantity = 0;
             entryMovements.forEach(m => {
-                const entryTotalValue = (m.quantidade * m.valor_unitario) + (m.icms || 0) + (m.ipi || 0) + (m.frete || 0);
-                totalCost += entryTotalValue;
-                totalQuantity += m.quantidade;
+                // Apenas entradas de itens inteiros devem impactar o valor médio
+                if (!m.medida || m.medida.trim() === '') {
+                    const entryTotalValue = (m.quantidade * m.valor_unitario) + (m.icms || 0) + (m.ipi || 0) + (m.frete || 0);
+                    totalCost += entryTotalValue;
+                    totalQuantity += m.quantidade;
+                }
             });
 
             const valorMedio = totalQuantity > 0 ? totalCost / totalQuantity : 0;
-            const valorTotalEstoque = (product.estoque || 0) * valorMedio;
+            const valorTotalEstoque = estoqueAtual * valorMedio; // Valor total apenas de itens inteiros
 
             const enderecamentoDoc = locations[product.enderecamentoId];
             const localNome = enderecamentoDoc ? (locais[enderecamentoDoc.localId]?.nome || 'N/A') : 'N/A';
             const local = enderecamentoDoc ? `${enderecamentoDoc.codigo} - ${localNome}` : 'N/A';
 
-            const medidas = productMovements
-                .filter(m => m.medida)
-                .map(m => `${m.medida} (${m.tipo})`)
-                .join(', ');
-
             return {
                 ...product,
+                estoque: estoqueAtual,
+                saldoPedaco: saldoPedaco,
+                inventarioPedacos: inventarioPedacos,
                 valorMedio,
                 valorTotalEstoque,
-                local,
-                medidas
+                local
             };
         });
+
+        // A atualização do estoque no Firebase pode ser feita em um processo separado ou mantida
+        // por enquanto, vamos focar na exibição correta.
+        const updatePromises = consolidatedData.map(product => {
+            const productRef = doc(db, 'produtos', product.id);
+            // Atualiza apenas o estoque de itens inteiros no documento do produto
+            return updateDoc(productRef, { estoque: product.estoque });
+        });
+
+        await Promise.all(updatePromises).catch(console.error);
+
 
         renderTable(consolidatedData);
     }
 
     // 4. Render Table
     function renderTable(data) {
-        tableBody.innerHTML = '<tr><td colspan="9" style="text-align:center;">Carregando...</td></tr>';
+        tableBody.innerHTML = '';
         if(data.length === 0) {
-            tableBody.innerHTML = '<tr><td colspan="9" style="text-align:center;">Nenhum produto encontrado.</td></tr>';
+            tableBody.innerHTML = '<tr><td colspan="10" style="text-align:center;">Nenhum produto encontrado.</td></tr>';
             return;
         }
 
-        tableBody.innerHTML = '';
         data.forEach(item => {
             const row = document.createElement('tr');
             row.innerHTML = `
@@ -135,13 +137,34 @@ document.addEventListener('DOMContentLoaded', async function() {
                 <td>${item.descricao}</td>
                 <td>${item.estoque || 0}</td>
                 <td>${item.un}</td>
+                <td>${item.saldoPedaco || 0}</td>
                 <td>R$ ${item.valorMedio.toFixed(2)}</td>
-                <td>${item.valorTotalEstoque.toFixed(2)}</td>
+                <td>R$ ${item.valorTotalEstoque.toFixed(2)}</td>
                 <td>${item.local}</td>
-                <td>${item.medidas || '-'}</td>
+                <td>
+                    ${item.saldoPedaco > 0 ? `<button class="btn-ver-pedacos" data-product-id="${item.id}"><i data-feather="chevron-down"></i></button>` : '-'}
+                </td>
             `;
             tableBody.appendChild(row);
+
+            if (item.saldoPedaco > 0) {
+                const detailsRow = document.createElement('tr');
+                detailsRow.className = `details-row details-for-${item.id}`;
+                detailsRow.style.display = 'none'; // Começa escondida
+
+                let detailsHtml = '<ul>';
+                for (const [medida, qtd] of Object.entries(item.inventarioPedacos)) {
+                    if (qtd > 0) {
+                        detailsHtml += `<li><strong>${qtd}</strong> pedaço(s) de <strong>${medida}</strong></li>`;
+                    }
+                }
+                detailsHtml += '</ul>';
+
+                detailsRow.innerHTML = `<td colspan="10">${detailsHtml}</td>`;
+                tableBody.appendChild(detailsRow);
+            }
         });
+        feather.replace(); // Para renderizar os ícones
     }
 
     // 5. Filtering logic
@@ -163,6 +186,21 @@ document.addEventListener('DOMContentLoaded', async function() {
     }
 
     Object.values(filters).forEach(input => input.addEventListener('input', applyFilters));
+
+    // Event listener para os botões de expandir
+    tableBody.addEventListener('click', function(event) {
+        const button = event.target.closest('.btn-ver-pedacos');
+        if (button) {
+            const productId = button.dataset.productId;
+            const detailsRow = document.querySelector(`.details-for-${productId}`);
+            if (detailsRow) {
+                const isVisible = detailsRow.style.display !== 'none';
+                detailsRow.style.display = isVisible ? 'none' : 'table-row';
+                button.innerHTML = isVisible ? '<i data-feather="chevron-down"></i>' : '<i data-feather="chevron-up"></i>';
+                feather.replace();
+            }
+        }
+    });
 
     // Initial Load
     fetchDataAndCalculate().catch(error => {
