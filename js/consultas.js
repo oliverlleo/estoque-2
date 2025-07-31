@@ -1,5 +1,5 @@
 import { db } from './firebase-config.js';
-import { collection, getDocs } from "https://www.gstatic.com/firebasejs/9.6.1/firebase-firestore.js";
+import { collection, getDocs, doc, updateDoc } from "https://www.gstatic.com/firebasejs/9.6.1/firebase-firestore.js";
 
 document.addEventListener('DOMContentLoaded', async function() {
     console.log("Página de Consultas carregada.");
@@ -19,7 +19,7 @@ document.addEventListener('DOMContentLoaded', async function() {
             getDocs(collection(db, 'produtos')),
             getDocs(collection(db, 'movimentacoes')),
             getDocs(collection(db, 'enderecamentos')),
-            getDocs(collection(db, 'locais')) // ADICIONADO
+            getDocs(collection(db, 'locais'))
         ]);
 
         const products = {};
@@ -27,27 +27,62 @@ document.addEventListener('DOMContentLoaded', async function() {
             products[doc.id] = { id: doc.id, ...doc.data() };
         });
 
+        // CORREÇÃO: Criar os mapas para locations e locais
         const locations = {};
         locationsSnapshot.forEach(doc => {
             locations[doc.id] = doc.data();
         });
 
-        const locais = {}; // ADICIONADO
-        locaisSnapshot.forEach(doc => { // ADICIONADO
-            locais[doc.id] = doc.data(); // ADICIONADO
+        const locais = {};
+        locaisSnapshot.forEach(doc => {
+            locais[doc.id] = doc.data();
         });
+
 
         const movementsByProduct = {};
         movementsSnapshot.forEach(doc => {
             const mov = doc.data();
-            if (!movementsByProduct[mov.produtoId]) {
-                movementsByProduct[mov.produtoId] = [];
+            // CORREÇÃO CRÍTICA: Usar 'productId' (minúsculo) como está no Firebase
+            if (!movementsByProduct[mov.productId]) {
+                movementsByProduct[mov.productId] = [];
             }
-            movementsByProduct[mov.produtoId].push(mov);
+            movementsByProduct[mov.productId].push(mov);
         });
 
-        // 2. Process and calculate for each product
-        consolidatedData = Object.values(products).map(product => {
+
+        const updatePromises = [];
+
+        // 2. Process, calculate and schedule updates
+        const processedProducts = Object.values(products).map(product => {
+            let calculatedStock = 0;
+            const productMovements = movementsByProduct[product.id] || [];
+
+            productMovements.forEach(mov => {
+                const quantity = parseFloat(mov.quantidade) || 0;
+                if (mov.tipo === 'entrada') {
+                    calculatedStock += quantity;
+                } else if (mov.tipo === 'saida') {
+                    calculatedStock -= quantity;
+                }
+            });
+
+            if (product.estoque !== calculatedStock) {
+                const productRef = doc(db, 'produtos', product.id);
+                updatePromises.push(updateDoc(productRef, { estoque: calculatedStock }));
+            }
+
+            return {
+                ...product,
+                estoque: calculatedStock
+            };
+        });
+
+        if (updatePromises.length > 0) {
+            await Promise.all(updatePromises);
+        }
+
+        // 3. Consolidate data for rendering
+        consolidatedData = processedProducts.map(product => {
             const productMovements = movementsByProduct[product.id] || [];
             const entryMovements = productMovements.filter(m => m.tipo === 'entrada' && m.valor_unitario > 0);
 
@@ -62,11 +97,9 @@ document.addEventListener('DOMContentLoaded', async function() {
             const valorMedio = totalQuantity > 0 ? totalCost / totalQuantity : 0;
             const valorTotalEstoque = (product.estoque || 0) * valorMedio;
 
-            // Lógica de endereçamento atualizada
             const enderecamentoDoc = locations[product.enderecamentoId];
             const localNome = enderecamentoDoc ? (locais[enderecamentoDoc.localId]?.nome || 'N/A') : 'N/A';
             const local = enderecamentoDoc ? `${enderecamentoDoc.codigo} - ${localNome}` : 'N/A';
-
 
             const medidas = productMovements
                 .filter(m => m.medida)
@@ -85,7 +118,7 @@ document.addEventListener('DOMContentLoaded', async function() {
         renderTable(consolidatedData);
     }
 
-    // 3. Render Table
+    // 4. Render Table
     function renderTable(data) {
         tableBody.innerHTML = '<tr><td colspan="9" style="text-align:center;">Carregando...</td></tr>';
         if(data.length === 0) {
@@ -103,7 +136,7 @@ document.addEventListener('DOMContentLoaded', async function() {
                 <td>${item.estoque || 0}</td>
                 <td>${item.un}</td>
                 <td>R$ ${item.valorMedio.toFixed(2)}</td>
-                <td>R$ ${item.valorTotalEstoque.toFixed(2)}</td>
+                <td>${item.valorTotalEstoque.toFixed(2)}</td>
                 <td>${item.local}</td>
                 <td>${item.medidas || '-'}</td>
             `;
@@ -111,7 +144,7 @@ document.addEventListener('DOMContentLoaded', async function() {
         });
     }
 
-    // 4. Filtering
+    // 5. Filtering logic
     function applyFilters() {
         const filterValues = {
             codigo: filters.codigo.value.toLowerCase(),
@@ -134,6 +167,6 @@ document.addEventListener('DOMContentLoaded', async function() {
     // Initial Load
     fetchDataAndCalculate().catch(error => {
         console.error("Erro ao carregar dados da consulta:", error);
-        tableBody.innerHTML = `<tr><td colspan="9" style="text-align:center; color: red;">Erro ao carregar dados.</td></tr>`;
+        tableBody.innerHTML = `<tr><td colspan="9" style="text-align:center; color: red;">Erro ao carregar dados: ${error.message}</td></tr>`;
     });
 });
