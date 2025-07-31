@@ -1,4 +1,4 @@
-// js/consultas.js - VERSÃO FINAL E CORRIGIDA
+// js/consultas.js - VERSÃO FINAL E DEFINITIVA
 
 import { db } from './firebase-config.js';
 import { collection, getDocs, doc, updateDoc } from "https://www.gstatic.com/firebasejs/9.6.1/firebase-firestore.js";
@@ -11,6 +11,7 @@ async function sincronizarSaldosNoBanco(dadosParaSincronizar) {
         const updatePromises = dadosParaSincronizar.map(item => {
             const estoqueSalvo = parseFloat(item.estoque) || 0;
             const estoqueReal = parseFloat(item.estoqueAtual) || 0;
+
             if (Math.abs(estoqueSalvo - estoqueReal) > 0.0001) {
                 const productRef = doc(db, 'produtos', item.id);
                 return updateDoc(productRef, { estoque: estoqueReal });
@@ -22,6 +23,7 @@ async function sincronizarSaldosNoBanco(dadosParaSincronizar) {
             await Promise.all(updatePromises);
             console.log(`[Sincronização] Concluída: ${updatePromises.length} produto(s) tiveram seu saldo corrigido no banco de dados.`);
         }
+
     } catch (error) {
         console.error("[Sincronização] ERRO AO TENTAR CORRIGIR O BANCO DE DADOS:", error);
     }
@@ -38,11 +40,9 @@ async function fetchDataAndCalculate() {
         getDocs(collection(db, 'locais'))
     ]);
 
-    // 1. Cria um mapa de produtos robusto, limpando os IDs de possíveis espaços em branco.
     const productsById = new Map();
     productsSnapshot.forEach(doc => {
-        const cleanId = doc.id.trim(); // Limpa o ID do documento
-        productsById.set(cleanId, { id: cleanId, ...doc.data() });
+        productsById.set(doc.id, { id: doc.id, ...doc.data() });
     });
 
     const locations = {};
@@ -50,16 +50,12 @@ async function fetchDataAndCalculate() {
     const locais = {};
     locaisSnapshot.forEach(doc => { locais[doc.id] = doc.data(); });
 
-    // 2. Agrupa as movimentações, limpando o productId antes de fazer a busca.
     const movementsByProduct = new Map();
     movementsSnapshot.forEach(doc => {
         const mov = doc.data();
 
-        // Verifica se o campo productId existe e não é nulo/undefined
-        if (mov.produtoId && typeof mov.produtoId === 'string') {
-            const cleanProductId = mov.produtoId.trim(); // Limpa o ID da movimentação
-
-            // Procura o produto no mapa usando o ID limpo
+        if (mov.produtoId && typeof mov.produtoId === 'string' && mov.produtoId.trim() !== "") {
+            const cleanProductId = mov.produtoId.trim();
             if (productsById.has(cleanProductId)) {
                 if (!movementsByProduct.has(cleanProductId)) {
                     movementsByProduct.set(cleanProductId, []);
@@ -69,7 +65,6 @@ async function fetchDataAndCalculate() {
         }
     });
 
-    // 3. Processa os dados finais, calculando o estoque real.
     const consolidatedData = Array.from(productsById.values()).map(product => {
         const productMovements = movementsByProduct.get(product.id) || [];
 
@@ -87,7 +82,6 @@ async function fetchDataAndCalculate() {
 
         const estoqueAtual = totalEntradas - totalSaidas;
 
-        // O resto da lógica para calcular valor médio e outros campos.
         const entryMovements = productMovements.filter(m => m.tipo === 'entrada' && (parseFloat(String(m.valor_unitario || 0).replace(',', '.')) || 0) > 0);
         let totalCost = 0;
         let totalEntryQuantity = 0;
@@ -111,15 +105,11 @@ async function fetchDataAndCalculate() {
         return { ...product, estoqueAtual, valorMedio, valorTotalEstoque, local, medidas };
     });
 
-    // 4. Renderiza a tabela e dispara a correção no banco de dados.
     renderTable(consolidatedData);
     sincronizarSaldosNoBanco(consolidatedData);
     return consolidatedData;
 }
 
-/**
- * Função que desenha a tabela na tela.
- */
 function renderTable(data) {
     const tableBody = document.querySelector('#table-consultas tbody');
     tableBody.innerHTML = '';
@@ -144,18 +134,15 @@ function renderTable(data) {
     });
 }
 
-/**
- * Lógica principal da página.
- */
 document.addEventListener('DOMContentLoaded', async function() {
-    const filters = {
-        codigo: document.getElementById('filter-codigo'),
-        descricao: document.getElementById('filter-descricao'),
-        local: document.getElementById('filter-local')
-    };
     let consolidatedData = [];
 
     function applyFilters() {
+        const filters = {
+            codigo: document.getElementById('filter-codigo'),
+            descricao: document.getElementById('filter-descricao'),
+            local: document.getElementById('filter-local')
+        };
         const filterValues = {
             codigo: (filters.codigo.value || '').toLowerCase(),
             descricao: (filters.descricao.value || '').toLowerCase(),
@@ -170,7 +157,9 @@ document.addEventListener('DOMContentLoaded', async function() {
         renderTable(filteredData);
     }
 
-    Object.values(filters).forEach(input => input.addEventListener('input', applyFilters));
+    document.getElementById('filter-codigo').addEventListener('input', applyFilters);
+    document.getElementById('filter-descricao').addEventListener('input', applyFilters);
+    document.getElementById('filter-local').addEventListener('input', applyFilters);
 
     try {
         consolidatedData = await fetchDataAndCalculate();
