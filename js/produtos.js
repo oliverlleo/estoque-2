@@ -62,6 +62,20 @@ document.addEventListener('DOMContentLoaded', async function() {
     });
 
 
+    const btnImportar = document.getElementById('btn-importar-excel');
+    const btnExportar = document.getElementById('btn-exportar-modelo');
+    const fileInput = document.getElementById('import-excel-input');
+
+    // Listener para o botão de exportar
+    btnExportar.addEventListener('click', exportarModeloExcel);
+
+    // Listener para o botão de importar (que aciona o input de arquivo)
+    btnImportar.addEventListener('click', () => fileInput.click());
+
+    // Listener para quando um arquivo é selecionado
+    fileInput.addEventListener('change', handleFileImport);
+
+
     // 2. Handle Product Form Submission (Create/Update)
     form.addEventListener('submit', async (e) => {
         e.preventDefault();
@@ -178,3 +192,124 @@ document.addEventListener('DOMContentLoaded', async function() {
         renderTable(filteredData);
     });
 });
+
+// Adicionar esta função no final do arquivo js/produtos.js
+
+function exportarModeloExcel() {
+    // Cabeçalhos que o usuário deve preencher. Usamos nomes amigáveis.
+    const headers = [
+        "codigo", "codigo_global", "descricao", "un", "cor",
+        "fornecedor_nome", "grupo_nome", "aplicacao_nome",
+        "conjunto_nome", "enderecamento_codigo"
+    ];
+
+    // Criando uma linha de exemplo para guiar o usuário
+    const exampleRow = {
+        "codigo": "PROD-001",
+        "codigo_global": "7890001",
+        "descricao": "PARAFUSO SEXTAVADO ROSCA MAQUINA",
+        "un": "PÇ",
+        "cor": "INOX",
+        "fornecedor_nome": "Nome do Fornecedor Exemplo",
+        "grupo_nome": "Nome do Grupo Exemplo",
+        "aplicacao_nome": "Nome da Aplicação Exemplo",
+        "conjunto_nome": "Nome do Conjunto Exemplo",
+        "enderecamento_codigo": "A01-01"
+    };
+
+    // Cria a planilha a partir dos dados (cabeçalho + exemplo)
+    const worksheet = XLSX.utils.json_to_sheet([exampleRow], { header: headers });
+    const workbook = XLSX.utils.book_new();
+    XLSX.utils.book_append_sheet(workbook, worksheet, "Produtos");
+
+    // Força o download do arquivo no navegador
+    XLSX.writeFile(workbook, "modelo_importacao_produtos.xlsx");
+    alert("O download do modelo Excel foi iniciado.");
+}
+
+// Adicionar estas duas funções no final do arquivo js/produtos.js
+
+async function findIdByName(collectionName, fieldName, value) {
+    if (!value) return null;
+    const colRef = collection(db, collectionName);
+    const snapshot = await getDocs(colRef);
+    for (const doc of snapshot.docs) {
+        if (String(doc.data()[fieldName]).toLowerCase() === String(value).toLowerCase()) {
+            return doc.id;
+        }
+    }
+    return null; // Retorna null se não encontrar
+}
+
+async function handleFileImport(event) {
+    const file = event.target.files[0];
+    if (!file) return;
+
+    const reader = new FileReader();
+    reader.onload = async (e) => {
+        const data = new Uint8Array(e.target.result);
+        const workbook = XLSX.read(data, { type: 'array' });
+        const sheetName = workbook.SheetNames[0];
+        const worksheet = workbook.Sheets[sheetName];
+        const json = XLSX.utils.sheet_to_json(worksheet);
+
+        if (json.length === 0) {
+            alert("A planilha está vazia ou em um formato inválido.");
+            return;
+        }
+
+        let successCount = 0;
+        let errorCount = 0;
+        let errors = [];
+
+        alert(`Iniciando a importação de ${json.length} produtos. Aguarde...`);
+
+        for (const row of json) {
+            try {
+                // Mapeia os nomes da planilha para os IDs do Firestore
+                const fornecedorId = await findIdByName('fornecedores', 'nome', row.fornecedor_nome);
+                const grupoId = await findIdByName('grupos', 'nome', row.grupo_nome);
+                const aplicacaoId = await findIdByName('aplicacoes', 'nome', row.aplicacao_nome);
+                const conjuntoId = await findIdByName('conjuntos', 'nome', row.conjunto_nome);
+                const enderecamentoId = await findIdByName('enderecamentos', 'codigo', row.enderecamento_codigo);
+
+                // Validação simples: código e descrição são obrigatórios
+                if (!row.codigo || !row.descricao) {
+                    throw new Error(`Linha com código '${row.codigo}' não tem código ou descrição.`);
+                }
+
+                const product = {
+                    codigo: row.codigo,
+                    codigo_global: row.codigo_global || "",
+                    descricao: row.descricao,
+                    un: row.un || "",
+                    cor: row.cor || "",
+                    fornecedorId: fornecedorId || "",
+                    grupoId: grupoId || "",
+                    aplicacaoId: aplicacaoId || "",
+                    conjuntoId: conjuntoId || "",
+                    enderecamentoId: enderecamentoId || "",
+                    conversaoId: "" // Campo de conversão não incluído na importação simples
+                };
+
+                // Adiciona o produto ao banco de dados
+                await addDoc(collection(db, 'produtos'), product);
+                successCount++;
+            } catch (error) {
+                errorCount++;
+                errors.push(`Erro na linha com código '${row.codigo || "N/A"}': ${error.message}`);
+                console.error("Erro ao importar linha:", row, error);
+            }
+        }
+
+        // Feedback final para o usuário
+        let finalMessage = `${successCount} produtos importados com sucesso!`;
+        if (errorCount > 0) {
+            finalMessage += `\n\n${errorCount} produtos falharam na importação.\n\nDetalhes dos erros:\n${errors.join("\n")}`;
+            console.log("Erros detalhados:", errors);
+        }
+        alert(finalMessage);
+        fileInput.value = ''; // Reseta o input de arquivo
+    };
+    reader.readAsArrayBuffer(file);
+}
