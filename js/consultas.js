@@ -1,100 +1,96 @@
-// js/consultas.js - VERSÃO COM LIGAÇÃO INTELIGENTE E AUTOMÁTICA
+// js/consultas.js - VERSÃO FINAL E DEFINITIVA
 
 import { db } from './firebase-config.js';
 import { collection, getDocs, doc, updateDoc } from "https://www.gstatic.com/firebasejs/9.6.1/firebase-firestore.js";
 
-// A função de sincronização em segundo plano permanece a mesma
+/**
+ * Função que roda em segundo plano para corrigir os saldos no Firebase.
+ */
 async function sincronizarSaldosNoBanco(dadosParaSincronizar) {
-    // ... (código da função sincronizarSaldosNoBanco da resposta anterior)
-    console.log('Iniciando processo de correção de saldos no banco de dados em segundo plano...');
+    console.log('[Sincronização] Iniciando correção de saldos em segundo plano...');
     try {
-        const updatePromises = dadosParaSincronizar.map(item => {
+        const updates = dadosParaSincronizar.map(item => {
             const estoqueSalvo = parseFloat(item.estoque) || 0;
             const estoqueReal = parseFloat(item.estoqueAtual) || 0;
+
             if (Math.abs(estoqueSalvo - estoqueReal) > 0.0001) {
                 const productRef = doc(db, 'produtos', item.id);
-                console.log(`CORRIGINDO SALDO do produto ${item.codigo}: Valor antigo=${estoqueSalvo}, Valor correto=${estoqueReal}`);
+                console.log(`[Sincronização] CORRIGINDO PRODUTO ${item.codigo}: Valor antigo=${estoqueSalvo}, Valor novo=${estoqueReal}`);
                 return updateDoc(productRef, { estoque: estoqueReal });
             }
             return null;
-        }).filter(p => p !== null);
+        }).filter(Boolean);
 
-        if (updatePromises.length > 0) {
-            await Promise.all(updatePromises);
-            console.log(`Sincronização concluída: ${updatePromises.length} produto(s) tiveram seu saldo corrigido.`);
+        if (updates.length > 0) {
+            await Promise.all(updates);
+            console.log(`[Sincronização] Concluída: ${updates.length} produto(s) foram corrigidos no banco de dados.`);
         } else {
-            console.log('Sincronização concluída: Nenhum saldo precisou de correção.');
+            console.log('[Sincronização] Concluída: Todos os saldos no banco de dados já estavam corretos.');
         }
+
     } catch (error) {
-        console.error("ERRO CRÍTICO AO TENTAR CORRIGIR O BANCO DE DADOS:", error);
+        console.error("[Sincronização] ERRO CRÍTICO AO TENTAR CORRIGIR O BANCO DE DADOS:", error);
     }
 }
 
+/**
+ * Função principal que busca todos os dados e calcula o estoque real.
+ */
 async function fetchDataAndCalculate() {
+    console.log("[Consulta] Iniciando busca de dados do Firebase...");
     const [productsSnapshot, movementsSnapshot, locationsSnapshot, locaisSnapshot] = await Promise.all([
         getDocs(collection(db, 'produtos')),
         getDocs(collection(db, 'movimentacoes')),
         getDocs(collection(db, 'enderecamentos')),
         getDocs(collection(db, 'locais'))
     ]);
+    console.log(`[Consulta] Dados recebidos: ${productsSnapshot.size} produtos, ${movementsSnapshot.size} movimentações.`);
 
-    // ===================================================================
-    // INÍCIO DA MODIFICAÇÃO: CRIAÇÃO DE MAPAS DE PRODUTOS
-    // ===================================================================
-    const productsById = {};   // Mapa de produtos por ID (ex: "aBcDeFg123")
-    const productsByCode = {}; // Mapa de produtos por CÓDIGO (ex: "18195-000")
-
+    // 1. Mapeia os produtos por ID e por CÓDIGO para criar uma ligação robusta.
+    const productsById = new Map();
+    const productsByCode = new Map();
     productsSnapshot.forEach(doc => {
         const productData = { id: doc.id, ...doc.data() };
-        productsById[doc.id] = productData;
+        productsById.set(doc.id, productData);
         if (productData.codigo) {
-            productsByCode[productData.codigo] = productData;
+            productsByCode.set(productData.codigo, productData);
         }
     });
-    // ===================================================================
-    // FIM DA MODIFICAÇÃO
-    // ===================================================================
 
     const locations = {};
     locationsSnapshot.forEach(doc => { locations[doc.id] = doc.data(); });
     const locais = {};
     locaisSnapshot.forEach(doc => { locais[doc.id] = doc.data(); });
 
-    // Agrupa as movimentações por ID de produto REAL
-    const movementsByProduct = {};
+    // 2. Agrupa as movimentações pelo ID de produto correto, usando a ligação inteligente.
+    const movementsByProduct = new Map();
     movementsSnapshot.forEach(doc => {
         const mov = doc.data();
-        let correctProductId = null;
+        let product = null;
 
-        // ===================================================================
-        // INÍCIO DA MODIFICAÇÃO: LIGAÇÃO INTELIGENTE
-        // ===================================================================
-        // Tenta ligar pelo ID. Se o produto existir nesse ID, ótimo.
-        if (productsById[mov.produtoId]) {
-            correctProductId = mov.produtoId;
+        // TENTATIVA DE LIGAÇÃO 1: Pelo ID direto (o método correto)
+        if (productsById.has(mov.produtoId)) {
+            product = productsById.get(mov.produtoId);
         }
-        // Se não existir, tenta ligar pelo CÓDIGO. Assume que o campo 'produtoId' pode conter o código do produto.
-        else if (productsByCode[mov.produtoId]) {
-            correctProductId = productsByCode[mov.produtoId].id;
-            console.log(`Ligação alternativa encontrada para a movimentação: usando código '${mov.produtoId}' para encontrar o produto.`);
+        // TENTATIVA DE LIGAÇÃO 2: Pelo código do produto (para dados antigos ou inconsistentes)
+        else if (productsByCode.has(mov.produtoId)) {
+            product = productsByCode.get(mov.produtoId);
+            console.warn(`[Consulta] Ligação alternativa usada para a movimentação. O campo 'produtoId' ("${mov.produtoId}") corresponde a um CÓDIGO de produto, não a um ID.`);
         }
-        // ===================================================================
-        // FIM DA MODIFICAÇÃO
-        // ===================================================================
 
-        if (correctProductId) {
-            if (!movementsByProduct[correctProductId]) {
-                movementsByProduct[correctProductId] = [];
+        if (product) {
+            if (!movementsByProduct.has(product.id)) {
+                movementsByProduct.set(product.id, []);
             }
-            movementsByProduct[correctProductId].push(mov);
+            movementsByProduct.get(product.id).push(mov);
         } else {
-            console.warn("Movimentação órfã encontrada, não foi possível ligar a um produto:", mov);
+            console.error(`[Consulta] Movimentação ÓRFÃ IGNORADA: Não foi possível encontrar um produto correspondente para o 'produtoId' "${mov.produtoId}".`, mov);
         }
     });
 
-    // O resto do código permanece o mesmo, pois agora a ligação está correta.
-    const consolidatedData = Object.values(productsById).map(product => {
-        const productMovements = movementsByProduct[product.id] || [];
+    // 3. Processa os dados finais
+    const consolidatedData = Array.from(productsById.values()).map(product => {
+        const productMovements = movementsByProduct.get(product.id) || [];
 
         let totalEntradas = 0;
         let totalSaidas = 0;
@@ -110,19 +106,14 @@ async function fetchDataAndCalculate() {
 
         const estoqueAtual = totalEntradas - totalSaidas;
 
-        // ... resto da função de cálculo de valor médio, etc. ...
-        // (o código restante da função que já foi fornecido anteriormente)
+        // Lógica de cálculo de valor médio
         const entryMovements = productMovements.filter(m => m.tipo === 'entrada' && (parseFloat(String(m.valor_unitario || 0).replace(',', '.')) || 0) > 0);
         let totalCost = 0;
         let totalEntryQuantity = 0;
         entryMovements.forEach(m => {
             const quantidade = parseFloat(String(m.quantidade || 0).replace(',', '.')) || 0;
             const valorUnitario = parseFloat(String(m.valor_unitario || 0).replace(',', '.')) || 0;
-            const icms = parseFloat(String(m.icms || 0).replace(',', '.')) || 0;
-            const ipi = parseFloat(String(m.ipi || 0).replace(',', '.')) || 0;
-            const frete = parseFloat(String(m.frete || 0).replace(',', '.')) || 0;
-
-            const entryTotalValue = (quantidade * valorUnitario) + icms + ipi + frete;
+            const entryTotalValue = (quantidade * valorUnitario) + (parseFloat(String(m.icms || 0).replace(',', '.')) || 0) + (parseFloat(String(m.ipi || 0).replace(',', '.')) || 0) + (parseFloat(String(m.frete || 0).replace(',', '.')) || 0);
             totalCost += entryTotalValue;
             totalEntryQuantity += quantidade;
         });
@@ -136,14 +127,7 @@ async function fetchDataAndCalculate() {
 
         const medidas = productMovements.filter(m => m.medida).map(m => `${m.medida} (${m.tipo})`).join(', ');
 
-        return {
-            ...product,
-            estoqueAtual,
-            valorMedio,
-            valorTotalEstoque,
-            local,
-            medidas
-        };
+        return { ...product, estoqueAtual, valorMedio, valorTotalEstoque, local, medidas };
     });
 
     renderTable(consolidatedData);
@@ -151,17 +135,16 @@ async function fetchDataAndCalculate() {
     return consolidatedData;
 }
 
-// A função renderTable e o listener DOMContentLoaded permanecem os mesmos da última instrução.
-// ...
+/**
+ * Função que desenha a tabela na tela
+ */
 function renderTable(data) {
     const tableBody = document.querySelector('#table-consultas tbody');
     tableBody.innerHTML = '';
-
     if (data.length === 0) {
         tableBody.innerHTML = '<tr><td colspan="9" style="text-align:center;">Nenhum produto encontrado.</td></tr>';
         return;
     }
-
     data.forEach(item => {
         const row = document.createElement('tr');
         row.innerHTML = `
@@ -179,13 +162,15 @@ function renderTable(data) {
     });
 }
 
+/**
+ * Lógica principal da página
+ */
 document.addEventListener('DOMContentLoaded', async function() {
     const filters = {
         codigo: document.getElementById('filter-codigo'),
         descricao: document.getElementById('filter-descricao'),
         local: document.getElementById('filter-local')
     };
-
     let consolidatedData = [];
 
     function applyFilters() {
@@ -194,14 +179,12 @@ document.addEventListener('DOMContentLoaded', async function() {
             descricao: (filters.descricao.value || '').toLowerCase(),
             local: (filters.local.value || '').toLowerCase()
         };
-
         const filteredData = consolidatedData.filter(item => {
             const matchesCodigo = (item.codigo || '').toLowerCase().includes(filterValues.codigo);
             const matchesDescricao = (item.descricao || '').toLowerCase().includes(filterValues.descricao);
             const matchesLocal = (item.local || '').toLowerCase().includes(filterValues.local);
             return matchesCodigo && matchesDescricao && matchesLocal;
         });
-
         renderTable(filteredData);
     }
 
@@ -211,7 +194,6 @@ document.addEventListener('DOMContentLoaded', async function() {
         consolidatedData = await fetchDataAndCalculate();
     } catch(error) {
         console.error("Erro fatal ao carregar e calcular dados da consulta:", error);
-        const tableBody = document.querySelector('#table-consultas tbody');
-        tableBody.innerHTML = `<tr><td colspan="9" style="text-align:center; color: red;">Erro ao carregar dados. Verifique o console.</td></tr>`;
+        document.querySelector('#table-consultas tbody').innerHTML = `<tr><td colspan="9" style="text-align:center; color: red;">Erro ao carregar dados. Verifique o console.</td></tr>`;
     }
 });
