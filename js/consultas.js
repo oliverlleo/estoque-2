@@ -1,5 +1,31 @@
 import { db } from './firebase-config.js';
-import { collection, getDocs } from "https://www.gstatic.com/firebasejs/9.6.1/firebase-firestore.js";
+import { collection, getDocs, doc, updateDoc } from "https://www.gstatic.com/firebasejs/9.6.1/firebase-firestore.js";
+
+// Em js/consultas.js, logo após as linhas de 'import'
+
+async function sincronizarSaldosNoBanco(dadosParaSincronizar) {
+    // Esta função não trava a tela principal, ela roda em segundo plano.
+    console.log('Iniciando sincronização de saldos em segundo plano...');
+    try {
+        const updatePromises = dadosParaSincronizar.map(item => {
+            // Compara o saldo no banco com o saldo real. Só atualiza se for diferente.
+            if (item.estoque !== item.estoqueAtual) {
+                const productRef = doc(db, 'produtos', item.id);
+                console.log(`Corrigindo saldo do produto ${item.codigo}: ${item.estoque} -> ${item.estoqueAtual}`);
+                return updateDoc(productRef, {
+                    estoque: item.estoqueAtual
+                });
+            }
+            return Promise.resolve(); // Retorna uma promessa resolvida se não precisar de atualização
+        });
+
+        await Promise.all(updatePromises);
+        console.log('Sincronização de saldos em segundo plano concluída com sucesso.');
+
+    } catch (error) {
+        console.error("Erro ao sincronizar saldos em segundo plano:", error);
+    }
+}
 
 document.addEventListener('DOMContentLoaded', async function() {
     console.log("Página de Consultas carregada.");
@@ -101,8 +127,20 @@ async function fetchDataAndCalculate() {
         };
     });
 
-    renderTable(consolidatedData);
-}
+        // ===================================================================
+        // INÍCIO DA MODIFICAÇÃO: Automatiza a sincronização
+        // ===================================================================
+
+        // 1. Renderiza a tabela imediatamente para o usuário não ter que esperar
+        renderTable(consolidatedData);
+
+        // 2. Chama a função de sincronização para rodar em segundo plano
+        sincronizarSaldosNoBanco(consolidatedData);
+
+        // ===================================================================
+        // FIM DA MODIFICAÇÃO
+        // ===================================================================
+    }
 
     // 3. Render Table
     function renderTable(data) {
