@@ -108,8 +108,8 @@ import { db } from './firebase-config.js';
         </div>
         <input type="number" id="baixa-quantidade" placeholder="Quantidade (${product.un})" step="any" class="form-control" required>
         ${medidaFieldHtml}
-        <input type="text" id="baixa-requisitante" placeholder="Requisitante" class="form-control" required>
-        <select id="baixa-obra" class="form-control" required>${obrasOptions}</select>
+        <input type="text" id="baixa-requisitante" placeholder="Requisitante" class="form-control">
+        <select id="baixa-obra" class="form-control">${obrasOptions}</select>
         <select id="baixa-tipo-saida" class="form-control" required>${tiposSaidaOptions}</select>
         <input type="text" id="baixa-observacao" placeholder="Observação" class="form-control">
     `;
