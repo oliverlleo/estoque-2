@@ -136,6 +136,7 @@ document.addEventListener('DOMContentLoaded', async function() {
                 <td class="actions">
                     <button class="btn-edit" data-id="${product.id}">Editar</button>
                     <button class="btn-delete" data-id="${product.id}">Excluir</button>
+                    <button class="btn-qr" data-id="${product.id}" style="background-color: #5bc0de;">QR Code</button>
                 </td>
             `;
             tableBody.appendChild(row);
@@ -179,6 +180,46 @@ document.addEventListener('DOMContentLoaded', async function() {
                     .then(() => alert('Produto excluído com sucesso!'))
                     .catch(error => alert(`Erro ao excluir: ${error.message}`));
             }
+        }
+
+        if (target.classList.contains('btn-qr')) {
+            // Cria a URL para a página de detalhe
+            const url = `${window.location.origin}/detalhe-produto.html?id=${id}`;
+
+            // Cria um modal genérico para exibir o QR Code
+            let qrModal = document.getElementById('qr-code-modal');
+            if (!qrModal) {
+                const modalHtml = `
+                    <div id="qr-code-modal" class="modal" style="display:none;">
+                        <div class="modal-content" style="max-width: 300px; text-align: center;">
+                            <div class="modal-header">
+                                <h3>QR Code do Produto</h3>
+                                <span class="close-button" id="qr-modal-close">&times;</span>
+                            </div>
+                            <div class="modal-body" id="qrcode-container" style="padding: 20px;"></div>
+                        </div>
+                    </div>`;
+                document.body.insertAdjacentHTML('beforeend', modalHtml);
+
+                qrModal = document.getElementById('qr-code-modal');
+                const closeBtn = document.getElementById('qr-modal-close');
+                closeBtn.onclick = () => qrModal.style.display = 'none';
+                window.onclick = (event) => {
+                    if (event.target == qrModal) qrModal.style.display = 'none';
+                };
+            }
+
+            const qrContainer = document.getElementById('qrcode-container');
+            qrContainer.innerHTML = ''; // Limpa o QR code anterior
+            new QRCode(qrContainer, {
+                text: url,
+                width: 256,
+                height: 256,
+                colorDark : "#000000",
+                colorLight : "#ffffff",
+                correctLevel : QRCode.CorrectLevel.H
+            });
+            qrModal.style.display = 'block';
         }
     });
 
