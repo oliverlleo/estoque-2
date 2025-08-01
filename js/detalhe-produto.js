@@ -57,6 +57,7 @@ import { db } from './firebase-config.js';
                 <p><strong>Código:</strong> ${product.codigo}</p>
                 <p><strong>Cód. Global:</strong> ${product.codigo_global || '-'}</p>
                 <p><strong>Descrição:</strong> ${product.descricao}</p>
+        <p><strong>Cor:</strong> ${product.cor || '-'}</p>
                 <hr>
                 <p><strong>Estoque Atual:</strong> ${estoqueAtual} ${product.un}</p>
                 <p><strong>Saldo Pedaços:</strong> ${Object.values(inventarioPedacos).reduce((a, b) => a + b, 0)}</p>
