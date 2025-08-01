@@ -21,13 +21,13 @@ document.addEventListener('DOMContentLoaded', async function() {
     formToggle.addEventListener('change', () => {
         const isProduto = formToggle.checked;
         if (isProduto) {
-            formWrapperProduto.style.display = 'block';
-            formWrapperSobra.style.display = 'none';
-            formTitle.textContent = 'Cadastro de Produto';
-            labelProduto.style.fontWeight = 'bold';
-            labelProduto.style.color = '#0d6efd';
-            labelSobra.style.fontWeight = 'normal';
-            labelSobra.style.color = '#6c757d';
+             formWrapperProduto.style.display = 'block';
+             formWrapperSobra.style.display = 'none';
+             formTitle.textContent = 'Cadastro de Produto';
+             labelProduto.style.fontWeight = 'bold';
+             labelProduto.style.color = '#0d6efd';
+             labelSobra.style.fontWeight = 'normal';
+             labelSobra.style.color = '#6c757d';
         } else {
             formWrapperProduto.style.display = 'none';
             formWrapperSobra.style.display = 'block';
@@ -36,7 +36,7 @@ document.addEventListener('DOMContentLoaded', async function() {
             labelSobra.style.color = '#0d6efd';
             labelProduto.style.fontWeight = 'normal';
             labelProduto.style.color = '#6c757d';
-            populateSobraSelect(); // Popula o select quando o formulário se torna visível
+            // A chamada foi removida daqui
         }
     });
 
@@ -351,6 +351,7 @@ document.addEventListener('DOMContentLoaded', async function() {
     onSnapshot(collection(db, 'produtos'), (snapshot) => {
         productsData = snapshot.docs.map(doc => ({ id: doc.id, data: doc.data() }));
         renderTable(productsData);
+        populateSobraSelect(); // <-- ADICIONE ESTA LINHA
     });
 
 
