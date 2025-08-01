@@ -130,8 +130,8 @@ document.addEventListener('DOMContentLoaded', async function() {
             localId: document.getElementById('produto-local').value,
             fornecedorId: document.getElementById('produto-fornecedor').value,
             grupoId: document.getElementById('produto-grupo').value,
-            aplicacaoId: document.getElementById('produto-aplicacao').value,
-            conjuntoId: document.getElementById('produto-conjunto').value,
+            aplicacaoIds: Array.from(document.getElementById('produto-aplicacao').selectedOptions).map(option => option.value),
+            conjuntoIds: Array.from(document.getElementById('produto-conjunto').selectedOptions).map(option => option.value),
             conversaoId: document.getElementById('produto-conversao').value
         };
 
@@ -168,6 +168,9 @@ document.addEventListener('DOMContentLoaded', async function() {
             const localNome = configData.locais[pData.localId]?.nome || '';
             const locacaoDesc = pData.locacao || '';
             const locacaoCompleta = [localNome, locacaoDesc].filter(Boolean).join(' - ') || 'N/A';
+            const aplicacoesNomes = (pData.aplicacaoIds || [])
+                .map(id => configData.aplicacoes[id]?.nome || 'N/A')
+                .join(', ');
 
             row.innerHTML = `
                 <td>${pData.codigo}</td>
@@ -176,6 +179,7 @@ document.addEventListener('DOMContentLoaded', async function() {
                 <td>${pData.cor}</td>
                 <td>${fornecedor}</td>
                 <td>${grupo}</td>
+                <td>${aplicacoesNomes}</td>
                 <td>${locacaoCompleta}</td>
                 <td class="actions">
                     <button class="btn-edit" data-id="${product.id}">Editar</button>
@@ -211,9 +215,21 @@ document.addEventListener('DOMContentLoaded', async function() {
                 document.getElementById('produto-local').value = product.data.localId;
                 document.getElementById('produto-fornecedor').value = product.data.fornecedorId;
                 document.getElementById('produto-grupo').value = product.data.grupoId;
-                document.getElementById('produto-aplicacao').value = product.data.aplicacaoId;
-                document.getElementById('produto-conjunto').value = product.data.conjuntoId;
                 document.getElementById('produto-conversao').value = product.data.conversaoId || "";
+
+                // Função auxiliar para selecionar múltiplas opções
+                const setMultipleSelect = (selectId, values) => {
+                    const selectElement = document.getElementById(selectId);
+                    if (!values || !Array.isArray(values)) return; // Ignora se não for um array
+
+                    for (const option of selectElement.options) {
+                        option.selected = values.includes(option.value);
+                    }
+                };
+
+                setMultipleSelect('produto-aplicacao', product.data.aplicacaoIds);
+                setMultipleSelect('produto-conjunto', product.data.conjuntoIds);
+
                 form.scrollIntoView({ behavior: 'smooth' });
             }
         }
