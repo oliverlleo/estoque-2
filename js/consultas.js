@@ -136,7 +136,6 @@ document.addEventListener('DOMContentLoaded', async function() {
             row.className = 'main-row';
             row.innerHTML = `
                 <td>${item.codigo}</td>
-                <td>${item.codigo_global}</td>
                 <td>${item.descricao}</td>
                 <td>${item.estoque || 0}</td>
                 <td>${item.un}</td>

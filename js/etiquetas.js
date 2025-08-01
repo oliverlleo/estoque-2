@@ -48,10 +48,6 @@ function processarEtiquetas() {
                         <div class="header">CÓDIGO</div>
                         <div class="valor">${pData.codigo || ''}</div>
                     </div>
-                    <div class="info-bloco codigo-padrao">
-                        <div class="header">C. PADRÃO</div>
-                        <div class="valor">${pData.codigo_global || ''}</div>
-                    </div>
                 </div>
             </div>
             <div class="etiqueta-footer">

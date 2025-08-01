@@ -337,7 +337,7 @@ document.addEventListener('DOMContentLoaded', async function() {
         productsSnapshot.forEach(doc => {
              const product = doc.data();
              productsMap[doc.id] = { id: doc.id, ...product };
-             const optionText = `${product.codigo || 'S/C'} - ${product.descricao || 'N/A'} ${product.codigo_global ? '('+product.codigo_global+')' : ''}`.trim();
+             const optionText = `${product.codigo || 'S/C'} - ${product.descricao || 'N/A'}`.trim();
              productSelect.innerHTML += `<option value="${doc.id}">${optionText}</option>`;
         });
 
@@ -372,7 +372,6 @@ document.addEventListener('DOMContentLoaded', async function() {
         const product = productsMap[productId];
 
         document.getElementById('mov-codigo-display').textContent = product ? product.codigo : '-';
-        document.getElementById('mov-codigoglobal-display').textContent = product ? (product.codigo_global || '-') : '-';
         document.getElementById('mov-descricao-display').textContent = product ? product.descricao : '-';
         document.getElementById('mov-un-display').textContent = product ? product.un : '-';
         document.getElementById('mov-estoque-display').textContent = product ? (product.estoque || 0) : '-';
@@ -402,7 +401,6 @@ document.addEventListener('DOMContentLoaded', async function() {
                     data: mov.data ? new Date(mov.data.seconds * 1000).toLocaleString('pt-BR') : '',
                     tipo: mov.tipo || '',
                     codigo: product.codigo || '',
-                    codigo_global: product.codigo_global || '',
                     descricao: product.descricao || '',
                     un: product.un || '',
                     quantidade: mov.quantidade?.toString() || '',
@@ -467,7 +465,6 @@ document.addEventListener('DOMContentLoaded', async function() {
                 <td>${searchData.data}</td>
                 <td class="${searchData.tipo}">${searchData.tipo.toUpperCase()}</td>
                 <td>${searchData.codigo || 'N/A'}</td>
-                <td>${searchData.codigo_global || '-'}</td>
                 <td>${searchData.descricao || 'Produto não encontrado'}</td>
                 <td>${searchData.un || 'N/A'}</td>
                 <td>${searchData.quantidade}</td>

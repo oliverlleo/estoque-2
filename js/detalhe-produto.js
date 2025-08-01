@@ -55,7 +55,6 @@ import { db } from './firebase-config.js';
 
             detailsContainer.innerHTML = `
                 <p><strong>Código:</strong> ${product.codigo}</p>
-                <p><strong>Cód. Global:</strong> ${product.codigo_global || '-'}</p>
                 <p><strong>Descrição:</strong> ${product.descricao}</p>
         <p><strong>Cor:</strong> ${product.cor || '-'}</p>
                 <hr>
@@ -100,7 +99,6 @@ import { db } from './firebase-config.js';
             <p style="margin: 0 0 8px 0;"><strong>Produto:</strong> ${product.descricao}</p>
             <p style="margin: 0 0 8px 0; font-size: 0.9em; color: #A0A0B9;">
                 <span style="margin-right: 15px;"><strong>Código:</strong> ${product.codigo}</span>
-                <span><strong>Cód. Padrão:</strong> ${product.codigo_global || '-'}</span>
             </p>
             <p style="margin: 0; font-size: 0.9em; color: #A0A0B9;">
                 <span style="margin-right: 15px;"><strong>Estoque:</strong> ${estoqueAtual} ${product.un}</span>
