@@ -159,11 +159,12 @@ document.addEventListener('DOMContentLoaded', async function() {
                     const productRef = doc(db, 'produtos', productId);
                     const productDoc = await transaction.get(productRef);
 
-                    if (!productDoc.exists()) { throw "Produto não encontrado!"; }
+                    if (!productDoc.exists()) { throw new Error("Produto não encontrado!"); }
 
                     const productData = productDoc.data();
-                    const conversaoId = productData.conversaoId;
 
+                    // --- 1. Lógica de Conversão (Existente) ---
+                    const conversaoId = productData.conversaoId;
                     const quantidadeInformada = parseFloat(document.getElementById('mov-quantidade').value);
                     let quantidadeParaEstoque = quantidadeInformada;
                     let quantidadeOriginalCompra = quantidadeInformada;
@@ -171,16 +172,13 @@ document.addEventListener('DOMContentLoaded', async function() {
                     if (conversaoId) {
                         const conversaoRef = doc(db, 'conversoes', conversaoId);
                         const conversaoDoc = await transaction.get(conversaoRef);
-
                         if (conversaoDoc.exists()) {
                             const regra = conversaoDoc.data();
                             const fator_qtd_compra = parseFloat(String(regra.qtd_compra).replace(',', '.'));
                             const fator_qtd_padrao = parseFloat(String(regra.qtd_padrao).replace(',', '.'));
-
                             if (fator_qtd_compra > 0) {
                                 quantidadeParaEstoque = (quantidadeInformada / fator_qtd_compra) * fator_qtd_padrao;
                             }
-
                             const medidaPadrao = regra.medida_padrao || "";
                             if (medidaPadrao.toUpperCase() === 'PÇ' && !Number.isInteger(quantidadeParaEstoque)) {
                                 throw new Error(`O cálculo resultou em um valor quebrado (${quantidadeParaEstoque.toFixed(2)} PÇ). Entradas para esta unidade devem resultar em um número inteiro.`);
@@ -188,6 +186,26 @@ document.addEventListener('DOMContentLoaded', async function() {
                         }
                     }
 
+                    // --- 2. NOVA LÓGICA DE CÁLCULO DE CUSTO ---
+                    const valorUnitario = parseFloat(document.getElementById('mov-valor-unitario').value) || 0;
+                    const icms = parseFloat(document.getElementById('mov-icms').value) || 0;
+                    const ipi = parseFloat(document.getElementById('mov-ipi').value) || 0;
+                    const frete = parseFloat(document.getElementById('mov-frete').value) || 0;
+
+                    // Calcula o custo base
+                    let custoTotalEntrada = (quantidadeOriginalCompra * valorUnitario) + icms + ipi + frete;
+
+                    // Busca o fornecedor e aplica o imposto ST, se houver
+                    const fornecedorId = productData.fornecedorId;
+                    if (fornecedorId && configData.fornecedores[fornecedorId]) {
+                        const fornecedor = configData.fornecedores[fornecedorId];
+                        const impostoStPercent = parseFloat(fornecedor.imposto) || 0;
+                        if (impostoStPercent > 0) {
+                            custoTotalEntrada *= (1 + (impostoStPercent / 100));
+                        }
+                    }
+
+                    // --- 3. Lógica de Atualização (Existente + Campo Novo) ---
                     const currentEstoque = productData.estoque || 0;
                     const newEstoque = currentEstoque + quantidadeParaEstoque;
                     transaction.update(productRef, { estoque: newEstoque });
@@ -199,14 +217,15 @@ document.addEventListener('DOMContentLoaded', async function() {
                         data: serverTimestamp(),
                         tipo_entradaId: document.getElementById('mov-tipo-entrada').value,
                         nf: document.getElementById('mov-nf').value,
-                        valor_unitario: parseFloat(document.getElementById('mov-valor-unitario').value) || 0,
-                        icms: parseFloat(document.getElementById('mov-icms').value) || 0,
-                        ipi: parseFloat(document.getElementById('mov-ipi').value) || 0,
-                        frete: parseFloat(document.getElementById('mov-frete').value) || 0,
+                        valor_unitario: valorUnitario,
+                        icms: icms,
+                        ipi: ipi,
+                        frete: frete,
                         observacao: document.getElementById('mov-observacao').value,
                         medida: document.getElementById('mov-medida').value,
                         quantidade: quantidadeParaEstoque,
-                        quantidade_compra: quantidadeOriginalCompra
+                        quantidade_compra: quantidadeOriginalCompra,
+                        custo_total_entrada: custoTotalEntrada // <-- NOSSO NOVO CAMPO!
                     };
 
                     transaction.set(movementRef, movementData);
@@ -325,6 +344,7 @@ document.addEventListener('DOMContentLoaded', async function() {
         configData.tipos_entrada = await loadConfigToSelect(tipoEntradaSelect, 'tipos_entrada', 'nome');
         configData.tipos_saida = await loadConfigToSelect(tipoSaidaSelect, 'tipos_saida', 'nome');
         configData.obras = await loadConfigToSelect(obraSelect, 'obras', 'nome');
+        configData.fornecedores = await loadConfigToMap('fornecedores');
     }
 
     async function loadConfigToSelect(selectElement, collectionName, field) {
@@ -334,6 +354,15 @@ document.addEventListener('DOMContentLoaded', async function() {
         snapshot.forEach(doc => {
             items[doc.id] = doc.data();
             selectElement.innerHTML += `<option value="${doc.id}">${doc.data()[field]}</option>`;
+        });
+        return items;
+    }
+
+    async function loadConfigToMap(collectionName) {
+        const snapshot = await getDocs(collection(db, collectionName));
+        const items = {};
+        snapshot.forEach(doc => {
+            items[doc.id] = doc.data();
         });
         return items;
     }
@@ -356,7 +385,15 @@ document.addEventListener('DOMContentLoaded', async function() {
             const product = productsMap[mov.productId] || {};
             let custoUnitario = 0;
             if (mov.tipo === 'entrada' && mov.quantidade > 0) {
-                const valorTotal = (mov.quantidade * (mov.valor_unitario || 0)) + (mov.icms || 0) + (mov.ipi || 0) + (mov.frete || 0);
+                let valorTotal;
+                // Prioriza o novo campo 'custo_total_entrada' se ele existir
+                if (mov.custo_total_entrada !== undefined) {
+                    valorTotal = mov.custo_total_entrada;
+                } else {
+                    // Fallback para registros antigos: calcula da forma antiga
+                    valorTotal = (mov.quantidade_compra * (mov.valor_unitario || 0)) + (mov.icms || 0) + (mov.ipi || 0) + (mov.frete || 0);
+                }
+                // O custo unitário é o custo total dividido pela quantidade que efetivamente entrou no estoque
                 custoUnitario = valorTotal / mov.quantidade;
             }
             return {
@@ -375,7 +412,7 @@ document.addEventListener('DOMContentLoaded', async function() {
                     icms: (mov.icms || 0).toString(),
                     ipi: (mov.ipi || 0).toString(),
                     frete: (mov.frete || 0).toString(),
-                    custoUnitario: custoUnitario.toFixed(2),
+                    custoUnitario: custoUnitario > 0 ? custoUnitario.toFixed(2) : '0.00',
                     requisitante: mov.requisitante || '',
                     obraId: configData.obras?.[mov.obraId]?.nome || '',
                     observacao: mov.observacao || ''

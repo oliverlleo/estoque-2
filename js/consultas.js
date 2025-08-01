@@ -86,8 +86,19 @@ document.addEventListener('DOMContentLoaded', async function() {
             let totalCost = 0;
             let totalQuantityForAvg = 0;
             entryMovements.forEach(m => {
-                if (!m.medida || m.medida.trim() === '') {
-                    const entryTotalValue = (m.quantidade * m.valor_unitario) + (m.icms || 0) + (m.ipi || 0) + (m.frete || 0);
+                if ((!m.medida || m.medida.trim() === '') && m.quantidade > 0) {
+                    let entryTotalValue = 0;
+
+                    // Se o novo campo 'custo_total_entrada' existir, use-o
+                    if (m.custo_total_entrada !== undefined) {
+                        entryTotalValue = m.custo_total_entrada;
+                    } else {
+                        // Senão, calcule da forma antiga (fallback para dados legados)
+                        const valorUnit = m.valor_unitario || 0;
+                        const qtdCompra = m.quantidade_compra || m.quantidade; // Usa qtd_compra se existir
+                        entryTotalValue = (qtdCompra * valorUnit) + (m.icms || 0) + (m.ipi || 0) + (m.frete || 0);
+                    }
+
                     totalCost += entryTotalValue;
                     totalQuantityForAvg += m.quantidade;
                 }
