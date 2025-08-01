@@ -36,7 +36,6 @@ document.addEventListener('DOMContentLoaded', async function() {
             labelSobra.style.color = '#0d6efd';
             labelProduto.style.fontWeight = 'normal';
             labelProduto.style.color = '#6c757d';
-            // A chamada foi removida daqui
         }
     });
 
@@ -106,16 +105,26 @@ document.addEventListener('DOMContentLoaded', async function() {
              selectElement.innerHTML = `<option value="">Selecione ${config.name}...</option>`;
         }
 
+        const sobraLocalSelect = document.getElementById('sobra-local');
+        if (config.name === 'local' && sobraLocalSelect) {
+            sobraLocalSelect.innerHTML = `<option value="">Selecione o Local...</option>`;
+        }
+
         snapshot.docs.forEach(doc => {
             const id = doc.id;
             const data = doc.data();
             configData[config.collectionName][id] = data;
 
+            const option = document.createElement('option');
+            option.value = id;
+            option.textContent = data[config.displayField];
+
             if (selectElement) {
-                const option = document.createElement('option');
-                option.value = id;
-                option.textContent = config.displayFunction ? config.displayFunction(data, configData) : data[config.displayField];
-                selectElement.appendChild(option);
+                selectElement.appendChild(option.cloneNode(true));
+            }
+
+            if (config.name === 'local' && sobraLocalSelect) {
+                sobraLocalSelect.appendChild(option.cloneNode(true));
             }
         });
     }
@@ -201,44 +210,37 @@ document.addEventListener('DOMContentLoaded', async function() {
     });
 
     function populateSobraSelect() {
-        // Guarda a opção "selecione" e limpa o resto
         const firstOption = selectSobraOriginal.options[0];
         selectSobraOriginal.innerHTML = '';
         selectSobraOriginal.appendChild(firstOption);
 
         productsData.forEach(product => {
-            // Adiciona a condição para pular o produto se ele for uma sobra
-            if (!product.data.medida_sobra) { // <-- ADICIONE ESTA VERIFICAÇÃO
+            if (!product.data.medida_sobra) {
                 const option = document.createElement('option');
                 option.value = product.id;
                 option.textContent = `${product.data.codigo} - ${product.data.descricao}`;
                 selectSobraOriginal.appendChild(option);
-            } // <-- FECHE O IF
+            }
         });
     }
 
     selectSobraOriginal.addEventListener('change', (e) => {
         const selectedId = e.target.value;
         const displayInfo = {
-            codigo: '-', descricao: '-', un: '-', locacao: '-'
+            codigo: '-', descricao: '-', un: '-'
         };
 
         if (selectedId) {
             const product = productsData.find(p => p.id === selectedId);
             if (product) {
-                const localNome = configData.locais[product.data.localId]?.nome || '';
-                const locacaoDesc = product.data.locacao || '';
-
                 displayInfo.codigo = product.data.codigo;
                 displayInfo.descricao = product.data.descricao;
                 displayInfo.un = product.data.un;
-                displayInfo.locacao = [localNome, locacaoDesc].filter(Boolean).join(' - ') || 'N/A';
             }
         }
         document.getElementById('sobra-codigo-display').textContent = displayInfo.codigo;
         document.getElementById('sobra-descricao-display').textContent = displayInfo.descricao;
         document.getElementById('sobra-un-display').textContent = displayInfo.un;
-        document.getElementById('sobra-locacao-display').textContent = displayInfo.locacao;
     });
 
     formSobra.addEventListener('submit', async (e) => {
@@ -258,21 +260,22 @@ document.addEventListener('DOMContentLoaded', async function() {
         }
 
         const newSobraProduct = {
-            ...originalProduct, // Herda todos os campos do pai
+            ...originalProduct,
             codigo: `${originalProduct.codigo}-S${medida}`,
             medida_sobra: medida,
-            estoque: 1, // Sobras entram com estoque inicial 1
-            produto_mae_id: originalProductId // <-- ADICIONE ESTA LINHA
+            estoque: 1,
+            produto_mae_id: originalProductId,
+            localId: document.getElementById('sobra-local').value,
+            locacao: document.getElementById('sobra-locacao').value
         };
 
-        // Remove o ID antigo para não sobrescrever
         delete newSobraProduct.id;
 
         try {
             await addDoc(collection(db, 'produtos'), newSobraProduct);
             alert(`Sobra com código ${newSobraProduct.codigo} cadastrada com sucesso!`);
             formSobra.reset();
-            selectSobraOriginal.dispatchEvent(new Event('change')); // Limpa os campos de display
+            selectSobraOriginal.dispatchEvent(new Event('change'));
         } catch (error) {
             console.error("Erro ao salvar sobra:", error);
             alert(`Erro ao salvar: ${error.message}`);
@@ -310,9 +313,8 @@ document.addEventListener('DOMContentLoaded', async function() {
             form.reset();
             document.getElementById('produto-id').value = '';
 
-            // --- ADICIONAR ESTAS LINHAS ---
-            filterInput.value = ''; // Limpa o filtro geral
-            renderTable(productsData); // Renderiza a tabela completa, limpando o filtro de locação
+            filterInput.value = '';
+            renderTable(productsData);
 
         } catch (error) {
             console.error("Erro ao salvar produto:", error);
@@ -351,11 +353,10 @@ document.addEventListener('DOMContentLoaded', async function() {
         });
     };
 
-    // 4. Listen for real-time updates
     onSnapshot(collection(db, 'produtos'), (snapshot) => {
         productsData = snapshot.docs.map(doc => ({ id: doc.id, data: doc.data() }));
         renderTable(productsData);
-        populateSobraSelect(); // <-- ADICIONE ESTA LINHA
+        populateSobraSelect();
     });
 
 
@@ -367,7 +368,6 @@ document.addEventListener('DOMContentLoaded', async function() {
     const btnExcluirSelecionados = document.getElementById('btn-excluir-selecionados');
     const checkboxMestre = document.getElementById('checkbox-mestre');
 
-    // Lógica para o checkbox mestre (selecionar todos)
     checkboxMestre.addEventListener('change', (e) => {
         const isChecked = e.target.checked;
         document.querySelectorAll('.produto-checkbox').forEach(checkbox => {
@@ -375,7 +375,6 @@ document.addEventListener('DOMContentLoaded', async function() {
         });
     });
 
-    // Lógica para atualizar o checkbox mestre quando um item é clicado individualmente
     tableBody.addEventListener('change', (e) => {
         if (e.target.classList.contains('produto-checkbox')) {
             const todosCheckboxes = document.querySelectorAll('.produto-checkbox');
@@ -394,7 +393,6 @@ document.addEventListener('DOMContentLoaded', async function() {
         }
     });
 
-    // Listener para o botão EXCLUIR SELECIONADOS
     btnExcluirSelecionados.addEventListener('click', async () => {
         const checkboxesMarcados = document.querySelectorAll('.produto-checkbox:checked');
         if (checkboxesMarcados.length === 0) {
@@ -412,7 +410,7 @@ document.addEventListener('DOMContentLoaded', async function() {
             try {
                 await Promise.all(promises);
                 alert(`${promises.length} produto(s) excluído(s) com sucesso!`);
-                checkboxMestre.checked = false; // Desmarca o checkbox mestre
+                checkboxMestre.checked = false;
             } catch (error) {
                 alert(`Erro ao excluir produtos: ${error.message}`);
                 console.error("Erro ao excluir em lote:", error);
@@ -420,7 +418,6 @@ document.addEventListener('DOMContentLoaded', async function() {
         }
     });
 
-    // Listener para o botão EDITAR SELECIONADO
     btnEditarSelecionado.addEventListener('click', () => {
         const checkboxesMarcados = document.querySelectorAll('.produto-checkbox:checked');
         if (checkboxesMarcados.length !== 1) {
@@ -432,7 +429,6 @@ document.addEventListener('DOMContentLoaded', async function() {
         const product = productsData.find(p => p.id === id);
 
         if (product) {
-            // Reutiliza a mesma lógica de preenchimento do formulário que já existia
             document.getElementById('produto-id').value = product.id;
             document.getElementById('produto-codigo').value = product.data.codigo;
             document.getElementById('produto-descricao').value = product.data.descricao;
@@ -462,7 +458,7 @@ document.addEventListener('DOMContentLoaded', async function() {
     });
 
     document.getElementById('btn-gerar-etiquetas').addEventListener('click', (e) => {
-        e.preventDefault(); // Previne o comportamento padrão do link
+        e.preventDefault();
 
         const checkboxesMarcados = document.querySelectorAll('.produto-checkbox:checked');
         if (checkboxesMarcados.length === 0) {
@@ -471,7 +467,6 @@ document.addEventListener('DOMContentLoaded', async function() {
 
         const idsSelecionados = Array.from(checkboxesMarcados).map(cb => cb.dataset.id);
 
-        // Filtra os dados dos produtos com base nos IDs selecionados
         const dadosParaEtiqueta = productsData
             .filter(product => idsSelecionados.includes(product.id))
             .map(product => {
@@ -497,11 +492,10 @@ document.addEventListener('DOMContentLoaded', async function() {
     const dropdownContainer = document.querySelector('.dropdown');
 
     dropdownBtn.addEventListener('click', (e) => {
-        e.stopPropagation(); // Impede que o clique se propague para o window
+        e.stopPropagation();
         dropdownContainer.classList.toggle('active');
     });
 
-    // Fecha o dropdown se o usuário clicar em qualquer outro lugar da tela
     window.addEventListener('click', () => {
         if (dropdownContainer.classList.contains('active')) {
             dropdownContainer.classList.remove('active');
@@ -509,11 +503,9 @@ document.addEventListener('DOMContentLoaded', async function() {
     });
 });
 
-// Substitua a função exportarModeloExcel antiga por esta
 async function exportarModeloExcel() {
     alert("Gerando modelo inteligente... Por favor, aguarde.");
     try {
-        // 1. Buscar todos os dados necessários do Firestore em paralelo
         const dataSources = {
             fornecedores: { collectionName: 'fornecedores', field: 'nome' },
             grupos: { collectionName: 'grupos', field: 'nome' },
@@ -531,40 +523,36 @@ async function exportarModeloExcel() {
         });
         await Promise.all(promises);
 
-        // 2. Criar um novo Workbook (arquivo Excel)
         const workbook = XLSX.utils.book_new();
 
-        // 3. Criar e adicionar as abas de dados (que ficarão ocultas)
         Object.keys(fetchedData).forEach(key => {
             const sheetName = `_dados_${key}`;
-            const data = fetchedData[key].map(item => [item]); // SheetJS espera um array de arrays
+            const data = fetchedData[key].map(item => [item]);
             if (data.length > 0) {
                 const dataSheet = XLSX.utils.aoa_to_sheet(data);
                 XLSX.utils.book_append_sheet(workbook, dataSheet, sheetName);
             }
         });
 
-        // 4. Criar a aba principal de "Produtos"
         const headers = ["codigo", "descricao", "un", "cor", "fornecedor_nome", "grupo_nome", "aplicacao_nome", "conjunto_nome", "enderecamento_codigo", "conversao_nome_regra"];
         const mainSheet = XLSX.utils.json_to_sheet([{}], { header: headers });
 
-        // 5. Adicionar a "Validação de Dados" (Dropdowns)
         const validations = [
-            { col: 'F', source: '_dados_fornecedores' }, // fornecedor_nome
-            { col: 'G', source: '_dados_grupos' },       // grupo_nome
-            { col: 'H', source: '_dados_aplicacoes' },   // aplicacao_nome
-            { col: 'I', source: '_dados_conjuntos' },    // conjunto_nome
-            { col: 'J', source: '_dados_enderecamentos' },// enderecamento_codigo
-            { col: 'K', source: '_dados_conversoes' }     // conversao_nome_regra
+            { col: 'F', source: '_dados_fornecedores' },
+            { col: 'G', source: '_dados_grupos' },
+            { col: 'H', source: '_dados_aplicacoes' },
+            { col: 'I', source: '_dados_conjuntos' },
+            { col: 'J', source: '_dados_enderecamentos' },
+            { col: 'K', source: '_dados_conversoes' }
         ];
 
-        const numRowsToApplyValidation = 1000; // Aplicar validação para 1000 linhas
+        const numRowsToApplyValidation = 1000;
         mainSheet['!dataValidations'] = [];
 
         validations.forEach(v => {
-            if (workbook.SheetNames.includes(v.source)) { // Apenas adiciona validação se a aba de dados existir
+            if (workbook.SheetNames.includes(v.source)) {
                 mainSheet['!dataValidations'].push({
-                    sqref: `${v.col}2:${v.col}${numRowsToApplyValidation}`, // Ex: F2:F1000
+                    sqref: `${v.col}2:${v.col}${numRowsToApplyValidation}`,
                     validation: {
                         type: 'list',
                         allowBlank: true,
@@ -577,7 +565,6 @@ async function exportarModeloExcel() {
 
         XLSX.utils.book_append_sheet(workbook, mainSheet, "Produtos");
 
-        // 6. Opcional: Ocultar as abas de dados
         Object.keys(fetchedData).forEach(key => {
             const sheetName = `_dados_${key}`;
             if(workbook.Sheets[sheetName]) {
@@ -585,7 +572,6 @@ async function exportarModeloExcel() {
             }
         });
 
-        // 7. Forçar o download do arquivo
         XLSX.writeFile(workbook, "modelo_importacao_produtos_inteligente.xlsx");
 
     } catch (error) {
@@ -593,8 +579,6 @@ async function exportarModeloExcel() {
         alert("Ocorreu um erro ao gerar o modelo. Verifique o console para mais detalhes.");
     }
 }
-
-// Adicionar estas duas funções no final do arquivo js/produtos.js
 
 async function findIdByName(collectionName, fieldName, value) {
     if (!value) return null;
@@ -605,7 +589,7 @@ async function findIdByName(collectionName, fieldName, value) {
             return doc.id;
         }
     }
-    return null; // Retorna null se não encontrar
+    return null;
 }
 
 async function handleFileImport(event) {
@@ -633,7 +617,6 @@ async function handleFileImport(event) {
 
         for (const row of json) {
             try {
-                // Mapeia os nomes da planilha para os IDs do Firestore
                 const fornecedorId = await findIdByName('fornecedores', 'nome', row.fornecedor_nome);
                 const grupoId = await findIdByName('grupos', 'nome', row.grupo_nome);
                 const aplicacaoId = await findIdByName('aplicacoes', 'nome', row.aplicacao_nome);
@@ -641,7 +624,6 @@ async function handleFileImport(event) {
                 const enderecamentoId = await findIdByName('enderecamentos', 'codigo', row.enderecamento_codigo);
                 const conversaoId = await findIdByName('conversoes', 'nome_regra', row.conversao_nome_regra);
 
-                // Validação simples: código e descrição são obrigatórios
                 if (!row.codigo || !row.descricao) {
                     throw new Error(`Linha com código '${row.codigo}' não tem código ou descrição.`);
                 }
@@ -659,7 +641,6 @@ async function handleFileImport(event) {
                     conversaoId: conversaoId || ""
                 };
 
-                // Adiciona o produto ao banco de dados
                 await addDoc(collection(db, 'produtos'), product);
                 successCount++;
             } catch (error) {
@@ -669,14 +650,13 @@ async function handleFileImport(event) {
             }
         }
 
-        // Feedback final para o usuário
         let finalMessage = `${successCount} produtos importados com sucesso!`;
         if (errorCount > 0) {
             finalMessage += `\n\n${errorCount} produtos falharam na importação.\n\nDetalhes dos erros:\n${errors.join("\n")}`;
             console.log("Erros detalhados:", errors);
         }
         alert(finalMessage);
-        fileInput.value = ''; // Reseta o input de arquivo
+        fileInput.value = '';
     };
     reader.readAsArrayBuffer(file);
 }

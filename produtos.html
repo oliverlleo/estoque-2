@@ -89,8 +89,15 @@
                                 <p><strong>Cód:</strong> <span id="sobra-codigo-display">-</span></p>
                                 <p><strong>Descr:</strong> <span id="sobra-descricao-display">-</span></p>
                                 <p><strong>UN:</strong> <span id="sobra-un-display">-</span></p>
-                                <p><strong>Locação:</strong> <span id="sobra-locacao-display">-</span></p>
                             </div>
+        <div style="grid-column: 1 / -1;">
+            <label for="sobra-local">Local de Armazenamento da Sobra</label>
+            <select id="sobra-local" required class="form-control"><option value="">Selecione o Local...</option></select>
+        </div>
+        <div style="grid-column: 1 / -1;">
+            <label for="sobra-locacao">Locação da Sobra (Ex: 01-A-01-A)</label>
+            <input type="text" id="sobra-locacao" placeholder="Informe a locação física da sobra" class="form-control">
+        </div>
 
                             <div style="grid-column: 1 / -1;">
                                 <label for="sobra-medida">Informe a Medida da Sobra (ex: 1500)</label>
