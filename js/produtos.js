@@ -324,7 +324,6 @@ document.addEventListener('DOMContentLoaded', async function() {
             window.open('etiquetas.html', '_blank');
         }
     });
-});
 
     const dropdownBtn = document.querySelector('.dropdown .btn');
     const dropdownContainer = document.querySelector('.dropdown');
