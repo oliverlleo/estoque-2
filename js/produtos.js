@@ -102,16 +102,7 @@ document.addEventListener('DOMContentLoaded', async function() {
     });
 
 
-    const btnImportar = document.getElementById('btn-importar-excel');
-    const btnExportar = document.getElementById('btn-exportar-modelo');
     const fileInput = document.getElementById('import-excel-input');
-
-    // Listener para o botão de exportar
-    btnExportar.addEventListener('click', exportarModeloExcel);
-
-    // Listener para o botão de importar (que aciona o input de arquivo)
-    btnImportar.addEventListener('click', () => fileInput.click());
-
     // Listener para quando um arquivo é selecionado
     fileInput.addEventListener('change', handleFileImport);
 
@@ -173,6 +164,7 @@ document.addEventListener('DOMContentLoaded', async function() {
                 .join(', ');
 
             row.innerHTML = `
+                <td><input type="checkbox" class="produto-checkbox" data-id="${product.id}"></td>
                 <td>${pData.codigo}</td>
                 <td>${pData.descricao}</td>
                 <td>${pData.un}</td>
@@ -181,11 +173,6 @@ document.addEventListener('DOMContentLoaded', async function() {
                 <td>${grupo}</td>
                 <td>${aplicacoesNomes}</td>
                 <td>${locacaoCompleta}</td>
-                <td class="actions">
-                    <button class="btn-edit" data-id="${product.id}">Editar</button>
-                    <button class="btn-delete" data-id="${product.id}">Excluir</button>
-                    <button class="btn-qr" data-id="${product.id}" style="background-color: #5bc0de;">QR Code</button>
-                </td>
             `;
             tableBody.appendChild(row);
         });
@@ -197,89 +184,84 @@ document.addEventListener('DOMContentLoaded', async function() {
         renderTable(productsData);
     });
 
-    // 5. Handle Edit, Delete, and Filtering
-    tableBody.addEventListener('click', (e) => {
-        const target = e.target;
-        const id = target.dataset.id;
-        if (!id) return;
 
-        if (target.classList.contains('btn-edit')) {
-            const product = productsData.find(p => p.id === id);
-            if (product) {
-                document.getElementById('produto-id').value = product.id;
-                document.getElementById('produto-codigo').value = product.data.codigo;
-                document.getElementById('produto-descricao').value = product.data.descricao;
-                document.getElementById('produto-un').value = product.data.un;
-                document.getElementById('produto-cor').value = product.data.cor;
-                document.getElementById('produto-locacao').value = product.data.locacao || '';
-                document.getElementById('produto-local').value = product.data.localId;
-                document.getElementById('produto-fornecedor').value = product.data.fornecedorId;
-                document.getElementById('produto-grupo').value = product.data.grupoId;
-                document.getElementById('produto-conversao').value = product.data.conversaoId || "";
+    // Listener para o botão de importar (que aciona o input de arquivo)
+    document.getElementById('btn-importar-excel').addEventListener('click', (e) => { e.preventDefault(); fileInput.click(); });
+    document.getElementById('btn-exportar-modelo').addEventListener('click', (e) => { e.preventDefault(); exportarModeloExcel(); });
 
-                // Função auxiliar para selecionar múltiplas opções
-                const setMultipleSelect = (selectId, values) => {
-                    const selectElement = document.getElementById(selectId);
-                    if (!values || !Array.isArray(values)) return; // Ignora se não for um array
+    const btnEditarSelecionado = document.getElementById('btn-editar-selecionado');
+    const btnExcluirSelecionados = document.getElementById('btn-excluir-selecionados');
+    const checkboxMestre = document.getElementById('checkbox-mestre');
 
-                    for (const option of selectElement.options) {
-                        option.selected = values.includes(option.value);
-                    }
-                };
+    // Listener para o checkbox mestre (selecionar todos)
+    checkboxMestre.addEventListener('change', (e) => {
+        const isChecked = e.target.checked;
+        document.querySelectorAll('.produto-checkbox').forEach(checkbox => {
+            checkbox.checked = isChecked;
+        });
+    });
 
-                setMultipleSelect('produto-aplicacao', product.data.aplicacaoIds);
-                setMultipleSelect('produto-conjunto', product.data.conjuntoIds);
-
-                form.scrollIntoView({ behavior: 'smooth' });
-            }
+    // Listener para o botão EXCLUIR SELECIONADOS
+    btnExcluirSelecionados.addEventListener('click', async () => {
+        const checkboxesMarcados = document.querySelectorAll('.produto-checkbox:checked');
+        if (checkboxesMarcados.length === 0) {
+            alert('Por favor, selecione ao menos um produto para excluir.');
+            return;
         }
 
-        if (target.classList.contains('btn-delete')) {
-            if (confirm('Tem certeza que deseja excluir este produto?')) {
-                deleteDoc(doc(db, 'produtos', id))
-                    .then(() => alert('Produto excluído com sucesso!'))
-                    .catch(error => alert(`Erro ao excluir: ${error.message}`));
-            }
-        }
-
-        if (target.classList.contains('btn-qr')) {
-            // Cria a URL para a página de detalhe
-            const url = `${window.location.origin}/detalhe-produto.html?id=${id}`;
-
-            // Cria um modal genérico para exibir o QR Code
-            let qrModal = document.getElementById('qr-code-modal');
-            if (!qrModal) {
-                const modalHtml = `
-                    <div id="qr-code-modal" class="modal" style="display:none;">
-                        <div class="modal-content" style="max-width: 300px; text-align: center;">
-                            <div class="modal-header">
-                                <h3>QR Code do Produto</h3>
-                                <span class="close-button" id="qr-modal-close">&times;</span>
-                            </div>
-                            <div class="modal-body" id="qrcode-container" style="padding: 20px;"></div>
-                        </div>
-                    </div>`;
-                document.body.insertAdjacentHTML('beforeend', modalHtml);
-
-                qrModal = document.getElementById('qr-code-modal');
-                const closeBtn = document.getElementById('qr-modal-close');
-                closeBtn.onclick = () => qrModal.style.display = 'none';
-                window.onclick = (event) => {
-                    if (event.target == qrModal) qrModal.style.display = 'none';
-                };
-            }
-
-            const qrContainer = document.getElementById('qrcode-container');
-            qrContainer.innerHTML = ''; // Limpa o QR code anterior
-            new QRCode(qrContainer, {
-                text: url,
-                width: 256,
-                height: 256,
-                colorDark : "#000000",
-                colorLight : "#ffffff",
-                correctLevel : QRCode.CorrectLevel.H
+        if (confirm(`Tem certeza que deseja excluir ${checkboxesMarcados.length} produto(s)?`)) {
+            const promises = [];
+            checkboxesMarcados.forEach(checkbox => {
+                const id = checkbox.dataset.id;
+                promises.push(deleteDoc(doc(db, 'produtos', id)));
             });
-            qrModal.style.display = 'block';
+
+            try {
+                await Promise.all(promises);
+                alert(`${promises.length} produto(s) excluído(s) com sucesso!`);
+                checkboxMestre.checked = false; // Desmarca o checkbox mestre
+            } catch (error) {
+                alert(`Erro ao excluir produtos: ${error.message}`);
+                console.error("Erro ao excluir em lote:", error);
+            }
+        }
+    });
+
+    // Listener para o botão EDITAR SELECIONADO
+    btnEditarSelecionado.addEventListener('click', () => {
+        const checkboxesMarcados = document.querySelectorAll('.produto-checkbox:checked');
+        if (checkboxesMarcados.length !== 1) {
+            alert('Por favor, selecione exatamente um produto para editar.');
+            return;
+        }
+
+        const id = checkboxesMarcados[0].dataset.id;
+        const product = productsData.find(p => p.id === id);
+
+        if (product) {
+            // Reutiliza a mesma lógica de preenchimento do formulário que já existia
+            document.getElementById('produto-id').value = product.id;
+            document.getElementById('produto-codigo').value = product.data.codigo;
+            document.getElementById('produto-descricao').value = product.data.descricao;
+            document.getElementById('produto-un').value = product.data.un;
+            document.getElementById('produto-cor').value = product.data.cor;
+            document.getElementById('produto-locacao').value = product.data.locacao || '';
+            document.getElementById('produto-local').value = product.data.localId;
+            document.getElementById('produto-fornecedor').value = product.data.fornecedorId;
+            document.getElementById('produto-grupo').value = product.data.grupoId;
+            document.getElementById('produto-conversao').value = product.data.conversaoId || "";
+
+            const setMultipleSelect = (selectId, values) => {
+                const selectElement = document.getElementById(selectId);
+                if (!values || !Array.isArray(values)) return;
+                for (const option of selectElement.options) {
+                    option.selected = values.includes(option.value);
+                }
+            };
+            setMultipleSelect('produto-aplicacao', product.data.aplicacaoIds);
+            setMultipleSelect('produto-conjunto', product.data.conjuntoIds);
+
+            form.scrollIntoView({ behavior: 'smooth' });
         }
     });
 
@@ -293,29 +275,36 @@ document.addEventListener('DOMContentLoaded', async function() {
         renderTable(filteredData);
     });
 
-    const btnGerarEtiquetas = document.getElementById('btn-gerar-etiquetas');
-    btnGerarEtiquetas.addEventListener('click', () => {
-        if (!productsData || productsData.length === 0) {
-            return alert("Não há produtos para gerar etiquetas.");
+    document.getElementById('btn-gerar-etiquetas').addEventListener('click', (e) => {
+        e.preventDefault(); // Previne o comportamento padrão do link
+
+        const checkboxesMarcados = document.querySelectorAll('.produto-checkbox:checked');
+        if (checkboxesMarcados.length === 0) {
+            return alert("Selecione ao menos um produto para gerar etiquetas.");
         }
 
-        // Prepara os dados para a página de etiquetas, resolvendo o endereçamento
-        const dadosParaEtiqueta = productsData.map(product => {
-            const pData = product.data;
-            const localNome = configData.locais[pData.localId]?.nome || '';
-            const locacaoDesc = pData.locacao || '';
-            const locacaoCompleta = [localNome, locacaoDesc].filter(Boolean).join(' - ') || 'N/A';
+        const idsSelecionados = Array.from(checkboxesMarcados).map(cb => cb.dataset.id);
 
-            return {
-                id: product.id,
-                data: pData,
-                enderecamento: locacaoCompleta
-            };
-        });
+        // Filtra os dados dos produtos com base nos IDs selecionados
+        const dadosParaEtiqueta = productsData
+            .filter(product => idsSelecionados.includes(product.id))
+            .map(product => {
+                const pData = product.data;
+                const localNome = configData.locais[pData.localId]?.nome || '';
+                const locacaoDesc = pData.locacao || '';
+                const locacaoCompleta = [localNome, locacaoDesc].filter(Boolean).join(' - ') || 'N/A';
 
-        // Salva os dados no localStorage e abre a página em uma nova aba
-        localStorage.setItem('etiquetasParaImprimir', JSON.stringify(dadosParaEtiqueta));
-        window.open('etiquetas.html', '_blank');
+                return {
+                    id: product.id,
+                    data: pData,
+                    enderecamento: locacaoCompleta
+                };
+            });
+
+        if (dadosParaEtiqueta.length > 0) {
+            localStorage.setItem('etiquetasParaImprimir', JSON.stringify(dadosParaEtiqueta));
+            window.open('etiquetas.html', '_blank');
+        }
     });
 });
 

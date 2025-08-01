@@ -54,20 +54,29 @@
                  <div class="card-header">
                     <div style="display: flex; justify-content: space-between; align-items: center;">
                         <h3>Produtos Cadastrados</h3>
-                        <div style="display: flex; gap: 10px;">
+                        <div style="display: flex; align-items: center; gap: 10px;">
+                            <button id="btn-editar-selecionado" class="btn btn-edit">Editar Selecionado</button>
+                            <button id="btn-excluir-selecionados" class="btn btn-delete">Excluir Selecionados</button>
+
+                            <div class="dropdown">
+                                <button class="btn" style="background-color: #495057;">Ações em Lote</button>
+                                <div class="dropdown-content">
+                                    <a href="#" id="btn-importar-excel">Importar Produtos (Excel)</a>
+                                    <a href="#" id="btn-exportar-modelo">Exportar Modelo (Excel)</a>
+                                    <a href="#" id="btn-gerar-etiquetas">Gerar Etiquetas</a>
+                                </div>
+                            </div>
                             <input type="file" id="import-excel-input" accept=".xlsx, .xls" style="display: none;">
-                            <button id="btn-importar-excel" class="btn btn-success">Importar Produtos (Excel)</button>
-                            <button id="btn-exportar-modelo" class="btn" style="background-color: #0d6efd;">Exportar Modelo (Excel)</button>
-                            <button id="btn-gerar-etiquetas" class="btn" style="background-color: #5bc0de;">Gerar Etiquetas</button>
                         </div>
-                        </div>
-                 </div>
+                    </div>
+                </div>
                  <div class="card-body">
                     <input type="text" id="filter-produtos" class="form-control" placeholder="Filtrar produtos..." style="margin-bottom: 15px;">
                     <div class="table-wrapper">
                         <table id="table-produtos" class="table">
                             <thead>
                                 <tr>
+                                    <th><input type="checkbox" id="checkbox-mestre"></th>
                                     <th>Código</th>
                                     <th>Descrição</th>
                                     <th>UN</th>
@@ -76,7 +85,6 @@
                                     <th>Grupo</th>
                                     <th>Aplicações</th>
                                     <th>Locação</th>
-                                    <th>Ações</th>
                                 </tr>
                             </thead>
                             <tbody></tbody>
