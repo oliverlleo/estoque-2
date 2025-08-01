@@ -8,6 +8,54 @@ document.addEventListener('DOMContentLoaded', async function() {
     const tableBody = document.querySelector('#table-produtos tbody');
     const filterInput = document.getElementById('filter-produtos');
 
+    const locacaoInput = document.getElementById('produto-locacao');
+
+    locacaoInput.addEventListener('input', (e) => {
+        // --- 1. Lógica da Máscara ---
+        let value = e.target.value.toUpperCase().replace(/[^A-Z0-9]/g, '');
+        let maskedValue = '';
+
+        if (value.length > 0) {
+            // Garante que os 2 primeiros são dígitos
+            value = value.substring(0, 2).replace(/[^0-9]/g, '') + value.substring(2);
+            maskedValue += value.substring(0, 2);
+        }
+        if (value.length > 2) {
+            // Garante que o 3º é letra
+            value = value.substring(0, 2) + value.substring(2, 3).replace(/[^A-Z]/g, '') + value.substring(3);
+            maskedValue += '-' + value.substring(2, 3);
+        }
+        if (value.length > 3) {
+            // Garante que o 4º e 5º são dígitos
+            value = value.substring(0, 3) + value.substring(3, 5).replace(/[^0-9]/g, '') + value.substring(5);
+            maskedValue += '-' + value.substring(3, 5);
+        }
+        if (value.length > 5) {
+            // Garante que o 6º é letra
+            value = value.substring(0, 5) + value.substring(5, 6).replace(/[^A-Z]/g, '');
+            maskedValue += '-' + value.substring(5, 6);
+        }
+
+        e.target.value = maskedValue;
+
+        // --- 2. Lógica de Filtragem em Tempo Real ---
+        const searchTerm = e.target.value.toLowerCase();
+        if (searchTerm) {
+            const filteredData = productsData.filter(product => {
+                return (product.data.locacao || '').toLowerCase().startsWith(searchTerm);
+            });
+            renderTable(filteredData);
+        } else {
+            // Se o campo estiver vazio, mostra todos os produtos (respeitando o outro filtro, se houver)
+            const generalFilterTerm = filterInput.value.toLowerCase();
+            if (generalFilterTerm) {
+                 filterInput.dispatchEvent(new Event('input')); // Re-aciona o filtro geral
+            } else {
+                 renderTable(productsData);
+            }
+        }
+    });
+
     let productsData = [];
     const configData = {};
 
@@ -15,8 +63,6 @@ document.addEventListener('DOMContentLoaded', async function() {
     const configCollections = [
         { name: 'fornecedor', collectionName: 'fornecedores', displayField: 'nome' },
         { name: 'grupo', collectionName: 'grupos', displayField: 'nome' },
-        { name: 'aplicacao', collectionName: 'aplicacoes', displayField: 'nome' },
-        { name: 'conjunto', collectionName: 'conjuntos', displayField: 'nome' },
         { name: 'local', collectionName: 'locais', displayField: 'nome' },
     ];
 
@@ -54,18 +100,75 @@ document.addEventListener('DOMContentLoaded', async function() {
     });
 
 
-    const btnImportar = document.getElementById('btn-importar-excel');
-    const btnExportar = document.getElementById('btn-exportar-modelo');
     const fileInput = document.getElementById('import-excel-input');
-
-    // Listener para o botão de exportar
-    btnExportar.addEventListener('click', exportarModeloExcel);
-
-    // Listener para o botão de importar (que aciona o input de arquivo)
-    btnImportar.addEventListener('click', () => fileInput.click());
-
     // Listener para quando um arquivo é selecionado
     fileInput.addEventListener('change', handleFileImport);
+
+    function setupMultiSelect(containerId, items) {
+        const container = document.getElementById(containerId);
+        const displayArea = container.querySelector('.multiselect-display-area');
+        const placeholder = container.querySelector('.multiselect-placeholder');
+        const optionsContainer = container.querySelector('.multiselect-options');
+
+        // Limpa opções antigas e popula com as novas
+        optionsContainer.innerHTML = '';
+        const list = document.createElement('ul');
+        for (const [id, data] of Object.entries(items)) {
+            const listItem = document.createElement('li');
+            listItem.innerHTML = `<input type="checkbox" data-id="${id}" data-name="${data.nome}"> ${data.nome}`;
+            list.appendChild(listItem);
+        }
+        optionsContainer.appendChild(list);
+
+        // Lógica para abrir/fechar o dropdown
+        displayArea.addEventListener('click', () => {
+            optionsContainer.style.display = optionsContainer.style.display === 'block' ? 'none' : 'block';
+        });
+
+        // Lógica para atualizar o texto do display
+        optionsContainer.addEventListener('change', () => {
+            const selected = optionsContainer.querySelectorAll('input[type="checkbox"]:checked');
+            if (selected.length === 0) {
+                placeholder.textContent = `Selecione...`;
+                placeholder.style.color = '';
+            } else {
+                placeholder.textContent = `${selected.length} selecionado(s)`;
+                placeholder.style.color = '#212529'; // Cor de texto normal
+            }
+        });
+
+        return {
+            getSelectedIds: () => Array.from(optionsContainer.querySelectorAll('input:checked')).map(cb => cb.dataset.id),
+            setSelectedIds: (ids = []) => {
+                optionsContainer.querySelectorAll('input').forEach(cb => {
+                    cb.checked = ids.includes(cb.dataset.id);
+                });
+                optionsContainer.dispatchEvent(new Event('change')); // Força a atualização do texto
+            }
+        };
+    }
+
+    // Popula e configura o multi-select de Aplicação
+    const aplicacoesSnapshot = await getDocs(collection(db, 'aplicacoes'));
+    configData['aplicacoes'] = {};
+    aplicacoesSnapshot.forEach(doc => configData['aplicacoes'][doc.id] = doc.data());
+    const aplicacaoSelect = setupMultiSelect('multiselect-aplicacao', configData['aplicacoes']);
+
+    // Popula e configura o multi-select de Conjunto
+    const conjuntosSnapshot = await getDocs(collection(db, 'conjuntos'));
+    configData['conjuntos'] = {};
+    conjuntosSnapshot.forEach(doc => configData['conjuntos'][doc.id] = doc.data());
+    const conjuntoSelect = setupMultiSelect('multiselect-conjunto', configData['conjuntos']);
+
+    // Fechar os dropdowns se clicar fora deles
+    window.addEventListener('click', function(e) {
+        if (!document.getElementById('multiselect-aplicacao').contains(e.target)) {
+            document.querySelector('#multiselect-aplicacao .multiselect-options').style.display = 'none';
+        }
+        if (!document.getElementById('multiselect-conjunto').contains(e.target)) {
+            document.querySelector('#multiselect-conjunto .multiselect-options').style.display = 'none';
+        }
+    });
 
 
     // 2. Handle Product Form Submission (Create/Update)
@@ -82,8 +185,8 @@ document.addEventListener('DOMContentLoaded', async function() {
             localId: document.getElementById('produto-local').value,
             fornecedorId: document.getElementById('produto-fornecedor').value,
             grupoId: document.getElementById('produto-grupo').value,
-            aplicacaoId: document.getElementById('produto-aplicacao').value,
-            conjuntoId: document.getElementById('produto-conjunto').value,
+            aplicacaoIds: aplicacaoSelect.getSelectedIds(),
+            conjuntoIds: conjuntoSelect.getSelectedIds(),
             conversaoId: document.getElementById('produto-conversao').value
         };
 
@@ -97,13 +200,17 @@ document.addEventListener('DOMContentLoaded', async function() {
             }
             form.reset();
             document.getElementById('produto-id').value = '';
+
+            // --- ADICIONAR ESTAS LINHAS ---
+            filterInput.value = ''; // Limpa o filtro geral
+            renderTable(productsData); // Renderiza a tabela completa, limpando o filtro de locação
+
         } catch (error) {
             console.error("Erro ao salvar produto:", error);
             alert(`Erro ao salvar: ${error.message}`);
         }
     });
 
-    // 3. Render Product Table
     const renderTable = (data) => {
         tableBody.innerHTML = '';
         data.forEach(product => {
@@ -115,20 +222,20 @@ document.addEventListener('DOMContentLoaded', async function() {
             const localNome = configData.locais[pData.localId]?.nome || '';
             const locacaoDesc = pData.locacao || '';
             const locacaoCompleta = [localNome, locacaoDesc].filter(Boolean).join(' - ') || 'N/A';
+            const aplicacoesNomes = (pData.aplicacaoIds || [])
+                .map(id => configData.aplicacoes[id]?.nome || 'N/A')
+                .join(', ');
 
             row.innerHTML = `
+                <td><input type="checkbox" class="produto-checkbox" data-id="${product.id}"></td>
                 <td>${pData.codigo}</td>
                 <td>${pData.descricao}</td>
                 <td>${pData.un}</td>
                 <td>${pData.cor}</td>
                 <td>${fornecedor}</td>
                 <td>${grupo}</td>
+                <td>${aplicacoesNomes}</td>
                 <td>${locacaoCompleta}</td>
-                <td class="actions">
-                    <button class="btn-edit" data-id="${product.id}">Editar</button>
-                    <button class="btn-delete" data-id="${product.id}">Excluir</button>
-                    <button class="btn-qr" data-id="${product.id}" style="background-color: #5bc0de;">QR Code</button>
-                </td>
             `;
             tableBody.appendChild(row);
         });
@@ -140,77 +247,96 @@ document.addEventListener('DOMContentLoaded', async function() {
         renderTable(productsData);
     });
 
-    // 5. Handle Edit, Delete, and Filtering
-    tableBody.addEventListener('click', (e) => {
-        const target = e.target;
-        const id = target.dataset.id;
-        if (!id) return;
 
-        if (target.classList.contains('btn-edit')) {
-            const product = productsData.find(p => p.id === id);
-            if (product) {
-                document.getElementById('produto-id').value = product.id;
-                document.getElementById('produto-codigo').value = product.data.codigo;
-                document.getElementById('produto-descricao').value = product.data.descricao;
-                document.getElementById('produto-un').value = product.data.un;
-                document.getElementById('produto-cor').value = product.data.cor;
-                document.getElementById('produto-locacao').value = product.data.locacao || '';
-                document.getElementById('produto-local').value = product.data.localId;
-                document.getElementById('produto-fornecedor').value = product.data.fornecedorId;
-                document.getElementById('produto-grupo').value = product.data.grupoId;
-                document.getElementById('produto-aplicacao').value = product.data.aplicacaoId;
-                document.getElementById('produto-conjunto').value = product.data.conjuntoId;
-                document.getElementById('produto-conversao').value = product.data.conversaoId || "";
-                form.scrollIntoView({ behavior: 'smooth' });
+    // Listener para o botão de importar (que aciona o input de arquivo)
+    document.getElementById('btn-importar-excel').addEventListener('click', (e) => { e.preventDefault(); fileInput.click(); });
+    document.getElementById('btn-exportar-modelo').addEventListener('click', (e) => { e.preventDefault(); exportarModeloExcel(); });
+
+    const btnEditarSelecionado = document.getElementById('btn-editar-selecionado');
+    const btnExcluirSelecionados = document.getElementById('btn-excluir-selecionados');
+    const checkboxMestre = document.getElementById('checkbox-mestre');
+
+    // Lógica para o checkbox mestre (selecionar todos)
+    checkboxMestre.addEventListener('change', (e) => {
+        const isChecked = e.target.checked;
+        document.querySelectorAll('.produto-checkbox').forEach(checkbox => {
+            checkbox.checked = isChecked;
+        });
+    });
+
+    // Lógica para atualizar o checkbox mestre quando um item é clicado individualmente
+    tableBody.addEventListener('change', (e) => {
+        if (e.target.classList.contains('produto-checkbox')) {
+            const todosCheckboxes = document.querySelectorAll('.produto-checkbox');
+            const total = todosCheckboxes.length;
+            const marcados = document.querySelectorAll('.produto-checkbox:checked').length;
+
+            if (marcados === 0) {
+                checkboxMestre.checked = false;
+                checkboxMestre.indeterminate = false;
+            } else if (marcados === total) {
+                checkboxMestre.checked = true;
+                checkboxMestre.indeterminate = false;
+            } else {
+                checkboxMestre.indeterminate = true;
             }
         }
+    });
 
-        if (target.classList.contains('btn-delete')) {
-            if (confirm('Tem certeza que deseja excluir este produto?')) {
-                deleteDoc(doc(db, 'produtos', id))
-                    .then(() => alert('Produto excluído com sucesso!'))
-                    .catch(error => alert(`Erro ao excluir: ${error.message}`));
-            }
+    // Listener para o botão EXCLUIR SELECIONADOS
+    btnExcluirSelecionados.addEventListener('click', async () => {
+        const checkboxesMarcados = document.querySelectorAll('.produto-checkbox:checked');
+        if (checkboxesMarcados.length === 0) {
+            alert('Por favor, selecione ao menos um produto para excluir.');
+            return;
         }
 
-        if (target.classList.contains('btn-qr')) {
-            // Cria a URL para a página de detalhe
-            const url = `${window.location.origin}/detalhe-produto.html?id=${id}`;
-
-            // Cria um modal genérico para exibir o QR Code
-            let qrModal = document.getElementById('qr-code-modal');
-            if (!qrModal) {
-                const modalHtml = `
-                    <div id="qr-code-modal" class="modal" style="display:none;">
-                        <div class="modal-content" style="max-width: 300px; text-align: center;">
-                            <div class="modal-header">
-                                <h3>QR Code do Produto</h3>
-                                <span class="close-button" id="qr-modal-close">&times;</span>
-                            </div>
-                            <div class="modal-body" id="qrcode-container" style="padding: 20px;"></div>
-                        </div>
-                    </div>`;
-                document.body.insertAdjacentHTML('beforeend', modalHtml);
-
-                qrModal = document.getElementById('qr-code-modal');
-                const closeBtn = document.getElementById('qr-modal-close');
-                closeBtn.onclick = () => qrModal.style.display = 'none';
-                window.onclick = (event) => {
-                    if (event.target == qrModal) qrModal.style.display = 'none';
-                };
-            }
-
-            const qrContainer = document.getElementById('qrcode-container');
-            qrContainer.innerHTML = ''; // Limpa o QR code anterior
-            new QRCode(qrContainer, {
-                text: url,
-                width: 256,
-                height: 256,
-                colorDark : "#000000",
-                colorLight : "#ffffff",
-                correctLevel : QRCode.CorrectLevel.H
+        if (confirm(`Tem certeza que deseja excluir ${checkboxesMarcados.length} produto(s)?`)) {
+            const promises = [];
+            checkboxesMarcados.forEach(checkbox => {
+                const id = checkbox.dataset.id;
+                promises.push(deleteDoc(doc(db, 'produtos', id)));
             });
-            qrModal.style.display = 'block';
+
+            try {
+                await Promise.all(promises);
+                alert(`${promises.length} produto(s) excluído(s) com sucesso!`);
+                checkboxMestre.checked = false; // Desmarca o checkbox mestre
+            } catch (error) {
+                alert(`Erro ao excluir produtos: ${error.message}`);
+                console.error("Erro ao excluir em lote:", error);
+            }
+        }
+    });
+
+    // Listener para o botão EDITAR SELECIONADO
+    btnEditarSelecionado.addEventListener('click', () => {
+        const checkboxesMarcados = document.querySelectorAll('.produto-checkbox:checked');
+        if (checkboxesMarcados.length !== 1) {
+            alert('Por favor, selecione exatamente um produto para editar.');
+            return;
+        }
+
+        const id = checkboxesMarcados[0].dataset.id;
+        const product = productsData.find(p => p.id === id);
+
+        if (product) {
+            // Reutiliza a mesma lógica de preenchimento do formulário que já existia
+            document.getElementById('produto-id').value = product.id;
+            document.getElementById('produto-codigo').value = product.data.codigo;
+            document.getElementById('produto-descricao').value = product.data.descricao;
+            document.getElementById('produto-un').value = product.data.un;
+            document.getElementById('produto-cor').value = product.data.cor;
+            document.getElementById('produto-locacao').value = product.data.locacao || '';
+            document.getElementById('produto-local').value = product.data.localId;
+            document.getElementById('produto-fornecedor').value = product.data.fornecedorId;
+            document.getElementById('produto-grupo').value = product.data.grupoId;
+            document.getElementById('produto-conversao').value = product.data.conversaoId || "";
+
+            aplicacaoSelect.setSelectedIds(product.data.aplicacaoIds);
+            conjuntoSelect.setSelectedIds(product.data.conjuntoIds);
+
+            form.scrollIntoView({ behavior: 'smooth' });
         }
     });
 
@@ -224,29 +350,51 @@ document.addEventListener('DOMContentLoaded', async function() {
         renderTable(filteredData);
     });
 
-    const btnGerarEtiquetas = document.getElementById('btn-gerar-etiquetas');
-    btnGerarEtiquetas.addEventListener('click', () => {
-        if (!productsData || productsData.length === 0) {
-            return alert("Não há produtos para gerar etiquetas.");
+    document.getElementById('btn-gerar-etiquetas').addEventListener('click', (e) => {
+        e.preventDefault(); // Previne o comportamento padrão do link
+
+        const checkboxesMarcados = document.querySelectorAll('.produto-checkbox:checked');
+        if (checkboxesMarcados.length === 0) {
+            return alert("Selecione ao menos um produto para gerar etiquetas.");
         }
 
-        // Prepara os dados para a página de etiquetas, resolvendo o endereçamento
-        const dadosParaEtiqueta = productsData.map(product => {
-            const pData = product.data;
-            const localNome = configData.locais[pData.localId]?.nome || '';
-            const locacaoDesc = pData.locacao || '';
-            const locacaoCompleta = [localNome, locacaoDesc].filter(Boolean).join(' - ') || 'N/A';
+        const idsSelecionados = Array.from(checkboxesMarcados).map(cb => cb.dataset.id);
 
-            return {
-                id: product.id,
-                data: pData,
-                enderecamento: locacaoCompleta
-            };
-        });
+        // Filtra os dados dos produtos com base nos IDs selecionados
+        const dadosParaEtiqueta = productsData
+            .filter(product => idsSelecionados.includes(product.id))
+            .map(product => {
+                const pData = product.data;
+                const localNome = configData.locais[pData.localId]?.nome || '';
+                const locacaoDesc = pData.locacao || '';
+                const locacaoCompleta = [localNome, locacaoDesc].filter(Boolean).join(' - ') || 'N/A';
 
-        // Salva os dados no localStorage e abre a página em uma nova aba
-        localStorage.setItem('etiquetasParaImprimir', JSON.stringify(dadosParaEtiqueta));
-        window.open('etiquetas.html', '_blank');
+                return {
+                    id: product.id,
+                    data: pData,
+                    enderecamento: locacaoCompleta
+                };
+            });
+
+        if (dadosParaEtiqueta.length > 0) {
+            localStorage.setItem('etiquetasParaImprimir', JSON.stringify(dadosParaEtiqueta));
+            window.open('etiquetas.html', '_blank');
+        }
+    });
+
+    const dropdownBtn = document.querySelector('.dropdown .btn');
+    const dropdownContainer = document.querySelector('.dropdown');
+
+    dropdownBtn.addEventListener('click', (e) => {
+        e.stopPropagation(); // Impede que o clique se propague para o window
+        dropdownContainer.classList.toggle('active');
+    });
+
+    // Fecha o dropdown se o usuário clicar em qualquer outro lugar da tela
+    window.addEventListener('click', () => {
+        if (dropdownContainer.classList.contains('active')) {
+            dropdownContainer.classList.remove('active');
+        }
     });
 });
 
