@@ -1,4 +1,20 @@
-document.addEventListener('DOMContentLoaded', () => {
+function adjustFontSizeToFit(element) {
+    element.style.fontSize = ''; // Reseta para o tamanho padrão do CSS
+
+    // A condição de estouro simples, que agora vai funcionar graças ao CSS rígido
+    const isOverflowing = () => element.scrollHeight > element.clientHeight || element.scrollWidth > element.clientWidth;
+
+    if (isOverflowing()) {
+        let currentSize = parseFloat(window.getComputedStyle(element).fontSize);
+        while (isOverflowing() && currentSize > 4) {
+            currentSize -= 1; // Diminui 1px por vez
+            element.style.fontSize = currentSize + 'px';
+        }
+    }
+}
+
+// Função principal que processa todas as etiquetas
+function processarEtiquetas() {
     const container = document.getElementById('etiquetas-container');
     const dadosJSON = localStorage.getItem('etiquetasParaImprimir');
 
@@ -9,35 +25,41 @@ document.addEventListener('DOMContentLoaded', () => {
 
     const produtos = JSON.parse(dadosJSON);
 
+    // Limpa o container antes de adicionar novas etiquetas
+    container.innerHTML = '';
+
+    // 1. CRIA TODOS OS ELEMENTOS HTML PRIMEIRO
     produtos.forEach(produto => {
         const pData = produto.data;
         const enderecamento = produto.enderecamento || 'N/A';
 
-        // Cria o elemento da etiqueta
         const etiquetaDiv = document.createElement('div');
         etiquetaDiv.className = 'etiqueta';
 
-        // Monta o HTML interno da etiqueta
         etiquetaDiv.innerHTML = `
             <div class="etiqueta-main">
                 <div class="qr-code" id="qr-${produto.id}"></div>
                 <div class="produto-info">
-                    <p>CÓDIGO: ${pData.codigo || ''}</p>
-                    <p>C. PADRÃO: ${pData.codigo_global || ''}</p>
-                    <div class="divider"></div>
-                    <p>PRODUTO:</p>
-                    <p class="descricao">${pData.descricao || ''}</p>
+                    <div class="info-bloco produto">
+                        <div class="header">PRODUTO</div>
+                        <div class="valor">${pData.descricao || ''}</div>
+                    </div>
+                    <div class="info-bloco codigo">
+                        <div class="header">CÓDIGO</div>
+                        <div class="valor">${pData.codigo || ''}</div>
+                    </div>
+                    <div class="info-bloco codigo-padrao">
+                        <div class="header">C. PADRÃO</div>
+                        <div class="valor">${pData.codigo_global || ''}</div>
+                    </div>
                 </div>
             </div>
             <div class="etiqueta-footer">
                 ENDEREÇAMENTO: ${enderecamento}
             </div>
         `;
-
-        // Adiciona a etiqueta ao container
         container.appendChild(etiquetaDiv);
 
-        // Gera o QR Code no seu respectivo container
         const url = `${window.location.origin}/detalhe-produto.html?id=${produto.id}`;
         new QRCode(document.getElementById(`qr-${produto.id}`), {
             text: url,
@@ -47,6 +69,17 @@ document.addEventListener('DOMContentLoaded', () => {
         });
     });
 
-    // Limpa os dados do localStorage depois de usados
+    // 2. PEDE AO NAVEGADOR PARA EXECUTAR O AJUSTE ANTES DA PRÓXIMA RENDERIZAÇÃO
+    requestAnimationFrame(() => {
+        const elementosParaAjustar = document.querySelectorAll('.info-bloco .valor');
+        elementosParaAjustar.forEach(el => {
+            adjustFontSizeToFit(el);
+        });
+    });
+
+    // Limpa o localStorage
     localStorage.removeItem('etiquetasParaImprimir');
-});
+}
+
+// Inicia o processo quando a página carregar
+document.addEventListener('DOMContentLoaded', processarEtiquetas);
