@@ -28,40 +28,78 @@
         </header>
         <section class="content">
             <div class="card">
-                <div class="card-header"><h3>Formulário de Produto</h3></div>
+                <div class="card-header">
+                    <div style="display: flex; justify-content: space-between; align-items: center;">
+                        <h3 id="form-title">Cadastro de Produto</h3>
+                        <div class="toggle-container" style="margin-bottom: 0;">
+                            <span id="toggle-label-sobra" style="font-weight: normal; color: #6c757d;">Sobra</span>
+                            <label class="toggle-switch">
+                                <input type="checkbox" id="form-toggle" checked>
+                                <span class="slider"></span>
+                            </label>
+                            <span id="toggle-label-produto" style="font-weight: bold; color: #0d6efd;">Produto</span>
+                        </div>
+                    </div>
+                </div>
                 <div class="card-body">
-                    <form id="form-produto" style="display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 15px;">
-                        <input type="hidden" id="produto-id">
-                        <input type="text" id="produto-codigo" placeholder="Código" required class="form-control">
-                        <input type="text" id="produto-descricao" placeholder="Descrição" required class="form-control">
-                        <input type="text" id="produto-un" placeholder="UN Estocável" required class="form-control">
-                        <input type="text" id="produto-cor" placeholder="Cor" class="form-control">
-                        <input type="text" id="produto-locacao" placeholder="Locação (Ex: Corredor A, Gôndola 5)" class="form-control">
-                        <select id="produto-local" required class="form-control"><option value="">Selecione o Local...</option></select>
-                        <select id="produto-conversao" class="form-control">
-                            <option value="">Nenhuma conversão aplicada</option>
-                        </select>
-                        <select id="produto-fornecedor" required class="form-control"><option value="">Selecione o Fornecedor...</option></select>
-                        <select id="produto-grupo" required class="form-control"><option value="">Selecione o Grupo...</option></select>
-                        <div class="multiselect-container" id="multiselect-aplicacao">
-                            <div class="multiselect-display-area form-control">
-                                <span class="multiselect-placeholder">Selecione a Aplicação...</span>
-                                <span class="multiselect-arrow"></span>
-                            </div>
-                            <div class="multiselect-options">
+                    <div id="form-wrapper-produto">
+                        <form id="form-produto" style="display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 15px;">
+                            <input type="hidden" id="produto-id">
+                            <input type="text" id="produto-codigo" placeholder="Código" required class="form-control">
+                            <input type="text" id="produto-descricao" placeholder="Descrição" required class="form-control">
+                            <input type="text" id="produto-un" placeholder="UN Estocável" required class="form-control">
+                            <input type="text" id="produto-cor" placeholder="Cor" class="form-control">
+                            <input type="text" id="produto-locacao" placeholder="Locação (Ex: Corredor A, Gôndola 5)" class="form-control">
+                            <select id="produto-local" required class="form-control"><option value="">Selecione o Local...</option></select>
+                            <select id="produto-conversao" class="form-control">
+                                <option value="">Nenhuma conversão aplicada</option>
+                            </select>
+                            <select id="produto-fornecedor" required class="form-control"><option value="">Selecione o Fornecedor...</option></select>
+                            <select id="produto-grupo" required class="form-control"><option value="">Selecione o Grupo...</option></select>
+                            <div class="multiselect-container" id="multiselect-aplicacao">
+                                <div class="multiselect-display-area form-control">
+                                    <span class="multiselect-placeholder">Selecione a Aplicação...</span>
+                                    <span class="multiselect-arrow"></span>
                                 </div>
-                        </div>
+                                <div class="multiselect-options">
+                                    </div>
+                            </div>
 
-                        <div class="multiselect-container" id="multiselect-conjunto">
-                            <div class="multiselect-display-area form-control">
-                                <span class="multiselect-placeholder">Selecione o Conjunto...</span>
-                                <span class="multiselect-arrow"></span>
-                            </div>
-                            <div class="multiselect-options">
+                            <div class="multiselect-container" id="multiselect-conjunto">
+                                <div class="multiselect-display-area form-control">
+                                    <span class="multiselect-placeholder">Selecione o Conjunto...</span>
+                                    <span class="multiselect-arrow"></span>
                                 </div>
-                        </div>
-                        <button type="submit" class="btn btn-success" style="grid-column: 1 / -1;">Salvar Produto</button>
-                    </form>
+                                <div class="multiselect-options">
+                                    </div>
+                            </div>
+                            <button type="submit" class="btn btn-success" style="grid-column: 1 / -1;">Salvar Produto</button>
+                        </form>
+                    </div>
+                    <div id="form-wrapper-sobra" style="display: none;">
+                        <form id="form-sobra" style="display: grid; grid-template-columns: 1fr 1fr; gap: 15px;">
+                            <div style="grid-column: 1 / -1;">
+                                <label for="sobra-produto-original">Selecione o Produto Original</label>
+                                <select id="sobra-produto-original" required class="form-control">
+                                    <option value="">Pesquise por código ou descrição...</option>
+                                </select>
+                            </div>
+
+                            <div id="sobra-info-display" style="grid-column: 1 / -1; display: grid; grid-template-columns: 1fr 1fr; gap: 10px; background-color: #f8f9fa; padding: 10px; border-radius: 4px; font-size: 0.9em;">
+                                <p><strong>Cód:</strong> <span id="sobra-codigo-display">-</span></p>
+                                <p><strong>Descr:</strong> <span id="sobra-descricao-display">-</span></p>
+                                <p><strong>UN:</strong> <span id="sobra-un-display">-</span></p>
+                                <p><strong>Locação:</strong> <span id="sobra-locacao-display">-</span></p>
+                            </div>
+
+                            <div style="grid-column: 1 / -1;">
+                                <label for="sobra-medida">Informe a Medida da Sobra (ex: 1500)</label>
+                                <input type="number" id="sobra-medida" placeholder="Medida em mm, cm, etc." required class="form-control">
+                            </div>
+
+                            <button type="submit" class="btn btn-success" style="grid-column: 1 / -1;">Salvar Sobra como Novo Produto</button>
+                        </form>
+                    </div>
                 </div>
             </div>
 
@@ -100,6 +138,7 @@
                                     <th>Grupo</th>
                                     <th>Aplicações</th>
                                     <th>Locação</th>
+                                    <th>Medida (Sobra)</th>
                                 </tr>
                             </thead>
                             <tbody></tbody>
