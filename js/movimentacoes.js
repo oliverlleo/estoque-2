@@ -455,11 +455,11 @@ document.addEventListener('DOMContentLoaded', async function() {
         data.forEach(mov => {
             const row = document.createElement('tr');
             const searchData = mov._search_data;
-            const valorUnitarioFmt = mov.valor_unitario ? `R$ ${mov.valor_unitario.toFixed(2)}` : '-';
-            const icmsFmt = mov.icms ? `R$ ${mov.icms.toFixed(2)}` : '-';
-            const ipiFmt = mov.ipi ? `R$ ${mov.ipi.toFixed(2)}` : '-';
-            const freteFmt = mov.frete ? `R$ ${mov.frete.toFixed(2)}` : '-';
-            const custoUnitarioFmt = parseFloat(searchData.custoUnitario) > 0 ? `R$ ${searchData.custoUnitario}` : '-';
+            const valorUnitarioFmt = mov.valor_unitario ? mov.valor_unitario.toFixed(2) : '-';
+            const icmsFmt = mov.icms ? mov.icms.toFixed(2) : '-';
+            const ipiFmt = mov.ipi ? mov.ipi.toFixed(2) : '-';
+            const freteFmt = mov.frete ? mov.frete.toFixed(2) : '-';
+            const custoUnitarioFmt = parseFloat(searchData.custoUnitario) > 0 ? searchData.custoUnitario : '-';
 
             row.innerHTML = `
                 <td>${searchData.data}</td>

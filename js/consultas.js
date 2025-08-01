@@ -134,8 +134,8 @@ document.addEventListener('DOMContentLoaded', async function() {
                 <td>${item.estoque || 0}</td>
                 <td>${item.un}</td>
                 <td>${item.saldoPedaco || 0}</td>
-                <td>R$ ${item.valorMedio.toFixed(2)}</td>
-                <td>R$ ${item.valorTotalEstoque.toFixed(2)}</td>
+                <td>${item.valorMedio.toFixed(2)}</td>
+                <td>${item.valorTotalEstoque.toFixed(2)}</td>
                 <td>${item.local}</td>
                 <td>
                     ${(item.saldoPedaco || 0) > 0 ? `<button class="btn-ver-pedacos" data-product-id="${item.id}"><i data-feather="chevron-down"></i></button>` : '-'}
