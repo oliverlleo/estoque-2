@@ -14,21 +14,15 @@ document.addEventListener('DOMContentLoaded', async function() {
     let consolidatedData = [];
 
     async function fetchDataAndCalculate() {
-        const [productsSnapshot, movementsSnapshot, locationsSnapshot, locaisSnapshot] = await Promise.all([
+        const [productsSnapshot, movementsSnapshot, locaisSnapshot] = await Promise.all([
             getDocs(collection(db, 'produtos')),
             getDocs(collection(db, 'movimentacoes')),
-            getDocs(collection(db, 'enderecamentos')),
             getDocs(collection(db, 'locais'))
         ]);
 
         const products = {};
         productsSnapshot.forEach(doc => {
             products[doc.id] = { id: doc.id, ...doc.data() };
-        });
-
-        const locations = {};
-        locationsSnapshot.forEach(doc => {
-            locations[doc.id] = doc.data();
         });
 
         const locais = {};
@@ -107,9 +101,9 @@ document.addEventListener('DOMContentLoaded', async function() {
             const valorMedio = totalQuantityForAvg > 0 ? totalCost / totalQuantityForAvg : 0;
             const valorTotalEstoque = (estoqueAtual || 0) * valorMedio;
 
-            const enderecamentoDoc = locations[product.enderecamentoId];
-            const localNome = enderecamentoDoc ? (locais[enderecamentoDoc.localId]?.nome || 'N/A') : 'N/A';
-            const local = enderecamentoDoc ? `${enderecamentoDoc.codigo} - ${localNome}` : 'N/A';
+            const localNome = locais[product.localId]?.nome || '';
+            const locacaoDesc = product.locacao || '';
+            const locacaoCompleta = [localNome, locacaoDesc].filter(Boolean).join(' - ') || 'N/A';
 
             return {
                 ...product,
@@ -118,7 +112,7 @@ document.addEventListener('DOMContentLoaded', async function() {
                 inventarioPedacos: inventarioPedacos,
                 valorMedio,
                 valorTotalEstoque,
-                local
+                local: locacaoCompleta
             };
         });
 

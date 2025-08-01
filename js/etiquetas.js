@@ -51,7 +51,7 @@ function processarEtiquetas() {
                 </div>
             </div>
             <div class="etiqueta-footer">
-                ENDEREÇAMENTO: ${enderecamento}
+                LOCAÇÃO: ${enderecamento}
             </div>
         `;
         container.appendChild(etiquetaDiv);

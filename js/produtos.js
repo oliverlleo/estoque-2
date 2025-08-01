@@ -17,15 +17,7 @@ document.addEventListener('DOMContentLoaded', async function() {
         { name: 'grupo', collectionName: 'grupos', displayField: 'nome' },
         { name: 'aplicacao', collectionName: 'aplicacoes', displayField: 'nome' },
         { name: 'conjunto', collectionName: 'conjuntos', displayField: 'nome' },
-        { name: 'locais', collectionName: 'locais', displayField: 'nome' },
-        {
-            name: 'enderecamento',
-            collectionName: 'enderecamentos',
-            displayFunction: (doc, allConfigs) => {
-                const localNome = allConfigs.locais[doc.localId]?.nome || 'N/A';
-                return `${doc.codigo} - ${localNome}`;
-            }
-        }
+        { name: 'local', collectionName: 'locais', displayField: 'nome' },
     ];
 
     for (const config of configCollections) {
@@ -86,11 +78,12 @@ document.addEventListener('DOMContentLoaded', async function() {
             descricao: document.getElementById('produto-descricao').value,
             un: document.getElementById('produto-un').value,
             cor: document.getElementById('produto-cor').value,
+            locacao: document.getElementById('produto-locacao').value,
+            localId: document.getElementById('produto-local').value,
             fornecedorId: document.getElementById('produto-fornecedor').value,
             grupoId: document.getElementById('produto-grupo').value,
             aplicacaoId: document.getElementById('produto-aplicacao').value,
             conjuntoId: document.getElementById('produto-conjunto').value,
-            enderecamentoId: document.getElementById('produto-enderecamento').value,
             conversaoId: document.getElementById('produto-conversao').value
         };
 
@@ -119,9 +112,9 @@ document.addEventListener('DOMContentLoaded', async function() {
 
             const fornecedor = configData.fornecedores[pData.fornecedorId]?.nome || 'N/A';
             const grupo = configData.grupos[pData.grupoId]?.nome || 'N/A';
-            const enderecamentoDoc = configData.enderecamentos[pData.enderecamentoId];
-            const localNome = enderecamentoDoc ? configData.locais[enderecamentoDoc.localId]?.nome : 'N/A';
-            const enderecamento = enderecamentoDoc ? `${enderecamentoDoc.codigo} - ${localNome}` : 'N/A';
+            const localNome = configData.locais[pData.localId]?.nome || '';
+            const locacaoDesc = pData.locacao || '';
+            const locacaoCompleta = [localNome, locacaoDesc].filter(Boolean).join(' - ') || 'N/A';
 
             row.innerHTML = `
                 <td>${pData.codigo}</td>
@@ -130,7 +123,7 @@ document.addEventListener('DOMContentLoaded', async function() {
                 <td>${pData.cor}</td>
                 <td>${fornecedor}</td>
                 <td>${grupo}</td>
-                <td>${enderecamento}</td>
+                <td>${locacaoCompleta}</td>
                 <td class="actions">
                     <button class="btn-edit" data-id="${product.id}">Editar</button>
                     <button class="btn-delete" data-id="${product.id}">Excluir</button>
@@ -161,11 +154,12 @@ document.addEventListener('DOMContentLoaded', async function() {
                 document.getElementById('produto-descricao').value = product.data.descricao;
                 document.getElementById('produto-un').value = product.data.un;
                 document.getElementById('produto-cor').value = product.data.cor;
+                document.getElementById('produto-locacao').value = product.data.locacao || '';
+                document.getElementById('produto-local').value = product.data.localId;
                 document.getElementById('produto-fornecedor').value = product.data.fornecedorId;
                 document.getElementById('produto-grupo').value = product.data.grupoId;
                 document.getElementById('produto-aplicacao').value = product.data.aplicacaoId;
                 document.getElementById('produto-conjunto').value = product.data.conjuntoId;
-                document.getElementById('produto-enderecamento').value = product.data.enderecamentoId;
                 document.getElementById('produto-conversao').value = product.data.conversaoId || "";
                 form.scrollIntoView({ behavior: 'smooth' });
             }
@@ -239,14 +233,14 @@ document.addEventListener('DOMContentLoaded', async function() {
         // Prepara os dados para a página de etiquetas, resolvendo o endereçamento
         const dadosParaEtiqueta = productsData.map(product => {
             const pData = product.data;
-            const enderecamentoDoc = configData.enderecamentos[pData.enderecamentoId];
-            const localNome = enderecamentoDoc ? configData.locais[enderecamentoDoc.localId]?.nome : 'N/A';
-            const enderecamentoCompleto = enderecamentoDoc ? `${enderecamentoDoc.codigo} - ${localNome}` : 'N/A';
+            const localNome = configData.locais[pData.localId]?.nome || '';
+            const locacaoDesc = pData.locacao || '';
+            const locacaoCompleta = [localNome, locacaoDesc].filter(Boolean).join(' - ') || 'N/A';
 
             return {
                 id: product.id,
                 data: pData,
-                enderecamento: enderecamentoCompleto
+                enderecamento: locacaoCompleta
             };
         });
 
