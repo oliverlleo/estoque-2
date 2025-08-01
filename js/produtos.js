@@ -429,12 +429,29 @@ async function gerarEtiquetasWord(products, configs) {
             for (const product of products) {
                 const pData = product.data;
 
-                // 1. Gerar QR Code em Base64
+                // 1. Gerar QR Code em Base64 (MÉTODO CORRIGIDO)
                 const url = `${window.location.origin}/detalhe-produto.html?id=${product.id}`;
-                const canvas = document.createElement('canvas');
-                await QRCode.toCanvas(canvas, url, { width: 150, margin: 1 });
+
+                // Cria um container temporário e invisível
+                const tempQrDiv = document.createElement('div');
+                tempQrDiv.style.display = 'none';
+                document.body.appendChild(tempQrDiv);
+
+                // Gera o QR Code dentro do container temporário
+                new QRCode(tempQrDiv, {
+                    text: url,
+                    width: 150,
+                    height: 150,
+                    correctLevel: QRCode.CorrectLevel.H
+                });
+
+                // Pega o canvas que a biblioteca criou
+                const canvas = tempQrDiv.querySelector('canvas');
                 const qrImage = canvas.toDataURL('image/png');
                 const imageBuffer = Uint8Array.from(atob(qrImage.split(',')[1]), c => c.charCodeAt(0));
+
+                // Remove o container temporário do DOM
+                document.body.removeChild(tempQrDiv);
 
                 // 2. Resolver dados do endereçamento
                 const enderecamentoDoc = configs.enderecamentos[pData.enderecamentoId];
