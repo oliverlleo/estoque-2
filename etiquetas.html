@@ -104,9 +104,27 @@
         /* ESTILOS DE IMPRESSÃO */
         @media print {
             body { background-color: white; padding: 0; margin: 0; }
-            .controls, .etiqueta { margin: 0; border: none; }
-            .etiqueta { page-break-after: always; }
-            .etiqueta:last-child { page-break-after: avoid; }
+
+            /* 1. Força o botão a desaparecer, sem chance de erro */
+            .controls {
+                display: none !important;
+            }
+
+            .etiqueta {
+                margin: 0;
+                border: none;
+                page-break-after: always;
+            }
+            .etiqueta:last-child {
+                page-break-after: avoid;
+            }
+
+            /* 2. Força os fundos pretos a serem impressos */
+            .info-bloco .header {
+                background-color: #333 !important;
+                print-color-adjust: exact;
+                -webkit-print-color-adjust: exact;
+            }
         }
         @page { size: 100mm 50mm; margin: 0; }
     </style>
