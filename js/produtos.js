@@ -7,8 +7,38 @@ document.addEventListener('DOMContentLoaded', async function() {
     const form = document.getElementById('form-produto');
     const tableBody = document.querySelector('#table-produtos tbody');
     const filterInput = document.getElementById('filter-produtos');
+    const formToggle = document.getElementById('form-toggle');
+    const formWrapperProduto = document.getElementById('form-wrapper-produto');
+    const formWrapperSobra = document.getElementById('form-wrapper-sobra');
+    const formSobra = document.getElementById('form-sobra');
+    const formTitle = document.getElementById('form-title');
+    const labelSobra = document.getElementById('toggle-label-sobra');
+    const labelProduto = document.getElementById('toggle-label-produto');
+    const selectSobraOriginal = document.getElementById('sobra-produto-original');
 
     const locacaoInput = document.getElementById('produto-locacao');
+
+    formToggle.addEventListener('change', () => {
+        const isProduto = formToggle.checked;
+        if (isProduto) {
+            formWrapperProduto.style.display = 'block';
+            formWrapperSobra.style.display = 'none';
+            formTitle.textContent = 'Cadastro de Produto';
+            labelProduto.style.fontWeight = 'bold';
+            labelProduto.style.color = '#0d6efd';
+            labelSobra.style.fontWeight = 'normal';
+            labelSobra.style.color = '#6c757d';
+        } else {
+            formWrapperProduto.style.display = 'none';
+            formWrapperSobra.style.display = 'block';
+            formTitle.textContent = 'Cadastro de Sobra';
+            labelSobra.style.fontWeight = 'bold';
+            labelSobra.style.color = '#0d6efd';
+            labelProduto.style.fontWeight = 'normal';
+            labelProduto.style.color = '#6c757d';
+            populateSobraSelect(); // Popula o select quando o formulário se torna visível
+        }
+    });
 
     locacaoInput.addEventListener('input', (e) => {
         // --- 1. Lógica da Máscara ---
@@ -170,6 +200,81 @@ document.addEventListener('DOMContentLoaded', async function() {
         }
     });
 
+    function populateSobraSelect() {
+        // Guarda a opção "selecione" e limpa o resto
+        const firstOption = selectSobraOriginal.options[0];
+        selectSobraOriginal.innerHTML = '';
+        selectSobraOriginal.appendChild(firstOption);
+
+        productsData.forEach(product => {
+            const option = document.createElement('option');
+            option.value = product.id;
+            option.textContent = `${product.data.codigo} - ${product.data.descricao}`;
+            selectSobraOriginal.appendChild(option);
+        });
+    }
+
+    selectSobraOriginal.addEventListener('change', (e) => {
+        const selectedId = e.target.value;
+        const displayInfo = {
+            codigo: '-', descricao: '-', un: '-', locacao: '-'
+        };
+
+        if (selectedId) {
+            const product = productsData.find(p => p.id === selectedId);
+            if (product) {
+                const localNome = configData.locais[product.data.localId]?.nome || '';
+                const locacaoDesc = product.data.locacao || '';
+
+                displayInfo.codigo = product.data.codigo;
+                displayInfo.descricao = product.data.descricao;
+                displayInfo.un = product.data.un;
+                displayInfo.locacao = [localNome, locacaoDesc].filter(Boolean).join(' - ') || 'N/A';
+            }
+        }
+        document.getElementById('sobra-codigo-display').textContent = displayInfo.codigo;
+        document.getElementById('sobra-descricao-display').textContent = displayInfo.descricao;
+        document.getElementById('sobra-un-display').textContent = displayInfo.un;
+        document.getElementById('sobra-locacao-display').textContent = displayInfo.locacao;
+    });
+
+    formSobra.addEventListener('submit', async (e) => {
+        e.preventDefault();
+        const originalProductId = selectSobraOriginal.value;
+        const medida = document.getElementById('sobra-medida').value;
+
+        if (!originalProductId || !medida) {
+            alert('Por favor, selecione um produto original e informe a medida da sobra.');
+            return;
+        }
+
+        const originalProduct = productsData.find(p => p.id === originalProductId)?.data;
+        if (!originalProduct) {
+            alert('Produto original não encontrado. Por favor, recarregue a página.');
+            return;
+        }
+
+        const newSobraProduct = {
+            ...originalProduct, // Herda todos os campos do pai
+            codigo: `${originalProduct.codigo}-S${medida}`,
+            medida_sobra: medida,
+            estoque: 1, // Sobras entram com estoque inicial 1
+        };
+
+        // Remove o ID antigo para não sobrescrever
+        delete newSobraProduct.id;
+
+        try {
+            await addDoc(collection(db, 'produtos'), newSobraProduct);
+            alert(`Sobra com código ${newSobraProduct.codigo} cadastrada com sucesso!`);
+            formSobra.reset();
+            selectSobraOriginal.dispatchEvent(new Event('change')); // Limpa os campos de display
+        } catch (error) {
+            console.error("Erro ao salvar sobra:", error);
+            alert(`Erro ao salvar: ${error.message}`);
+        }
+    });
+
 
     // 2. Handle Product Form Submission (Create/Update)
     form.addEventListener('submit', async (e) => {
@@ -236,6 +341,7 @@ document.addEventListener('DOMContentLoaded', async function() {
                 <td>${grupo}</td>
                 <td>${aplicacoesNomes}</td>
                 <td>${locacaoCompleta}</td>
+                <td>${pData.medida_sobra || '-'}</td>
             `;
             tableBody.appendChild(row);
         });
