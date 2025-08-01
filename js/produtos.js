@@ -83,7 +83,6 @@ document.addEventListener('DOMContentLoaded', async function() {
 
         const product = {
             codigo: document.getElementById('produto-codigo').value,
-            codigo_global: document.getElementById('produto-codigo_global').value,
             descricao: document.getElementById('produto-descricao').value,
             un: document.getElementById('produto-un').value,
             cor: document.getElementById('produto-cor').value,
@@ -126,7 +125,6 @@ document.addEventListener('DOMContentLoaded', async function() {
 
             row.innerHTML = `
                 <td>${pData.codigo}</td>
-                <td>${pData.codigo_global}</td>
                 <td>${pData.descricao}</td>
                 <td>${pData.un}</td>
                 <td>${pData.cor}</td>
@@ -160,7 +158,6 @@ document.addEventListener('DOMContentLoaded', async function() {
             if (product) {
                 document.getElementById('produto-id').value = product.id;
                 document.getElementById('produto-codigo').value = product.data.codigo;
-                document.getElementById('produto-codigo_global').value = product.data.codigo_global;
                 document.getElementById('produto-descricao').value = product.data.descricao;
                 document.getElementById('produto-un').value = product.data.un;
                 document.getElementById('produto-cor').value = product.data.cor;
@@ -295,7 +292,7 @@ async function exportarModeloExcel() {
         });
 
         // 4. Criar a aba principal de "Produtos"
-        const headers = ["codigo", "codigo_global", "descricao", "un", "cor", "fornecedor_nome", "grupo_nome", "aplicacao_nome", "conjunto_nome", "enderecamento_codigo", "conversao_nome_regra"];
+        const headers = ["codigo", "descricao", "un", "cor", "fornecedor_nome", "grupo_nome", "aplicacao_nome", "conjunto_nome", "enderecamento_codigo", "conversao_nome_regra"];
         const mainSheet = XLSX.utils.json_to_sheet([{}], { header: headers });
 
         // 5. Adicionar a "Validação de Dados" (Dropdowns)
@@ -398,7 +395,6 @@ async function handleFileImport(event) {
 
                 const product = {
                     codigo: row.codigo,
-                    codigo_global: row.codigo_global || "",
                     descricao: row.descricao,
                     un: row.un || "",
                     cor: row.cor || "",
