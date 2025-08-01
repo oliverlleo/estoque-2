@@ -1,0 +1,126 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Etiquetas para Impressão</title>
+    <script src="https://cdn.jsdelivr.net/npm/qrcodejs@1.0.0/qrcode.min.js"></script>
+    <style>
+        /* ESTILOS PARA VISUALIZAÇÃO NA TELA */
+        body {
+            font-family: Arial, sans-serif;
+            background-color: #f0f2f5;
+            margin: 0;
+            padding: 20px;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+        }
+        .controls {
+            background-color: white;
+            padding: 15px;
+            border-radius: 8px;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+            margin-bottom: 20px;
+        }
+        .controls button {
+            font-size: 16px;
+            padding: 10px 20px;
+            cursor: pointer;
+        }
+
+        /* ESTILOS DA ETIQUETA - VISUALIZAÇÃO */
+        .etiqueta {
+            background-color: white;
+            width: 100mm;
+            height: 50mm;
+            padding: 5mm;
+            box-sizing: border-box;
+            border: 1px dashed #ccc;
+            display: flex;
+            flex-direction: column;
+            justify-content: space-between;
+            margin-bottom: 20px;
+        }
+        .etiqueta-main {
+            display: flex;
+            gap: 10px;
+            height: 35mm;
+        }
+        .qr-code {
+            width: 35%;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+        }
+        .qr-code canvas, .qr-code img {
+            max-width: 100%;
+            max-height: 100%;
+            object-fit: contain;
+        }
+        .produto-info {
+            width: 65%;
+            display: flex;
+            flex-direction: column;
+            font-family: 'Courier New', Courier, monospace;
+        }
+        .produto-info p {
+            margin: 0;
+            font-weight: bold;
+            font-size: 14pt;
+            line-height: 1.4;
+        }
+        .produto-info .descricao {
+            font-weight: normal;
+        }
+        .produto-info .divider {
+            border-bottom: 3px solid black;
+            margin: 4px 0;
+            width: 50%;
+        }
+        .etiqueta-footer {
+            text-align: center;
+            font-weight: bold;
+            font-size: 12pt;
+            font-family: 'Courier New', Courier, monospace;
+            border-top: 3px solid black;
+            padding-top: 5px;
+        }
+
+        /* ESTILOS DE IMPRESSÃO - A MÁGICA ACONTECE AQUI */
+        @media print {
+            body {
+                background-color: white;
+                padding: 0;
+                margin: 0;
+            }
+            .controls {
+                display: none; /* Esconde o botão de imprimir */
+            }
+            .etiqueta {
+                border: none; /* Remove a borda tracejada na impressão */
+                margin: 0;
+                page-break-after: always; /* Força cada etiqueta para uma nova página */
+            }
+            /* Garante que a última etiqueta não crie uma página em branco extra */
+            .etiqueta:last-child {
+                page-break-after: avoid;
+            }
+        }
+        /* Define o tamanho da página de impressão */
+        @page {
+            size: 100mm 50mm;
+            margin: 0;
+        }
+    </style>
+</head>
+<body>
+    <div class="controls">
+        <button onclick="window.print()">Imprimir Etiquetas</button>
+    </div>
+    <div id="etiquetas-container">
+        </div>
+
+    <script type="module" src="js/etiquetas.js"></script>
+</body>
+</html>
