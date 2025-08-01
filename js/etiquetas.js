@@ -54,6 +54,31 @@ document.addEventListener('DOMContentLoaded', () => {
         });
     });
 
+    // ---- INÍCIO DO NOVO BLOCO DE CÓDIGO ----
+    // Pega todos os elementos de valor que precisam de ajuste
+    const elementosParaAjustar = document.querySelectorAll('.info-bloco .valor');
+
+    // Aplica a função de ajuste para cada um deles
+    elementosParaAjustar.forEach(el => {
+        adjustFontSizeToFit(el);
+    });
+    // ---- FIM DO NOVO BLOCO DE CÓDIGO ----
+
     // Limpa os dados do localStorage depois de usados
     localStorage.removeItem('etiquetasParaImprimir');
 });
+
+function adjustFontSizeToFit(element) {
+    // Pega o estilo computado para ter o valor real da fonte em pixels
+    const style = window.getComputedStyle(element);
+    let fontSize = parseFloat(style.fontSize);
+
+    // Define um tamanho mínimo para evitar que o texto desapareça
+    const minFontSize = 8;
+
+    // Enquanto a largura do conteúdo for maior que a largura do elemento
+    while (element.scrollWidth > element.clientWidth && fontSize > minFontSize) {
+        fontSize--; // Diminui o tamanho da fonte
+        element.style.fontSize = `${fontSize}px`;
+    }
+}
