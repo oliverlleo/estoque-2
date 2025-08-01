@@ -1,4 +1,32 @@
-document.addEventListener('DOMContentLoaded', () => {
+// Função de ajuste de fonte robusta
+function adjustFontSizeToFit(element) {
+    // Reseta qualquer estilo inline para garantir que começamos do zero
+    element.style.fontSize = '';
+    element.style.lineHeight = '';
+
+    const style = window.getComputedStyle(element);
+    let fontSize = parseFloat(style.fontSize);
+
+    // Uma proporção razoável para a altura da linha baseada no tamanho da fonte
+    const lineHeightRatio = 1.2;
+
+    const isOverflowing = () => {
+        // Adicionamos uma tolerância de 1px para evitar problemas de arredondamento do navegador
+        const tolerance = 1;
+        return element.scrollHeight > (element.clientHeight + tolerance) || element.scrollWidth > (element.clientWidth + tolerance);
+    }
+
+    // Loop para ajustar o tamanho
+    while (isOverflowing() && fontSize > 1) {
+        fontSize -= 0.5;
+        element.style.fontSize = `${fontSize}px`;
+        // Ajusta a altura da linha para ser um pouco maior que a fonte
+        element.style.lineHeight = `${fontSize * lineHeightRatio}px`;
+    }
+}
+
+// Função principal que processa todas as etiquetas
+function processarEtiquetas() {
     const container = document.getElementById('etiquetas-container');
     const dadosJSON = localStorage.getItem('etiquetasParaImprimir');
 
@@ -9,42 +37,41 @@ document.addEventListener('DOMContentLoaded', () => {
 
     const produtos = JSON.parse(dadosJSON);
 
+    // Limpa o container antes de adicionar novas etiquetas
+    container.innerHTML = '';
+
+    // 1. CRIA TODOS OS ELEMENTOS HTML PRIMEIRO
     produtos.forEach(produto => {
         const pData = produto.data;
         const enderecamento = produto.enderecamento || 'N/A';
 
-        // Cria o elemento da etiqueta
         const etiquetaDiv = document.createElement('div');
         etiquetaDiv.className = 'etiqueta';
 
-        // Monta o HTML interno da etiqueta
         etiquetaDiv.innerHTML = `
-        <div class="etiqueta-main">
-            <div class="qr-code" id="qr-${produto.id}"></div>
-            <div class="produto-info">
-                <div class="info-bloco produto">
-                    <div class="header">PRODUTO</div>
-                    <div class="valor">${pData.descricao || ''}</div>
-                </div>
-                <div class="info-bloco codigo">
-                    <div class="header">CÓDIGO</div>
-                    <div class="valor">${pData.codigo || ''}</div>
-                </div>
-                <div class="info-bloco codigo-padrao">
-                    <div class="header">C. PADRÃO</div>
-                    <div class="valor">${pData.codigo_global || ''}</div>
+            <div class="etiqueta-main">
+                <div class="qr-code" id="qr-${produto.id}"></div>
+                <div class="produto-info">
+                    <div class="info-bloco produto">
+                        <div class="header">PRODUTO</div>
+                        <div class="valor">${pData.descricao || ''}</div>
+                    </div>
+                    <div class="info-bloco codigo">
+                        <div class="header">CÓDIGO</div>
+                        <div class="valor">${pData.codigo || ''}</div>
+                    </div>
+                    <div class="info-bloco codigo-padrao">
+                        <div class="header">C. PADRÃO</div>
+                        <div class="valor">${pData.codigo_global || ''}</div>
+                    </div>
                 </div>
             </div>
-        </div>
-        <div class="etiqueta-footer">
-            ENDEREÇAMENTO: ${enderecamento}
-        </div>
-    `;
-
-        // Adiciona a etiqueta ao container
+            <div class="etiqueta-footer">
+                ENDEREÇAMENTO: ${enderecamento}
+            </div>
+        `;
         container.appendChild(etiquetaDiv);
 
-        // Gera o QR Code no seu respectivo container
         const url = `${window.location.origin}/detalhe-produto.html?id=${produto.id}`;
         new QRCode(document.getElementById(`qr-${produto.id}`), {
             text: url,
@@ -54,48 +81,17 @@ document.addEventListener('DOMContentLoaded', () => {
         });
     });
 
-    // ---- INÍCIO DO NOVO BLOCO DE CÓDIGO ----
-    // Pega todos os elementos de valor que precisam de ajuste
-    const elementosParaAjustar = document.querySelectorAll('.info-bloco .valor');
-
-    // Aplica a função de ajuste para cada um deles
-    elementosParaAjustar.forEach(el => {
-        adjustFontSizeToFit(el);
+    // 2. PEDE AO NAVEGADOR PARA EXECUTAR O AJUSTE ANTES DA PRÓXIMA RENDERIZAÇÃO
+    requestAnimationFrame(() => {
+        const elementosParaAjustar = document.querySelectorAll('.info-bloco .valor');
+        elementosParaAjustar.forEach(el => {
+            adjustFontSizeToFit(el);
+        });
     });
-    // ---- FIM DO NOVO BLOCO DE CÓDIGO ----
 
-    // Limpa os dados do localStorage depois de usados
+    // Limpa o localStorage
     localStorage.removeItem('etiquetasParaImprimir');
-});
-
-function adjustFontSizeToFit(element) {
-    // Reseta qualquer estilo inline para começar do zero a cada vez
-    element.style.fontSize = '';
-    element.style.lineHeight = '';
-
-    // Pega os estilos computados para os valores iniciais
-    const style = window.getComputedStyle(element);
-    let fontSize = parseFloat(style.fontSize);
-    let lineHeight = parseFloat(style.lineHeight);
-
-    // Condição de estouro: a altura do conteúdo é maior que a do contêiner,
-    // OU a largura do conteúdo é maior que a do contêiner.
-    const isOverflowing = () => element.scrollHeight > element.clientHeight || element.scrollWidth > element.clientWidth;
-
-    // Loop: enquanto o elemento estiver transbordando (sem tamanho mínimo)
-    while (isOverflowing()) {
-        // Reduz a fonte
-        fontSize -= 0.5;
-        // Reduz a altura da linha proporcionalmente. Isso é CRUCIAL para textos com quebra de linha.
-        lineHeight -= 0.6;
-
-        // Aplica os novos valores
-        element.style.fontSize = `${fontSize}px`;
-        element.style.lineHeight = `${lineHeight}px`;
-
-        // Mecanismo de segurança para evitar um loop infinito em casos bizarros
-        if (fontSize < 1) {
-            break;
-        }
-    }
 }
+
+// Inicia o processo quando a página carregar
+document.addEventListener('DOMContentLoaded', processarEtiquetas);
