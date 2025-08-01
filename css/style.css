@@ -538,3 +538,8 @@ input:checked + .slider:before {
 .multiselect-options input[type="checkbox"] {
     margin-right: 10px;
 }
+
+/* Ajusta a largura do campo de descrição no formulário de produtos */
+#form-produto #produto-descricao {
+    grid-column: span 2; /* Faz o campo ocupar duas colunas do grid */
+}
