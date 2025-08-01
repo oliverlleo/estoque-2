@@ -232,6 +232,15 @@ document.addEventListener('DOMContentLoaded', async function() {
         });
         renderTable(filteredData);
     });
+
+    const btnGerarEtiquetas = document.getElementById('btn-gerar-etiquetas');
+    btnGerarEtiquetas.addEventListener('click', () => {
+        if (productsData && productsData.length > 0) {
+            gerarEtiquetasWord(productsData, configData);
+        } else {
+            alert("Não há produtos para gerar etiquetas.");
+        }
+    });
 });
 
 // Substitua a função exportarModeloExcel antiga por esta
@@ -406,3 +415,97 @@ async function handleFileImport(event) {
     };
     reader.readAsArrayBuffer(file);
 }
+
+async function gerarEtiquetasWord(products, configs) {
+            alert(`Iniciando a geração de ${products.length} etiquetas. Por favor, aguarde...`);
+
+            const sections = [];
+            const page_width_mm = 100;
+            const page_height_mm = 50;
+
+            // Fator de conversão de mm para twentieths of a point (twips)
+            const mmToTwips = (mm) => Math.round(mm * 56.6929);
+
+            for (const product of products) {
+                const pData = product.data;
+
+                // 1. Gerar QR Code em Base64
+                const url = `${window.location.origin}/detalhe-produto.html?id=${product.id}`;
+                const canvas = document.createElement('canvas');
+                await QRCode.toCanvas(canvas, url, { width: 150, margin: 1 });
+                const qrImage = canvas.toDataURL('image/png');
+                const imageBuffer = Uint8Array.from(atob(qrImage.split(',')[1]), c => c.charCodeAt(0));
+
+                // 2. Resolver dados do endereçamento
+                const enderecamentoDoc = configs.enderecamentos[pData.enderecamentoId];
+                const localNome = enderecamentoDoc ? configs.locais[enderecamentoDoc.localId]?.nome : 'N/A';
+                const enderecamento = enderecamentoDoc ? `${enderecamentoDoc.codigo} - ${localNome}` : 'N/A';
+
+                // 3. Construir a etiqueta com a lib docx
+                const labelSection = {
+                    properties: {
+                        page: {
+                            size: {
+                                width: mmToTwips(page_width_mm),
+                                height: mmToTwips(page_height_mm),
+                            },
+                            margin: { top: mmToTwips(5), right: mmToTwips(5), bottom: mmToTwips(5), left: mmToTwips(5) },
+                        },
+                    },
+                    children: [
+                        new docx.Table({
+                            width: { size: 100, type: docx.WidthType.PERCENTAGE },
+                            borders: docx.TableBorders.NONE,
+                            rows: [
+                                new docx.TableRow({
+                                    children: [
+                                        new docx.TableCell({
+                                            width: { size: 35, type: docx.WidthType.PERCENTAGE },
+                                            verticalAlign: docx.VerticalAlign.CENTER,
+                                            children: [new docx.Paragraph({
+                                                children: [new docx.ImageRun({ data: imageBuffer, transformation: { width: 45, height: 45 } })]
+                                            })]
+                                        }),
+                                        new docx.TableCell({
+                                            width: { size: 65, type: docx.WidthType.PERCENTAGE },
+                                            verticalAlign: docx.VerticalAlign.TOP,
+                                            children: [
+                                                new docx.Paragraph({ children: [new docx.TextRun({ text: `CÓDIGO: ${pData.codigo || ''}`, bold: true, size: 24 })] }),
+                                                new docx.Paragraph({ children: [new docx.TextRun({ text: `C. PADRÃO: ${pData.codigo_global || ''}`, bold: true, size: 24 })] }),
+                                                new docx.Paragraph({
+                                                    children: [new docx.TextRun({ text: " ", size: 8 })], // Espaçamento
+                                                    border: { bottom: { color: "auto", space: 1, value: "single", size: 12 } },
+                                                }),
+                                                new docx.Paragraph({ children: [new docx.TextRun({ text: `PRODUTO:`, bold: true, size: 22 })] }),
+                                                new docx.Paragraph({ children: [new docx.TextRun({ text: `${pData.descricao || ''}`, bold: false, size: 22 })] }),
+                                            ],
+                                        }),
+                                    ],
+                                }),
+                            ],
+                        }),
+                        new docx.Paragraph({
+                             children: [new docx.TextRun({ text: `ENDEREÇAMENTO: ${enderecamento}`, bold: true, size: 20 })],
+                             alignment: docx.AlignmentType.CENTER,
+                             border: { top: { color: "auto", space: 1, value: "single", size: 18 } },
+                             spacing: { before: 100 },
+                        }),
+                    ],
+                };
+                sections.push(labelSection);
+            }
+
+            // 4. Gerar e baixar o arquivo Word
+            const doc = new docx.Document({ sections });
+            docx.Packer.toBlob(doc).then(blob => {
+                const url = window.URL.createObjectURL(blob);
+                const a = document.createElement("a");
+                a.href = url;
+                a.download = "etiquetas_produtos.docx";
+                document.body.appendChild(a);
+                a.click();
+                window.URL.revokeObjectURL(url);
+                document.body.removeChild(a);
+                alert("Download do arquivo de etiquetas concluído!");
+            });
+        }
