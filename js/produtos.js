@@ -417,6 +417,10 @@ async function handleFileImport(event) {
 }
 
 async function gerarEtiquetasWord(products, configs) {
+            if (typeof docx === 'undefined') {
+                alert("Erro: A biblioteca de geração de documentos (docx) não foi carregada. Verifique sua conexão com a internet ou o console para mais detalhes.");
+                return;
+            }
             alert(`Iniciando a geração de ${products.length} etiquetas. Por favor, aguarde...`);
 
             const sections = [];
