@@ -207,10 +207,13 @@ document.addEventListener('DOMContentLoaded', async function() {
         selectSobraOriginal.appendChild(firstOption);
 
         productsData.forEach(product => {
-            const option = document.createElement('option');
-            option.value = product.id;
-            option.textContent = `${product.data.codigo} - ${product.data.descricao}`;
-            selectSobraOriginal.appendChild(option);
+            // Adiciona a condição para pular o produto se ele for uma sobra
+            if (!product.data.medida_sobra) { // <-- ADICIONE ESTA VERIFICAÇÃO
+                const option = document.createElement('option');
+                option.value = product.id;
+                option.textContent = `${product.data.codigo} - ${product.data.descricao}`;
+                selectSobraOriginal.appendChild(option);
+            } // <-- FECHE O IF
         });
     }
 
@@ -259,6 +262,7 @@ document.addEventListener('DOMContentLoaded', async function() {
             codigo: `${originalProduct.codigo}-S${medida}`,
             medida_sobra: medida,
             estoque: 1, // Sobras entram com estoque inicial 1
+            produto_mae_id: originalProductId // <-- ADICIONE ESTA LINHA
         };
 
         // Remove o ID antigo para não sobrescrever
