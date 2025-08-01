@@ -63,8 +63,6 @@ document.addEventListener('DOMContentLoaded', async function() {
     const configCollections = [
         { name: 'fornecedor', collectionName: 'fornecedores', displayField: 'nome' },
         { name: 'grupo', collectionName: 'grupos', displayField: 'nome' },
-        { name: 'aplicacao', collectionName: 'aplicacoes', displayField: 'nome' },
-        { name: 'conjunto', collectionName: 'conjuntos', displayField: 'nome' },
         { name: 'local', collectionName: 'locais', displayField: 'nome' },
     ];
 
@@ -106,6 +104,72 @@ document.addEventListener('DOMContentLoaded', async function() {
     // Listener para quando um arquivo é selecionado
     fileInput.addEventListener('change', handleFileImport);
 
+    function setupMultiSelect(containerId, items) {
+        const container = document.getElementById(containerId);
+        const displayArea = container.querySelector('.multiselect-display-area');
+        const placeholder = container.querySelector('.multiselect-placeholder');
+        const optionsContainer = container.querySelector('.multiselect-options');
+
+        // Limpa opções antigas e popula com as novas
+        optionsContainer.innerHTML = '';
+        const list = document.createElement('ul');
+        for (const [id, data] of Object.entries(items)) {
+            const listItem = document.createElement('li');
+            listItem.innerHTML = `<input type="checkbox" data-id="${id}" data-name="${data.nome}"> ${data.nome}`;
+            list.appendChild(listItem);
+        }
+        optionsContainer.appendChild(list);
+
+        // Lógica para abrir/fechar o dropdown
+        displayArea.addEventListener('click', () => {
+            optionsContainer.style.display = optionsContainer.style.display === 'block' ? 'none' : 'block';
+        });
+
+        // Lógica para atualizar o texto do display
+        optionsContainer.addEventListener('change', () => {
+            const selected = optionsContainer.querySelectorAll('input[type="checkbox"]:checked');
+            if (selected.length === 0) {
+                placeholder.textContent = `Selecione...`;
+                placeholder.style.color = '';
+            } else {
+                placeholder.textContent = `${selected.length} selecionado(s)`;
+                placeholder.style.color = '#212529'; // Cor de texto normal
+            }
+        });
+
+        return {
+            getSelectedIds: () => Array.from(optionsContainer.querySelectorAll('input:checked')).map(cb => cb.dataset.id),
+            setSelectedIds: (ids = []) => {
+                optionsContainer.querySelectorAll('input').forEach(cb => {
+                    cb.checked = ids.includes(cb.dataset.id);
+                });
+                optionsContainer.dispatchEvent(new Event('change')); // Força a atualização do texto
+            }
+        };
+    }
+
+    // Popula e configura o multi-select de Aplicação
+    const aplicacoesSnapshot = await getDocs(collection(db, 'aplicacoes'));
+    configData['aplicacoes'] = {};
+    aplicacoesSnapshot.forEach(doc => configData['aplicacoes'][doc.id] = doc.data());
+    const aplicacaoSelect = setupMultiSelect('multiselect-aplicacao', configData['aplicacoes']);
+
+    // Popula e configura o multi-select de Conjunto
+    const conjuntosSnapshot = await getDocs(collection(db, 'conjuntos'));
+    configData['conjuntos'] = {};
+    conjuntosSnapshot.forEach(doc => configData['conjuntos'][doc.id] = doc.data());
+    const conjuntoSelect = setupMultiSelect('multiselect-conjunto', configData['conjuntos']);
+
+    // Fechar os dropdowns se clicar fora deles
+    window.addEventListener('click', function(e) {
+        if (!document.getElementById('multiselect-aplicacao').contains(e.target)) {
+            document.querySelector('#multiselect-aplicacao .multiselect-options').style.display = 'none';
+        }
+        if (!document.getElementById('multiselect-conjunto').contains(e.target)) {
+            document.querySelector('#multiselect-conjunto .multiselect-options').style.display = 'none';
+        }
+    });
+
 
     // 2. Handle Product Form Submission (Create/Update)
     form.addEventListener('submit', async (e) => {
@@ -121,8 +185,8 @@ document.addEventListener('DOMContentLoaded', async function() {
             localId: document.getElementById('produto-local').value,
             fornecedorId: document.getElementById('produto-fornecedor').value,
             grupoId: document.getElementById('produto-grupo').value,
-            aplicacaoIds: Array.from(document.getElementById('produto-aplicacao').selectedOptions).map(option => option.value),
-            conjuntoIds: Array.from(document.getElementById('produto-conjunto').selectedOptions).map(option => option.value),
+            aplicacaoIds: aplicacaoSelect.getSelectedIds(),
+            conjuntoIds: conjuntoSelect.getSelectedIds(),
             conversaoId: document.getElementById('produto-conversao').value
         };
 
@@ -269,15 +333,8 @@ document.addEventListener('DOMContentLoaded', async function() {
             document.getElementById('produto-grupo').value = product.data.grupoId;
             document.getElementById('produto-conversao').value = product.data.conversaoId || "";
 
-            const setMultipleSelect = (selectId, values) => {
-                const selectElement = document.getElementById(selectId);
-                if (!values || !Array.isArray(values)) return;
-                for (const option of selectElement.options) {
-                    option.selected = values.includes(option.value);
-                }
-            };
-            setMultipleSelect('produto-aplicacao', product.data.aplicacaoIds);
-            setMultipleSelect('produto-conjunto', product.data.conjuntoIds);
+            aplicacaoSelect.setSelectedIds(product.data.aplicacaoIds);
+            conjuntoSelect.setSelectedIds(product.data.conjuntoIds);
 
             form.scrollIntoView({ behavior: 'smooth' });
         }

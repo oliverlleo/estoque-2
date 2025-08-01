@@ -43,8 +43,23 @@
                         </select>
                         <select id="produto-fornecedor" required class="form-control"><option value="">Selecione o Fornecedor...</option></select>
                         <select id="produto-grupo" required class="form-control"><option value="">Selecione o Grupo...</option></select>
-                        <select id="produto-aplicacao" required class="form-control" multiple><option value="">Selecione a Aplicação...</option></select>
-                        <select id="produto-conjunto" required class="form-control" multiple><option value="">Selecione o Conjunto...</option></select>
+                        <div class="multiselect-container" id="multiselect-aplicacao">
+                            <div class="multiselect-display-area form-control">
+                                <span class="multiselect-placeholder">Selecione a Aplicação...</span>
+                                <span class="multiselect-arrow"></span>
+                            </div>
+                            <div class="multiselect-options">
+                                </div>
+                        </div>
+
+                        <div class="multiselect-container" id="multiselect-conjunto">
+                            <div class="multiselect-display-area form-control">
+                                <span class="multiselect-placeholder">Selecione o Conjunto...</span>
+                                <span class="multiselect-arrow"></span>
+                            </div>
+                            <div class="multiselect-options">
+                                </div>
+                        </div>
                         <button type="submit" class="btn btn-success" style="grid-column: 1 / -1;">Salvar Produto</button>
                     </form>
                 </div>
