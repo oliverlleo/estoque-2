@@ -48,10 +48,10 @@ import { db } from './firebase-config.js';
             });
 
             // Busca de dados de endereçamento (similar a consultas.js)
-            const enderecamentoDoc = product.enderecamentoId ? (await getDoc(doc(db, 'enderecamentos', product.enderecamentoId))).data() : null;
-            const localDoc = enderecamentoDoc ? (await getDoc(doc(db, 'locais', enderecamentoDoc.localId))).data() : null;
-            const localNome = localDoc ? localDoc.nome : 'N/A';
-            const enderecamentoCompleto = enderecamentoDoc ? `${enderecamentoDoc.codigo} - ${localNome}` : 'N/A';
+            const localDoc = product.localId ? (await getDoc(doc(db, 'locais', product.localId))).data() : null;
+            const localNome = localDoc ? localDoc.nome : '';
+            const locacaoDesc = product.locacao || '';
+            const locacaoCompleta = [localNome, locacaoDesc].filter(Boolean).join(' - ') || 'N/A';
 
             detailsContainer.innerHTML = `
                 <p><strong>Código:</strong> ${product.codigo}</p>
@@ -60,7 +60,7 @@ import { db } from './firebase-config.js';
                 <hr>
                 <p><strong>Estoque Atual:</strong> ${estoqueAtual} ${product.un}</p>
                 <p><strong>Saldo Pedaços:</strong> ${Object.values(inventarioPedacos).reduce((a, b) => a + b, 0)}</p>
-                <p><strong>Endereçamento:</strong> ${enderecamentoCompleto}</p>
+                <p><strong>Locação:</strong> ${locacaoCompleta}</p>
             `;
 
             const saldoPedaco = Object.values(inventarioPedacos).reduce((a, b) => a + b, 0);
