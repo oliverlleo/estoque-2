@@ -69,16 +69,33 @@ document.addEventListener('DOMContentLoaded', () => {
 });
 
 function adjustFontSizeToFit(element) {
-    // Pega o estilo computado para ter o valor real da fonte em pixels
+    // Reseta qualquer estilo inline para começar do zero a cada vez
+    element.style.fontSize = '';
+    element.style.lineHeight = '';
+
+    // Pega os estilos computados para os valores iniciais
     const style = window.getComputedStyle(element);
     let fontSize = parseFloat(style.fontSize);
+    let lineHeight = parseFloat(style.lineHeight);
 
-    // Define um tamanho mínimo para evitar que o texto desapareça
-    const minFontSize = 8;
+    // Condição de estouro: a altura do conteúdo é maior que a do contêiner,
+    // OU a largura do conteúdo é maior que a do contêiner.
+    const isOverflowing = () => element.scrollHeight > element.clientHeight || element.scrollWidth > element.clientWidth;
 
-    // Enquanto a largura do conteúdo for maior que a largura do elemento
-    while (element.scrollWidth > element.clientWidth && fontSize > minFontSize) {
-        fontSize--; // Diminui o tamanho da fonte
+    // Loop: enquanto o elemento estiver transbordando (sem tamanho mínimo)
+    while (isOverflowing()) {
+        // Reduz a fonte
+        fontSize -= 0.5;
+        // Reduz a altura da linha proporcionalmente. Isso é CRUCIAL para textos com quebra de linha.
+        lineHeight -= 0.6;
+
+        // Aplica os novos valores
         element.style.fontSize = `${fontSize}px`;
+        element.style.lineHeight = `${lineHeight}px`;
+
+        // Mecanismo de segurança para evitar um loop infinito em casos bizarros
+        if (fontSize < 1) {
+            break;
+        }
     }
 }
