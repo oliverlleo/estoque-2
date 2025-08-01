@@ -147,7 +147,6 @@ document.addEventListener('DOMContentLoaded', async function() {
         }
     });
 
-    // 3. Render Product Table
     const renderTable = (data) => {
         tableBody.innerHTML = '';
         data.forEach(product => {
@@ -193,12 +192,31 @@ document.addEventListener('DOMContentLoaded', async function() {
     const btnExcluirSelecionados = document.getElementById('btn-excluir-selecionados');
     const checkboxMestre = document.getElementById('checkbox-mestre');
 
-    // Listener para o checkbox mestre (selecionar todos)
+    // Lógica para o checkbox mestre (selecionar todos)
     checkboxMestre.addEventListener('change', (e) => {
         const isChecked = e.target.checked;
         document.querySelectorAll('.produto-checkbox').forEach(checkbox => {
             checkbox.checked = isChecked;
         });
+    });
+
+    // Lógica para atualizar o checkbox mestre quando um item é clicado individualmente
+    tableBody.addEventListener('change', (e) => {
+        if (e.target.classList.contains('produto-checkbox')) {
+            const todosCheckboxes = document.querySelectorAll('.produto-checkbox');
+            const total = todosCheckboxes.length;
+            const marcados = document.querySelectorAll('.produto-checkbox:checked').length;
+
+            if (marcados === 0) {
+                checkboxMestre.checked = false;
+                checkboxMestre.indeterminate = false;
+            } else if (marcados === total) {
+                checkboxMestre.checked = true;
+                checkboxMestre.indeterminate = false;
+            } else {
+                checkboxMestre.indeterminate = true;
+            }
+        }
     });
 
     // Listener para o botão EXCLUIR SELECIONADOS
@@ -304,6 +322,22 @@ document.addEventListener('DOMContentLoaded', async function() {
         if (dadosParaEtiqueta.length > 0) {
             localStorage.setItem('etiquetasParaImprimir', JSON.stringify(dadosParaEtiqueta));
             window.open('etiquetas.html', '_blank');
+        }
+    });
+});
+
+    const dropdownBtn = document.querySelector('.dropdown .btn');
+    const dropdownContainer = document.querySelector('.dropdown');
+
+    dropdownBtn.addEventListener('click', (e) => {
+        e.stopPropagation(); // Impede que o clique se propague para o window
+        dropdownContainer.classList.toggle('active');
+    });
+
+    // Fecha o dropdown se o usuário clicar em qualquer outro lugar da tela
+    window.addEventListener('click', () => {
+        if (dropdownContainer.classList.contains('active')) {
+            dropdownContainer.classList.remove('active');
         }
     });
 });
