@@ -232,6 +232,31 @@ document.addEventListener('DOMContentLoaded', async function() {
         });
         renderTable(filteredData);
     });
+
+    const btnGerarEtiquetas = document.getElementById('btn-gerar-etiquetas');
+    btnGerarEtiquetas.addEventListener('click', () => {
+        if (!productsData || productsData.length === 0) {
+            return alert("Não há produtos para gerar etiquetas.");
+        }
+
+        // Prepara os dados para a página de etiquetas, resolvendo o endereçamento
+        const dadosParaEtiqueta = productsData.map(product => {
+            const pData = product.data;
+            const enderecamentoDoc = configData.enderecamentos[pData.enderecamentoId];
+            const localNome = enderecamentoDoc ? configData.locais[enderecamentoDoc.localId]?.nome : 'N/A';
+            const enderecamentoCompleto = enderecamentoDoc ? `${enderecamentoDoc.codigo} - ${localNome}` : 'N/A';
+
+            return {
+                id: product.id,
+                data: pData,
+                enderecamento: enderecamentoCompleto
+            };
+        });
+
+        // Salva os dados no localStorage e abre a página em uma nova aba
+        localStorage.setItem('etiquetasParaImprimir', JSON.stringify(dadosParaEtiqueta));
+        window.open('etiquetas.html', '_blank');
+    });
 });
 
 // Substitua a função exportarModeloExcel antiga por esta
