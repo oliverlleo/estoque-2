@@ -19,20 +19,27 @@ document.addEventListener('DOMContentLoaded', () => {
 
         // Monta o HTML interno da etiqueta
         etiquetaDiv.innerHTML = `
-            <div class="etiqueta-main">
-                <div class="qr-code" id="qr-${produto.id}"></div>
-                <div class="produto-info">
-                    <p>CÓDIGO: ${pData.codigo || ''}</p>
-                    <p>C. PADRÃO: ${pData.codigo_global || ''}</p>
-                    <div class="divider"></div>
-                    <p>PRODUTO:</p>
-                    <p class="descricao">${pData.descricao || ''}</p>
+        <div class="etiqueta-main">
+            <div class="qr-code" id="qr-${produto.id}"></div>
+            <div class="produto-info">
+                <div class="info-bloco produto">
+                    <div class="header">PRODUTO</div>
+                    <div class="valor">${pData.descricao || ''}</div>
+                </div>
+                <div class="info-bloco codigo">
+                    <div class="header">CÓDIGO</div>
+                    <div class="valor">${pData.codigo || ''}</div>
+                </div>
+                <div class="info-bloco codigo-padrao">
+                    <div class="header">C. PADRÃO</div>
+                    <div class="valor">${pData.codigo_global || ''}</div>
                 </div>
             </div>
-            <div class="etiqueta-footer">
-                ENDEREÇAMENTO: ${enderecamento}
-            </div>
-        `;
+        </div>
+        <div class="etiqueta-footer">
+            ENDEREÇAMENTO: ${enderecamento}
+        </div>
+    `;
 
         // Adiciona a etiqueta ao container
         container.appendChild(etiquetaDiv);

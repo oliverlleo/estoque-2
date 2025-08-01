@@ -29,63 +29,101 @@
             cursor: pointer;
         }
 
-        /* ESTILOS DA ETIQUETA - VISUALIZAÇÃO */
-        .etiqueta {
-            background-color: white;
-            width: 100mm;
-            height: 50mm;
-            padding: 5mm;
-            box-sizing: border-box;
-            border: 1px dashed #ccc;
-            display: flex;
-            flex-direction: column;
-            justify-content: space-between;
-            margin-bottom: 20px;
-        }
-        .etiqueta-main {
-            display: flex;
-            gap: 10px;
-            height: 35mm;
-        }
-        .qr-code {
-            width: 35%;
-            display: flex;
-            align-items: center;
-            justify-content: center;
-        }
-        .qr-code canvas, .qr-code img {
-            max-width: 100%;
-            max-height: 100%;
-            object-fit: contain;
-        }
-        .produto-info {
-            width: 65%;
-            display: flex;
-            flex-direction: column;
-            font-family: 'Courier New', Courier, monospace;
-        }
-        .produto-info p {
-            margin: 0;
-            font-weight: bold;
-            font-size: 14pt;
-            line-height: 1.4;
-        }
-        .produto-info .descricao {
-            font-weight: normal;
-        }
-        .produto-info .divider {
-            border-bottom: 3px solid black;
-            margin: 4px 0;
-            width: 50%;
-        }
-        .etiqueta-footer {
-            text-align: center;
-            font-weight: bold;
-            font-size: 12pt;
-            font-family: 'Courier New', Courier, monospace;
-            border-top: 3px solid black;
-            padding-top: 5px;
-        }
+    /* ESTILOS DA ETIQUETA - NOVO DESIGN */
+    .etiqueta {
+        background-color: white;
+        width: 100mm;
+        height: 50mm;
+        padding: 4mm;
+        box-sizing: border-box;
+        border: 1px dashed #ccc;
+        display: flex;
+        flex-direction: column;
+        justify-content: space-between;
+        margin-bottom: 20px;
+        font-family: Arial, sans-serif;
+    }
+    .etiqueta-main {
+        display: flex;
+        gap: 3mm;
+        flex-grow: 1;
+    }
+    .qr-code {
+        width: 38mm; /* Largura fixa para o QR Code */
+        flex-shrink: 0;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+    }
+    .qr-code canvas, .qr-code img {
+        max-width: 100%;
+        max-height: 100%;
+        object-fit: contain;
+    }
+    .produto-info {
+        width: 100%;
+        display: flex;
+        flex-direction: column;
+    }
+    .info-bloco {
+        display: flex;
+        align-items: center;
+        text-transform: uppercase;
+    }
+    .info-bloco .header {
+        background-color: #333;
+        color: white;
+        font-weight: bold;
+        padding: 5px 8px;
+        text-align: center;
+        flex-shrink: 0;
+    }
+    .info-bloco .valor {
+        font-weight: bold;
+        padding-left: 10px;
+    }
+
+    /* Bloco Produto */
+    .info-bloco.produto {
+        flex-direction: column;
+        align-items: stretch;
+        margin-bottom: 3mm;
+    }
+    .info-bloco.produto .header {
+        font-size: 12pt;
+        width: 100%;
+        box-sizing: border-box;
+    }
+    .info-bloco.produto .valor {
+        font-size: 16pt;
+        padding-left: 0;
+        padding-top: 2px;
+    }
+
+    /* Blocos de Código */
+    .info-bloco.codigo, .info-bloco.codigo-padrao {
+        margin-top: 1.5mm;
+    }
+    .info-bloco.codigo .header {
+        font-size: 10pt;
+        width: 90px; /* Largura fixa para alinhar */
+    }
+     .info-bloco.codigo-padrao .header {
+        font-size: 10pt;
+        width: 90px;
+    }
+    .info-bloco.codigo .valor, .info-bloco.codigo-padrao .valor {
+        font-size: 16pt;
+    }
+
+    .etiqueta-footer {
+        text-align: center;
+        font-weight: bold;
+        font-size: 12pt;
+        border-top: 3px solid black;
+        padding-top: 1.5mm;
+        margin-top: 2mm;
+    }
 
         /* ESTILOS DE IMPRESSÃO - A MÁGICA ACONTECE AQUI */
         @media print {
