@@ -1,27 +1,15 @@
-// Função de ajuste de fonte robusta
 function adjustFontSizeToFit(element) {
-    // Reseta qualquer estilo inline para garantir que começamos do zero
-    element.style.fontSize = '';
-    element.style.lineHeight = '';
+    element.style.fontSize = ''; // Reseta para o tamanho padrão do CSS
 
-    const style = window.getComputedStyle(element);
-    let fontSize = parseFloat(style.fontSize);
+    // A condição de estouro simples, que agora vai funcionar graças ao CSS rígido
+    const isOverflowing = () => element.scrollHeight > element.clientHeight || element.scrollWidth > element.clientWidth;
 
-    // Uma proporção razoável para a altura da linha baseada no tamanho da fonte
-    const lineHeightRatio = 1.2;
-
-    const isOverflowing = () => {
-        // Adicionamos uma tolerância de 1px para evitar problemas de arredondamento do navegador
-        const tolerance = 1;
-        return element.scrollHeight > (element.clientHeight + tolerance) || element.scrollWidth > (element.clientWidth + tolerance);
-    }
-
-    // Loop para ajustar o tamanho
-    while (isOverflowing() && fontSize > 1) {
-        fontSize -= 0.5;
-        element.style.fontSize = `${fontSize}px`;
-        // Ajusta a altura da linha para ser um pouco maior que a fonte
-        element.style.lineHeight = `${fontSize * lineHeightRatio}px`;
+    if (isOverflowing()) {
+        let currentSize = parseFloat(window.getComputedStyle(element).fontSize);
+        while (isOverflowing() && currentSize > 4) {
+            currentSize -= 1; // Diminui 1px por vez
+            element.style.fontSize = currentSize + 'px';
+        }
     }
 }
 

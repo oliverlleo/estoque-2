@@ -6,150 +6,109 @@
     <title>Etiquetas para Impressão</title>
     <script src="https://cdn.jsdelivr.net/npm/qrcodejs@1.0.0/qrcode.min.js"></script>
     <style>
-        /* ESTILOS PARA VISUALIZAÇÃO NA TELA */
+        /* ESTILOS GERAIS E DE CONTROLE */
         body {
             font-family: Arial, sans-serif;
             background-color: #f0f2f5;
             margin: 0;
             padding: 20px;
-            display: flex;
-            flex-direction: column;
-            align-items: center;
         }
         .controls {
+            position: fixed; top: 10px; left: 10px; z-index: 100;
+            background-color: white; padding: 10px; border-radius: 5px; box-shadow: 0 2px 5px rgba(0,0,0,0.2);
+        }
+        .controls button { font-size: 16px; padding: 10px 20px; cursor: pointer; }
+
+        /* ESTRUTURA RÍGIDA DA ETIQUETA */
+        .etiqueta {
             background-color: white;
-            padding: 15px;
-            border-radius: 8px;
-            box-shadow: 0 2px 4px rgba(0,0,0,0.1);
-            margin-bottom: 20px;
+            width: 100mm;
+            height: 50mm;
+            padding: 4mm;
+            box-sizing: border-box;
+            border: 1px dashed #ccc;
+            margin: 20px auto;
+            display: flex;
+            flex-direction: column;
+            overflow: hidden; /* Garante que nada vaze para fora */
         }
-        .controls button {
-            font-size: 16px;
-            padding: 10px 20px;
-            cursor: pointer;
+        .etiqueta-main {
+            display: flex;
+            gap: 3mm;
+            flex: 1; /* Ocupa todo o espaço vertical disponível */
+            min-height: 0; /* Correção para flexbox em alguns navegadores */
+        }
+        .qr-code {
+            width: 38mm;
+            flex-shrink: 0;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+        }
+        .produto-info {
+            flex: 1; /* Ocupa o restante da largura */
+            display: flex;
+            flex-direction: column;
+            min-width: 0; /* Correção para flexbox */
         }
 
-    /* ESTILOS DA ETIQUETA - NOVO DESIGN */
-    .etiqueta {
-        background-color: white;
-        width: 100mm;
-        height: 50mm;
-        padding: 4mm;
-        box-sizing: border-box;
-        border: 1px dashed #ccc;
-        display: flex;
-        flex-direction: column;
-        justify-content: space-between;
-        margin-bottom: 20px;
-        font-family: Arial, sans-serif;
-    }
-    .etiqueta-main {
-        display: flex;
-        gap: 3mm;
-        flex-grow: 1;
-    }
-    .qr-code {
-        width: 38mm; /* Largura fixa para o QR Code */
-        flex-shrink: 0;
-        display: flex;
-        align-items: center;
-        justify-content: center;
-    }
-    .qr-code canvas, .qr-code img {
-        max-width: 100%;
-        max-height: 100%;
-        object-fit: contain;
-    }
-    .produto-info {
-        width: 100%;
-        display: flex;
-        flex-direction: column;
-    }
-    .info-bloco {
-        display: flex;
-        align-items: center;
-        text-transform: uppercase;
-    }
-    .info-bloco .header {
-        background-color: #333;
-        color: white;
-        font-weight: bold;
-        padding: 5px 8px;
-        text-align: center;
-        flex-shrink: 0;
-    }
-    .info-bloco .valor {
-        font-weight: bold;
-        padding-left: 10px;
-    }
+        .info-bloco {
+            display: flex;
+            align-items: center;
+            text-transform: uppercase;
+        }
+        .info-bloco .header {
+            background-color: #333;
+            color: white;
+            font-weight: bold;
+            padding: 4px 8px;
+            font-size: 10pt;
+            text-align: center;
+            flex-shrink: 0;
+        }
+        .info-bloco .valor {
+            font-weight: bold;
+            padding-left: 10px;
+            white-space: normal; /* Permite quebra de linha */
+            overflow: hidden; /* Esconde o estouro */
+            line-height: 1.1;
+        }
 
-    /* Bloco Produto */
-    .info-bloco.produto {
-        flex-direction: column;
-        align-items: stretch;
-        margin-bottom: 3mm;
-    }
-    .info-bloco.produto .header {
-        font-size: 12pt;
-        width: 100%;
-        box-sizing: border-box;
-    }
-    .info-bloco.produto .valor {
-        font-size: 16pt;
-        padding-left: 0;
-        padding-top: 2px;
-    }
+        .info-bloco.produto {
+            flex-direction: column;
+            align-items: stretch;
+            flex-shrink: 1;
+            flex-grow: 1;
+            min-height: 0;
+            margin-bottom: 2mm;
+        }
+        .info-bloco.produto .header { font-size: 12pt; text-align: left; }
+        .info-bloco.produto .valor { font-size: 16pt; padding-left: 0; padding-top: 2px; }
 
-    /* Blocos de Código */
-    .info-bloco.codigo, .info-bloco.codigo-padrao {
-        margin-top: 1.5mm;
-    }
-    .info-bloco.codigo .header {
-        font-size: 10pt;
-        width: 90px; /* Largura fixa para alinhar */
-    }
-     .info-bloco.codigo-padrao .header {
-        font-size: 10pt;
-        width: 90px;
-    }
-    .info-bloco.codigo .valor, .info-bloco.codigo-padrao .valor {
-        font-size: 16pt;
-    }
+        .info-bloco.codigo, .info-bloco.codigo-padrao {
+            margin-top: 1.5mm;
+        }
+        .info-bloco.codigo .header, .info-bloco.codigo-padrao .header { width: 90px; }
+        .info-bloco.codigo .valor, .info-bloco.codigo-padrao .valor { font-size: 16pt; white-space: nowrap; }
 
-    .etiqueta-footer {
-        text-align: center;
-        font-weight: bold;
-        font-size: 12pt;
-        border-top: 3px solid black;
-        padding-top: 1.5mm;
-        margin-top: 2mm;
-    }
+        .etiqueta-footer {
+            text-align: center;
+            font-weight: bold;
+            font-size: 12pt;
+            border-top: 3px solid black;
+            padding-top: 1.5mm;
+            margin-top: auto; /* Empurra para o rodapé */
+            flex-shrink: 0;
+        }
 
-        /* ESTILOS DE IMPRESSÃO - A MÁGICA ACONTECE AQUI */
+        /* ESTILOS DE IMPRESSÃO */
         @media print {
-            body {
-                background-color: white;
-                padding: 0;
-                margin: 0;
-            }
-            .controls {
-                display: none; /* Esconde o botão de imprimir */
-            }
-            .etiqueta {
-                border: none; /* Remove a borda tracejada na impressão */
-                margin: 0;
-                page-break-after: always; /* Força cada etiqueta para uma nova página */
-            }
-            /* Garante que a última etiqueta não crie uma página em branco extra */
-            .etiqueta:last-child {
-                page-break-after: avoid;
-            }
+            body { background-color: white; padding: 0; margin: 0; }
+            .controls, .etiqueta { margin: 0; border: none; }
+            .etiqueta { page-break-after: always; }
+            .etiqueta:last-child { page-break-after: avoid; }
         }
-        /* Define o tamanho da página de impressão */
-        @page {
-            size: 100mm 50mm;
-            margin: 0;
-        }
+        @page { size: 100mm 50mm; margin: 0; }
     </style>
 </head>
 <body>
