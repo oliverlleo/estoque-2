@@ -47,25 +47,14 @@ document.addEventListener('DOMContentLoaded', async function() {
             const productMovements = movementsByProduct[product.id] || [];
 
             let estoqueAtual = 0;
-            let inventarioPedacos = {};
 
             productMovements.forEach(mov => {
-                const isPiece = mov.medida && mov.medida.trim() !== '';
                 const quantidade = parseFloat(mov.quantidade) || 0;
 
-                if (isPiece) {
-                    const medida = mov.medida.trim();
-                    if (mov.tipo === 'entrada') {
-                        inventarioPedacos[medida] = (inventarioPedacos[medida] || 0) + 1;
-                    } else if (mov.tipo === 'saida') {
-                        inventarioPedacos[medida] = (inventarioPedacos[medida] || 0) - 1;
-                    }
-                } else {
-                    if (mov.tipo === 'entrada') {
-                        estoqueAtual += quantidade;
-                    } else if (mov.tipo === 'saida') {
-                        estoqueAtual -= quantidade;
-                    }
+                if (mov.tipo === 'entrada') {
+                    estoqueAtual += quantidade;
+                } else if (mov.tipo === 'saida') {
+                    estoqueAtual -= quantidade;
                 }
             });
 
@@ -74,13 +63,11 @@ document.addEventListener('DOMContentLoaded', async function() {
                 updatePromises.push(updateDoc(productRef, { estoque: estoqueAtual }));
             }
 
-            const saldoPedaco = Object.values(inventarioPedacos).reduce((sum, count) => sum + count, 0);
-
             const entryMovements = productMovements.filter(m => m.tipo === 'entrada' && (m.valor_unitario || 0) > 0);
             let totalCost = 0;
             let totalQuantityForAvg = 0;
             entryMovements.forEach(m => {
-                if ((!m.medida || m.medida.trim() === '') && m.quantidade > 0) {
+                if (m.quantidade > 0) {
                     let entryTotalValue = 0;
 
                     // Se o novo campo 'custo_total_entrada' existir, use-o
@@ -108,8 +95,6 @@ document.addEventListener('DOMContentLoaded', async function() {
             return {
                 ...product,
                 estoque: estoqueAtual,
-                saldoPedaco: saldoPedaco,
-                inventarioPedacos: inventarioPedacos,
                 valorMedio,
                 valorTotalEstoque,
                 local: locacaoCompleta
@@ -133,51 +118,14 @@ document.addEventListener('DOMContentLoaded', async function() {
                 <td>${item.descricao}</td>
                 <td>${item.estoque || 0}</td>
                 <td>${item.un}</td>
-                <td>${item.saldoPedaco || 0}</td>
                 <td>${item.valorMedio.toFixed(2)}</td>
                 <td>${item.valorTotalEstoque.toFixed(2)}</td>
                 <td>${item.local}</td>
-                <td>
-                    ${(item.saldoPedaco || 0) > 0 ? `<button class="btn-ver-pedacos" data-product-id="${item.id}"><i data-feather="chevron-down"></i></button>` : '-'}
-                </td>
             `;
             tableBody.appendChild(row);
-
-            if ((item.saldoPedaco || 0) > 0) {
-                const detailsRow = document.createElement('tr');
-                detailsRow.className = `details-row details-for-${item.id}`;
-                detailsRow.style.display = 'none';
-
-                let detailsHtml = '<ul style="margin: 0; padding-left: 20px;">';
-                for (const [medida, qtd] of Object.entries(item.inventarioPedacos)) {
-                    if (qtd > 0) {
-                        detailsHtml += `<li style="padding: 4px 0;"><strong>${qtd}</strong> pedaço(s) de <strong>${medida}</strong></li>`;
-                    }
-                }
-                detailsHtml += '</ul>';
-
-                detailsRow.innerHTML = `<td colspan="10" style="background-color: #f8f9fa;">${detailsHtml}</td>`;
-                tableBody.appendChild(detailsRow);
-            }
         });
         feather.replace();
     }
-
-    tableBody.addEventListener('click', function(event) {
-        const button = event.target.closest('.btn-ver-pedacos');
-        if (button) {
-            const productId = button.dataset.productId;
-            const detailsRow = document.querySelector(`.details-for-${productId}`);
-            const icon = button.querySelector('i');
-
-            if (detailsRow) {
-                const isVisible = detailsRow.style.display !== 'none';
-                detailsRow.style.display = isVisible ? 'none' : 'table-row';
-                icon.setAttribute('data-feather', isVisible ? 'chevron-down' : 'chevron-up');
-                feather.replace();
-            }
-        }
-    });
 
     function applyFilters() {
         const filterValues = {
