@@ -283,6 +283,20 @@ document.addEventListener('DOMContentLoaded', async function() {
         e.preventDefault();
         const productId = document.getElementById('produto-id').value;
 
+        // --- INÍCIO DA VALIDAÇÃO DE CÓDIGO DUPLICADO ---
+        if (!productId) { // Executa a validação apenas se for um NOVO produto
+            const newCode = document.getElementById('produto-codigo').value;
+            const isDuplicate = productsData.some(
+                product => product.data.codigo.toLowerCase() === newCode.toLowerCase()
+            );
+
+            if (isDuplicate) {
+                alert(`Erro: O código "${newCode}" já está cadastrado. Por favor, utilize outro código.`);
+                return; // Interrompe a execução da função e não salva o produto
+            }
+        }
+        // --- FIM DA VALIDAÇÃO DE CÓDIGO DUPLICADO ---
+
         const product = {
             codigo: document.getElementById('produto-codigo').value,
             descricao: document.getElementById('produto-descricao').value,
