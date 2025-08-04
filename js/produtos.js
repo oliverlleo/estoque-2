@@ -262,7 +262,8 @@ document.addEventListener('DOMContentLoaded', async function() {
             estoque: 0, // Sobras devem entrar com estoque 0 e serem movimentadas
             e_sobra: true, // Identifica como sobra
             produto_pai_id: originalProductId, // Vínculo com o pai!
-            conversaoId: originalProduct.conversaoId // Herda a regra de conversão
+            conversaoId: originalProduct.conversaoId, // Herda a regra de conversão
+            arquivado: false // <-- ADICIONE ESTA LINHA AQUI TAMBÉM
         };
 
         try {
@@ -293,7 +294,8 @@ document.addEventListener('DOMContentLoaded', async function() {
             grupoId: document.getElementById('produto-grupo').value,
             aplicacaoIds: aplicacaoSelect.getSelectedIds(),
             conjuntoIds: conjuntoSelect.getSelectedIds(),
-            conversaoId: document.getElementById('produto-conversao').value
+            conversaoId: document.getElementById('produto-conversao').value,
+            arquivado: false // <-- ADICIONE ESTA LINHA
         };
 
         try {
