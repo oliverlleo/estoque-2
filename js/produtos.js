@@ -1,5 +1,5 @@
 import { db } from './firebase-config.js';
-import { collection, getDocs, addDoc, onSnapshot, doc, setDoc, deleteDoc, query, where } from "https://www.gstatic.com/firebasejs/9.6.1/firebase-firestore.js";
+import { collection, getDocs, addDoc, onSnapshot, doc, setDoc, deleteDoc, query, where, runTransaction, serverTimestamp, getDoc } from "https://www.gstatic.com/firebasejs/9.6.1/firebase-firestore.js";
 
 document.addEventListener('DOMContentLoaded', async function() {
     console.log("Página de Produtos carregada.");
@@ -241,39 +241,101 @@ document.addEventListener('DOMContentLoaded', async function() {
     formSobra.addEventListener('submit', async (e) => {
         e.preventDefault();
         const originalProductId = selectSobraOriginal.value;
-        const medida = document.getElementById('sobra-medida').value;
+        const medidaSobraStr = document.getElementById('sobra-medida').value;
 
-        if (!originalProductId || !medida) {
+        if (!originalProductId || !medidaSobraStr) {
             alert('Por favor, selecione um produto original e informe a medida da sobra.');
             return;
         }
 
-        const originalProductDoc = productsData.find(p => p.id === originalProductId);
-        if (!originalProductDoc) {
-            alert('Produto original não encontrado. Por favor, recarregue a página.');
-            return;
-        }
-        const originalProduct = originalProductDoc.data;
-
-        const newSobraProduct = {
-            ...originalProduct, // Herda todos os campos do pai
-            codigo: `${originalProduct.codigo}-S${medida}`,
-            medida_sobra: medida,
-            estoque: 0, // Sobras devem entrar com estoque 0 e serem movimentadas
-            e_sobra: true, // Identifica como sobra
-            produto_pai_id: originalProductId, // Vínculo com o pai!
-            conversaoId: originalProduct.conversaoId, // Herda a regra de conversão
-            arquivado: false // <-- ADICIONE ESTA LINHA AQUI TAMBÉM
-        };
+        const medidaSobra = parseFloat(medidaSobraStr.replace(',', '.'));
 
         try {
-            await addDoc(collection(db, 'produtos'), newSobraProduct);
-            alert(`Sobra com código ${newSobraProduct.codigo} cadastrada com sucesso!`);
+            const originalProductData = productsData.find(p => p.id === originalProductId)?.data;
+            if (!originalProductData) {
+                throw new Error('Produto original não encontrado.');
+            }
+
+            // --- ETAPA 1: Calcular o Valor Médio da Peça Original (PAI) ---
+            const movementsSnapshot = await getDocs(collection(db, 'movimentacoes'));
+            const productMovements = movementsSnapshot.docs
+                .map(doc => doc.data())
+                .filter(mov => mov.productId === originalProductId && mov.tipo === 'entrada' && mov.custo_total_entrada > 0);
+
+            let totalCost = 0;
+            let totalQuantityForAvg = 0;
+            productMovements.forEach(m => {
+                totalCost += (m.custo_total_entrada || 0);
+                totalQuantityForAvg += m.quantidade;
+            });
+            const custoMedioDaPecaOriginal = totalQuantityForAvg > 0 ? totalCost / totalQuantityForAvg : 0;
+
+            if (custoMedioDaPecaOriginal === 0) {
+                throw new Error('Não foi possível calcular o custo do produto original. Verifique se ele possui movimentações de entrada com custo.');
+            }
+
+            // --- ETAPA 2: Buscar a Regra de Conversão para achar a dimensão padrão ---
+            if (!originalProductData.conversaoId) {
+                throw new Error('O produto original não possui uma regra de conversão associada. Não é possível calcular o custo proporcional.');
+            }
+            const conversaoRef = doc(db, 'conversoes', originalProductData.conversaoId);
+            const conversaoSnap = await getDoc(conversaoRef);
+            if (!conversaoSnap.exists()) {
+                throw new Error('Regra de conversão não encontrada.');
+            }
+            const conversaoData = conversaoSnap.data();
+
+            // --- ETAPA 3: Calcular o Custo Proporcional da Sobra ---
+            const qtdCompra = parseFloat(String(conversaoData.qtd_compra).replace(',', '.'));
+            const medidaCompra = conversaoData.medida_compra.toLowerCase(); // ex: 'm'
+            let dimensaoPadraoNaUnidadeSobra = qtdCompra;
+
+            // Converte a dimensão padrão para a mesma unidade da sobra (assumindo mm)
+            if (medidaCompra === 'm') {
+                dimensaoPadraoNaUnidadeSobra *= 1000; // m para mm
+            } else if (medidaCompra === 'cm') {
+                dimensaoPadraoNaUnidadeSobra *= 10; // cm para mm
+            }
+            // Adicionar outras conversões se necessário
+
+            if (dimensaoPadraoNaUnidadeSobra <= 0) {
+                throw new Error('A dimensão padrão na regra de conversão é inválida.');
+            }
+
+            const custoProporcionalDaSobra = (medidaSobra / dimensaoPadraoNaUnidadeSobra) * custoMedioDaPecaOriginal;
+
+            // --- ETAPA 4: Executar a Criação em uma Transação ---
+            await runTransaction(db, async (transaction) => {
+                const newSobraProductData = {
+                    ...originalProductData,
+                    codigo: `${originalProductData.codigo}-S${medidaSobraStr}`,
+                    medida_sobra: medidaSobraStr,
+                    estoque: 1,
+                };
+                delete newSobraProductData.id;
+
+                const newProductRef = doc(collection(db, 'produtos'));
+                transaction.set(newProductRef, newSobraProductData);
+
+                const newMovementRef = doc(collection(db, 'movimentacoes'));
+                const movementData = {
+                    tipo: 'entrada',
+                    productId: newProductRef.id,
+                    quantidade: 1,
+                    custo_total_entrada: custoProporcionalDaSobra,
+                    data: serverTimestamp(),
+                    observacao: `Entrada de sobra proporcional do produto ${originalProductData.codigo}`
+                };
+                transaction.set(newMovementRef, movementData);
+            });
+
+            alert(`Sobra cadastrada com sucesso! Custo proporcional calculado: R$ ${custoProporcionalDaSobra.toFixed(2)}`);
             formSobra.reset();
-            selectSobraOriginal.dispatchEvent(new Event('change')); // Limpa os campos de display
+            selectSobraOriginal.dispatchEvent(new Event('change'));
+
         } catch (error) {
-            console.error("Erro ao salvar sobra:", error);
-            alert(`Erro ao salvar: ${error.message}`);
+            console.error("Erro detalhado ao salvar sobra:", error);
+            alert(`Erro ao salvar a sobra: ${error.message}`);
         }
     });
 
