@@ -385,8 +385,10 @@ document.addEventListener('DOMContentLoaded', async function() {
                 // O custo unitário é o custo total dividido pela quantidade que efetivamente entrou no estoque
                 custoUnitario = valorTotal / mov.quantidade;
             }
-            return {
+
+            const processedMov = {
                 ...mov,
+                custoUnitario: custoUnitario, // Adiciona o custo unitário calculado ao objeto principal
                 _search_data: {
                     data: mov.data ? new Date(mov.data.seconds * 1000).toLocaleString('pt-BR') : '',
                     tipo: mov.tipo || '',
@@ -405,6 +407,7 @@ document.addEventListener('DOMContentLoaded', async function() {
                     observacao: mov.observacao || ''
                 }
             };
+            return processedMov;
         });
 
         let filteredMovements = processedMovements.filter(mov => {
@@ -448,7 +451,7 @@ document.addEventListener('DOMContentLoaded', async function() {
             const icmsFmt = mov.icms ? mov.icms.toFixed(2) : '-';
             const ipiFmt = mov.ipi ? mov.ipi.toFixed(2) : '-';
             const freteFmt = mov.frete ? mov.frete.toFixed(2) : '-';
-            const custoUnitarioFmt = parseFloat(searchData.custoUnitario) > 0 ? searchData.custoUnitario : '-';
+            const custoUnitarioFmt = mov.custoUnitario > 0 ? mov.custoUnitario.toFixed(2) : '-';
 
             row.innerHTML = `
                 <td>${searchData.data}</td>
