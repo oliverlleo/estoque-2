@@ -63,7 +63,10 @@ document.addEventListener('DOMContentLoaded', async function() {
                 updatePromises.push(updateDoc(productRef, { estoque: estoqueAtual }));
             }
 
-            const entryMovements = productMovements.filter(m => m.tipo === 'entrada' && (m.valor_unitario || 0) > 0);
+            const entryMovements = productMovements.filter(m =>
+                m.tipo === 'entrada' &&
+                ((m.custo_total_entrada !== undefined && m.custo_total_entrada > 0) || (m.valor_unitario || 0) > 0)
+            );
             let totalCost = 0;
             let totalQuantityForAvg = 0;
             entryMovements.forEach(m => {
