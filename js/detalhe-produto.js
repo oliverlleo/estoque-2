@@ -28,15 +28,7 @@ import { db } from './firebase-config.js';
             }
             const product = productSnap.data();
 
-            const movementsSnapshot = await getDocs(collection(db, 'movimentacoes'));
-            let estoqueAtual = 0;
-            movementsSnapshot.forEach(doc => {
-                const mov = doc.data();
-                if (mov.productId === productId) {
-                    if (mov.tipo === 'entrada') estoqueAtual += mov.quantidade;
-                    else if (mov.tipo === 'saida') estoqueAtual -= mov.quantidade;
-                }
-            });
+            const estoqueAtual = product.estoque || 0; // Simples e direto!
 
             // Busca de dados de endereçamento (similar a consultas.js)
             const localDoc = product.localId ? (await getDoc(doc(db, 'locais', product.localId))).data() : null;

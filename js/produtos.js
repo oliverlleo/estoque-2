@@ -1,5 +1,5 @@
 import { db } from './firebase-config.js';
-import { collection, getDocs, addDoc, onSnapshot, doc, setDoc, deleteDoc } from "https://www.gstatic.com/firebasejs/9.6.1/firebase-firestore.js";
+import { collection, getDocs, addDoc, onSnapshot, doc, setDoc, deleteDoc, query, where } from "https://www.gstatic.com/firebasejs/9.6.1/firebase-firestore.js";
 
 document.addEventListener('DOMContentLoaded', async function() {
     console.log("Página de Produtos carregada.");
@@ -248,21 +248,22 @@ document.addEventListener('DOMContentLoaded', async function() {
             return;
         }
 
-        const originalProduct = productsData.find(p => p.id === originalProductId)?.data;
-        if (!originalProduct) {
+        const originalProductDoc = productsData.find(p => p.id === originalProductId);
+        if (!originalProductDoc) {
             alert('Produto original não encontrado. Por favor, recarregue a página.');
             return;
         }
+        const originalProduct = originalProductDoc.data;
 
         const newSobraProduct = {
             ...originalProduct, // Herda todos os campos do pai
             codigo: `${originalProduct.codigo}-S${medida}`,
             medida_sobra: medida,
-            estoque: 1, // Sobras entram com estoque inicial 1
+            estoque: 0, // Sobras devem entrar com estoque 0 e serem movimentadas
+            e_sobra: true, // Identifica como sobra
+            produto_pai_id: originalProductId, // Vínculo com o pai!
+            conversaoId: originalProduct.conversaoId // Herda a regra de conversão
         };
-
-        // Remove o ID antigo para não sobrescrever
-        delete newSobraProduct.id;
 
         try {
             await addDoc(collection(db, 'produtos'), newSobraProduct);
@@ -348,10 +349,11 @@ document.addEventListener('DOMContentLoaded', async function() {
     };
 
     // 4. Listen for real-time updates
-    onSnapshot(collection(db, 'produtos'), (snapshot) => {
+    const q = query(collection(db, 'produtos'), where("arquivado", "!=", true));
+    onSnapshot(q, (snapshot) => {
         productsData = snapshot.docs.map(doc => ({ id: doc.id, data: doc.data() }));
         renderTable(productsData);
-        populateSobraSelect(); // <-- ADICIONE ESTA LINHA
+        populateSobraSelect();
     });
 
 
@@ -398,20 +400,20 @@ document.addEventListener('DOMContentLoaded', async function() {
             return;
         }
 
-        if (confirm(`Tem certeza que deseja excluir ${checkboxesMarcados.length} produto(s)?`)) {
+        if (confirm(`Tem certeza que deseja ARQUIVAR ${checkboxesMarcados.length} produto(s)? Eles não aparecerão nas listas, mas seu histórico será mantido.`)) {
             const promises = [];
             checkboxesMarcados.forEach(checkbox => {
                 const id = checkbox.dataset.id;
-                promises.push(deleteDoc(doc(db, 'produtos', id)));
+                promises.push(setDoc(doc(db, 'produtos', id), { arquivado: true }, { merge: true }));
             });
 
             try {
                 await Promise.all(promises);
-                alert(`${promises.length} produto(s) excluído(s) com sucesso!`);
+                alert(`${promises.length} produto(s) arquivado(s) com sucesso!`);
                 checkboxMestre.checked = false; // Desmarca o checkbox mestre
             } catch (error) {
-                alert(`Erro ao excluir produtos: ${error.message}`);
-                console.error("Erro ao excluir em lote:", error);
+                alert(`Erro ao arquivar produtos: ${error.message}`);
+                console.error("Erro ao arquivar em lote:", error);
             }
         }
     });
