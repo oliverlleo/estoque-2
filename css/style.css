@@ -606,3 +606,7 @@ input:checked + .slider:before {
 .required-field-visual select.form-control {
     border-left: 5px solid #E53E3E; /* Borda vermelha para indicar obrigatoriedade */
 }
+
+.required-field-visual-input {
+    border-left: 5px solid #E53E3E !important; /* Borda vermelha para indicar obrigatoriedade */
+}

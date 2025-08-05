@@ -69,6 +69,30 @@ document.addEventListener('DOMContentLoaded', async function() {
     let sortState = { column: 'data', direction: 'desc' };
     let filterState = {};
 
+    function toggleValorUnitarioRequirement() {
+        const isEntrada = toggle.checked;
+        const valorUnitarioInput = document.getElementById('mov-valor-unitario');
+
+        if (isEntrada) {
+            const tipoEntradaId = document.getElementById('mov-tipo-entrada').value;
+            const tipoConfig = configData.tipos_entrada[tipoEntradaId];
+
+            if (tipoConfig && tipoConfig.informa_valor_unitario === true) {
+                valorUnitarioInput.required = true;
+                // Adiciona a classe no elemento pai (div ou form-group) se houver,
+                // caso contrário, no próprio input.
+                valorUnitarioInput.classList.add('required-field-visual-input');
+            } else {
+                valorUnitarioInput.required = false;
+                valorUnitarioInput.classList.remove('required-field-visual-input');
+            }
+        } else {
+            // Em modo Saída, o campo nunca é obrigatório e geralmente está oculto.
+            valorUnitarioInput.required = false;
+            valorUnitarioInput.classList.remove('required-field-visual-input');
+        }
+    }
+
     function toggleObraRequirement() {
         const isEntrada = toggle.checked;
         const obraSelect = document.getElementById('mov-obra');
@@ -116,11 +140,13 @@ document.addEventListener('DOMContentLoaded', async function() {
         }
         updateProductInfo();
         toggleObraRequirement(); // Adicionar esta chamada
+        toggleValorUnitarioRequirement(); // Adicionar esta chamada
     }
 
     toggle.addEventListener('change', handleToggleChange);
     document.getElementById('mov-tipo-entrada').addEventListener('change', toggleObraRequirement);
     document.getElementById('mov-tipo-saida').addEventListener('change', toggleObraRequirement);
+    document.getElementById('mov-tipo-entrada').addEventListener('change', toggleValorUnitarioRequirement);
 
     // --- Lógica de Submissão do Formulário Unificado ---
     formMovimentacao.addEventListener('submit', async (e) => {
