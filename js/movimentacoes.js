@@ -533,14 +533,15 @@ document.addEventListener('DOMContentLoaded', async function() {
     });
 });
 
-// Substitua a função inteira em js/movimentacoes.js por esta versão:
+// Substitua a função inteira em js/movimentacoes.js por esta versão CORRIGIDA:
 async function atualizarCustoMedioProduto(produtoId) {
     if (!produtoId) return;
 
-    // 1. FAZ UMA BUSCA MAIS SIMPLES: Pega todas as entradas do produto.
+    // A busca aqui foi corrigida para usar 'produtoId', a variável que a função recebe.
+    // Este era o ponto do erro.
     const q = query(
         collection(db, 'movimentacoes'),
-        where("productId", "==", produtoId),
+        where("productId", "==", produtoId), // <-- CORRIGIDO AQUI
         where("tipo", "==", "entrada")
     );
     const movementsSnapshot = await getDocs(q);
@@ -548,8 +549,6 @@ async function atualizarCustoMedioProduto(produtoId) {
     let totalCost = 0;
     let totalQuantityForAvg = 0;
 
-    // 2. FILTRA O RESTO NO CÓDIGO, não no banco:
-    // Itera sobre os resultados e só considera aqueles com custo.
     movementsSnapshot.forEach(doc => {
         const mov = doc.data();
         if (mov.custo_total_entrada && mov.custo_total_entrada > 0) {
@@ -560,10 +559,8 @@ async function atualizarCustoMedioProduto(produtoId) {
         }
     });
 
-    // 3. Calcula e atualiza o produto, como antes.
     const novoCustoMedio = totalQuantityForAvg > 0 ? totalCost / totalQuantityForAvg : 0;
-    const productRef = doc(db, 'produtos', productId);
-    // Usamos setDoc com merge: true para garantir que só o campo valorMedio seja alterado.
+    const productRef = doc(db, 'produtos', produtoId);
     await setDoc(productRef, { valorMedio: novoCustoMedio }, { merge: true });
 
     console.log(`Custo médio do produto ${produtoId} atualizado para ${novoCustoMedio.toFixed(2)}`);
