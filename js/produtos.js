@@ -1,5 +1,5 @@
 import { db } from './firebase-config.js';
-import { collection, getDocs, addDoc, onSnapshot, doc, setDoc, deleteDoc } from "https://www.gstatic.com/firebasejs/9.6.1/firebase-firestore.js";
+import { collection, getDocs, addDoc, onSnapshot, doc, setDoc, deleteDoc, query, where, runTransaction, serverTimestamp, getDoc } from "https://www.gstatic.com/firebasejs/9.6.1/firebase-firestore.js";
 
 document.addEventListener('DOMContentLoaded', async function() {
     console.log("Página de Produtos carregada.");
@@ -16,7 +16,60 @@ document.addEventListener('DOMContentLoaded', async function() {
     const labelProduto = document.getElementById('toggle-label-produto');
     const selectSobraOriginal = document.getElementById('sobra-produto-original');
 
+    const codigoInput = document.getElementById('produto-codigo');
+    const productIdInput = document.getElementById('produto-id');
     const locacaoInput = document.getElementById('produto-locacao');
+
+    function applyFilters() {
+        const generalSearchTerm = filterInput.value.toLowerCase();
+        const locacaoSearchTerm = locacaoInput.value.toLowerCase();
+
+        const filteredData = productsData.filter(product => {
+            const pData = product.data;
+
+            // Lógica do filtro geral (existente)
+            const matchesGeneral = generalSearchTerm === '' || Object.values(pData).some(value =>
+                String(value).toLowerCase().includes(generalSearchTerm)
+            );
+
+            // Lógica do novo filtro de locação
+            // Reconstrói a string 'locacaoCompleta' da mesma forma que renderTable faz
+            const localNome = configData.locais[pData.localId]?.nome || '';
+            const locacaoDesc = pData.locacao || '';
+            const locacaoCompleta = [localNome, locacaoDesc].filter(Boolean).join(' - ').toLowerCase();
+            const matchesLocacao = locacaoSearchTerm === '' || locacaoCompleta.includes(locacaoSearchTerm);
+
+            // Retorna verdadeiro apenas se o produto corresponder a AMBOS os filtros
+            return matchesGeneral && matchesLocacao;
+        });
+
+        renderTable(filteredData);
+    }
+
+    // --- Validação de Código Duplicado em Tempo Real ---
+    codigoInput.addEventListener('input', () => {
+        const codigo = codigoInput.value.trim();
+        const currentId = productIdInput.value;
+
+        // Se o campo estiver vazio, remove o estilo de erro e para a execução
+        if (!codigo) {
+            codigoInput.classList.remove('is-invalid');
+            return;
+        }
+
+        // Verifica se algum produto no array `productsData` tem o mesmo código,
+        // ignorando o próprio produto que está sendo editado (se for o caso).
+        const isDuplicate = productsData.some(product =>
+            product.data.codigo.toLowerCase() === codigo.toLowerCase() && product.id !== currentId
+        );
+
+        // Adiciona ou remove a classe de erro com base no resultado
+        if (isDuplicate) {
+            codigoInput.classList.add('is-invalid');
+        } else {
+            codigoInput.classList.remove('is-invalid');
+        }
+    });
 
     formToggle.addEventListener('change', () => {
         const isProduto = formToggle.checked;
@@ -40,51 +93,7 @@ document.addEventListener('DOMContentLoaded', async function() {
         }
     });
 
-    locacaoInput.addEventListener('input', (e) => {
-        // --- 1. Lógica da Máscara ---
-        let value = e.target.value.toUpperCase().replace(/[^A-Z0-9]/g, '');
-        let maskedValue = '';
-
-        if (value.length > 0) {
-            // Garante que os 2 primeiros são dígitos
-            value = value.substring(0, 2).replace(/[^0-9]/g, '') + value.substring(2);
-            maskedValue += value.substring(0, 2);
-        }
-        if (value.length > 2) {
-            // Garante que o 3º é letra
-            value = value.substring(0, 2) + value.substring(2, 3).replace(/[^A-Z]/g, '') + value.substring(3);
-            maskedValue += '-' + value.substring(2, 3);
-        }
-        if (value.length > 3) {
-            // Garante que o 4º e 5º são dígitos
-            value = value.substring(0, 3) + value.substring(3, 5).replace(/[^0-9]/g, '') + value.substring(5);
-            maskedValue += '-' + value.substring(3, 5);
-        }
-        if (value.length > 5) {
-            // Garante que o 6º é letra
-            value = value.substring(0, 5) + value.substring(5, 6).replace(/[^A-Z]/g, '');
-            maskedValue += '-' + value.substring(5, 6);
-        }
-
-        e.target.value = maskedValue;
-
-        // --- 2. Lógica de Filtragem em Tempo Real ---
-        const searchTerm = e.target.value.toLowerCase();
-        if (searchTerm) {
-            const filteredData = productsData.filter(product => {
-                return (product.data.locacao || '').toLowerCase().startsWith(searchTerm);
-            });
-            renderTable(filteredData);
-        } else {
-            // Se o campo estiver vazio, mostra todos os produtos (respeitando o outro filtro, se houver)
-            const generalFilterTerm = filterInput.value.toLowerCase();
-            if (generalFilterTerm) {
-                 filterInput.dispatchEvent(new Event('input')); // Re-aciona o filtro geral
-            } else {
-                 renderTable(productsData);
-            }
-        }
-    });
+    locacaoInput.addEventListener('input', applyFilters);
 
     let productsData = [];
     const configData = {};
@@ -241,37 +250,101 @@ document.addEventListener('DOMContentLoaded', async function() {
     formSobra.addEventListener('submit', async (e) => {
         e.preventDefault();
         const originalProductId = selectSobraOriginal.value;
-        const medida = document.getElementById('sobra-medida').value;
+        const medidaSobraStr = document.getElementById('sobra-medida').value;
 
-        if (!originalProductId || !medida) {
+        if (!originalProductId || !medidaSobraStr) {
             alert('Por favor, selecione um produto original e informe a medida da sobra.');
             return;
         }
 
-        const originalProduct = productsData.find(p => p.id === originalProductId)?.data;
-        if (!originalProduct) {
-            alert('Produto original não encontrado. Por favor, recarregue a página.');
-            return;
-        }
-
-        const newSobraProduct = {
-            ...originalProduct, // Herda todos os campos do pai
-            codigo: `${originalProduct.codigo}-S${medida}`,
-            medida_sobra: medida,
-            estoque: 1, // Sobras entram com estoque inicial 1
-        };
-
-        // Remove o ID antigo para não sobrescrever
-        delete newSobraProduct.id;
+        const medidaSobra = parseFloat(medidaSobraStr.replace(',', '.'));
 
         try {
-            await addDoc(collection(db, 'produtos'), newSobraProduct);
-            alert(`Sobra com código ${newSobraProduct.codigo} cadastrada com sucesso!`);
+            const originalProductData = productsData.find(p => p.id === originalProductId)?.data;
+            if (!originalProductData) {
+                throw new Error('Produto original não encontrado.');
+            }
+
+            // --- ETAPA 1: Calcular o Valor Médio da Peça Original (PAI) ---
+            const movementsSnapshot = await getDocs(collection(db, 'movimentacoes'));
+            const productMovements = movementsSnapshot.docs
+                .map(doc => doc.data())
+                .filter(mov => mov.productId === originalProductId && mov.tipo === 'entrada' && mov.custo_total_entrada > 0);
+
+            let totalCost = 0;
+            let totalQuantityForAvg = 0;
+            productMovements.forEach(m => {
+                totalCost += (m.custo_total_entrada || 0);
+                totalQuantityForAvg += m.quantidade;
+            });
+            const custoMedioDaPecaOriginal = totalQuantityForAvg > 0 ? totalCost / totalQuantityForAvg : 0;
+
+            if (custoMedioDaPecaOriginal === 0) {
+                throw new Error('Não foi possível calcular o custo do produto original. Verifique se ele possui movimentações de entrada com custo.');
+            }
+
+            // --- ETAPA 2: Buscar a Regra de Conversão para achar a dimensão padrão ---
+            if (!originalProductData.conversaoId) {
+                throw new Error('O produto original não possui uma regra de conversão associada. Não é possível calcular o custo proporcional.');
+            }
+            const conversaoRef = doc(db, 'conversoes', originalProductData.conversaoId);
+            const conversaoSnap = await getDoc(conversaoRef);
+            if (!conversaoSnap.exists()) {
+                throw new Error('Regra de conversão não encontrada.');
+            }
+            const conversaoData = conversaoSnap.data();
+
+            // --- ETAPA 3: Calcular o Custo Proporcional da Sobra ---
+            const qtdCompra = parseFloat(String(conversaoData.qtd_compra).replace(',', '.'));
+            const medidaCompra = conversaoData.medida_compra.toLowerCase(); // ex: 'm'
+            let dimensaoPadraoNaUnidadeSobra = qtdCompra;
+
+            // Converte a dimensão padrão para a mesma unidade da sobra (assumindo mm)
+            if (medidaCompra === 'm') {
+                dimensaoPadraoNaUnidadeSobra *= 1000; // m para mm
+            } else if (medidaCompra === 'cm') {
+                dimensaoPadraoNaUnidadeSobra *= 10; // cm para mm
+            }
+            // Adicionar outras conversões se necessário
+
+            if (dimensaoPadraoNaUnidadeSobra <= 0) {
+                throw new Error('A dimensão padrão na regra de conversão é inválida.');
+            }
+
+            const custoProporcionalDaSobra = (medidaSobra / dimensaoPadraoNaUnidadeSobra) * custoMedioDaPecaOriginal;
+
+            // --- ETAPA 4: Executar a Criação em uma Transação ---
+            await runTransaction(db, async (transaction) => {
+                const newSobraProductData = {
+                    ...originalProductData,
+                    codigo: `${originalProductData.codigo}-S${medidaSobraStr}`,
+                    medida_sobra: medidaSobraStr,
+                    estoque: 1,
+                };
+                delete newSobraProductData.id;
+
+                const newProductRef = doc(collection(db, 'produtos'));
+                transaction.set(newProductRef, newSobraProductData);
+
+                const newMovementRef = doc(collection(db, 'movimentacoes'));
+                const movementData = {
+                    tipo: 'entrada',
+                    productId: newProductRef.id,
+                    quantidade: 1,
+                    custo_total_entrada: custoProporcionalDaSobra,
+                    data: serverTimestamp(),
+                    observacao: `Entrada de sobra proporcional do produto ${originalProductData.codigo}`
+                };
+                transaction.set(newMovementRef, movementData);
+            });
+
+            alert(`Sobra cadastrada com sucesso! Custo proporcional calculado: R$ ${custoProporcionalDaSobra.toFixed(2)}`);
             formSobra.reset();
-            selectSobraOriginal.dispatchEvent(new Event('change')); // Limpa os campos de display
+            selectSobraOriginal.dispatchEvent(new Event('change'));
+
         } catch (error) {
-            console.error("Erro ao salvar sobra:", error);
-            alert(`Erro ao salvar: ${error.message}`);
+            console.error("Erro detalhado ao salvar sobra:", error);
+            alert(`Erro ao salvar a sobra: ${error.message}`);
         }
     });
 
@@ -279,7 +352,29 @@ document.addEventListener('DOMContentLoaded', async function() {
     // 2. Handle Product Form Submission (Create/Update)
     form.addEventListener('submit', async (e) => {
         e.preventDefault();
+
+        // --- BLOQUEIO DE SUBMISSÃO ---
+        // Se o campo de código está marcado como inválido, exibe um alerta e impede o envio.
+        if (codigoInput.classList.contains('is-invalid')) {
+            alert('O código do produto já existe. Por favor, insira um código único.');
+            return; // Impede a continuação do processo de salvar
+        }
+
         const productId = document.getElementById('produto-id').value;
+
+        // --- INÍCIO DA VALIDAÇÃO DE CÓDIGO DUPLICADO ---
+        if (!productId) { // Executa a validação apenas se for um NOVO produto
+            const newCode = document.getElementById('produto-codigo').value;
+            const isDuplicate = productsData.some(
+                product => product.data.codigo.toLowerCase() === newCode.toLowerCase()
+            );
+
+            if (isDuplicate) {
+                alert(`Erro: O código "${newCode}" já está cadastrado. Por favor, utilize outro código.`);
+                return; // Interrompe a execução da função e não salva o produto
+            }
+        }
+        // --- FIM DA VALIDAÇÃO DE CÓDIGO DUPLICADO ---
 
         const product = {
             codigo: document.getElementById('produto-codigo').value,
@@ -292,7 +387,8 @@ document.addEventListener('DOMContentLoaded', async function() {
             grupoId: document.getElementById('produto-grupo').value,
             aplicacaoIds: aplicacaoSelect.getSelectedIds(),
             conjuntoIds: conjuntoSelect.getSelectedIds(),
-            conversaoId: document.getElementById('produto-conversao').value
+            conversaoId: document.getElementById('produto-conversao').value,
+            arquivado: false // <-- ADICIONE ESTA LINHA
         };
 
         try {
@@ -305,10 +401,9 @@ document.addEventListener('DOMContentLoaded', async function() {
             }
             form.reset();
             document.getElementById('produto-id').value = '';
-
-            // --- ADICIONAR ESTAS LINHAS ---
-            filterInput.value = ''; // Limpa o filtro geral
-            renderTable(productsData); // Renderiza a tabela completa, limpando o filtro de locação
+            codigoInput.classList.remove('is-invalid'); // Garante que o campo fique limpo
+            filterInput.value = ''; // Limpa o filtro geral na caixa de pesquisa da tabela
+            applyFilters(); // Re-aplica os filtros (agora vazios) para mostrar a tabela completa
 
         } catch (error) {
             console.error("Erro ao salvar produto:", error);
@@ -348,10 +443,11 @@ document.addEventListener('DOMContentLoaded', async function() {
     };
 
     // 4. Listen for real-time updates
-    onSnapshot(collection(db, 'produtos'), (snapshot) => {
+    const q = query(collection(db, 'produtos'), where("arquivado", "!=", true));
+    onSnapshot(q, (snapshot) => {
         productsData = snapshot.docs.map(doc => ({ id: doc.id, data: doc.data() }));
         renderTable(productsData);
-        populateSobraSelect(); // <-- ADICIONE ESTA LINHA
+        populateSobraSelect();
     });
 
 
@@ -398,20 +494,20 @@ document.addEventListener('DOMContentLoaded', async function() {
             return;
         }
 
-        if (confirm(`Tem certeza que deseja excluir ${checkboxesMarcados.length} produto(s)?`)) {
+        if (confirm(`Tem certeza que deseja ARQUIVAR ${checkboxesMarcados.length} produto(s)? Eles não aparecerão nas listas, mas seu histórico será mantido.`)) {
             const promises = [];
             checkboxesMarcados.forEach(checkbox => {
                 const id = checkbox.dataset.id;
-                promises.push(deleteDoc(doc(db, 'produtos', id)));
+                promises.push(setDoc(doc(db, 'produtos', id), { arquivado: true }, { merge: true }));
             });
 
             try {
                 await Promise.all(promises);
-                alert(`${promises.length} produto(s) excluído(s) com sucesso!`);
+                alert(`${promises.length} produto(s) arquivado(s) com sucesso!`);
                 checkboxMestre.checked = false; // Desmarca o checkbox mestre
             } catch (error) {
-                alert(`Erro ao excluir produtos: ${error.message}`);
-                console.error("Erro ao excluir em lote:", error);
+                alert(`Erro ao arquivar produtos: ${error.message}`);
+                console.error("Erro ao arquivar em lote:", error);
             }
         }
     });
@@ -447,15 +543,7 @@ document.addEventListener('DOMContentLoaded', async function() {
         }
     });
 
-    filterInput.addEventListener('input', (e) => {
-        const searchTerm = e.target.value.toLowerCase();
-        const filteredData = productsData.filter(product => {
-            return Object.values(product.data).some(value =>
-                String(value).toLowerCase().includes(searchTerm)
-            );
-        });
-        renderTable(filteredData);
-    });
+    filterInput.addEventListener('input', applyFilters);
 
     document.getElementById('btn-gerar-etiquetas').addEventListener('click', (e) => {
         e.preventDefault(); // Previne o comportamento padrão do link

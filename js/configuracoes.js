@@ -23,10 +23,12 @@ document.addEventListener('DOMContentLoaded', function() {
                 qtd_compra: "Unidade de Compra (valor)",
                 medida_compra: "Medida Compra (ex: m, kg, cm)",
                 qtd_padrao: "Unidade Padrão (valor)",
-                medida_padrao: "Medida Padrão (ex: Pç, Un, Cx)"
+                medida_padrao: "Medida Padrão (ex: Pç, Un, Cx)",
+                unidade_sobra: "Unidade da Sobra (Ex: mm)",
+                fator_conversao_sobra: "Fator Conversão Sobra (Ex: 5800)"
             },
-            render: (d) => `<td>${d.nome_regra}</td><td>${d.qtd_compra} ${d.medida_compra} = ${d.qtd_padrao} ${d.medida_padrao}</td>`,
-            tableHeaders: "<th>Nome da Regra</th><th>Fórmula</th>"
+            render: (d) => `<td>${d.nome_regra}</td><td>${d.qtd_compra} ${d.medida_compra} = ${d.qtd_padrao} ${d.medida_padrao}</td><td>1 ${d.medida_padrao} = ${d.fator_conversao_sobra} ${d.unidade_sobra}</td>`,
+            tableHeaders: "<th>Nome da Regra</th><th>Fórmula Padrão</th><th>Fórmula Sobra</th>"
         }
     ];
 

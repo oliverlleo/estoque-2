@@ -4,7 +4,29 @@ function showInfoModal(message) {
 }
 
 import { db } from './firebase-config.js';
-import { collection, getDocs, onSnapshot, runTransaction, doc, serverTimestamp } from "https://www.gstatic.com/firebasejs/9.6.1/firebase-firestore.js";
+import { collection, getDocs, onSnapshot, runTransaction, doc, serverTimestamp, query, where, getDoc } from "https://www.gstatic.com/firebasejs/9.6.1/firebase-firestore.js";
+
+// Adicione esta função em js/movimentacoes.js
+async function calcularCustoMedioProduto(produtoId) {
+    const q = query(collection(db, 'movimentacoes'), where("productId", "==", produtoId));
+    const movementsSnapshot = await getDocs(q);
+    const productMovements = [];
+    movementsSnapshot.forEach(doc => {
+        productMovements.push(doc.data());
+    });
+
+    const entryMovements = productMovements.filter(m => m.tipo === 'entrada' && (m.custo_total_entrada || 0) > 0);
+    let totalCost = 0;
+    let totalQuantityForAvg = 0;
+
+    entryMovements.forEach(m => {
+        totalCost += m.custo_total_entrada;
+        totalQuantityForAvg += m.quantidade;
+    });
+
+    return totalQuantityForAvg > 0 ? totalCost / totalQuantityForAvg : 0;
+}
+
 
 document.addEventListener('DOMContentLoaded', async function() {
     // Lógica para fechar o modal de informação
@@ -86,87 +108,144 @@ document.addEventListener('DOMContentLoaded', async function() {
         }
 
         if (isEntrada) {
-            try {
-                await runTransaction(db, async (transaction) => {
-                    const productRef = doc(db, 'produtos', productId);
-                    const productDoc = await transaction.get(productRef);
+            const productData = productsMap[productId];
 
-                    if (!productDoc.exists()) { throw new Error("Produto não encontrado!"); }
-
-                    const productData = productDoc.data();
-
-                    // --- 1. Lógica de Conversão (Existente) ---
-                    const conversaoId = productData.conversaoId;
-                    const quantidadeInformada = parseFloat(document.getElementById('mov-quantidade').value);
-                    let quantidadeParaEstoque = quantidadeInformada;
-                    let quantidadeOriginalCompra = quantidadeInformada;
-
-                    if (conversaoId) {
-                        const conversaoRef = doc(db, 'conversoes', conversaoId);
-                        const conversaoDoc = await transaction.get(conversaoRef);
-                        if (conversaoDoc.exists()) {
-                            const regra = conversaoDoc.data();
-                            const fator_qtd_compra = parseFloat(String(regra.qtd_compra).replace(',', '.'));
-                            const fator_qtd_padrao = parseFloat(String(regra.qtd_padrao).replace(',', '.'));
-                            if (fator_qtd_compra > 0) {
-                                quantidadeParaEstoque = (quantidadeInformada / fator_qtd_compra) * fator_qtd_padrao;
-                            }
-                            const medidaPadrao = regra.medida_padrao || "";
-                            if (medidaPadrao.toUpperCase() === 'PÇ' && !Number.isInteger(quantidadeParaEstoque)) {
-                                throw new Error(`O cálculo resultou em um valor quebrado (${quantidadeParaEstoque.toFixed(2)} PÇ). Entradas para esta unidade devem resultar em um número inteiro.`);
-                            }
-                        }
+            if (productData.e_sobra === true) {
+                // É UMA SOBRA! CÁLCULO AUTOMÁTICO.
+                try {
+                    // 1. Buscar o custo médio do pai
+                    const custoMedioPai = await calcularCustoMedioProduto(productData.produto_pai_id);
+                    if (custoMedioPai <= 0) {
+                        throw new Error("Não foi possível calcular o custo da sobra pois o produto original não possui custo de entrada.");
                     }
 
-                    // --- 2. NOVA LÓGICA DE CÁLCULO DE CUSTO ---
-                    const valorUnitario = parseFloat(document.getElementById('mov-valor-unitario').value) || 0;
-                    const icms = parseFloat(document.getElementById('mov-icms').value) || 0;
-                    const ipi = parseFloat(document.getElementById('mov-ipi').value) || 0;
-                    const frete = parseFloat(document.getElementById('mov-frete').value) || 0;
-
-                    // Calcula o custo base
-                    let custoTotalEntrada = (quantidadeOriginalCompra * valorUnitario) + icms + ipi + frete;
-
-                    // Busca o fornecedor e aplica o imposto ST, se houver
-                    const fornecedorId = productData.fornecedorId;
-                    if (fornecedorId && configData.fornecedores[fornecedorId]) {
-                        const fornecedor = configData.fornecedores[fornecedorId];
-                        const impostoStPercent = parseFloat(fornecedor.imposto) || 0;
-                        if (impostoStPercent > 0) {
-                            custoTotalEntrada *= (1 + (impostoStPercent / 100));
-                        }
+                    // 2. Buscar a regra de conversão
+                    const conversaoRef = doc(db, 'conversoes', productData.conversaoId);
+                    const conversaoDoc = await getDoc(conversaoRef);
+                    if (!conversaoDoc.exists()) {
+                        throw new Error("Regra de conversão não encontrada para este produto.");
+                    }
+                    const regra = conversaoDoc.data();
+                    const fatorConversao = parseFloat(regra.fator_conversao_sobra);
+                    if (!fatorConversao || fatorConversao <= 0) {
+                        throw new Error("A regra de conversão não possui um 'fator de conversão para sobra' válido.");
                     }
 
-                    // --- 3. Lógica de Atualização (Existente + Campo Novo) ---
-                    const currentEstoque = productData.estoque || 0;
-                    const newEstoque = currentEstoque + quantidadeParaEstoque;
-                    transaction.update(productRef, { estoque: newEstoque });
+                    // 3. Calcular o custo da sobra
+                    const custoPorUnidadeSobra = custoMedioPai / fatorConversao;
+                    const medidaDaSobra = parseFloat(productData.medida_sobra);
+                    const custoCalculadoDaSobra = custoPorUnidadeSobra * medidaDaSobra;
 
-                    const movementRef = doc(collection(db, 'movimentacoes'));
-                    const movementData = {
-                        tipo: 'entrada',
-                        productId,
-                        data: serverTimestamp(),
-                        tipo_entradaId: document.getElementById('mov-tipo-entrada').value,
-                        nf: document.getElementById('mov-nf').value,
-                        valor_unitario: valorUnitario,
-                        icms: icms,
-                        ipi: ipi,
-                        frete: frete,
-                        observacao: document.getElementById('mov-observacao').value,
-                        quantidade: quantidadeParaEstoque,
-                        quantidade_compra: quantidadeOriginalCompra,
-                        custo_total_entrada: custoTotalEntrada // <-- NOSSO NOVO CAMPO!
-                    };
+                    // 4. Rodar a transação com o custo calculado
+                    await runTransaction(db, async (transaction) => {
+                        const productRef = doc(db, 'produtos', productId);
+                        const pDoc = await transaction.get(productRef);
+                        const newEstoque = (pDoc.data().estoque || 0) + 1; // Entrada de sobra é sempre 1 unidade
+                        transaction.update(productRef, { estoque: newEstoque });
 
-                    transaction.set(movementRef, movementData);
-                });
-                alert('Entrada registrada com sucesso!');
-                formMovimentacao.reset();
-                handleToggleChange();
-            } catch (error) {
-                console.error("Erro na transação de entrada:", error);
-                showInfoModal(error.message);
+                        const movementRef = doc(collection(db, 'movimentacoes'));
+                        transaction.set(movementRef, {
+                            tipo: 'entrada',
+                            productId,
+                            data: serverTimestamp(),
+                            quantidade: 1, // Sempre 1
+                            custo_total_entrada: custoCalculadoDaSobra, // CUSTO CALCULADO!
+                            observacao: `Entrada de sobra com custo calculado a partir do produto pai.`
+                        });
+                    });
+                    alert('Entrada de sobra registrada com sucesso!');
+                    formMovimentacao.reset();
+                    handleToggleChange();
+
+                } catch (error) {
+                    console.error("Erro ao registrar entrada de sobra:", error);
+                    showInfoModal(error.message); // Use seu modal de aviso
+                }
+
+            } else {
+                // LÓGICA DE ENTRADA NORMAL (COMO JÁ EXISTE HOJE)
+                try {
+                    await runTransaction(db, async (transaction) => {
+                        const productRef = doc(db, 'produtos', productId);
+                        const productDoc = await transaction.get(productRef);
+
+                        if (!productDoc.exists()) { throw new Error("Produto não encontrado!"); }
+
+                        const productData = productDoc.data();
+
+                        // --- 1. Lógica de Conversão (Existente) ---
+                        const conversaoId = productData.conversaoId;
+                        const quantidadeInformada = parseFloat(document.getElementById('mov-quantidade').value);
+                        let quantidadeParaEstoque = quantidadeInformada;
+                        let quantidadeOriginalCompra = quantidadeInformada;
+
+                        if (conversaoId) {
+                            const conversaoRef = doc(db, 'conversoes', conversaoId);
+                            const conversaoDoc = await transaction.get(conversaoRef);
+                            if (conversaoDoc.exists()) {
+                                const regra = conversaoDoc.data();
+                                const fator_qtd_compra = parseFloat(String(regra.qtd_compra).replace(',', '.'));
+                                const fator_qtd_padrao = parseFloat(String(regra.qtd_padrao).replace(',', '.'));
+                                if (fator_qtd_compra > 0) {
+                                    quantidadeParaEstoque = (quantidadeInformada / fator_qtd_compra) * fator_qtd_padrao;
+                                }
+                                const medidaPadrao = regra.medida_padrao || "";
+                                if (medidaPadrao.toUpperCase() === 'PÇ' && !Number.isInteger(quantidadeParaEstoque)) {
+                                    throw new Error(`O cálculo resultou em um valor quebrado (${quantidadeParaEstoque.toFixed(2)} PÇ). Entradas para esta unidade devem resultar em um número inteiro.`);
+                                }
+                            }
+                        }
+
+                        // --- 2. NOVA LÓGICA DE CÁLCULO DE CUSTO ---
+                        const valorUnitario = parseFloat(document.getElementById('mov-valor-unitario').value) || 0;
+                        const icms = parseFloat(document.getElementById('mov-icms').value) || 0;
+                        const ipi = parseFloat(document.getElementById('mov-ipi').value) || 0;
+                        const frete = parseFloat(document.getElementById('mov-frete').value) || 0;
+
+                        // Calcula o custo base
+                        let custoTotalEntrada = (quantidadeOriginalCompra * valorUnitario) + icms + ipi + frete;
+
+                        // Busca o fornecedor e aplica o imposto ST, se houver
+                        const fornecedorId = productData.fornecedorId;
+                        if (fornecedorId && configData.fornecedores[fornecedorId]) {
+                            const fornecedor = configData.fornecedores[fornecedorId];
+                            const impostoStPercent = parseFloat(fornecedor.imposto) || 0;
+                            if (impostoStPercent > 0) {
+                                custoTotalEntrada *= (1 + (impostoStPercent / 100));
+                            }
+                        }
+
+                        // --- 3. Lógica de Atualização (Existente + Campo Novo) ---
+                        const currentEstoque = productData.estoque || 0;
+                        const newEstoque = currentEstoque + quantidadeParaEstoque;
+                        transaction.update(productRef, { estoque: newEstoque });
+
+                        const movementRef = doc(collection(db, 'movimentacoes'));
+                        const movementData = {
+                            tipo: 'entrada',
+                            productId,
+                            data: serverTimestamp(),
+                            tipo_entradaId: document.getElementById('mov-tipo-entrada').value,
+                            nf: document.getElementById('mov-nf').value,
+                            valor_unitario: valorUnitario,
+                            icms: icms,
+                            ipi: ipi,
+                            frete: frete,
+                            observacao: document.getElementById('mov-observacao').value,
+                            quantidade: quantidadeParaEstoque,
+                            quantidade_compra: quantidadeOriginalCompra,
+                            custo_total_entrada: custoTotalEntrada // <-- NOSSO NOVO CAMPO!
+                        };
+
+                        transaction.set(movementRef, movementData);
+                    });
+                    alert('Entrada registrada com sucesso!');
+                    formMovimentacao.reset();
+                    handleToggleChange();
+                } catch (error) {
+                    console.error("Erro na transação de entrada:", error);
+                    showInfoModal(error.message);
+                }
             }
         } else { // Saída
             try {
@@ -213,7 +292,8 @@ document.addEventListener('DOMContentLoaded', async function() {
         const tipoSaidaSelect = document.getElementById('mov-tipo-saida');
         const obraSelect = document.getElementById('mov-obra');
 
-        const productsSnapshot = await getDocs(collection(db, 'produtos'));
+        const q = query(collection(db, 'produtos'), where("arquivado", "!=", true));
+        const productsSnapshot = await getDocs(q);
         productsMap = {};
         productSelect.innerHTML = '<option value="">Selecione o Produto...</option>';
         productsSnapshot.forEach(doc => {
@@ -257,6 +337,34 @@ document.addEventListener('DOMContentLoaded', async function() {
         document.getElementById('mov-descricao-display').textContent = product ? product.descricao : '-';
         document.getElementById('mov-un-display').textContent = product ? product.un : '-';
         document.getElementById('mov-estoque-display').textContent = product ? (product.estoque || 0) : '-';
+
+        const isSobra = product && product.e_sobra === true;
+        const isEntrada = document.getElementById('movement-toggle').checked;
+
+        const costFields = ['mov-valor-unitario', 'mov-icms', 'mov-ipi', 'mov-frete'];
+        // Para sobras, a quantidade é sempre 1, então desabilitamos o campo de quantidade também.
+        const quantField = document.getElementById('mov-quantidade');
+
+        if(isEntrada) {
+            costFields.forEach(fieldId => {
+                const field = document.getElementById(fieldId);
+                field.disabled = isSobra;
+                if (isSobra) field.value = ''; // Limpa o campo
+            });
+
+            quantField.disabled = isSobra;
+            if (isSobra) {
+                 quantField.value = 1; // Define a quantidade como 1 para sobras
+                 quantField.placeholder = "Entrada de sobra é sempre 1 Unidade";
+            } else {
+                 quantField.placeholder = "Quantidade";
+            }
+        } else {
+            // Garante que os campos de custo estejam sempre habilitados na saída (se visíveis)
+            costFields.forEach(fieldId => document.getElementById(fieldId).disabled = false);
+            quantField.disabled = false;
+            quantField.placeholder = "Quantidade";
+        }
     }
     document.getElementById('mov-produto').addEventListener('change', updateProductInfo);
 
@@ -277,8 +385,10 @@ document.addEventListener('DOMContentLoaded', async function() {
                 // O custo unitário é o custo total dividido pela quantidade que efetivamente entrou no estoque
                 custoUnitario = valorTotal / mov.quantidade;
             }
-            return {
+
+            const processedMov = {
                 ...mov,
+                custoUnitario: custoUnitario, // Adiciona o custo unitário calculado ao objeto principal
                 _search_data: {
                     data: mov.data ? new Date(mov.data.seconds * 1000).toLocaleString('pt-BR') : '',
                     tipo: mov.tipo || '',
@@ -297,6 +407,7 @@ document.addEventListener('DOMContentLoaded', async function() {
                     observacao: mov.observacao || ''
                 }
             };
+            return processedMov;
         });
 
         let filteredMovements = processedMovements.filter(mov => {
@@ -340,7 +451,7 @@ document.addEventListener('DOMContentLoaded', async function() {
             const icmsFmt = mov.icms ? mov.icms.toFixed(2) : '-';
             const ipiFmt = mov.ipi ? mov.ipi.toFixed(2) : '-';
             const freteFmt = mov.frete ? mov.frete.toFixed(2) : '-';
-            const custoUnitarioFmt = parseFloat(searchData.custoUnitario) > 0 ? searchData.custoUnitario : '-';
+            const custoUnitarioFmt = mov.custoUnitario > 0 ? mov.custoUnitario.toFixed(2) : '-';
 
             row.innerHTML = `
                 <td>${searchData.data}</td>
