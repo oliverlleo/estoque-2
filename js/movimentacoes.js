@@ -96,23 +96,24 @@ document.addEventListener('DOMContentLoaded', async function() {
     function toggleObraRequirement() {
         const isEntrada = toggle.checked;
         const obraSelect = document.getElementById('mov-obra');
-        let tipoConfig;
 
         if (isEntrada) {
-            const tipoEntradaId = document.getElementById('mov-tipo-entrada').value;
-            tipoConfig = configData.tipos_entrada[tipoEntradaId];
-        } else {
-            const tipoSaidaId = document.getElementById('mov-tipo-saida').value;
-            tipoConfig = configData.tipos_saida[tipoSaidaId];
+            // No modo de entrada, o campo Obra nunca é obrigatório.
+            obraSelect.required = false;
+            obraSelect.parentElement.classList.remove('required-field-visual');
+            return;
         }
 
-        // Verifica a flag e ajusta o campo Obra
+        // A lógica abaixo agora só se aplica ao modo de Saída.
+        const tipoSaidaId = document.getElementById('mov-tipo-saida').value;
+        const tipoConfig = configData.tipos_saida[tipoSaidaId];
+
         if (tipoConfig && tipoConfig.informa_obra === true) {
             obraSelect.required = true;
-            obraSelect.parentElement.classList.add('required-field-visual'); // Adiciona feedback visual
+            obraSelect.parentElement.classList.add('required-field-visual');
         } else {
             obraSelect.required = false;
-            obraSelect.parentElement.classList.remove('required-field-visual'); // Remove feedback visual
+            obraSelect.parentElement.classList.remove('required-field-visual');
         }
     }
 

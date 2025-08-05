@@ -19,8 +19,7 @@ document.addEventListener('DOMContentLoaded', function() {
                 nome: "Nome do Tipo de Entrada",
                 movimenta_estoque: "Movimenta Estoque",
                 recalcula_custo_medio: "Recalcula Custo Médio",
-                informa_obra: "Informa Obra",
-                informa_valor_unitario: "Informa Valor Unitário" // Adicionar esta linha
+                informa_valor_unitario: "Informa Valor Unitário"
             },
             render: (d) => `<td>${d.nome}</td>`,
             tableHeaders: "<th>Nome</th>"
