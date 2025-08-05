@@ -16,7 +16,34 @@ document.addEventListener('DOMContentLoaded', async function() {
     const labelProduto = document.getElementById('toggle-label-produto');
     const selectSobraOriginal = document.getElementById('sobra-produto-original');
 
+    const codigoInput = document.getElementById('produto-codigo');
+    const productIdInput = document.getElementById('produto-id');
     const locacaoInput = document.getElementById('produto-locacao');
+
+    // --- Validação de Código Duplicado em Tempo Real ---
+    codigoInput.addEventListener('input', () => {
+        const codigo = codigoInput.value.trim();
+        const currentId = productIdInput.value;
+
+        // Se o campo estiver vazio, remove o estilo de erro e para a execução
+        if (!codigo) {
+            codigoInput.classList.remove('is-invalid');
+            return;
+        }
+
+        // Verifica se algum produto no array `productsData` tem o mesmo código,
+        // ignorando o próprio produto que está sendo editado (se for o caso).
+        const isDuplicate = productsData.some(product =>
+            product.data.codigo.toLowerCase() === codigo.toLowerCase() && product.id !== currentId
+        );
+
+        // Adiciona ou remove a classe de erro com base no resultado
+        if (isDuplicate) {
+            codigoInput.classList.add('is-invalid');
+        } else {
+            codigoInput.classList.remove('is-invalid');
+        }
+    });
 
     formToggle.addEventListener('change', () => {
         const isProduto = formToggle.checked;
@@ -343,6 +370,14 @@ document.addEventListener('DOMContentLoaded', async function() {
     // 2. Handle Product Form Submission (Create/Update)
     form.addEventListener('submit', async (e) => {
         e.preventDefault();
+
+        // --- BLOQUEIO DE SUBMISSÃO ---
+        // Se o campo de código está marcado como inválido, exibe um alerta e impede o envio.
+        if (codigoInput.classList.contains('is-invalid')) {
+            alert('O código do produto já existe. Por favor, insira um código único.');
+            return; // Impede a continuação do processo de salvar
+        }
+
         const productId = document.getElementById('produto-id').value;
 
         // --- INÍCIO DA VALIDAÇÃO DE CÓDIGO DUPLICADO ---
@@ -384,6 +419,7 @@ document.addEventListener('DOMContentLoaded', async function() {
             }
             form.reset();
             document.getElementById('produto-id').value = '';
+            codigoInput.classList.remove('is-invalid'); // Garante que o campo fique limpo
 
             // --- ADICIONAR ESTAS LINHAS ---
             filterInput.value = ''; // Limpa o filtro geral
