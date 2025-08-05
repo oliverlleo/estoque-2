@@ -533,33 +533,38 @@ document.addEventListener('DOMContentLoaded', async function() {
     });
 });
 
-// Adicionar ao final de js/movimentacoes.js
+// Substitua a função inteira em js/movimentacoes.js por esta versão:
 async function atualizarCustoMedioProduto(produtoId) {
     if (!produtoId) return;
 
-    // 1. Busca todas as movimentações de entrada para o produto que possuem custo
+    // 1. FAZ UMA BUSCA MAIS SIMPLES: Pega todas as entradas do produto.
     const q = query(
         collection(db, 'movimentacoes'),
         where("productId", "==", produtoId),
-        where("tipo", "==", "entrada"),
-        where("custo_total_entrada", ">", 0)
+        where("tipo", "==", "entrada")
     );
     const movementsSnapshot = await getDocs(q);
 
-    // 2. Calcula o custo médio
     let totalCost = 0;
     let totalQuantityForAvg = 0;
+
+    // 2. FILTRA O RESTO NO CÓDIGO, não no banco:
+    // Itera sobre os resultados e só considera aqueles com custo.
     movementsSnapshot.forEach(doc => {
         const mov = doc.data();
-        if (mov.quantidade > 0) {
-            totalCost += (mov.custo_total_entrada || 0);
-            totalQuantityForAvg += mov.quantidade;
+        if (mov.custo_total_entrada && mov.custo_total_entrada > 0) {
+            if (mov.quantidade > 0) {
+                totalCost += mov.custo_total_entrada;
+                totalQuantityForAvg += mov.quantidade;
+            }
         }
     });
-    const novoCustoMedio = totalQuantityForAvg > 0 ? totalCost / totalQuantityForAvg : 0;
 
-    // 3. Atualiza o documento do produto com o novo custo médio
+    // 3. Calcula e atualiza o produto, como antes.
+    const novoCustoMedio = totalQuantityForAvg > 0 ? totalCost / totalQuantityForAvg : 0;
     const productRef = doc(db, 'produtos', productId);
+    // Usamos setDoc com merge: true para garantir que só o campo valorMedio seja alterado.
     await setDoc(productRef, { valorMedio: novoCustoMedio }, { merge: true });
+
     console.log(`Custo médio do produto ${produtoId} atualizado para ${novoCustoMedio.toFixed(2)}`);
 }
