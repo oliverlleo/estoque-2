@@ -20,6 +20,32 @@ document.addEventListener('DOMContentLoaded', async function() {
     const productIdInput = document.getElementById('produto-id');
     const locacaoInput = document.getElementById('produto-locacao');
 
+    function applyFilters() {
+        const generalSearchTerm = filterInput.value.toLowerCase();
+        const locacaoSearchTerm = locacaoInput.value.toLowerCase();
+
+        const filteredData = productsData.filter(product => {
+            const pData = product.data;
+
+            // Lógica do filtro geral (existente)
+            const matchesGeneral = generalSearchTerm === '' || Object.values(pData).some(value =>
+                String(value).toLowerCase().includes(generalSearchTerm)
+            );
+
+            // Lógica do novo filtro de locação
+            // Reconstrói a string 'locacaoCompleta' da mesma forma que renderTable faz
+            const localNome = configData.locais[pData.localId]?.nome || '';
+            const locacaoDesc = pData.locacao || '';
+            const locacaoCompleta = [localNome, locacaoDesc].filter(Boolean).join(' - ').toLowerCase();
+            const matchesLocacao = locacaoSearchTerm === '' || locacaoCompleta.includes(locacaoSearchTerm);
+
+            // Retorna verdadeiro apenas se o produto corresponder a AMBOS os filtros
+            return matchesGeneral && matchesLocacao;
+        });
+
+        renderTable(filteredData);
+    }
+
     // --- Validação de Código Duplicado em Tempo Real ---
     codigoInput.addEventListener('input', () => {
         const codigo = codigoInput.value.trim();
@@ -67,51 +93,7 @@ document.addEventListener('DOMContentLoaded', async function() {
         }
     });
 
-    locacaoInput.addEventListener('input', (e) => {
-        // --- 1. Lógica da Máscara ---
-        let value = e.target.value.toUpperCase().replace(/[^A-Z0-9]/g, '');
-        let maskedValue = '';
-
-        if (value.length > 0) {
-            // Garante que os 2 primeiros são dígitos
-            value = value.substring(0, 2).replace(/[^0-9]/g, '') + value.substring(2);
-            maskedValue += value.substring(0, 2);
-        }
-        if (value.length > 2) {
-            // Garante que o 3º é letra
-            value = value.substring(0, 2) + value.substring(2, 3).replace(/[^A-Z]/g, '') + value.substring(3);
-            maskedValue += '-' + value.substring(2, 3);
-        }
-        if (value.length > 3) {
-            // Garante que o 4º e 5º são dígitos
-            value = value.substring(0, 3) + value.substring(3, 5).replace(/[^0-9]/g, '') + value.substring(5);
-            maskedValue += '-' + value.substring(3, 5);
-        }
-        if (value.length > 5) {
-            // Garante que o 6º é letra
-            value = value.substring(0, 5) + value.substring(5, 6).replace(/[^A-Z]/g, '');
-            maskedValue += '-' + value.substring(5, 6);
-        }
-
-        e.target.value = maskedValue;
-
-        // --- 2. Lógica de Filtragem em Tempo Real ---
-        const searchTerm = e.target.value.toLowerCase();
-        if (searchTerm) {
-            const filteredData = productsData.filter(product => {
-                return (product.data.locacao || '').toLowerCase().startsWith(searchTerm);
-            });
-            renderTable(filteredData);
-        } else {
-            // Se o campo estiver vazio, mostra todos os produtos (respeitando o outro filtro, se houver)
-            const generalFilterTerm = filterInput.value.toLowerCase();
-            if (generalFilterTerm) {
-                 filterInput.dispatchEvent(new Event('input')); // Re-aciona o filtro geral
-            } else {
-                 renderTable(productsData);
-            }
-        }
-    });
+    locacaoInput.addEventListener('input', applyFilters);
 
     let productsData = [];
     const configData = {};
@@ -420,10 +402,8 @@ document.addEventListener('DOMContentLoaded', async function() {
             form.reset();
             document.getElementById('produto-id').value = '';
             codigoInput.classList.remove('is-invalid'); // Garante que o campo fique limpo
-
-            // --- ADICIONAR ESTAS LINHAS ---
-            filterInput.value = ''; // Limpa o filtro geral
-            renderTable(productsData); // Renderiza a tabela completa, limpando o filtro de locação
+            filterInput.value = ''; // Limpa o filtro geral na caixa de pesquisa da tabela
+            applyFilters(); // Re-aplica os filtros (agora vazios) para mostrar a tabela completa
 
         } catch (error) {
             console.error("Erro ao salvar produto:", error);
@@ -563,15 +543,7 @@ document.addEventListener('DOMContentLoaded', async function() {
         }
     });
 
-    filterInput.addEventListener('input', (e) => {
-        const searchTerm = e.target.value.toLowerCase();
-        const filteredData = productsData.filter(product => {
-            return Object.values(product.data).some(value =>
-                String(value).toLowerCase().includes(searchTerm)
-            );
-        });
-        renderTable(filteredData);
-    });
+    filterInput.addEventListener('input', applyFilters);
 
     document.getElementById('btn-gerar-etiquetas').addEventListener('click', (e) => {
         e.preventDefault(); // Previne o comportamento padrão do link
