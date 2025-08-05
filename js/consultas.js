@@ -1,5 +1,5 @@
 import { db } from './firebase-config.js';
-import { collection, getDocs, doc, updateDoc } from "https://www.gstatic.com/firebasejs/9.6.1/firebase-firestore.js";
+import { collection, getDocs, doc, updateDoc, query, where } from "https://www.gstatic.com/firebasejs/9.6.1/firebase-firestore.js";
 
 document.addEventListener('DOMContentLoaded', async function() {
     console.log("Página de Consultas carregada.");
@@ -13,24 +13,22 @@ document.addEventListener('DOMContentLoaded', async function() {
 
     let consolidatedData = [];
 
+    // Substitua a função inteira em js/consultas.js por esta:
     async function fetchDataAndCalculate() {
+        // 1. Busca todas as fontes de dados necessárias em paralelo.
         const [productsSnapshot, movementsSnapshot, locaisSnapshot] = await Promise.all([
-            getDocs(collection(db, 'produtos')),
-            getDocs(collection(db, 'movimentacoes')),
+            getDocs(query(collection(db, 'produtos'), where("arquivado", "!=", true))),
+            getDocs(collection(db, 'movimentacoes')), // <-- REINTRODUZIDO
             getDocs(collection(db, 'locais'))
         ]);
 
-        const products = {};
-        productsSnapshot.forEach(doc => {
-            products[doc.id] = { id: doc.id, ...doc.data() };
-        });
-
+        // 2. Prepara dados auxiliares (locais e movimentações agrupadas)
         const locais = {};
         locaisSnapshot.forEach(doc => {
             locais[doc.id] = doc.data();
         });
 
-        const movementsByProduct = {};
+        const movementsByProduct = {}; // <-- REINTRODUZIDO
         movementsSnapshot.forEach(doc => {
             const mov = doc.data();
             if (mov.productId) {
@@ -41,73 +39,46 @@ document.addEventListener('DOMContentLoaded', async function() {
             }
         });
 
-        const updatePromises = [];
+        // 3. Processa os dados consolidados
+        consolidatedData = productsSnapshot.docs.map(productDoc => {
+            const product = productDoc.data();
+            const productMovements = movementsByProduct[productDoc.id] || [];
 
-        consolidatedData = Object.values(products).map(product => {
-            const productMovements = movementsByProduct[product.id] || [];
+            // 3.1. Pega o estoque DIRETAMENTE do produto. NUNCA recalcular aqui.
+            const estoqueAtual = product.estoque || 0;
 
-            let estoqueAtual = 0;
-
-            productMovements.forEach(mov => {
-                const quantidade = parseFloat(mov.quantidade) || 0;
-
-                if (mov.tipo === 'entrada') {
-                    estoqueAtual += quantidade;
-                } else if (mov.tipo === 'saida') {
-                    estoqueAtual -= quantidade;
-                }
-            });
-
-            if (product.estoque !== estoqueAtual) {
-                const productRef = doc(db, 'produtos', product.id);
-                updatePromises.push(updateDoc(productRef, { estoque: estoqueAtual }));
-            }
-
+            // 3.2. CALCULA O VALOR MÉDIO usando as movimentações
             const entryMovements = productMovements.filter(m =>
-                m.tipo === 'entrada' &&
-                ((m.custo_total_entrada !== undefined && m.custo_total_entrada > 0) || (m.valor_unitario || 0) > 0)
+                m.tipo === 'entrada' && (m.custo_total_entrada || 0) > 0
             );
+
             let totalCost = 0;
             let totalQuantityForAvg = 0;
             entryMovements.forEach(m => {
                 if (m.quantidade > 0) {
-                    let entryTotalValue = 0;
-
-                    // Se o novo campo 'custo_total_entrada' existir, use-o
-                    if (m.custo_total_entrada !== undefined) {
-                        entryTotalValue = m.custo_total_entrada;
-                    } else {
-                        // Senão, calcule da forma antiga (fallback para dados legados)
-                        const valorUnit = m.valor_unitario || 0;
-                        const qtdCompra = m.quantidade_compra || m.quantidade; // Usa qtd_compra se existir
-                        entryTotalValue = (qtdCompra * valorUnit) + (m.icms || 0) + (m.ipi || 0) + (m.frete || 0);
-                    }
-
-                    totalCost += entryTotalValue;
+                    totalCost += (m.custo_total_entrada || 0);
                     totalQuantityForAvg += m.quantidade;
                 }
             });
 
             const valorMedio = totalQuantityForAvg > 0 ? totalCost / totalQuantityForAvg : 0;
-            const valorTotalEstoque = (estoqueAtual || 0) * valorMedio;
+            const valorTotalEstoque = estoqueAtual * valorMedio;
 
+            // 3.3. Monta o restante dos dados
             const localNome = locais[product.localId]?.nome || '';
             const locacaoDesc = product.locacao || '';
             const locacaoCompleta = [localNome, locacaoDesc].filter(Boolean).join(' - ') || 'N/A';
 
             return {
                 ...product,
-                estoque: estoqueAtual,
-                valorMedio,
-                valorTotalEstoque,
+                estoque: estoqueAtual, // Fonte da verdade
+                valorMedio: valorMedio, // Recalculado para exibição
+                valorTotalEstoque: valorTotalEstoque, // Recalculado para exibição
                 local: locacaoCompleta
             };
         });
 
-        if (updatePromises.length > 0) {
-            await Promise.all(updatePromises);
-        }
-
+        // 4. Renderiza a tabela. NENHUMA atualização é feita no banco de dados.
         renderTable(consolidatedData);
     }
 
@@ -116,13 +87,14 @@ document.addEventListener('DOMContentLoaded', async function() {
         data.forEach(item => {
             const row = document.createElement('tr');
             row.className = 'main-row';
+            // Dentro da função renderTable em js/consultas.js
             row.innerHTML = `
                 <td>${item.codigo}</td>
                 <td>${item.descricao}</td>
                 <td>${item.estoque || 0}</td>
                 <td>${item.un}</td>
-                <td>${item.valorMedio.toFixed(2)}</td>
-                <td>${item.valorTotalEstoque.toFixed(2)}</td>
+                <td>${(item.valorMedio || 0).toFixed(2)}</td>
+                <td>${(item.valorTotalEstoque || 0).toFixed(2)}</td>
                 <td>${item.local}</td>
             `;
             tableBody.appendChild(row);
