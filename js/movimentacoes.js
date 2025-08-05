@@ -216,9 +216,14 @@ document.addEventListener('DOMContentLoaded', async function() {
                         }
 
                         // --- 3. Lógica de Atualização (Existente + Campo Novo) ---
-                        const currentEstoque = productData.estoque || 0;
-                        const newEstoque = currentEstoque + quantidadeParaEstoque;
-                        transaction.update(productRef, { estoque: newEstoque });
+                        const tipoEntradaId = document.getElementById('mov-tipo-entrada').value;
+                        const tipoEntradaConfig = configData.tipos_entrada[tipoEntradaId];
+
+                        if (tipoEntradaConfig && tipoEntradaConfig.movimenta_estoque === true) {
+                            const currentEstoque = productDoc.data().estoque || 0;
+                            const newEstoque = currentEstoque + quantidadeParaEstoque; // quantidadeParaEstoque já foi calculada
+                            transaction.update(productRef, { estoque: newEstoque });
+                        }
 
                         const movementRef = doc(collection(db, 'movimentacoes'));
                         const movementData = {
@@ -254,13 +259,18 @@ document.addEventListener('DOMContentLoaded', async function() {
                     const productDoc = await transaction.get(productRef);
                     if (!productDoc.exists()) throw new Error("Produto não encontrado!");
 
-                    const currentEstoque = productDoc.data().estoque || 0;
-                    if (currentEstoque < quantidade) {
-                        throw new Error(`Estoque insuficiente! Disponível: ${currentEstoque}`);
-                    }
+                    // Lógica de Saída
+                    const tipoSaidaId = document.getElementById('mov-tipo-saida').value;
+                    const tipoSaidaConfig = configData.tipos_saida[tipoSaidaId];
 
-                    const newEstoque = currentEstoque - quantidade;
-                    transaction.update(productRef, { estoque: newEstoque });
+                    if (tipoSaidaConfig && tipoSaidaConfig.movimenta_estoque === true) {
+                        const currentEstoque = productDoc.data().estoque || 0;
+                        if (currentEstoque < quantidade) {
+                            throw new Error(`Estoque insuficiente! Disponível: ${currentEstoque}`);
+                        }
+                        const newEstoque = currentEstoque - quantidade;
+                        transaction.update(productRef, { estoque: newEstoque });
+                    }
 
                     const movementRef = doc(collection(db, 'movimentacoes'));
                     const movementData = {

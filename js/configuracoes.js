@@ -11,8 +11,8 @@ document.addEventListener('DOMContentLoaded', function() {
         { name: "Aplicações", id: "aplicacao", collectionName: "aplicacoes", fields: { nome: "Nome da Aplicação" }, render: (d) => `<td>${d.nome}</td>`, tableHeaders: "<th>Nome</th>" },
         { name: "Conjuntos", id: "conjunto", collectionName: "conjuntos", fields: { nome: "Nome do Conjunto" }, render: (d) => `<td>${d.nome}</td>`, tableHeaders: "<th>Nome</th>" },
         { name: "Gerenciar Locação", id: "local", collectionName: "locais", fields: { nome: "Nome do Local" }, render: (d) => `<td>${d.nome}</td>`, tableHeaders: "<th>Nome</th>" },
-        { name: "Tipos de Entrada", id: "tipo-entrada", collectionName: "tipos_entrada", fields: { nome: "Nome do Tipo de Entrada" }, render: (d) => `<td>${d.nome}</td>`, tableHeaders: "<th>Nome</th>" },
-        { name: "Tipos de Saída", id: "tipo-saida", collectionName: "tipos_saida", fields: { nome: "Nome do Tipo de Saída" }, render: (d) => `<td>${d.nome}</td>`, tableHeaders: "<th>Nome</th>" },
+        { name: "Tipos de Entrada", id: "tipo-entrada", collectionName: "tipos_entrada", fields: { nome: "Nome do Tipo de Entrada", movimenta_estoque: "Movimenta Estoque", recalcula_custo_medio: "Recalcula Custo Médio", informa_custo: "Informa Custo" }, render: (d) => `<td>${d.nome}</td>`, tableHeaders: "<th>Nome</th>" },
+        { name: "Tipos de Saída", id: "tipo-saida", collectionName: "tipos_saida", fields: { nome: "Nome do Tipo de Saída", movimenta_estoque: "Movimenta Estoque", aceita_negativo: "Aceita Negativo", informa_obra: "Informa Obra" }, render: (d) => `<td>${d.nome}</td>`, tableHeaders: "<th>Nome</th>" },
         { name: "Obras", id: "obra", collectionName: "obras", fields: { nome: "Nome da Obra" }, render: (d) => `<td>${d.nome}</td>`, tableHeaders: "<th>Nome</th>" },
         {
             name: "Conversão de Unidade",
@@ -77,10 +77,18 @@ document.addEventListener('DOMContentLoaded', function() {
 
     // --- 3. Gerador de HTML para o corpo do modal ---
     function generateModalContent(config) {
-        let formFields = Object.entries(config.fields).map(([key, placeholder]) => {
+        let formFields = Object.entries(config.fields).map(([key, label]) => {
+            if (["movimenta_estoque", "recalcula_custo_medio", "aceita_negativo", "informa_custo", "informa_obra"].includes(key)) {
+                return `
+                    <div class="form-control" style="display: flex; align-items: center; gap: 10px; border: none;">
+                        <input type="checkbox" id="${config.id}-${key}" style="width: auto;">
+                        <label for="${config.id}-${key}">${label}</label>
+                    </div>
+                `;
+            }
             const inputType = (key.includes('imposto') || key.includes('valor')) ? 'number' : 'text';
             const step = inputType === 'number' ? 'step="0.01"' : '';
-            return `<input type="${inputType}" id="${config.id}-${key}" placeholder="${placeholder}" required class="form-control" ${step}>`;
+            return `<input type="${inputType}" id="${config.id}-${key}" placeholder="${label}" required class="form-control" ${step}>`;
         }).join('');
 
         // Caso especial para Endereçamento
@@ -146,7 +154,12 @@ document.addEventListener('DOMContentLoaded', function() {
             const id = form.querySelector(`#${config.id}-id`).value;
             const data = {};
             for (const key in config.fields) {
-                data[key] = form.querySelector(`#${config.id}-${key}`).value;
+                const input = form.querySelector(`#${config.id}-${key}`);
+                if (input.type === 'checkbox') {
+                    data[key] = input.checked;
+                } else {
+                    data[key] = input.value;
+                }
             }
             // --- Salvamento especial para Endereçamento ---
             if (config.id === 'enderecamento') {
@@ -207,7 +220,12 @@ document.addEventListener('DOMContentLoaded', function() {
                 if (item) {
                     form.querySelector(`#${config.id}-id`).value = item.id;
                     for (const key in config.fields) {
-                        form.querySelector(`#${config.id}-${key}`).value = item.data[key];
+                        const input = form.querySelector(`#${config.id}-${key}`);
+                        if (input.type === 'checkbox') {
+                            input.checked = item.data[key] || false;
+                        } else {
+                            input.value = item.data[key] || '';
+                        }
                     }
                      // --- Preenchimento especial para Endereçamento ---
                     if (config.id === 'enderecamento') {
