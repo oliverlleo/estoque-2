@@ -13,38 +13,72 @@ document.addEventListener('DOMContentLoaded', async function() {
 
     let consolidatedData = [];
 
+    // Substitua a função inteira em js/consultas.js por esta:
     async function fetchDataAndCalculate() {
-        const [productsSnapshot, locaisSnapshot] = await Promise.all([
+        // 1. Busca todas as fontes de dados necessárias em paralelo.
+        const [productsSnapshot, movementsSnapshot, locaisSnapshot] = await Promise.all([
             getDocs(query(collection(db, 'produtos'), where("arquivado", "!=", true))),
+            getDocs(collection(db, 'movimentacoes')), // <-- REINTRODUZIDO
             getDocs(collection(db, 'locais'))
         ]);
 
+        // 2. Prepara dados auxiliares (locais e movimentações agrupadas)
         const locais = {};
         locaisSnapshot.forEach(doc => {
             locais[doc.id] = doc.data();
         });
 
+        const movementsByProduct = {}; // <-- REINTRODUZIDO
+        movementsSnapshot.forEach(doc => {
+            const mov = doc.data();
+            if (mov.productId) {
+                if (!movementsByProduct[mov.productId]) {
+                    movementsByProduct[mov.productId] = [];
+                }
+                movementsByProduct[mov.productId].push(mov);
+            }
+        });
+
+        // 3. Processa os dados consolidados
         consolidatedData = productsSnapshot.docs.map(productDoc => {
             const product = productDoc.data();
+            const productMovements = movementsByProduct[productDoc.id] || [];
+
+            // 3.1. Pega o estoque DIRETAMENTE do produto. NUNCA recalcular aqui.
             const estoqueAtual = product.estoque || 0;
+
+            // 3.2. CALCULA O VALOR MÉDIO usando as movimentações
+            const entryMovements = productMovements.filter(m =>
+                m.tipo === 'entrada' && (m.custo_total_entrada || 0) > 0
+            );
+
+            let totalCost = 0;
+            let totalQuantityForAvg = 0;
+            entryMovements.forEach(m => {
+                if (m.quantidade > 0) {
+                    totalCost += (m.custo_total_entrada || 0);
+                    totalQuantityForAvg += m.quantidade;
+                }
+            });
+
+            const valorMedio = totalQuantityForAvg > 0 ? totalCost / totalQuantityForAvg : 0;
+            const valorTotalEstoque = estoqueAtual * valorMedio;
+
+            // 3.3. Monta o restante dos dados
             const localNome = locais[product.localId]?.nome || '';
             const locacaoDesc = product.locacao || '';
             const locacaoCompleta = [localNome, locacaoDesc].filter(Boolean).join(' - ') || 'N/A';
 
-            // ATENÇÃO: Lógica de custo médio precisa ser revista no futuro.
-            // Por enquanto, leremos um valor do produto ou usaremos 0.
-            const valorMedio = 0; // Placeholder para o cálculo do valor médio
-            const valorTotalEstoque = estoqueAtual * valorMedio;
-
             return {
                 ...product,
-                estoque: estoqueAtual,
-                valorMedio,
-                valorTotalEstoque,
+                estoque: estoqueAtual, // Fonte da verdade
+                valorMedio: valorMedio, // Recalculado para exibição
+                valorTotalEstoque: valorTotalEstoque, // Recalculado para exibição
                 local: locacaoCompleta
             };
         });
 
+        // 4. Renderiza a tabela. NENHUMA atualização é feita no banco de dados.
         renderTable(consolidatedData);
     }
 
