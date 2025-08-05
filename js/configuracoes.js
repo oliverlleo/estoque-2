@@ -17,7 +17,8 @@ document.addEventListener('DOMContentLoaded', function() {
             collectionName: "tipos_entrada",
             fields: {
                 nome: "Nome do Tipo de Entrada",
-                movimenta_estoque: "Movimenta Estoque"
+                movimenta_estoque: "Movimenta Estoque",
+                recalcula_custo_medio: "Recalcula Custo Médio"
             },
             render: (d) => `<td>${d.nome}</td>`,
             tableHeaders: "<th>Nome</th>"
@@ -99,7 +100,7 @@ document.addEventListener('DOMContentLoaded', function() {
     function generateModalContent(config) {
         // Código de substituição para a variável formFields
         let formFields = Object.entries(config.fields).map(([key, label]) => {
-            if (key.includes('movimenta_')) { // Condição para identificar nosso checkbox
+            if (key.includes('movimenta_') || key.includes('recalcula_custo_medio')) { // Condição para identificar nosso checkbox
                 return `
                     <div style="grid-column: 1 / -1; display: flex; align-items: center; gap: 10px; padding: 0.5rem; background-color: #f8f9fa; border: 1px solid #ced4da; border-radius: 0.25rem;">
                         <input type="checkbox" id="${config.id}-${key}" style="width: auto; height: 1.2em; width: 1.2em;">

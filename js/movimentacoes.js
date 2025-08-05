@@ -4,7 +4,7 @@ function showInfoModal(message) {
 }
 
 import { db } from './firebase-config.js';
-import { collection, getDocs, onSnapshot, runTransaction, doc, serverTimestamp, query, where, getDoc } from "https://www.gstatic.com/firebasejs/9.6.1/firebase-firestore.js";
+import { collection, getDocs, onSnapshot, runTransaction, doc, serverTimestamp, query, where, getDoc, setDoc } from "https://www.gstatic.com/firebasejs/9.6.1/firebase-firestore.js";
 
 // Adicione esta função em js/movimentacoes.js
 async function calcularCustoMedioProduto(produtoId) {
@@ -245,6 +245,14 @@ document.addEventListener('DOMContentLoaded', async function() {
                         transaction.set(movementRef, movementData);
                     });
                     alert('Entrada registrada com sucesso!');
+
+                    const tipoEntradaId = document.getElementById('mov-tipo-entrada').value;
+                    const tipoEntradaConfig = configData.tipos_entrada[tipoEntradaId];
+
+                    if (tipoEntradaConfig && tipoEntradaConfig.recalcula_custo_medio === true) {
+                        await atualizarCustoMedioProduto(productId);
+                    }
+
                     formMovimentacao.reset();
                     handleToggleChange();
                 } catch (error) {
@@ -524,3 +532,34 @@ document.addEventListener('DOMContentLoaded', async function() {
         updateTable();
     });
 });
+
+// Adicionar ao final de js/movimentacoes.js
+async function atualizarCustoMedioProduto(produtoId) {
+    if (!produtoId) return;
+
+    // 1. Busca todas as movimentações de entrada para o produto que possuem custo
+    const q = query(
+        collection(db, 'movimentacoes'),
+        where("productId", "==", produtoId),
+        where("tipo", "==", "entrada"),
+        where("custo_total_entrada", ">", 0)
+    );
+    const movementsSnapshot = await getDocs(q);
+
+    // 2. Calcula o custo médio
+    let totalCost = 0;
+    let totalQuantityForAvg = 0;
+    movementsSnapshot.forEach(doc => {
+        const mov = doc.data();
+        if (mov.quantidade > 0) {
+            totalCost += (mov.custo_total_entrada || 0);
+            totalQuantityForAvg += mov.quantidade;
+        }
+    });
+    const novoCustoMedio = totalQuantityForAvg > 0 ? totalCost / totalQuantityForAvg : 0;
+
+    // 3. Atualiza o documento do produto com o novo custo médio
+    const productRef = doc(db, 'produtos', productId);
+    await setDoc(productRef, { valorMedio: novoCustoMedio }, { merge: true });
+    console.log(`Custo médio do produto ${produtoId} atualizado para ${novoCustoMedio.toFixed(2)}`);
+}
