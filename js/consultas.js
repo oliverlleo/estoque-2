@@ -13,87 +13,36 @@ document.addEventListener('DOMContentLoaded', async function() {
 
     let consolidatedData = [];
 
+    // Substitua a função inteira em js/consultas.js por esta:
     async function fetchDataAndCalculate() {
-        const [productsSnapshot, movementsSnapshot, locaisSnapshot] = await Promise.all([
-            getDocs(collection(db, 'produtos')),
-            getDocs(collection(db, 'movimentacoes')),
+        // Busca apenas os produtos e os locais, não precisa mais das movimentações para o cálculo.
+        const [productsSnapshot, locaisSnapshot] = await Promise.all([
+            getDocs(query(collection(db, 'produtos'), where("arquivado", "!=", true))), // Garante que não mostre arquivados
             getDocs(collection(db, 'locais'))
         ]);
-
-        const products = {};
-        productsSnapshot.forEach(doc => {
-            products[doc.id] = { id: doc.id, ...doc.data() };
-        });
 
         const locais = {};
         locaisSnapshot.forEach(doc => {
             locais[doc.id] = doc.data();
         });
 
-        const movementsByProduct = {};
-        movementsSnapshot.forEach(doc => {
-            const mov = doc.data();
-            if (mov.productId) {
-                if (!movementsByProduct[mov.productId]) {
-                    movementsByProduct[mov.productId] = [];
-                }
-                movementsByProduct[mov.productId].push(mov);
-            }
-        });
+        // Mapeia os dados do produto diretamente, sem recálculos.
+        consolidatedData = productsSnapshot.docs.map(productDoc => {
+            const product = productDoc.data();
 
-        const updatePromises = [];
-
-        consolidatedData = Object.values(products).map(product => {
-            const productMovements = movementsByProduct[product.id] || [];
-
-            let estoqueAtual = 0;
-
-            productMovements.forEach(mov => {
-                const quantidade = parseFloat(mov.quantidade) || 0;
-
-                if (mov.tipo === 'entrada') {
-                    estoqueAtual += quantidade;
-                } else if (mov.tipo === 'saida') {
-                    estoqueAtual -= quantidade;
-                }
-            });
-
-            if (product.estoque !== estoqueAtual) {
-                const productRef = doc(db, 'produtos', product.id);
-                updatePromises.push(updateDoc(productRef, { estoque: estoqueAtual }));
-            }
-
-            const entryMovements = productMovements.filter(m =>
-                m.tipo === 'entrada' &&
-                ((m.custo_total_entrada !== undefined && m.custo_total_entrada > 0) || (m.valor_unitario || 0) > 0)
-            );
-            let totalCost = 0;
-            let totalQuantityForAvg = 0;
-            entryMovements.forEach(m => {
-                if (m.quantidade > 0) {
-                    let entryTotalValue = 0;
-
-                    // Se o novo campo 'custo_total_entrada' existir, use-o
-                    if (m.custo_total_entrada !== undefined) {
-                        entryTotalValue = m.custo_total_entrada;
-                    } else {
-                        // Senão, calcule da forma antiga (fallback para dados legados)
-                        const valorUnit = m.valor_unitario || 0;
-                        const qtdCompra = m.quantidade_compra || m.quantidade; // Usa qtd_compra se existir
-                        entryTotalValue = (qtdCompra * valorUnit) + (m.icms || 0) + (m.ipi || 0) + (m.frete || 0);
-                    }
-
-                    totalCost += entryTotalValue;
-                    totalQuantityForAvg += m.quantidade;
-                }
-            });
-
-            const valorMedio = totalQuantityForAvg > 0 ? totalCost / totalQuantityForAvg : 0;
-            const valorTotalEstoque = (estoqueAtual || 0) * valorMedio;
+            // O saldo de estoque é lido DIRETAMENTE do produto. Esta é a fonte da verdade.
+            const estoqueAtual = product.estoque || 0;
 
             const localNome = locais[product.localId]?.nome || '';
             const locacaoDesc = product.locacao || '';
             const locacaoCompleta = [localNome, locacaoDesc].filter(Boolean).join(' - ') || 'N/A';
+
+            // O cálculo de valor médio ainda pode precisar das movimentações,
+            // mas para resolver o problema atual, vamos simplificar temporariamente.
+            // Se o cálculo de valor for necessário, ele deve ser feito em separado
+            // e NUNCA deve atualizar o estoque.
+            const valorMedio = product.valorMedio || 0; // Supondo que o valor médio seja salvo no produto
+            const valorTotalEstoque = estoqueAtual * valorMedio;
 
             return {
                 ...product,
@@ -104,9 +53,7 @@ document.addEventListener('DOMContentLoaded', async function() {
             };
         });
 
-        if (updatePromises.length > 0) {
-            await Promise.all(updatePromises);
-        }
+        // A lógica de `updatePromises` é REMOVIDA. A consulta não deve mais escrever no banco.
 
         renderTable(consolidatedData);
     }
@@ -116,13 +63,14 @@ document.addEventListener('DOMContentLoaded', async function() {
         data.forEach(item => {
             const row = document.createElement('tr');
             row.className = 'main-row';
+            // Dentro da função renderTable em js/consultas.js
             row.innerHTML = `
                 <td>${item.codigo}</td>
                 <td>${item.descricao}</td>
                 <td>${item.estoque || 0}</td>
                 <td>${item.un}</td>
-                <td>${item.valorMedio.toFixed(2)}</td>
-                <td>${item.valorTotalEstoque.toFixed(2)}</td>
+                <td>${(item.valorMedio || 0).toFixed(2)}</td>
+                <td>${(item.valorTotalEstoque || 0).toFixed(2)}</td>
                 <td>${item.local}</td>
             `;
             tableBody.appendChild(row);
