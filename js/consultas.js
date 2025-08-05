@@ -13,27 +13,30 @@ document.addEventListener('DOMContentLoaded', async function() {
 
     let consolidatedData = [];
 
+    // Substitua a função inteira em js/consultas.js por esta versão definitiva:
     async function fetchDataAndCalculate() {
-        // 1. Busca produtos e locais em paralelo.
+        // 1. Busca apenas as fontes de dados essenciais: produtos e locais.
         const [productsSnapshot, locaisSnapshot] = await Promise.all([
             getDocs(query(collection(db, 'produtos'), where("arquivado", "!=", true))),
             getDocs(collection(db, 'locais'))
         ]);
 
-        // 2. Prepara mapa de locais para consulta rápida.
         const locais = {};
         locaisSnapshot.forEach(doc => {
             locais[doc.id] = doc.data();
         });
 
-        // 3. Processa os dados consolidados para cada produto.
+        // 2. Mapeia os dados do produto DIRETAMENTE, sem cálculos.
         consolidatedData = productsSnapshot.docs.map(productDoc => {
-            const product = { ...productDoc.data(), id: productDoc.id };
+            const product = productDoc.data();
 
+            // 2.1. LÊ o saldo de estoque direto do produto.
             const estoqueAtual = product.estoque || 0;
 
-            // LÊ o valor médio que foi pré-calculado e salvo no produto.
+            // 2.2. LÊ o valor médio direto do produto.
             const valorMedio = product.valorMedio || 0;
+
+            // 2.3. Calcula o valor total apenas para exibição na tela.
             const valorTotalEstoque = estoqueAtual * valorMedio;
 
             const localNome = locais[product.localId]?.nome || '';
@@ -43,13 +46,13 @@ document.addEventListener('DOMContentLoaded', async function() {
             return {
                 ...product,
                 estoque: estoqueAtual,
-                valorMedio: valorMedio,
-                valorTotalEstoque: valorTotalEstoque,
+                valorMedio, // Valor lido, não recalculado
+                valorTotalEstoque, // Valor calculado para exibição
                 local: locacaoCompleta
             };
         });
 
-        // 4. Renderiza a tabela com os dados processados.
+        // 3. Renderiza a tabela. A função agora é 100% "read-only".
         renderTable(consolidatedData);
     }
 
