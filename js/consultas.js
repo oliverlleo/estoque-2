@@ -1,5 +1,5 @@
 import { db } from './firebase-config.js';
-import { collection, getDocs, doc, updateDoc } from "https://www.gstatic.com/firebasejs/9.6.1/firebase-firestore.js";
+import { collection, getDocs, doc, updateDoc, query, where } from "https://www.gstatic.com/firebasejs/9.6.1/firebase-firestore.js";
 
 document.addEventListener('DOMContentLoaded', async function() {
     console.log("Página de Consultas carregada.");
@@ -13,11 +13,9 @@ document.addEventListener('DOMContentLoaded', async function() {
 
     let consolidatedData = [];
 
-    // Substitua a função inteira em js/consultas.js por esta:
     async function fetchDataAndCalculate() {
-        // Busca apenas os produtos e os locais, não precisa mais das movimentações para o cálculo.
         const [productsSnapshot, locaisSnapshot] = await Promise.all([
-            getDocs(query(collection(db, 'produtos'), where("arquivado", "!=", true))), // Garante que não mostre arquivados
+            getDocs(query(collection(db, 'produtos'), where("arquivado", "!=", true))),
             getDocs(collection(db, 'locais'))
         ]);
 
@@ -26,22 +24,16 @@ document.addEventListener('DOMContentLoaded', async function() {
             locais[doc.id] = doc.data();
         });
 
-        // Mapeia os dados do produto diretamente, sem recálculos.
         consolidatedData = productsSnapshot.docs.map(productDoc => {
             const product = productDoc.data();
-
-            // O saldo de estoque é lido DIRETAMENTE do produto. Esta é a fonte da verdade.
             const estoqueAtual = product.estoque || 0;
-
             const localNome = locais[product.localId]?.nome || '';
             const locacaoDesc = product.locacao || '';
             const locacaoCompleta = [localNome, locacaoDesc].filter(Boolean).join(' - ') || 'N/A';
 
-            // O cálculo de valor médio ainda pode precisar das movimentações,
-            // mas para resolver o problema atual, vamos simplificar temporariamente.
-            // Se o cálculo de valor for necessário, ele deve ser feito em separado
-            // e NUNCA deve atualizar o estoque.
-            const valorMedio = product.valorMedio || 0; // Supondo que o valor médio seja salvo no produto
+            // ATENÇÃO: Lógica de custo médio precisa ser revista no futuro.
+            // Por enquanto, leremos um valor do produto ou usaremos 0.
+            const valorMedio = 0; // Placeholder para o cálculo do valor médio
             const valorTotalEstoque = estoqueAtual * valorMedio;
 
             return {
@@ -52,8 +44,6 @@ document.addEventListener('DOMContentLoaded', async function() {
                 local: locacaoCompleta
             };
         });
-
-        // A lógica de `updatePromises` é REMOVIDA. A consulta não deve mais escrever no banco.
 
         renderTable(consolidatedData);
     }
