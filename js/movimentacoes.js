@@ -51,10 +51,12 @@ document.addEventListener('DOMContentLoaded', async function() {
         document.getElementById('mov-tipo-entrada'), document.getElementById('mov-nf'),
         document.getElementById('mov-valor-unitario'), document.getElementById('mov-icms'),
         document.getElementById('mov-ipi'), document.getElementById('mov-frete')
+        // O campo 'mov-obra' será visível em ambos os modos
     ];
     const saidaFields = [
         document.getElementById('mov-tipo-saida'), document.getElementById('mov-requisitante'),
-        document.getElementById('mov-obra'), document.getElementById('mov-estoque-display-wrapper')
+        document.getElementById('mov-estoque-display-wrapper')
+        // Remova 'mov-obra' daqui, se estiver aqui.
     ];
 
     // --- Data Stores ---
@@ -66,6 +68,29 @@ document.addEventListener('DOMContentLoaded', async function() {
     // --- Table State ---
     let sortState = { column: 'data', direction: 'desc' };
     let filterState = {};
+
+    function toggleObraRequirement() {
+        const isEntrada = toggle.checked;
+        const obraSelect = document.getElementById('mov-obra');
+        let tipoConfig;
+
+        if (isEntrada) {
+            const tipoEntradaId = document.getElementById('mov-tipo-entrada').value;
+            tipoConfig = configData.tipos_entrada[tipoEntradaId];
+        } else {
+            const tipoSaidaId = document.getElementById('mov-tipo-saida').value;
+            tipoConfig = configData.tipos_saida[tipoSaidaId];
+        }
+
+        // Verifica a flag e ajusta o campo Obra
+        if (tipoConfig && tipoConfig.informa_obra === true) {
+            obraSelect.required = true;
+            obraSelect.parentElement.classList.add('required-field-visual'); // Adiciona feedback visual
+        } else {
+            obraSelect.required = false;
+            obraSelect.parentElement.classList.remove('required-field-visual'); // Remove feedback visual
+        }
+    }
 
     // --- Lógica do Interruptor (Toggle) ---
     function handleToggleChange() {
@@ -90,9 +115,12 @@ document.addEventListener('DOMContentLoaded', async function() {
             document.getElementById('toggle-label-entrada').style.color = '#6c757d';
         }
         updateProductInfo();
+        toggleObraRequirement(); // Adicionar esta chamada
     }
 
     toggle.addEventListener('change', handleToggleChange);
+    document.getElementById('mov-tipo-entrada').addEventListener('change', toggleObraRequirement);
+    document.getElementById('mov-tipo-saida').addEventListener('change', toggleObraRequirement);
 
     // --- Lógica de Submissão do Formulário Unificado ---
     formMovimentacao.addEventListener('submit', async (e) => {
