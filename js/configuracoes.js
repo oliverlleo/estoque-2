@@ -37,7 +37,7 @@ document.addEventListener('DOMContentLoaded', function() {
             render: (d) => `<td>${d.nome}</td>`,
             tableHeaders: "<th>Nome</th>"
         },
-        { name: "Obras", id: "obra", collectionName: "obras", fields: { nome: "Nome da Obra" }, render: (d) => `<td>${d.nome}</td>`, tableHeaders: "<th>Nome</th>" },
+        { name: "Obras", id: "obra", collectionName: "obras", fields: { codigo: "Código da Obra", nome: "Nome da Obra" }, render: (d) => `<td>${d.codigo || ''}</td><td>${d.nome}</td>`, tableHeaders: "<th>Código</th><th>Nome</th>" },
         {
             name: "Conversão de Unidade",
             id: "conversao",

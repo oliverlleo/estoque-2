@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Reservas - Controle de Estoque</title>
+    <title>Detalhes da Obra - Controle de Estoque</title>
     <link rel="stylesheet" href="css/style.css">
     <script src="https://cdn.jsdelivr.net/npm/feather-icons/dist/feather.min.js"></script>
 </head>
@@ -18,43 +18,42 @@
                 <li><a href="configuracoes.html"><i data-feather="settings"></i>Configurações</a></li>
                 <li><a href="produtos.html"><i data-feather="box"></i>Produtos</a></li>
                 <li><a href="movimentacoes.html"><i data-feather="git-commit"></i>Movimentações</a></li>
-                <li><a href="obras.html"><i data-feather="briefcase"></i>Obras</a></li>
+                <li><a href="obras.html" class="active"><i data-feather="briefcase"></i>Obras</a></li>
                 <li><a href="consultas.html"><i data-feather="search"></i>Consultas</a></li>
-                <li><a href="reservas.html" class="active"><i data-feather="clipboard"></i>Reservas</a></li>
+                <li><a href="reservas.html"><i data-feather="clipboard"></i>Reservas</a></li>
             </ul>
         </nav>
     </aside>
     <main class="main-content">
         <header>
-            <h1>Reservas de Estoque</h1>
+            <h1 id="obra-titulo">Carregando...</h1>
+            <h3 id="obra-custo-total"></h3>
         </header>
         <section class="content">
             <div class="card">
-                <div class="card-header"><h3>Gerenciamento de Reservas</h3></div>
+                <div class="card-header"><h3>Itens Utilizados na Obra</h3></div>
                 <div class="card-body">
-                    <div class="filters-container" id="filters-container">
-                        <input type="text" id="filter-codigo" class="form-control" placeholder="Filtrar por Código...">
-                        <input type="text" id="filter-descricao" class="form-control" placeholder="Filtrar por Descrição...">
-                        <input type="text" id="filter-obra" class="form-control" placeholder="Filtrar por Obra...">
+                    <div class="filters-container" style="display: flex; gap: 10px; margin-bottom: 20px;">
+                        <input type="text" id="filter-codigo-produto" class="form-control" placeholder="Filtrar por Código do Produto...">
+                        <input type="text" id="filter-descricao-produto" class="form-control" placeholder="Filtrar por Descrição...">
                     </div>
                     <div class="table-wrapper">
-                        <table id="table-reservas" class="table">
+                        <table id="table-itens-obra" class="table">
                             <thead>
                                 <tr>
-                                    <th>Status</th>
-                                    <th>Data</th>
                                     <th>Código</th>
                                     <th>Descrição</th>
                                     <th>UN</th>
                                     <th>Cor</th>
+                                    <th>Fornecedor</th>
                                     <th>Qtde</th>
-                                    <th>Obra</th>
                                     <th>Observação</th>
-                                    <th>Ações</th>
+                                    <th>Valor Médio</th>
+                                    <th>Valor Total</th>
                                 </tr>
                             </thead>
                             <tbody>
-                                <!-- Data will be loaded here by JS -->
+                                <!-- Itens da obra serão carregados aqui -->
                             </tbody>
                         </table>
                     </div>
@@ -63,7 +62,7 @@
         </section>
     </main>
     <script type="module" src="js/main.js"></script>
-    <script type="module" src="js/reservas.js"></script>
+    <script type="module" src="js/detalhe-obra.js"></script>
     <script> feather.replace() </script>
 </body>
 </html>
