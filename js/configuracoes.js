@@ -12,7 +12,7 @@ document.addEventListener('DOMContentLoaded', function() {
         { name: "Conjuntos", id: "conjunto", collectionName: "conjuntos", fields: { nome: "Nome do Conjunto" }, render: (d) => `<td>${d.nome}</td>`, tableHeaders: "<th>Nome</th>" },
         { name: "Endereçamento", id: "enderecamento", collectionName: "enderecamentos", fields: { codigo: "Código", local: "Local" }, render: (d) => `<td>${d.codigo}</td><td>${d.local}</td>`, tableHeaders: "<th>Código</th><th>Local</th>" },
         { name: "Tipos de Entrada", id: "tipo-entrada", collectionName: "tipos_entrada", fields: { nome: "Nome do Tipo de Entrada" }, render: (d) => `<td>${d.nome}</td>`, tableHeaders: "<th>Nome</th>" },
-        { name: "Tipos de Saída", id: "tipo-saida", collectionName: "tipos_saida", fields: { nome: "Nome do Tipo de Saída" }, render: (d) => `<td>${d.nome}</td>`, tableHeaders: "<th>Nome</th>" },
+        { name: "Tipos de Saída", id: "tipo-saida", collectionName: "tipos_saida", fields: { nome: "Nome do Tipo de Saída", reservar_estoque: "É uma Reserva?" }, render: (d) => `<td>${d.nome}</td><td>${d.reservar_estoque ? 'Sim' : 'Não'}</td>`, tableHeaders: "<th>Nome</th><th>Reserva?</th>" },
         { name: "Obras", id: "obra", collectionName: "obras", fields: { nome: "Nome da Obra" }, render: (d) => `<td>${d.nome}</td>`, tableHeaders: "<th>Nome</th>" }
     ];
 
@@ -61,10 +61,20 @@ document.addEventListener('DOMContentLoaded', function() {
 
     // --- 3. Gerador de HTML para o corpo do modal ---
     function generateModalContent(config) {
-        const formFields = Object.entries(config.fields).map(([key, placeholder]) => {
+        const formFields = Object.entries(config.fields).map(([key, label]) => {
+            if (key.includes('_')) { // Assumindo que campos com '_' são checkboxes
+                return `
+                    <div class="form-check">
+                        <input class="form-check-input" type="checkbox" id="${config.id}-${key}">
+                        <label class="form-check-label" for="${config.id}-${key}">
+                            ${label}
+                        </label>
+                    </div>
+                `;
+            }
             const inputType = (key.includes('imposto') || key.includes('valor')) ? 'number' : 'text';
             const step = inputType === 'number' ? 'step="0.01"' : '';
-            return `<input type="${inputType}" id="${config.id}-${key}" placeholder="${placeholder}" required class="form-control" ${step}>`;
+            return `<input type="${inputType}" id="${config.id}-${key}" placeholder="${label}" required class="form-control" ${step}>`;
         }).join('');
 
         return `
@@ -108,7 +118,12 @@ document.addEventListener('DOMContentLoaded', function() {
             const id = form.querySelector(`#${config.id}-id`).value;
             const data = {};
             for (const key in config.fields) {
-                data[key] = form.querySelector(`#${config.id}-${key}`).value;
+                const input = form.querySelector(`#${config.id}-${key}`);
+                if (input.type === 'checkbox') {
+                    data[key] = input.checked;
+                } else {
+                    data[key] = input.value;
+                }
             }
 
             try {
@@ -161,7 +176,12 @@ document.addEventListener('DOMContentLoaded', function() {
                 if (item) {
                     form.querySelector(`#${config.id}-id`).value = item.id;
                     for (const key in config.fields) {
-                        form.querySelector(`#${config.id}-${key}`).value = item.data[key];
+                        const input = form.querySelector(`#${config.id}-${key}`);
+                        if (input.type === 'checkbox') {
+                            input.checked = item.data[key] || false;
+                        } else {
+                            input.value = item.data[key];
+                        }
                     }
                     form.scrollIntoView({ behavior: 'smooth' });
                 }

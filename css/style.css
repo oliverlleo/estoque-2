@@ -294,3 +294,34 @@ body {
     grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
     gap: 1rem;
 }
+
+/* --- Reservas Page Specific Styles --- */
+.status-badge {
+    padding: 5px 8px;
+    border-radius: 4px;
+    color: white;
+    font-weight: 500;
+    font-size: 0.85rem;
+}
+
+.status-reserva {
+    background-color: #0d6efd; /* Blue */
+}
+
+.status-confirmado {
+    background-color: #198754; /* Green */
+}
+
+.status-cancelado {
+    background-color: #6c757d; /* Gray */
+}
+
+.btn-sm {
+    padding: 0.25rem 0.5rem;
+    font-size: 0.875rem;
+    border-radius: 0.2rem;
+}
+
+.btn-secondary {
+    background-color: #6c757d;
+}

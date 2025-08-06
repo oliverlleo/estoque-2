@@ -30,12 +30,12 @@ document.addEventListener('DOMContentLoaded', async function() {
 
         // Load other config data
         const configsToLoad = [
-            { name: 'tipo-entrada', collection: 'tipos_entrada', field: 'nome' },
-            { name: 'tipo-saida', collection: 'tipos_saida', field: 'nome' },
-            { name: 'obra', collection: 'obras', field: 'nome' },
+            { name: 'tipo-entrada', collection: 'tipos_entrada', field: 'nome', elementId: 'entrada-tipo' },
+            { name: 'tipo-saida', collection: 'tipos_saida', field: 'nome', elementId: 'saida-tipo' },
+            { name: 'obra', collection: 'obras', field: 'nome', elementId: 'saida-obra' },
         ];
         for (const cfg of configsToLoad) {
-            const select = document.getElementById(`${cfg.name === 'obra' ? 'saida-' : 'entrada-'}${cfg.name}`);
+            const select = document.getElementById(cfg.elementId);
             if(select) {
                  const snapshot = await getDocs(collection(db, cfg.collection));
                  configData[cfg.collection] = {};
@@ -120,48 +120,78 @@ document.addEventListener('DOMContentLoaded', async function() {
         e.preventDefault();
         const productId = document.getElementById('saida-produto').value;
         const quantidade = parseFloat(document.getElementById('saida-quantidade').value);
+        const tipoSaidaId = document.getElementById('saida-tipo').value;
 
-         if (!productId || isNaN(quantidade) || quantidade <= 0) {
-            alert('Por favor, preencha o produto e a quantidade corretamente.');
+        if (!productId || !tipoSaidaId || isNaN(quantidade) || quantidade <= 0) {
+            alert('Por favor, preencha todos os campos obrigatórios corretamente.');
             return;
         }
 
+        const tipoSaidaConfig = configData.tipos_saida[tipoSaidaId];
+        const isReserva = tipoSaidaConfig && tipoSaidaConfig.reservar_estoque;
+
         try {
-            await runTransaction(db, async (transaction) => {
-                const productRef = doc(db, 'produtos', productId);
-                const productDoc = await transaction.get(productRef);
-
-                if (!productDoc.exists()) {
-                    throw "Produto não encontrado!";
-                }
-
-                const currentEstoque = productDoc.data().estoque || 0;
-                if (currentEstoque < quantidade) {
-                    throw `Estoque insuficiente! Disponível: ${currentEstoque}`;
-                }
-                const newEstoque = currentEstoque - quantidade;
-
-                transaction.update(productRef, { estoque: newEstoque });
-
+            if (isReserva) {
+                // Lógica de Reserva: apenas cria o registro de movimentação, sem alterar o estoque.
                 const movementRef = doc(collection(db, 'movimentacoes'));
                 const movementData = {
-                    tipo: 'saida',
+                    tipo: 'reserva', // Novo tipo
                     produtoId,
                     quantidade,
                     data: serverTimestamp(),
-                    tipo_saidaId: document.getElementById('saida-tipo').value,
+                    tipo_saidaId: tipoSaidaId,
                     requisitante: document.getElementById('saida-requisitante').value,
                     obraId: document.getElementById('saida-obra').value,
                     observacao: document.getElementById('saida-observacao').value,
                     medida: document.getElementById('saida-medida').value,
                 };
-                transaction.set(movementRef, movementData);
-            });
-            alert('Saída registrada com sucesso!');
+                await runTransaction(db, async (transaction) => {
+                    transaction.set(movementRef, movementData);
+                });
+                alert('Reserva registrada com sucesso!');
+            } else {
+                // Lógica de Saída Padrão: debita do estoque.
+                await runTransaction(db, async (transaction) => {
+                    const productRef = doc(db, 'produtos', productId);
+                    const productDoc = await transaction.get(productRef);
+
+                    if (!productDoc.exists()) {
+                        throw "Produto não encontrado!";
+                    }
+
+                    const currentEstoque = productDoc.data().estoque || 0;
+                    if (currentEstoque < quantidade) {
+                        throw `Estoque insuficiente! Disponível: ${currentEstoque}`;
+                    }
+                    const newEstoque = currentEstoque - quantidade;
+
+                    transaction.update(productRef, { estoque: newEstoque });
+
+                    const movementRef = doc(collection(db, 'movimentacoes'));
+                    const movementData = {
+                        tipo: 'saida',
+                        produtoId,
+                        quantidade,
+                        data: serverTimestamp(),
+                        tipo_saidaId: tipoSaidaId,
+                        requisitante: document.getElementById('saida-requisitante').value,
+                        obraId: document.getElementById('saida-obra').value,
+                        observacao: document.getElementById('saida-observacao').value,
+                        medida: document.getElementById('saida-medida').value,
+                    };
+                    transaction.set(movementRef, movementData);
+                });
+                alert('Saída registrada com sucesso!');
+            }
             formSaida.reset();
+            // Resetar campos de display que não são do form
+            document.getElementById('saida-codigo-display').textContent = '-';
+            document.getElementById('saida-descricao-display').textContent = '-';
+            document.getElementById('saida-un-display').textContent = '-';
+            document.getElementById('saida-estoque-display').textContent = '-';
         } catch (error) {
-            console.error("Erro na transação de saída:", error);
-            alert(`Erro ao registrar saída: ${error}`);
+            console.error("Erro na transação de saída/reserva:", error);
+            alert(`Erro ao registrar: ${error.message || error}`);
         }
     });
 
