@@ -1,89 +1,68 @@
 import { db } from './firebase-config.js';
 import { collection, getDocs } from "https://www.gstatic.com/firebasejs/9.6.1/firebase-firestore.js";
 
-document.addEventListener('DOMContentLoaded', async function() {
-    const obrasContainer = document.getElementById('obras-container');
-    const filterCodigo = document.getElementById('filter-codigo');
-    const filterObra = document.getElementById('filter-obra');
-    let allObrasData = [];
+document.addEventListener('DOMContentLoaded', () => {
+    // Envolvemos a lógica principal em uma função async auto-executável
+    (async function carregarDadosObras() {
+        const obrasContainer = document.getElementById('obras-container');
+        if (!obrasContainer) return;
 
-    async function fetchData() {
+        obrasContainer.innerHTML = '<p>Calculando custos, por favor aguarde...</p>';
+
         try {
-            const [obrasSnapshot, produtosSnapshot, movimentacoesSnapshot] = await Promise.all([
+            // 1. Usamos Promise.all para buscar todas as coleções em paralelo.
+            // A execução só continua quando TODAS as buscas terminarem.
+            const [obrasSnap, productsSnap, movementsSnap] = await Promise.all([
                 getDocs(collection(db, 'obras')),
                 getDocs(collection(db, 'produtos')),
                 getDocs(collection(db, 'movimentacoes'))
             ]);
 
-            const productsMap = new Map(produtosSnapshot.docs.map(doc => [doc.id, doc.data()]));
-            const custosObras = {};
+            // 2. Com os dados garantidos, criamos os mapas para consulta rápida.
+            const productsMap = new Map(productsSnap.docs.map(doc => [doc.id, doc.data()]));
 
-            movimentacoesSnapshot.docs.forEach(doc => {
-                const mov = doc.data();
+            // 3. Calculamos o custo total para cada obra.
+            const custosPorObra = new Map();
+            movementsSnap.forEach(movDoc => {
+                const mov = movDoc.data();
                 if (mov.tipo === 'saida' && mov.obraId) {
-                    if (!custosObras[mov.obraId]) {
-                        custosObras[mov.obraId] = 0;
-                    }
-                    const product = productsMap.get(mov.produtoId);
-                    if (product && product.valorMedio) {
-                        const custoMovimentacao = Number(mov.quantidade) * Number(product.valorMedio);
-                        custosObras[mov.obraId] += custoMovimentacao;
+                    const produto = productsMap.get(mov.productId);
+                    if (produto) {
+                        const custoMovimentacao = (mov.quantidade || 0) * (produto.valorMedio || 0);
+                        const custoAtual = custosPorObra.get(mov.obraId) || 0;
+                        custosPorObra.set(mov.obraId, custoAtual + custoMovimentacao);
                     }
                 }
             });
 
-            allObrasData = obrasSnapshot.docs.map(doc => ({
-                id: doc.id,
-                ...doc.data(),
-                custoTotal: custosObras[doc.id] || 0
-            }));
+            // 4. Renderizamos os cards com os dados calculados.
+            obrasContainer.innerHTML = ''; // Limpa a mensagem de "carregando"
+            obrasSnap.forEach(obraDoc => {
+                const obra = obraDoc.data();
+                const obraId = obraDoc.id;
+                const custoTotal = custosPorObra.get(obraId) || 0;
 
-            renderObras(allObrasData);
+                const card = document.createElement('div');
+                card.className = 'obra-card'; // Adicione estilos para esta classe em style.css
+
+                card.innerHTML = `
+                    <h4>${obra.nome}</h4>
+                    <p><strong>Código:</strong> ${obra.codigo || 'N/A'}</p>
+                    <div class="obra-custo">
+                        ${custoTotal.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' })}
+                    </div>
+                    <a href="detalhe-obra.html?id=${obraId}" class="btn-ver-mais">Ver mais</a>
+                `;
+                obrasContainer.appendChild(card);
+            });
+
+            if (obrasSnap.empty) {
+                obrasContainer.innerHTML = '<p>Nenhuma obra cadastrada.</p>';
+            }
 
         } catch (error) {
-            console.error("Erro ao buscar dados:", error);
-            obrasContainer.innerHTML = '<p>Erro ao carregar os dados. Tente novamente mais tarde.</p>';
+            console.error("Erro ao carregar e calcular custos das obras:", error);
+            obrasContainer.innerHTML = '<p style="color: red;">Erro ao carregar os dados. Verifique o console.</p>';
         }
-    }
-
-    function renderObras(obras) {
-        obrasContainer.innerHTML = '';
-        if (obras.length === 0) {
-            obrasContainer.innerHTML = '<p>Nenhuma obra encontrada.</p>';
-            return;
-        }
-
-        obras.forEach(obra => {
-            const obraCard = document.createElement('div');
-            obraCard.className = 'obra-card';
-
-            const custoFormatado = obra.custoTotal.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' });
-
-            obraCard.innerHTML = `
-                <h4>${obra.nome}</h4>
-                <p><strong>Código:</strong> ${obra.codigo || 'N/A'}</p>
-                <p class="custo">${custoFormatado}</p>
-                <a href="detalhe-obra.html?id=${obra.id}" class="ver-mais">Ver mais</a>
-            `;
-            obrasContainer.appendChild(obraCard);
-        });
-    }
-
-    function filterData() {
-        const codigo = filterCodigo.value.toLowerCase();
-        const obraNome = filterObra.value.toLowerCase();
-
-        const filteredObras = allObrasData.filter(obra => {
-            const matchCodigo = obra.codigo ? obra.codigo.toLowerCase().includes(codigo) : true;
-            const matchNome = obra.nome.toLowerCase().includes(obraNome);
-            return matchCodigo && matchNome;
-        });
-
-        renderObras(filteredObras);
-    }
-
-    filterCodigo.addEventListener('input', filterData);
-    filterObra.addEventListener('input', filterData);
-
-    fetchData();
+    })();
 });
