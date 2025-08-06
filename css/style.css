@@ -622,7 +622,6 @@ input:checked + .slider:before {
 }
 
 .status-reserva { background-color: #0d6efd; }
-.status-confirmada { background-color: #198754; }
 .status-cancelada { background-color: #6c757d; }
 
 #table-reservas .btn-confirmar,

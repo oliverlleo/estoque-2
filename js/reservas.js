@@ -41,7 +41,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
         const q = query(
             collection(db, 'movimentacoes'),
-            where("tipo", "in", ["reserva", "saida_confirmada", "reserva_cancelada"])
+            where("tipo", "in", ["reserva", "reserva_cancelada"])
         );
 
         onSnapshot(q, (snapshot) => {
@@ -80,8 +80,9 @@ document.addEventListener('DOMContentLoaded', () => {
 
             const row = document.createElement('tr');
 
-            const statusClass = `status-${mov.tipo.replace('saida_', '').replace('reserva_', '')}`; // reserva, confirmado, cancelado
-            const statusText = mov.tipo.replace('_', ' ').toUpperCase();
+            // Simplificado: não há mais 'saida_confirmada'
+            const statusClass = `status-${mov.tipo.replace('reserva_', '')}`; // reserva, cancelada
+            const statusText = mov.tipo.replace('reserva_', 'RESERVA ').toUpperCase();
 
             row.innerHTML = `
                 <td><span class="status-badge ${statusClass}">${statusText}</span></td>
@@ -145,7 +146,10 @@ document.addEventListener('DOMContentLoaded', () => {
 
                 const newEstoque = currentEstoque - movData.quantidade;
                 transaction.update(productRef, { estoque: newEstoque });
-                transaction.update(movRef, { tipo: 'saida_confirmada' });
+                transaction.update(movRef, {
+                    tipo: 'saida', // <-- MUDANÇA PRINCIPAL
+                    reserva_confirmada: true // <-- Novo campo para auditoria
+                });
             });
             alert('Reserva confirmada e estoque atualizado com sucesso!');
         } catch (error) {
