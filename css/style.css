@@ -610,3 +610,35 @@ input:checked + .slider:before {
 .required-field-visual-input {
     border-left: 5px solid #E53E3E !important; /* Borda vermelha para indicar obrigatoriedade */
 }
+
+/* Styles for Reservations Page */
+.status-badge {
+    color: white;
+    padding: 5px 8px;
+    border-radius: 4px;
+    font-size: 0.8rem;
+    font-weight: 600;
+    text-transform: uppercase;
+}
+
+.status-reserva { background-color: #0d6efd; }
+.status-confirmada { background-color: #198754; }
+.status-cancelada { background-color: #6c757d; }
+
+#table-reservas .btn-confirmar,
+#table-reservas .btn-cancelar {
+    padding: 3px 8px;
+    font-size: 0.8rem;
+    color: white;
+    border: none;
+    border-radius: 4px;
+    cursor: pointer;
+}
+
+#table-reservas .btn-confirmar {
+    background-color: #198754; /* Green */
+}
+
+#table-reservas .btn-cancelar {
+    background-color: #dc3545; /* Red */
+}
