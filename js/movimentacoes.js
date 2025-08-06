@@ -552,7 +552,7 @@ document.addEventListener('DOMContentLoaded', async function() {
 
             row.innerHTML = `
                 <td>${searchData.data}</td>
-                <td class="${searchData.tipo}">${searchData.tipo.toUpperCase()}</td>
+                <td class="${searchData.tipo}">${searchData.tipo === 'reserva_cancelada' ? 'RESERVA CANCELADA' : searchData.tipo.toUpperCase()}</td>
                 <td>${searchData.codigo || 'N/A'}</td>
                 <td>${searchData.descricao || 'Produto não encontrado'}</td>
                 <td>${searchData.un || 'N/A'}</td>
