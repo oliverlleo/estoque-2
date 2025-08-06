@@ -428,6 +428,16 @@ input:checked + .slider:before {
     background-color: #dc3545; /* Vermelho (btn-danger) */
 }
 
+/* Estilo para Reservas Pendentes na Tabela de Movimentações */
+#table-movimentacoes td.reserva {
+    background-color: #0d6efd; /* Azul informativo do Bootstrap */
+    color: white;
+    text-align: center;
+    font-weight: 600;
+    border-radius: 4px;
+    border-bottom: 2px solid #fff;
+}
+
 /* Mantém a cor da célula mesmo com o efeito hover da linha da tabela.
   Esta regra é mais específica e por isso prevalece sobre a regra de hover genérica.
 */
@@ -437,6 +447,10 @@ input:checked + .slider:before {
 
 #table-movimentacoes tr:hover td.saida {
     background-color: #dc3545;
+}
+
+#table-movimentacoes tr:hover td.reserva {
+    background-color: #0b5ed7; /* Azul um pouco mais escuro no hover */
 }
 
 /* --- Estilos CORRIGIDOS para o Componente Dropdown --- */
@@ -609,4 +623,91 @@ input:checked + .slider:before {
 
 .required-field-visual-input {
     border-left: 5px solid #E53E3E !important; /* Borda vermelha para indicar obrigatoriedade */
+}
+
+/* Styles for Reservations Page */
+.status-badge {
+    color: white;
+    padding: 5px 8px;
+    border-radius: 4px;
+    font-size: 0.8rem;
+    font-weight: 600;
+    text-transform: uppercase;
+}
+
+.status-reserva { background-color: #0d6efd; }
+.status-cancelada { background-color: #6c757d; }
+
+#table-reservas .btn-confirmar,
+#table-reservas .btn-cancelar {
+    padding: 3px 8px;
+    font-size: 0.8rem;
+    color: white;
+    border: none;
+    border-radius: 4px;
+    cursor: pointer;
+}
+
+#table-reservas .btn-confirmar {
+    background-color: #198754; /* Green */
+}
+
+#table-reservas .btn-cancelar {
+    background-color: #dc3545; /* Red */
+}
+
+/* Estilos para a Grade de Obras */
+.obras-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
+    gap: 20px;
+}
+
+/* Estilos para o Card da Obra */
+.obra-card {
+    background-color: #fff;
+    border: 1px solid #e0e0e0;
+    border-radius: 8px;
+    padding: 20px;
+    box-shadow: 0 2px 4px rgba(0, 0, 0, 0.05);
+    display: flex;
+    flex-direction: column;
+    transition: box-shadow 0.3s ease, transform 0.3s ease;
+}
+
+.obra-card:hover {
+    transform: translateY(-5px);
+    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
+}
+
+.obra-card h4 {
+    margin: 0 0 5px 0;
+    font-size: 1.25rem;
+    color: #2c3e50;
+}
+
+.obra-card p {
+    margin: 0 0 15px 0;
+    font-size: 0.9rem;
+    color: #7f8c8d;
+}
+
+.obra-card .obra-custo {
+    font-size: 1.75rem;
+    font-weight: 700;
+    color: #198754; /* Verde sucesso */
+    margin-bottom: 20px;
+}
+
+.obra-card .btn-ver-mais {
+    margin-top: auto; /* Empurra o botão para o final do card */
+    text-align: right;
+    font-weight: 600;
+    text-decoration: none;
+    color: #0d6efd; /* Azul primário */
+    transition: color 0.3s ease;
+}
+
+.obra-card .btn-ver-mais:hover {
+    color: #0b5ed7;
 }

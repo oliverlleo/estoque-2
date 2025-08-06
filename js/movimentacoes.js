@@ -4,7 +4,7 @@ function showInfoModal(message) {
 }
 
 import { db } from './firebase-config.js';
-import { collection, getDocs, onSnapshot, runTransaction, doc, serverTimestamp, query, where, getDoc, setDoc } from "https://www.gstatic.com/firebasejs/9.6.1/firebase-firestore.js";
+import { collection, addDoc, getDocs, onSnapshot, runTransaction, doc, serverTimestamp, query, where, getDoc, setDoc } from "https://www.gstatic.com/firebasejs/9.6.1/firebase-firestore.js";
 
 // Adicione esta função em js/movimentacoes.js
 async function calcularCustoMedioProduto(produtoId) {
@@ -316,44 +316,68 @@ document.addEventListener('DOMContentLoaded', async function() {
                 }
             }
         } else { // Saída
-            try {
-                await runTransaction(db, async (transaction) => {
-                    const productRef = doc(db, 'produtos', productId);
-                    const productDoc = await transaction.get(productRef);
-                    if (!productDoc.exists()) throw new Error("Produto não encontrado!");
+            const tipoSaidaId = document.getElementById('mov-tipo-saida').value;
+            const tipoSaidaConfig = configData.tipos_saida[tipoSaidaId];
 
-                    // Lógica de Saída
-                    const tipoSaidaId = document.getElementById('mov-tipo-saida').value;
-                    const tipoSaidaConfig = configData.tipos_saida[tipoSaidaId];
-
-                    if (tipoSaidaConfig && tipoSaidaConfig.movimenta_estoque === true) {
-                        const currentEstoque = productDoc.data().estoque || 0;
-                        if (currentEstoque < quantidade) {
-                            throw new Error(`Estoque insuficiente! Disponível: ${currentEstoque}`);
-                        }
-                        const newEstoque = currentEstoque - quantidade;
-                        transaction.update(productRef, { estoque: newEstoque });
-                    }
-
-                    const movementRef = doc(collection(db, 'movimentacoes'));
+            if (tipoSaidaConfig && tipoSaidaConfig.reservar_estoque === true) {
+                // Lógica de Reserva
+                try {
                     const movementData = {
-                        tipo: 'saida',
+                        tipo: 'reserva',
                         productId,
                         quantidade,
                         data: serverTimestamp(),
-                        tipo_saidaId: document.getElementById('mov-tipo-saida').value,
+                        tipo_saidaId: tipoSaidaId,
                         requisitante: document.getElementById('mov-requisitante').value,
                         obraId: document.getElementById('mov-obra').value,
                         observacao: document.getElementById('mov-observacao').value,
                     };
-                    transaction.set(movementRef, movementData);
-                });
-                alert('Saída registrada com sucesso!');
-                formMovimentacao.reset();
-                handleToggleChange(); // Reseta o formulário para o estado inicial
-            } catch (error) {
-                console.error("Erro ao registrar saída:", error);
-                showInfoModal(error.message);
+                    await addDoc(collection(db, 'movimentacoes'), movementData);
+                    alert('Reserva registrada com sucesso!');
+                    formMovimentacao.reset();
+                    handleToggleChange();
+                } catch (error) {
+                    console.error("Erro ao registrar reserva:", error);
+                    showInfoModal(error.message);
+                }
+            } else {
+                // Lógica de Saída Normal
+                try {
+                    await runTransaction(db, async (transaction) => {
+                        const productRef = doc(db, 'produtos', productId);
+                        const productDoc = await transaction.get(productRef);
+                        if (!productDoc.exists()) throw new Error("Produto não encontrado!");
+
+                        if (tipoSaidaConfig && tipoSaidaConfig.movimenta_estoque === true) {
+                            const currentEstoque = productDoc.data().estoque || 0;
+                            if (currentEstoque < quantidade) {
+                                throw new Error(`Estoque insuficiente! Disponível: ${currentEstoque}`);
+                            }
+                            const newEstoque = currentEstoque - quantidade;
+                            transaction.update(productRef, { estoque: newEstoque });
+                        }
+
+                        const movementRef = doc(collection(db, 'movimentacoes'));
+                        const movementData = {
+                            tipo: 'saida',
+                            productId,
+                            quantidade,
+                            data: serverTimestamp(),
+                            tipo_saidaId: tipoSaidaId,
+                            requisitante: document.getElementById('mov-requisitante').value,
+                            obraId: document.getElementById('mov-obra').value,
+                            observacao: document.getElementById('mov-observacao').value,
+                            valorMedioHistorico: productDoc.data().valorMedio || 0
+                        };
+                        transaction.set(movementRef, movementData);
+                    });
+                    alert('Saída registrada com sucesso!');
+                    formMovimentacao.reset();
+                    handleToggleChange();
+                } catch (error) {
+                    console.error("Erro ao registrar saída:", error);
+                    showInfoModal(error.message);
+                }
             }
         }
     });

@@ -31,12 +31,13 @@ document.addEventListener('DOMContentLoaded', function() {
             fields: {
                 nome: "Nome do Tipo de Saída",
                 movimenta_estoque: "Movimenta Estoque",
-                informa_obra: "Informa Obra" // Adicionar esta linha
+                informa_obra: "Informa Obra", // Adicionar esta linha
+                reservar_estoque: "É uma Reserva?"
             },
             render: (d) => `<td>${d.nome}</td>`,
             tableHeaders: "<th>Nome</th>"
         },
-        { name: "Obras", id: "obra", collectionName: "obras", fields: { nome: "Nome da Obra" }, render: (d) => `<td>${d.nome}</td>`, tableHeaders: "<th>Nome</th>" },
+        { name: "Obras", id: "obra", collectionName: "obras", fields: { codigo: "Código da Obra", nome: "Nome da Obra" }, render: (d) => `<td>${d.codigo || ''}</td><td>${d.nome}</td>`, tableHeaders: "<th>Código</th><th>Nome</th>" },
         {
             name: "Conversão de Unidade",
             id: "conversao",
@@ -102,7 +103,7 @@ document.addEventListener('DOMContentLoaded', function() {
     function generateModalContent(config) {
         // Código de substituição para a variável formFields
         let formFields = Object.entries(config.fields).map(([key, label]) => {
-            if (key.includes('movimenta_') || key.includes('recalcula_custo_medio') || key.includes('informa_obra') || key.includes('informa_valor_unitario')) { // Condição para identificar nosso checkbox
+            if (key.includes('movimenta_') || key.includes('recalcula_custo_medio') || key.includes('informa_obra') || key.includes('informa_valor_unitario') || key.includes('reservar_estoque')) { // Condição para identificar nosso checkbox
                 return `
                     <div style="grid-column: 1 / -1; display: flex; align-items: center; gap: 10px; padding: 0.5rem; background-color: #f8f9fa; border: 1px solid #ced4da; border-radius: 0.25rem;">
                         <input type="checkbox" id="${config.id}-${key}" style="width: auto; height: 1.2em; width: 1.2em;">

@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Consultas - Controle de Estoque</title>
+    <title>Detalhes da Obra - Controle de Estoque</title>
     <link rel="stylesheet" href="css/style.css">
     <script src="https://cdn.jsdelivr.net/npm/feather-icons/dist/feather.min.js"></script>
 </head>
@@ -18,40 +18,42 @@
                 <li><a href="configuracoes.html"><i data-feather="settings"></i>Configurações</a></li>
                 <li><a href="produtos.html"><i data-feather="box"></i>Produtos</a></li>
                 <li><a href="movimentacoes.html"><i data-feather="git-commit"></i>Movimentações</a></li>
-                <li><a href="obras.html"><i data-feather="briefcase"></i>Obras</a></li>
-                <li><a href="consultas.html" class="active"><i data-feather="search"></i>Consultas</a></li>
+                <li><a href="obras.html" class="active"><i data-feather="briefcase"></i>Obras</a></li>
+                <li><a href="consultas.html"><i data-feather="search"></i>Consultas</a></li>
                 <li><a href="reservas.html"><i data-feather="clipboard"></i>Reservas</a></li>
             </ul>
         </nav>
     </aside>
     <main class="main-content">
         <header>
-            <h1>Consulta de Estoque</h1>
+            <h1 id="obra-titulo">Carregando...</h1>
+            <h3 id="obra-custo-total"></h3>
         </header>
         <section class="content">
             <div class="card">
-                <div class="card-header"><h3>Consulta de Estoque e Valores</h3></div>
+                <div class="card-header"><h3>Itens Utilizados na Obra</h3></div>
                 <div class="card-body">
                     <div class="filters-container" style="display: flex; gap: 10px; margin-bottom: 20px;">
-                        <input type="text" id="filter-codigo" class="form-control" placeholder="Filtrar por Código...">
-                        <input type="text" id="filter-descricao" class="form-control" placeholder="Filtrar por Descrição...">
-                        <input type="text" id="filter-local" class="form-control" placeholder="Filtrar por Local...">
+                        <input type="text" id="filter-codigo-produto" class="form-control" placeholder="Filtrar por Código do Produto...">
+                        <input type="text" id="filter-descricao-produto" class="form-control" placeholder="Filtrar por Descrição...">
                     </div>
                     <div class="table-wrapper">
-                        <table id="table-consultas" class="table">
+                        <table id="table-itens-obra" class="table">
                             <thead>
                                 <tr>
                                     <th>Código</th>
                                     <th>Descrição</th>
-                                    <th>Estoque Atual</th>
                                     <th>UN</th>
+                                    <th>Cor</th>
+                                    <th>Fornecedor</th>
+                                    <th>Qtde</th>
+                                    <th>Observação</th>
                                     <th>Valor Médio</th>
-                                    <th>Valor Total Estoque</th>
-                                    <th>Locação</th>
+                                    <th>Valor Total</th>
                                 </tr>
                             </thead>
-                            <tbody>
-                                <!-- Data will be loaded here by JS -->
+                            <tbody id="detalhe-obra-table-body">
+                                <!-- Itens da obra serão carregados aqui -->
                             </tbody>
                         </table>
                     </div>
@@ -60,7 +62,7 @@
         </section>
     </main>
     <script type="module" src="js/main.js"></script>
-    <script type="module" src="js/consultas.js"></script>
+    <script type="module" src="js/detalhe-obra.js"></script>
     <script> feather.replace() </script>
 </body>
 </html>
