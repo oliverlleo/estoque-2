@@ -4,7 +4,7 @@ function showInfoModal(message) {
 }
 
 import { db } from './firebase-config.js';
-import { collection, getDocs, onSnapshot, runTransaction, doc, serverTimestamp, query, where, getDoc } from "https://www.gstatic.com/firebasejs/9.6.1/firebase-firestore.js";
+import { collection, getDocs, onSnapshot, runTransaction, doc, serverTimestamp, query, where, getDoc, setDoc } from "https://www.gstatic.com/firebasejs/9.6.1/firebase-firestore.js";
 
 // Adicione esta função em js/movimentacoes.js
 async function calcularCustoMedioProduto(produtoId) {
@@ -51,10 +51,12 @@ document.addEventListener('DOMContentLoaded', async function() {
         document.getElementById('mov-tipo-entrada'), document.getElementById('mov-nf'),
         document.getElementById('mov-valor-unitario'), document.getElementById('mov-icms'),
         document.getElementById('mov-ipi'), document.getElementById('mov-frete')
+        // O campo 'mov-obra' será visível em ambos os modos
     ];
     const saidaFields = [
         document.getElementById('mov-tipo-saida'), document.getElementById('mov-requisitante'),
-        document.getElementById('mov-obra'), document.getElementById('mov-estoque-display-wrapper')
+        document.getElementById('mov-estoque-display-wrapper')
+        // Remova 'mov-obra' daqui, se estiver aqui.
     ];
 
     // --- Data Stores ---
@@ -66,6 +68,54 @@ document.addEventListener('DOMContentLoaded', async function() {
     // --- Table State ---
     let sortState = { column: 'data', direction: 'desc' };
     let filterState = {};
+
+    function toggleValorUnitarioRequirement() {
+        const isEntrada = toggle.checked;
+        const valorUnitarioInput = document.getElementById('mov-valor-unitario');
+
+        if (isEntrada) {
+            const tipoEntradaId = document.getElementById('mov-tipo-entrada').value;
+            const tipoConfig = configData.tipos_entrada[tipoEntradaId];
+
+            if (tipoConfig && tipoConfig.informa_valor_unitario === true) {
+                valorUnitarioInput.required = true;
+                // Adiciona a classe no elemento pai (div ou form-group) se houver,
+                // caso contrário, no próprio input.
+                valorUnitarioInput.classList.add('required-field-visual-input');
+            } else {
+                valorUnitarioInput.required = false;
+                valorUnitarioInput.classList.remove('required-field-visual-input');
+            }
+        } else {
+            // Em modo Saída, o campo nunca é obrigatório e geralmente está oculto.
+            valorUnitarioInput.required = false;
+            valorUnitarioInput.classList.remove('required-field-visual-input');
+        }
+    }
+
+    function toggleObraRequirement() {
+        const isEntrada = toggle.checked;
+        const obraSelect = document.getElementById('mov-obra');
+
+        if (isEntrada) {
+            // No modo de entrada, o campo Obra nunca é obrigatório.
+            obraSelect.required = false;
+            obraSelect.parentElement.classList.remove('required-field-visual');
+            return;
+        }
+
+        // A lógica abaixo agora só se aplica ao modo de Saída.
+        const tipoSaidaId = document.getElementById('mov-tipo-saida').value;
+        const tipoConfig = configData.tipos_saida[tipoSaidaId];
+
+        if (tipoConfig && tipoConfig.informa_obra === true) {
+            obraSelect.required = true;
+            obraSelect.parentElement.classList.add('required-field-visual');
+        } else {
+            obraSelect.required = false;
+            obraSelect.parentElement.classList.remove('required-field-visual');
+        }
+    }
 
     // --- Lógica do Interruptor (Toggle) ---
     function handleToggleChange() {
@@ -90,9 +140,14 @@ document.addEventListener('DOMContentLoaded', async function() {
             document.getElementById('toggle-label-entrada').style.color = '#6c757d';
         }
         updateProductInfo();
+        toggleObraRequirement(); // Adicionar esta chamada
+        toggleValorUnitarioRequirement(); // Adicionar esta chamada
     }
 
     toggle.addEventListener('change', handleToggleChange);
+    document.getElementById('mov-tipo-entrada').addEventListener('change', toggleObraRequirement);
+    document.getElementById('mov-tipo-saida').addEventListener('change', toggleObraRequirement);
+    document.getElementById('mov-tipo-entrada').addEventListener('change', toggleValorUnitarioRequirement);
 
     // --- Lógica de Submissão do Formulário Unificado ---
     formMovimentacao.addEventListener('submit', async (e) => {
@@ -245,6 +300,14 @@ document.addEventListener('DOMContentLoaded', async function() {
                         transaction.set(movementRef, movementData);
                     });
                     alert('Entrada registrada com sucesso!');
+
+                    const tipoEntradaId = document.getElementById('mov-tipo-entrada').value;
+                    const tipoEntradaConfig = configData.tipos_entrada[tipoEntradaId];
+
+                    if (tipoEntradaConfig && tipoEntradaConfig.recalcula_custo_medio === true) {
+                        await atualizarCustoMedioProduto(productId);
+                    }
+
                     formMovimentacao.reset();
                     handleToggleChange();
                 } catch (error) {
@@ -524,3 +587,36 @@ document.addEventListener('DOMContentLoaded', async function() {
         updateTable();
     });
 });
+
+// Substitua a função inteira em js/movimentacoes.js por esta versão CORRIGIDA:
+async function atualizarCustoMedioProduto(produtoId) {
+    if (!produtoId) return;
+
+    // A busca aqui foi corrigida para usar 'produtoId', a variável que a função recebe.
+    // Este era o ponto do erro.
+    const q = query(
+        collection(db, 'movimentacoes'),
+        where("productId", "==", produtoId), // <-- CORRIGIDO AQUI
+        where("tipo", "==", "entrada")
+    );
+    const movementsSnapshot = await getDocs(q);
+
+    let totalCost = 0;
+    let totalQuantityForAvg = 0;
+
+    movementsSnapshot.forEach(doc => {
+        const mov = doc.data();
+        if (mov.custo_total_entrada && mov.custo_total_entrada > 0) {
+            if (mov.quantidade > 0) {
+                totalCost += mov.custo_total_entrada;
+                totalQuantityForAvg += mov.quantidade;
+            }
+        }
+    });
+
+    const novoCustoMedio = totalQuantityForAvg > 0 ? totalCost / totalQuantityForAvg : 0;
+    const productRef = doc(db, 'produtos', produtoId);
+    await setDoc(productRef, { valorMedio: novoCustoMedio }, { merge: true });
+
+    console.log(`Custo médio do produto ${produtoId} atualizado para ${novoCustoMedio.toFixed(2)}`);
+}
