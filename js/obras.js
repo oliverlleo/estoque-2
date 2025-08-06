@@ -12,26 +12,19 @@ document.addEventListener('DOMContentLoaded', () => {
         try {
             // 1. Usamos Promise.all para buscar todas as coleções em paralelo.
             // A execução só continua quando TODAS as buscas terminarem.
-            const [obrasSnap, productsSnap, movementsSnap] = await Promise.all([
+            const [obrasSnap, movementsSnap] = await Promise.all([
                 getDocs(collection(db, 'obras')),
-                getDocs(collection(db, 'produtos')),
                 getDocs(collection(db, 'movimentacoes'))
             ]);
 
-            // 2. Com os dados garantidos, criamos os mapas para consulta rápida.
-            const productsMap = new Map(productsSnap.docs.map(doc => [doc.id, doc.data()]));
-
-            // 3. Calculamos o custo total para cada obra.
+            // 2. Calculamos o custo total para cada obra usando o valor histórico.
             const custosPorObra = new Map();
             movementsSnap.forEach(movDoc => {
                 const mov = movDoc.data();
                 if (mov.tipo === 'saida' && mov.obraId) {
-                    const produto = productsMap.get(mov.productId);
-                    if (produto) {
-                        const custoMovimentacao = (mov.quantidade || 0) * (produto.valorMedio || 0);
-                        const custoAtual = custosPorObra.get(mov.obraId) || 0;
-                        custosPorObra.set(mov.obraId, custoAtual + custoMovimentacao);
-                    }
+                    const custoMovimentacao = (mov.quantidade || 0) * (mov.valorMedioHistorico || 0);
+                    const custoAtual = custosPorObra.get(mov.obraId) || 0;
+                    custosPorObra.set(mov.obraId, custoAtual + custoMovimentacao);
                 }
             });
 

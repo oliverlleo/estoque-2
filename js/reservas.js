@@ -147,8 +147,9 @@ document.addEventListener('DOMContentLoaded', () => {
                 const newEstoque = currentEstoque - movData.quantidade;
                 transaction.update(productRef, { estoque: newEstoque });
                 transaction.update(movRef, {
-                    tipo: 'saida', // <-- MUDANÇA PRINCIPAL
-                    reserva_confirmada: true // <-- Novo campo para auditoria
+                    tipo: 'saida',
+                    reserva_confirmada: true,
+                    valorMedioHistorico: productDoc.data().valorMedio || 0
                 });
             });
             alert('Reserva confirmada e estoque atualizado com sucesso!');

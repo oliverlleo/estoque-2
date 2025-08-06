@@ -37,7 +37,7 @@ document.addEventListener('DOMContentLoaded', () => {
                 const produto = productsMap[movimentacao.productId];
 
                 if (produto) {
-                    const valorMedio = produto.valorMedio || 0;
+                    const valorMedio = movimentacao.valorMedioHistorico || 0;
                     const valorTotalItem = movimentacao.quantidade * valorMedio;
                     custoTotalDaObra += valorTotalItem;
 

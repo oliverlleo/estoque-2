@@ -367,6 +367,7 @@ document.addEventListener('DOMContentLoaded', async function() {
                             requisitante: document.getElementById('mov-requisitante').value,
                             obraId: document.getElementById('mov-obra').value,
                             observacao: document.getElementById('mov-observacao').value,
+                            valorMedioHistorico: productDoc.data().valorMedio || 0
                         };
                         transaction.set(movementRef, movementData);
                     });
