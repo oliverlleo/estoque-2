@@ -12,11 +12,13 @@ document.addEventListener('DOMContentLoaded', () => {
 
     async function carregarDetalhesDaObra() {
         try {
-            const [obraSnap, movementsSnap, productsSnap, fornecedoresSnap] = await Promise.all([
+            const [obraSnap, movementsSnap, productsSnap, fornecedoresSnap, gruposSnap, aplicacoesSnap] = await Promise.all([
                 getDoc(doc(db, 'obras', obraId)),
                 getDocs(query(collection(db, 'movimentacoes'), where('obraId', '==', obraId), where('tipo', '==', 'saida'))),
                 getDocs(collection(db, 'produtos')),
-                getDocs(collection(db, 'fornecedores')) // Busca fornecedores também
+                getDocs(collection(db, 'fornecedores')),
+                getDocs(collection(db, 'grupos')),      // Adicionado
+                getDocs(collection(db, 'aplicacoes'))   // Adicionado
             ]);
 
             const productsMap = {};
@@ -27,6 +29,16 @@ document.addEventListener('DOMContentLoaded', () => {
             const fornecedoresMap = {};
             fornecedoresSnap.forEach(fornDoc => {
                 fornecedoresMap[fornDoc.id] = fornDoc.data();
+            });
+
+            const gruposMap = {};
+            gruposSnap.forEach(grupoDoc => {
+                gruposMap[grupoDoc.id] = grupoDoc.data();
+            });
+
+            const aplicacoesMap = {};
+            aplicacoesSnap.forEach(appDoc => {
+                aplicacoesMap[appDoc.id] = appDoc.data();
             });
 
             let custoTotalDaObra = 0;
@@ -41,8 +53,12 @@ document.addEventListener('DOMContentLoaded', () => {
                     const valorTotalItem = movimentacao.quantidade * valorMedio;
                     custoTotalDaObra += valorTotalItem;
 
-                    // Busca o nome do fornecedor no mapa
                     const fornecedor = produto.fornecedorId ? (fornecedoresMap[produto.fornecedorId]?.nome || 'N/A') : 'N/A';
+                    const grupo = produto.grupoId ? (gruposMap[produto.grupoId]?.nome || 'N/A') : 'N/A';
+                    const aplicacoes = (produto.aplicacaoIds || [])
+                        .map(id => aplicacoesMap[id]?.nome || '')
+                        .filter(Boolean)
+                        .join(', ') || 'N/A';
 
                     itensUtilizados.push({
                         codigo: produto.codigo,
@@ -50,6 +66,8 @@ document.addEventListener('DOMContentLoaded', () => {
                         un: produto.un,
                         cor: produto.cor || '-',
                         fornecedor: fornecedor,
+                        grupo: grupo,
+                        aplicacoes: aplicacoes,
                         qtde: movimentacao.quantidade,
                         observacao: movimentacao.observacao || '-',
                         valorMedio: valorMedio,
@@ -89,6 +107,8 @@ document.addEventListener('DOMContentLoaded', () => {
                 <td>${item.un}</td>
                 <td>${item.cor}</td>
                 <td>${item.fornecedor}</td>
+                <td>${item.grupo}</td>
+                <td>${item.aplicacoes}</td>
                 <td>${item.qtde}</td>
                 <td>${item.observacao}</td>
                 <td>${valorMedioFmt}</td>
