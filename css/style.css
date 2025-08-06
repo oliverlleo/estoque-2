@@ -711,3 +711,25 @@ input:checked + .slider:before {
 .obra-card .btn-ver-mais:hover {
     color: #0b5ed7;
 }
+
+/* --- Estilos para a Tabela de Detalhes da Obra --- */
+#table-itens-obra th,
+#table-itens-obra td {
+    padding: 8px;
+    font-size: 0.9em;
+    border: 1px solid #ddd;
+}
+
+#table-itens-obra th {
+    text-align: left;
+    border-bottom: 2px solid #ccc;
+}
+
+/* Alinhamento para colunas numéricas (Qtde, Valor Médio, Valor Total) */
+/* Colunas: 8, 10, 11 */
+#table-itens-obra td:nth-child(8),
+#table-itens-obra td:nth-child(10),
+#table-itens-obra td:nth-child(11) {
+    text-align: right;
+    font-family: "SFMono-Regular", Menlo, Monaco, Consolas, "Liberation Mono", "Courier New", monospace;
+}
