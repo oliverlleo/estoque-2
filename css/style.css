@@ -655,3 +655,59 @@ input:checked + .slider:before {
 #table-reservas .btn-cancelar {
     background-color: #dc3545; /* Red */
 }
+
+/* Estilos para a Grade de Obras */
+.obras-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
+    gap: 20px;
+}
+
+/* Estilos para o Card da Obra */
+.obra-card {
+    background-color: #fff;
+    border: 1px solid #e0e0e0;
+    border-radius: 8px;
+    padding: 20px;
+    box-shadow: 0 2px 4px rgba(0, 0, 0, 0.05);
+    display: flex;
+    flex-direction: column;
+    transition: box-shadow 0.3s ease, transform 0.3s ease;
+}
+
+.obra-card:hover {
+    transform: translateY(-5px);
+    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
+}
+
+.obra-card h4 {
+    margin: 0 0 5px 0;
+    font-size: 1.25rem;
+    color: #2c3e50;
+}
+
+.obra-card p {
+    margin: 0 0 15px 0;
+    font-size: 0.9rem;
+    color: #7f8c8d;
+}
+
+.obra-card .obra-custo {
+    font-size: 1.75rem;
+    font-weight: 700;
+    color: #198754; /* Verde sucesso */
+    margin-bottom: 20px;
+}
+
+.obra-card .btn-ver-mais {
+    margin-top: auto; /* Empurra o botão para o final do card */
+    text-align: right;
+    font-weight: 600;
+    text-decoration: none;
+    color: #0d6efd; /* Azul primário */
+    transition: color 0.3s ease;
+}
+
+.obra-card .btn-ver-mais:hover {
+    color: #0b5ed7;
+}
