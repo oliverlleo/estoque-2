@@ -6,6 +6,7 @@
     <title>Detalhes da Obra - Controle de Estoque</title>
     <link rel="stylesheet" href="css/style.css">
     <script src="https://cdn.jsdelivr.net/npm/feather-icons/dist/feather.min.js"></script>
+    <script src="https://cdn.sheetjs.com/xlsx-latest/package/dist/xlsx.full.min.js"></script>
 </head>
 <body>
     <aside class="sidebar">
@@ -31,7 +32,10 @@
         </header>
         <section class="content">
             <div class="card">
-                <div class="card-header"><h3>Itens Utilizados na Obra</h3></div>
+                <div class="card-header" style="display: flex; justify-content: space-between; align-items: center;">
+                    <h3>Itens Utilizados na Obra</h3>
+                    <button id="btn-export-excel" class="btn" style="background-color: #198754;">Exportar para Excel</button>
+                </div>
                 <div class="card-body">
                     <div class="filters-container" style="display: flex; gap: 10px; margin-bottom: 20px;">
                         <input type="text" id="filter-codigo-produto" class="form-control" placeholder="Filtrar por Código do Produto...">
@@ -55,8 +59,7 @@
                                 </tr>
                             </thead>
                             <tbody id="detalhe-obra-table-body">
-                                <!-- Itens da obra serão carregados aqui -->
-                            </tbody>
+                                </tbody>
                         </table>
                     </div>
                 </div>
