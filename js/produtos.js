@@ -591,6 +591,151 @@ document.addEventListener('DOMContentLoaded', async function() {
             dropdownContainer.classList.remove('active');
         }
     });
+
+    // --- Seletores para o Modal de Progresso ---
+    const progressModal = document.getElementById('import-progress-modal');
+    const progressMessage = document.getElementById('import-progress-message');
+    const progressBar = document.getElementById('import-progress-bar');
+
+    /**
+     * Função auxiliar genérica para encontrar ID de documentos em coleções simples.
+     */
+    async function findIdByName(collectionName, fieldName, value, cache) {
+        if (!value) return null;
+        const lowerCaseValue = String(value).trim().toLowerCase();
+
+        const data = cache[collectionName];
+        if (!data) {
+            console.error(`Cache para ${collectionName} não foi pré-carregado.`);
+            return null;
+        }
+
+        const found = data.find(item => String(item[fieldName]).trim().toLowerCase() === lowerCaseValue);
+        return found ? found.id : null;
+    }
+
+    /**
+     * Função especialista e robusta para encontrar o ID da regra de conversão.
+     * Tenta encontrar pelo nome da regra OU pela fórmula.
+     */
+    function findConversaoId(valorPlanilha, todasConversoes) {
+        if (!valorPlanilha) return null;
+
+        // Função de normalização agressiva
+        const normalize = (str) => String(str).toLowerCase().replace(/,/g, '.').replace(/[^a-z0-9.]/g, '');
+
+        const valorNormalizado = normalize(valorPlanilha);
+
+        for (const conv of todasConversoes) {
+            // 1. Tenta pelo nome da regra
+            if (normalize(conv.nome_regra) === valorNormalizado) {
+                return conv.id;
+            }
+            // 2. Tenta pela fórmula
+            const formula = `${conv.qtd_compra}${conv.medida_compra}X${conv.qtd_padrao}${conv.medida_padrao}`;
+            if (normalize(formula) === valorNormalizado) {
+                return conv.id;
+            }
+        }
+
+        return null; // Retorna null se não encontrar por nenhum método
+    }
+
+    /**
+     * Função principal de importação, agora usando a lógica robusta.
+     */
+    async function handleFileImport(event) {
+        const file = event.target.files[0];
+        if (!file) return;
+
+        const reader = new FileReader();
+        reader.onload = async (e) => {
+            const data = new Uint8Array(e.target.result);
+            const workbook = XLSX.read(data, { type: 'array' });
+            const sheetName = workbook.SheetNames[0];
+            const worksheet = workbook.Sheets[sheetName];
+            const json = XLSX.utils.sheet_to_json(worksheet, { raw: false });
+
+            if (json.length === 0) {
+                alert("A planilha está vazia ou em um formato inválido.");
+                return;
+            }
+
+            progressModal.style.display = 'block';
+
+            // Pré-carrega todos os dados necessários para evitar múltiplas leituras do DB
+            const cache = {};
+            const collectionsToCache = ['fornecedores', 'grupos', 'aplicacoes', 'conjuntos', 'locais', 'conversoes'];
+            for (const name of collectionsToCache) {
+                const snapshot = await getDocs(collection(db, name));
+                cache[name] = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
+            }
+
+            let successCount = 0;
+            let errorCount = 0;
+            let errors = [];
+            const totalRows = json.length;
+
+            for (let i = 0; i < totalRows; i++) {
+                const row = json[i];
+                const progress = ((i + 1) / totalRows) * 100;
+                progressMessage.textContent = `Importando ${i + 1} de ${totalRows}...`;
+                progressBar.style.width = `${progress}%`;
+
+                try {
+                    const valorConversaoPlanilha = row.conversao_nome_regra || row['regra de conversao'] || row.conversao;
+                    const conversaoId = findConversaoId(valorConversaoPlanilha, cache['conversoes']);
+
+                    const fornecedorId = await findIdByName('fornecedores', 'nome', row.fornecedor_nome, cache);
+                    const grupoId = await findIdByName('grupos', 'nome', row.grupo_nome, cache);
+                    const localId = await findIdByName('locais', 'nome', row.local_nome, cache);
+
+                    const aplicacaoNomes = row.aplicacao_nome || row.aplicacoes || '';
+                    const aplicacaoIds = aplicacaoNomes ? (await Promise.all(aplicacaoNomes.split(',').map(name => findIdByName('aplicacoes', 'nome', name, cache)))) .filter(Boolean) : [];
+
+                    const conjuntoNomes = row.conjunto_nome || row.conjuntos || '';
+                    const conjuntoIds = conjuntoNomes ? (await Promise.all(conjuntoNomes.split(',').map(name => findIdByName('conjuntos', 'nome', name, cache)))) .filter(Boolean) : [];
+
+                    if (!row.codigo || !row.descricao) throw new Error(`Linha ${i + 2} não tem código ou descrição.`);
+
+                    const product = {
+                        codigo: row.codigo,
+                        descricao: row.descricao,
+                        un: row.un || "",
+                        cor: row.cor || "",
+                        fornecedorId: fornecedorId || "",
+                        grupoId: grupoId || "",
+                        aplicacaoIds: aplicacaoIds || [],
+                        conjuntoIds: conjuntoIds || [],
+                        localId: localId || "",
+                        locacao: row.locacao || "",
+                        conversaoId: conversaoId || "",
+                        arquivado: false
+                    };
+
+                    await addDoc(collection(db, 'produtos'), product);
+                    successCount++;
+
+                } catch (error) {
+                    errorCount++;
+                    errors.push(`Erro na linha ${i + 2} (Código '${row.codigo || "N/A"}'): ${error.message}`);
+                }
+
+                await new Promise(resolve => setTimeout(resolve, 10)); // pequena pausa
+            }
+
+            progressModal.style.display = 'none';
+
+            let finalMessage = `${successCount} produtos importados com sucesso!`;
+            if (errorCount > 0) {
+                finalMessage += `\n\n${errorCount} produtos falharam: \n${errors.join("\n")}`;
+            }
+            alert(finalMessage);
+
+            fileInput.value = '';
+        };
+        reader.readAsArrayBuffer(file);
+    }
 });
 
 // Substitua a função exportarModeloExcel antiga por esta
@@ -676,91 +821,4 @@ async function exportarModeloExcel() {
         console.error("Erro ao gerar modelo Excel:", error);
         alert("Ocorreu um erro ao gerar o modelo. Verifique o console para mais detalhes.");
     }
-}
-
-// Adicionar estas duas funções no final do arquivo js/produtos.js
-
-async function findIdByName(collectionName, fieldName, value) {
-    if (!value) return null;
-    const colRef = collection(db, collectionName);
-    const snapshot = await getDocs(colRef);
-    for (const doc of snapshot.docs) {
-        if (String(doc.data()[fieldName]).toLowerCase() === String(value).toLowerCase()) {
-            return doc.id;
-        }
-    }
-    return null; // Retorna null se não encontrar
-}
-
-async function handleFileImport(event) {
-    const file = event.target.files[0];
-    if (!file) return;
-
-    const reader = new FileReader();
-    reader.onload = async (e) => {
-        const data = new Uint8Array(e.target.result);
-        const workbook = XLSX.read(data, { type: 'array' });
-        const sheetName = workbook.SheetNames[0];
-        const worksheet = workbook.Sheets[sheetName];
-        const json = XLSX.utils.sheet_to_json(worksheet);
-
-        if (json.length === 0) {
-            alert("A planilha está vazia ou em um formato inválido.");
-            return;
-        }
-
-        let successCount = 0;
-        let errorCount = 0;
-        let errors = [];
-
-        alert(`Iniciando a importação de ${json.length} produtos. Aguarde...`);
-
-        for (const row of json) {
-            try {
-                // Mapeia os nomes da planilha para os IDs do Firestore
-                const fornecedorId = await findIdByName('fornecedores', 'nome', row.fornecedor_nome);
-                const grupoId = await findIdByName('grupos', 'nome', row.grupo_nome);
-                const aplicacaoId = await findIdByName('aplicacoes', 'nome', row.aplicacao_nome);
-                const conjuntoId = await findIdByName('conjuntos', 'nome', row.conjunto_nome);
-                const enderecamentoId = await findIdByName('enderecamentos', 'codigo', row.enderecamento_codigo);
-                const conversaoId = await findIdByName('conversoes', 'nome_regra', row.conversao_nome_regra);
-
-                // Validação simples: código e descrição são obrigatórios
-                if (!row.codigo || !row.descricao) {
-                    throw new Error(`Linha com código '${row.codigo}' não tem código ou descrição.`);
-                }
-
-                const product = {
-                    codigo: row.codigo,
-                    descricao: row.descricao,
-                    un: row.un || "",
-                    cor: row.cor || "",
-                    fornecedorId: fornecedorId || "",
-                    grupoId: grupoId || "",
-                    aplicacaoId: aplicacaoId || "",
-                    conjuntoId: conjuntoId || "",
-                    enderecamentoId: enderecamentoId || "",
-                    conversaoId: conversaoId || ""
-                };
-
-                // Adiciona o produto ao banco de dados
-                await addDoc(collection(db, 'produtos'), product);
-                successCount++;
-            } catch (error) {
-                errorCount++;
-                errors.push(`Erro na linha com código '${row.codigo || "N/A"}': ${error.message}`);
-                console.error("Erro ao importar linha:", row, error);
-            }
-        }
-
-        // Feedback final para o usuário
-        let finalMessage = `${successCount} produtos importados com sucesso!`;
-        if (errorCount > 0) {
-            finalMessage += `\n\n${errorCount} produtos falharam na importação.\n\nDetalhes dos erros:\n${errors.join("\n")}`;
-            console.log("Erros detalhados:", errors);
-        }
-        alert(finalMessage);
-        fileInput.value = ''; // Reseta o input de arquivo
-    };
-    reader.readAsArrayBuffer(file);
 }
