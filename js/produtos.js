@@ -591,6 +591,116 @@ document.addEventListener('DOMContentLoaded', async function() {
             dropdownContainer.classList.remove('active');
         }
     });
+
+    // --- Seletores para o Modal de Progresso ---
+    const progressModal = document.getElementById('import-progress-modal');
+    const progressMessage = document.getElementById('import-progress-message');
+    const progressBar = document.getElementById('import-progress-bar');
+
+    async function findIdByName(collectionName, fieldName, value) {
+        if (!value) return null;
+        const colRef = collection(db, collectionName);
+        const snapshot = await getDocs(colRef);
+        for (const doc of snapshot.docs) {
+            if (String(doc.data()[fieldName]).toLowerCase() === String(value).toLowerCase()) {
+                return doc.id;
+            }
+        }
+        return null;
+    }
+
+    async function handleFileImport(event) {
+        const file = event.target.files[0];
+        if (!file) return;
+
+        const reader = new FileReader();
+        reader.onload = async (e) => {
+            const data = new Uint8Array(e.target.result);
+            const workbook = XLSX.read(data, { type: 'array' });
+            const sheetName = workbook.SheetNames[0];
+            const worksheet = workbook.Sheets[sheetName];
+            const json = XLSX.utils.sheet_to_json(worksheet);
+
+            if (json.length === 0) {
+                alert("A planilha está vazia ou em um formato inválido.");
+                return;
+            }
+
+            // Exibir modal de progresso
+            progressModal.style.display = 'block';
+
+            let successCount = 0;
+            let errorCount = 0;
+            let errors = [];
+            const totalRows = json.length;
+
+            for (let i = 0; i < totalRows; i++) {
+                const row = json[i];
+                const progress = ((i + 1) / totalRows) * 100;
+
+                // Atualizar UI do progresso
+                progressMessage.textContent = `Importando ${i + 1} de ${totalRows}...`;
+                progressBar.style.width = `${progress}%`;
+                progressBar.textContent = `${Math.round(progress)}%`;
+
+                try {
+                    const fornecedorId = await findIdByName('fornecedores', 'nome', row.fornecedor_nome);
+                    const grupoId = await findIdByName('grupos', 'nome', row.grupo_nome);
+
+                    // Ajuste para lidar com múltiplos IDs de aplicação/conjunto
+                    const aplicacaoIds = row.aplicacao_nome ? (await Promise.all(row.aplicacao_nome.split(',').map(name => findIdByName('aplicacoes', 'nome', name.trim())))) .filter(Boolean) : [];
+                    const conjuntoIds = row.conjunto_nome ? (await Promise.all(row.conjunto_nome.split(',').map(name => findIdByName('conjuntos', 'nome', name.trim())))) .filter(Boolean) : [];
+
+                    // Assumindo que o endereçamento é único e localId e locacao são campos separados na importação
+                    const localId = await findIdByName('locais', 'nome', row.local_nome);
+                    const conversaoId = await findIdByName('conversoes', 'nome_regra', row.conversao_nome_regra);
+
+                    if (!row.codigo || !row.descricao) {
+                        throw new Error(`Linha ${i + 2} não tem código ou descrição.`);
+                    }
+
+                    const product = {
+                        codigo: row.codigo,
+                        descricao: row.descricao,
+                        un: row.un || "",
+                        cor: row.cor || "",
+                        fornecedorId: fornecedorId || "",
+                        grupoId: grupoId || "",
+                        aplicacaoIds: aplicacaoIds || [],
+                        conjuntoIds: conjuntoIds || [],
+                        localId: localId || "",
+                        locacao: row.locacao || "", // Campo de locação específico
+                        conversaoId: conversaoId || "",
+                        arquivado: false
+                    };
+
+                    await addDoc(collection(db, 'produtos'), product);
+                    successCount++;
+                } catch (error) {
+                    errorCount++;
+                    errors.push(`Erro na linha ${i + 2} (Código '${row.codigo || "N/A"}'): ${error.message}`);
+                    console.error("Erro ao importar linha:", row, error);
+                }
+
+                // Pausa para permitir a atualização da UI
+                await new Promise(resolve => setTimeout(resolve, 0));
+            }
+
+            // Ocultar modal e exibir resultado final
+            progressModal.style.display = 'none';
+
+            let finalMessage = `${successCount} produtos importados com sucesso!`;
+            if (errorCount > 0) {
+                finalMessage += `\n\n${errorCount} produtos falharam na importação.\n\nDetalhes dos erros:\n${errors.join("\n")}`;
+                console.log("Erros detalhados:", errors);
+            }
+            alert(finalMessage);
+
+            // AGORA VAI FUNCIONAR, POIS 'fileInput' ESTÁ NO ESCOPO
+            fileInput.value = '';
+        };
+        reader.readAsArrayBuffer(file);
+    }
 });
 
 // Substitua a função exportarModeloExcel antiga por esta
@@ -676,91 +786,4 @@ async function exportarModeloExcel() {
         console.error("Erro ao gerar modelo Excel:", error);
         alert("Ocorreu um erro ao gerar o modelo. Verifique o console para mais detalhes.");
     }
-}
-
-// Adicionar estas duas funções no final do arquivo js/produtos.js
-
-async function findIdByName(collectionName, fieldName, value) {
-    if (!value) return null;
-    const colRef = collection(db, collectionName);
-    const snapshot = await getDocs(colRef);
-    for (const doc of snapshot.docs) {
-        if (String(doc.data()[fieldName]).toLowerCase() === String(value).toLowerCase()) {
-            return doc.id;
-        }
-    }
-    return null; // Retorna null se não encontrar
-}
-
-async function handleFileImport(event) {
-    const file = event.target.files[0];
-    if (!file) return;
-
-    const reader = new FileReader();
-    reader.onload = async (e) => {
-        const data = new Uint8Array(e.target.result);
-        const workbook = XLSX.read(data, { type: 'array' });
-        const sheetName = workbook.SheetNames[0];
-        const worksheet = workbook.Sheets[sheetName];
-        const json = XLSX.utils.sheet_to_json(worksheet);
-
-        if (json.length === 0) {
-            alert("A planilha está vazia ou em um formato inválido.");
-            return;
-        }
-
-        let successCount = 0;
-        let errorCount = 0;
-        let errors = [];
-
-        alert(`Iniciando a importação de ${json.length} produtos. Aguarde...`);
-
-        for (const row of json) {
-            try {
-                // Mapeia os nomes da planilha para os IDs do Firestore
-                const fornecedorId = await findIdByName('fornecedores', 'nome', row.fornecedor_nome);
-                const grupoId = await findIdByName('grupos', 'nome', row.grupo_nome);
-                const aplicacaoId = await findIdByName('aplicacoes', 'nome', row.aplicacao_nome);
-                const conjuntoId = await findIdByName('conjuntos', 'nome', row.conjunto_nome);
-                const enderecamentoId = await findIdByName('enderecamentos', 'codigo', row.enderecamento_codigo);
-                const conversaoId = await findIdByName('conversoes', 'nome_regra', row.conversao_nome_regra);
-
-                // Validação simples: código e descrição são obrigatórios
-                if (!row.codigo || !row.descricao) {
-                    throw new Error(`Linha com código '${row.codigo}' não tem código ou descrição.`);
-                }
-
-                const product = {
-                    codigo: row.codigo,
-                    descricao: row.descricao,
-                    un: row.un || "",
-                    cor: row.cor || "",
-                    fornecedorId: fornecedorId || "",
-                    grupoId: grupoId || "",
-                    aplicacaoId: aplicacaoId || "",
-                    conjuntoId: conjuntoId || "",
-                    enderecamentoId: enderecamentoId || "",
-                    conversaoId: conversaoId || ""
-                };
-
-                // Adiciona o produto ao banco de dados
-                await addDoc(collection(db, 'produtos'), product);
-                successCount++;
-            } catch (error) {
-                errorCount++;
-                errors.push(`Erro na linha com código '${row.codigo || "N/A"}': ${error.message}`);
-                console.error("Erro ao importar linha:", row, error);
-            }
-        }
-
-        // Feedback final para o usuário
-        let finalMessage = `${successCount} produtos importados com sucesso!`;
-        if (errorCount > 0) {
-            finalMessage += `\n\n${errorCount} produtos falharam na importação.\n\nDetalhes dos erros:\n${errors.join("\n")}`;
-            console.log("Erros detalhados:", errors);
-        }
-        alert(finalMessage);
-        fileInput.value = ''; // Reseta o input de arquivo
-    };
-    reader.readAsArrayBuffer(file);
 }

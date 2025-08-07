@@ -150,6 +150,19 @@
             </div>
         </section>
     </main>
+    <div id="import-progress-modal" class="modal">
+        <div class="modal-content" style="max-width: 500px;">
+            <div class="modal-header">
+                <h3>Processando Planilha...</h3>
+            </div>
+            <div class="modal-body">
+                <p id="import-progress-message">Aguarde, preparando para importar...</p>
+                <div class="progress-bar-container">
+                    <div id="import-progress-bar" class="progress-bar"></div>
+                </div>
+            </div>
+        </div>
+    </div>
     <script src="https://cdn.sheetjs.com/xlsx-latest/package/dist/xlsx.full.min.js"></script>
     <script type="module" src="js/main.js"></script>
     <script type="module" src="js/produtos.js"></script>
