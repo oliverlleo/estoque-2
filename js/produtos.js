@@ -619,7 +619,8 @@ document.addEventListener('DOMContentLoaded', async function() {
             const workbook = XLSX.read(data, { type: 'array' });
             const sheetName = workbook.SheetNames[0];
             const worksheet = workbook.Sheets[sheetName];
-            const json = XLSX.utils.sheet_to_json(worksheet);
+            // Usa {raw: false} para garantir que datas sejam formatadas como strings
+            const json = XLSX.utils.sheet_to_json(worksheet, { raw: false });
 
             if (json.length === 0) {
                 alert("A planilha está vazia ou em um formato inválido.");
@@ -644,16 +645,34 @@ document.addEventListener('DOMContentLoaded', async function() {
                 progressBar.textContent = `${Math.round(progress)}%`;
 
                 try {
+                    // --- INÍCIO DA CORREÇÃO ---
+                    // Chaves possíveis para a coluna de regra de conversão (em minúsculas)
+                    const conversaoKeys = ['conversao_nome_regra', 'regra de conversao', 'conversao'];
+                    // Encontra a chave que existe no objeto 'row' (case-insensitive)
+                    const rowKeys = Object.keys(row).map(k => k.toLowerCase());
+                    const foundKey = conversaoKeys.find(key => rowKeys.includes(key));
+
+                    let conversaoId = null;
+                    if (foundKey) {
+                        // Pega o nome da chave original para acessar o valor
+                        const originalKey = Object.keys(row).find(k => k.toLowerCase() === foundKey);
+                        const nomeRegra = row[originalKey];
+                        if (nomeRegra && typeof nomeRegra === 'string') {
+                           conversaoId = await findIdByName('conversoes', 'nome_regra', nomeRegra.trim());
+                        }
+                    }
+                    // --- FIM DA CORREÇÃO ---
+
                     const fornecedorId = await findIdByName('fornecedores', 'nome', row.fornecedor_nome);
                     const grupoId = await findIdByName('grupos', 'nome', row.grupo_nome);
 
-                    // Ajuste para lidar com múltiplos IDs de aplicação/conjunto
-                    const aplicacaoIds = row.aplicacao_nome ? (await Promise.all(row.aplicacao_nome.split(',').map(name => findIdByName('aplicacoes', 'nome', name.trim())))) .filter(Boolean) : [];
-                    const conjuntoIds = row.conjunto_nome ? (await Promise.all(row.conjunto_nome.split(',').map(name => findIdByName('conjuntos', 'nome', name.trim())))) .filter(Boolean) : [];
+                    const aplicacaoNomes = row.aplicacao_nome || row.aplicacoes || '';
+                    const aplicacaoIds = aplicacaoNomes ? (await Promise.all(aplicacaoNomes.split(',').map(name => findIdByName('aplicacoes', 'nome', name.trim())))) .filter(Boolean) : [];
 
-                    // Assumindo que o endereçamento é único e localId e locacao são campos separados na importação
+                    const conjuntoNomes = row.conjunto_nome || row.conjuntos || '';
+                    const conjuntoIds = conjuntoNomes ? (await Promise.all(conjuntoNomes.split(',').map(name => findIdByName('conjuntos', 'nome', name.trim())))) .filter(Boolean) : [];
+
                     const localId = await findIdByName('locais', 'nome', row.local_nome);
-                    const conversaoId = await findIdByName('conversoes', 'nome_regra', row.conversao_nome_regra);
 
                     if (!row.codigo || !row.descricao) {
                         throw new Error(`Linha ${i + 2} não tem código ou descrição.`);
@@ -669,8 +688,8 @@ document.addEventListener('DOMContentLoaded', async function() {
                         aplicacaoIds: aplicacaoIds || [],
                         conjuntoIds: conjuntoIds || [],
                         localId: localId || "",
-                        locacao: row.locacao || "", // Campo de locação específico
-                        conversaoId: conversaoId || "",
+                        locacao: row.locacao || "",
+                        conversaoId: conversaoId || "", // Usa o ID encontrado
                         arquivado: false
                     };
 
@@ -682,11 +701,9 @@ document.addEventListener('DOMContentLoaded', async function() {
                     console.error("Erro ao importar linha:", row, error);
                 }
 
-                // Pausa para permitir a atualização da UI
                 await new Promise(resolve => setTimeout(resolve, 0));
             }
 
-            // Ocultar modal e exibir resultado final
             progressModal.style.display = 'none';
 
             let finalMessage = `${successCount} produtos importados com sucesso!`;
@@ -696,7 +713,6 @@ document.addEventListener('DOMContentLoaded', async function() {
             }
             alert(finalMessage);
 
-            // AGORA VAI FUNCIONAR, POIS 'fileInput' ESTÁ NO ESCOPO
             fileInput.value = '';
         };
         reader.readAsArrayBuffer(file);
