@@ -609,6 +609,7 @@ document.addEventListener('DOMContentLoaded', async function() {
         return null;
     }
 
+    // SUBSTITUA a função handleFileImport existente por esta versão definitiva:
     async function handleFileImport(event) {
         const file = event.target.files[0];
         if (!file) return;
@@ -619,7 +620,6 @@ document.addEventListener('DOMContentLoaded', async function() {
             const workbook = XLSX.read(data, { type: 'array' });
             const sheetName = workbook.SheetNames[0];
             const worksheet = workbook.Sheets[sheetName];
-            // Usa {raw: false} para garantir que datas sejam formatadas como strings
             const json = XLSX.utils.sheet_to_json(worksheet, { raw: false });
 
             if (json.length === 0) {
@@ -630,6 +630,12 @@ document.addEventListener('DOMContentLoaded', async function() {
             // Exibir modal de progresso
             progressModal.style.display = 'block';
 
+            // --- LÓGICA DE BUSCA MELHORADA ---
+            // Carrega todas as conversões uma vez para otimizar
+            const conversoesSnapshot = await getDocs(collection(db, 'conversoes'));
+            const todasConversoes = conversoesSnapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
+            // --- FIM DA LÓGICA DE BUSCA MELHORADA ---
+
             let successCount = 0;
             let errorCount = 0;
             let errors = [];
@@ -639,29 +645,43 @@ document.addEventListener('DOMContentLoaded', async function() {
                 const row = json[i];
                 const progress = ((i + 1) / totalRows) * 100;
 
-                // Atualizar UI do progresso
                 progressMessage.textContent = `Importando ${i + 1} de ${totalRows}...`;
                 progressBar.style.width = `${progress}%`;
                 progressBar.textContent = `${Math.round(progress)}%`;
 
                 try {
-                    // --- INÍCIO DA CORREÇÃO ---
-                    // Chaves possíveis para a coluna de regra de conversão (em minúsculas)
+                    // --- INÍCIO DA CORREÇÃO DEFINITIVA ---
+                    let conversaoId = null;
                     const conversaoKeys = ['conversao_nome_regra', 'regra de conversao', 'conversao'];
-                    // Encontra a chave que existe no objeto 'row' (case-insensitive)
                     const rowKeys = Object.keys(row).map(k => k.toLowerCase());
                     const foundKey = conversaoKeys.find(key => rowKeys.includes(key));
 
-                    let conversaoId = null;
                     if (foundKey) {
-                        // Pega o nome da chave original para acessar o valor
                         const originalKey = Object.keys(row).find(k => k.toLowerCase() === foundKey);
-                        const nomeRegra = row[originalKey];
-                        if (nomeRegra && typeof nomeRegra === 'string') {
-                           conversaoId = await findIdByName('conversoes', 'nome_regra', nomeRegra.trim());
+                        const valorPlanilha = row[originalKey];
+
+                        if (valorPlanilha && typeof valorPlanilha === 'string') {
+                            const valorTratado = valorPlanilha.trim();
+
+                            // 1. Tenta buscar pelo NOME DA REGRA
+                            let regraEncontrada = todasConversoes.find(c => c.nome_regra.toLowerCase() === valorTratado.toLowerCase());
+
+                            // 2. Se não achou, tenta buscar pela FÓRMULA
+                            if (!regraEncontrada) {
+                                const normalizeString = (str) => String(str).replace(/,/g, '.').replace(/\s+/g, '').toLowerCase();
+
+                                regraEncontrada = todasConversoes.find(c => {
+                                    const formula = `${c.qtd_compra}${c.medida_compra} X ${c.qtd_padrao}${c.medida_padrao}`;
+                                    return normalizeString(formula) === normalizeString(valorTratado);
+                                });
+                            }
+
+                            if (regraEncontrada) {
+                                conversaoId = regraEncontrada.id;
+                            }
                         }
                     }
-                    // --- FIM DA CORREÇÃO ---
+                    // --- FIM DA CORREÇÃO DEFINITIVA ---
 
                     const fornecedorId = await findIdByName('fornecedores', 'nome', row.fornecedor_nome);
                     const grupoId = await findIdByName('grupos', 'nome', row.grupo_nome);
@@ -689,7 +709,7 @@ document.addEventListener('DOMContentLoaded', async function() {
                         conjuntoIds: conjuntoIds || [],
                         localId: localId || "",
                         locacao: row.locacao || "",
-                        conversaoId: conversaoId || "", // Usa o ID encontrado
+                        conversaoId: conversaoId || "",
                         arquivado: false
                     };
 
