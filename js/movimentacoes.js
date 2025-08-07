@@ -46,6 +46,15 @@ document.addEventListener('DOMContentLoaded', async function() {
     const btnMovimentacao = document.getElementById('btn-movimentacao');
     const tableBody = document.querySelector('#table-movimentacoes tbody');
 
+    // --- Elementos do Modal XML ---
+    const xmlImportModal = document.getElementById('xml-import-modal');
+    const btnImportarXml = document.getElementById('btn-importar-xml');
+    const xmlModalClose = document.getElementById('xml-modal-close');
+    const xmlFileInput = document.getElementById('xml-file-input');
+    const xmlProductsTableBody = document.querySelector('#xml-products-table tbody');
+    const btnConfirmarXmlImport = document.getElementById('btn-confirmar-xml-import');
+    const inputNfeNumero = document.getElementById('xml-nfe-numero');
+
     // --- Campos do Formulário ---
     const entradaFields = [
         document.getElementById('mov-tipo-entrada'), document.getElementById('mov-nf'),
@@ -121,6 +130,9 @@ document.addEventListener('DOMContentLoaded', async function() {
     function handleToggleChange() {
         const isEntrada = toggle.checked; // true para Entrada, false para Saída
 
+        // Lógica de visibilidade do botão de importação
+        btnImportarXml.style.display = isEntrada ? 'inline-block' : 'none';
+
         entradaFields.forEach(el => el.style.display = isEntrada ? '' : 'none');
         saidaFields.forEach(el => el.style.display = isEntrada ? 'none' : '');
 
@@ -140,8 +152,8 @@ document.addEventListener('DOMContentLoaded', async function() {
             document.getElementById('toggle-label-entrada').style.color = '#6c757d';
         }
         updateProductInfo();
-        toggleObraRequirement(); // Adicionar esta chamada
-        toggleValorUnitarioRequirement(); // Adicionar esta chamada
+        toggleObraRequirement();
+        toggleValorUnitarioRequirement();
     }
 
     toggle.addEventListener('change', handleToggleChange);
@@ -380,6 +392,162 @@ document.addEventListener('DOMContentLoaded', async function() {
                 }
             }
         }
+    });
+
+    // --- Lógica do Modal de Importação XML ---
+    btnImportarXml.addEventListener('click', () => {
+        xmlImportModal.style.display = 'block';
+    });
+    xmlModalClose.addEventListener('click', () => {
+        xmlImportModal.style.display = 'none';
+    });
+    window.addEventListener('click', (event) => {
+        if (event.target == xmlImportModal) {
+            xmlImportModal.style.display = 'none';
+        }
+    });
+
+    // Listener para o input de arquivo
+    xmlFileInput.addEventListener('change', (event) => {
+        const file = event.target.files[0];
+        if (!file) return;
+
+        const reader = new FileReader();
+        reader.onload = (e) => {
+            const xmlText = e.target.result;
+            parseNFeXML(xmlText);
+        };
+        reader.readAsText(file);
+    });
+
+    function parseNFeXML(xmlText) {
+        const parser = new DOMParser();
+        const xmlDoc = parser.parseFromString(xmlText, "text/xml");
+
+        // Limpa a tabela antes de popular
+        xmlProductsTableBody.innerHTML = '';
+
+        const nfeNumero = xmlDoc.querySelector('nNF')?.textContent || '';
+        inputNfeNumero.value = nfeNumero;
+
+        const totalFrete = parseFloat(xmlDoc.querySelector('ICMSTot vFrete')?.textContent || 0);
+        const totalProdutos = parseFloat(xmlDoc.querySelector('ICMSTot vProd')?.textContent || 0);
+
+        const items = xmlDoc.querySelectorAll('det');
+        items.forEach(item => {
+            const cProd = item.querySelector('cProd')?.textContent;
+
+            // Busca o produto no sistema
+            const produtoNoSistema = Object.values(productsMap).find(p => p.codigo === cProd);
+            const descricaoSistema = produtoNoSistema ? produtoNoSistema.descricao : 'PRODUTO NÃO CADASTRADO';
+            const produtoIdSistema = produtoNoSistema ? produtoNoSistema.id : '';
+
+            const qCom = item.querySelector('qCom')?.textContent;
+            const uCom = item.querySelector('uCom')?.textContent;
+            const vUnCom = item.querySelector('vUnCom')?.textContent;
+            const vProd = parseFloat(item.querySelector('vProd')?.textContent || 0);
+
+            // ICMS e IPI (pegando o primeiro valor que encontrar, robustez básica)
+            const vICMS = item.querySelector('vICMS')?.textContent || '0.00';
+            const vIPI = item.querySelector('vIPI')?.textContent || '0.00';
+
+            // Rateio do frete
+            const freteRateado = (totalProdutos > 0) ? (vProd / totalProdutos) * totalFrete : 0;
+
+            const row = document.createElement('tr');
+            row.dataset.productId = produtoIdSistema; // Armazena o ID do produto do sistema
+
+            if (!produtoNoSistema) {
+              row.style.backgroundColor = '#ffdddd'; // Destaca linha de produto não encontrado
+            }
+
+            row.innerHTML = `
+                <td><input type="text" class="form-control" value="${cProd}" disabled></td>
+                <td><input type="text" class="form-control" value="${descricaoSistema}" disabled></td>
+                <td><input type="text" class="form-control" value="${uCom}"></td>
+                <td><input type="number" step="any" class="form-control" value="${parseFloat(qCom)}"></td>
+                <td><input type="number" step="any" class="form-control" value="${parseFloat(vUnCom)}"></td>
+                <td><input type="number" step="any" class="form-control" value="${parseFloat(vICMS)}"></td>
+                <td><input type="number" step="any" class="form-control" value="${parseFloat(vIPI)}"></td>
+                <td><input type="number" step="any" class="form-control" value="${freteRateado.toFixed(2)}"></td>
+            `;
+            xmlProductsTableBody.appendChild(row);
+        });
+    }
+
+    btnConfirmarXmlImport.addEventListener('click', async () => {
+        const nfNumero = inputNfeNumero.value;
+        const rows = xmlProductsTableBody.querySelectorAll('tr');
+        if (rows.length === 0) {
+            alert("Nenhum produto na lista para importar.");
+            return;
+        }
+
+        if (!confirm(`Confirmar a entrada de ${rows.length} item(ns) da NF-e ${nfNumero}?`)) {
+            return;
+        }
+
+        for (const row of rows) {
+            const productId = row.dataset.productId;
+            if (!productId) {
+                const codigo = row.cells[0].querySelector('input').value;
+                alert(`Produto com código ${codigo} não está cadastrado e será ignorado.`);
+                continue; // Pula para o próximo item
+            }
+
+            const inputs = row.querySelectorAll('input');
+            const quantidade = parseFloat(inputs[3].value);
+            const valorUnitario = parseFloat(inputs[4].value);
+            const icms = parseFloat(inputs[5].value);
+            const ipi = parseFloat(inputs[6].value);
+            const frete = parseFloat(inputs[7].value);
+
+            // Calcula o custo total da entrada para este item
+            const custoTotalItem = (quantidade * valorUnitario) + icms + ipi + frete;
+
+            try {
+                await runTransaction(db, async (transaction) => {
+                    const productRef = doc(db, 'produtos', productId);
+                    const productDoc = await transaction.get(productRef);
+                    if (!productDoc.exists()) {
+                        throw new Error(`Produto com ID ${productId} não foi encontrado.`);
+                    }
+
+                    // A lógica de atualização de estoque e custo médio já existe
+                    const currentEstoque = productDoc.data().estoque || 0;
+                    const newEstoque = currentEstoque + quantidade;
+                    transaction.update(productRef, { estoque: newEstoque });
+
+                    const movementRef = doc(collection(db, 'movimentacoes'));
+                    const movementData = {
+                        tipo: 'entrada',
+                        productId,
+                        quantidade,
+                        data: serverTimestamp(),
+                        nf: nfNumero,
+                        valor_unitario: valorUnitario,
+                        icms: icms,
+                        ipi: ipi,
+                        frete: frete,
+                        observacao: `Importado via XML da NF-e ${nfNumero}`,
+                        custo_total_entrada: custoTotalItem
+                    };
+                    transaction.set(movementRef, movementData);
+                });
+
+                // Atualiza o custo médio após a transação ser bem sucedida
+                await atualizarCustoMedioProduto(productId);
+
+            } catch (error) {
+                console.error("Erro ao importar item:", error);
+                alert(`Falha ao importar o produto ${row.cells[0].querySelector('input').value}: ${error.message}`);
+            }
+        }
+
+        alert("Importação finalizada. Verifique o histórico de movimentações.");
+        xmlImportModal.style.display = 'none';
+        xmlFileInput.value = ''; // Limpa o input de arquivo
+        xmlProductsTableBody.innerHTML = '';
     });
 
     // --- Carregamento e preenchimento de dados ---
