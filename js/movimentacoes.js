@@ -130,6 +130,9 @@ document.addEventListener('DOMContentLoaded', async function() {
     function handleToggleChange() {
         const isEntrada = toggle.checked; // true para Entrada, false para Saída
 
+        // Lógica de visibilidade do botão de importação
+        btnImportarXml.style.display = isEntrada ? 'inline-block' : 'none';
+
         entradaFields.forEach(el => el.style.display = isEntrada ? '' : 'none');
         saidaFields.forEach(el => el.style.display = isEntrada ? 'none' : '');
 
@@ -149,8 +152,8 @@ document.addEventListener('DOMContentLoaded', async function() {
             document.getElementById('toggle-label-entrada').style.color = '#6c757d';
         }
         updateProductInfo();
-        toggleObraRequirement(); // Adicionar esta chamada
-        toggleValorUnitarioRequirement(); // Adicionar esta chamada
+        toggleObraRequirement();
+        toggleValorUnitarioRequirement();
     }
 
     toggle.addEventListener('change', handleToggleChange);
