@@ -597,19 +597,53 @@ document.addEventListener('DOMContentLoaded', async function() {
     const progressMessage = document.getElementById('import-progress-message');
     const progressBar = document.getElementById('import-progress-bar');
 
-    async function findIdByName(collectionName, fieldName, value) {
+    /**
+     * Função auxiliar genérica para encontrar ID de documentos em coleções simples.
+     */
+    async function findIdByName(collectionName, fieldName, value, cache) {
         if (!value) return null;
-        const colRef = collection(db, collectionName);
-        const snapshot = await getDocs(colRef);
-        for (const doc of snapshot.docs) {
-            if (String(doc.data()[fieldName]).toLowerCase() === String(value).toLowerCase()) {
-                return doc.id;
-            }
+        const lowerCaseValue = String(value).trim().toLowerCase();
+
+        const data = cache[collectionName];
+        if (!data) {
+            console.error(`Cache para ${collectionName} não foi pré-carregado.`);
+            return null;
         }
-        return null;
+
+        const found = data.find(item => String(item[fieldName]).trim().toLowerCase() === lowerCaseValue);
+        return found ? found.id : null;
     }
 
-    // SUBSTITUA a função handleFileImport existente por esta versão definitiva:
+    /**
+     * Função especialista e robusta para encontrar o ID da regra de conversão.
+     * Tenta encontrar pelo nome da regra OU pela fórmula.
+     */
+    function findConversaoId(valorPlanilha, todasConversoes) {
+        if (!valorPlanilha) return null;
+
+        // Função de normalização agressiva
+        const normalize = (str) => String(str).toLowerCase().replace(/,/g, '.').replace(/[^a-z0-9.]/g, '');
+
+        const valorNormalizado = normalize(valorPlanilha);
+
+        for (const conv of todasConversoes) {
+            // 1. Tenta pelo nome da regra
+            if (normalize(conv.nome_regra) === valorNormalizado) {
+                return conv.id;
+            }
+            // 2. Tenta pela fórmula
+            const formula = `${conv.qtd_compra}${conv.medida_compra}X${conv.qtd_padrao}${conv.medida_padrao}`;
+            if (normalize(formula) === valorNormalizado) {
+                return conv.id;
+            }
+        }
+
+        return null; // Retorna null se não encontrar por nenhum método
+    }
+
+    /**
+     * Função principal de importação, agora usando a lógica robusta.
+     */
     async function handleFileImport(event) {
         const file = event.target.files[0];
         if (!file) return;
@@ -627,14 +661,15 @@ document.addEventListener('DOMContentLoaded', async function() {
                 return;
             }
 
-            // Exibir modal de progresso
             progressModal.style.display = 'block';
 
-            // --- LÓGICA DE BUSCA MELHORADA ---
-            // Carrega todas as conversões uma vez para otimizar
-            const conversoesSnapshot = await getDocs(collection(db, 'conversoes'));
-            const todasConversoes = conversoesSnapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
-            // --- FIM DA LÓGICA DE BUSCA MELHORADA ---
+            // Pré-carrega todos os dados necessários para evitar múltiplas leituras do DB
+            const cache = {};
+            const collectionsToCache = ['fornecedores', 'grupos', 'aplicacoes', 'conjuntos', 'locais', 'conversoes'];
+            for (const name of collectionsToCache) {
+                const snapshot = await getDocs(collection(db, name));
+                cache[name] = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
+            }
 
             let successCount = 0;
             let errorCount = 0;
@@ -644,59 +679,24 @@ document.addEventListener('DOMContentLoaded', async function() {
             for (let i = 0; i < totalRows; i++) {
                 const row = json[i];
                 const progress = ((i + 1) / totalRows) * 100;
-
                 progressMessage.textContent = `Importando ${i + 1} de ${totalRows}...`;
                 progressBar.style.width = `${progress}%`;
-                progressBar.textContent = `${Math.round(progress)}%`;
 
                 try {
-                    // --- INÍCIO DA CORREÇÃO DEFINITIVA ---
-                    let conversaoId = null;
-                    const conversaoKeys = ['conversao_nome_regra', 'regra de conversao', 'conversao'];
-                    const rowKeys = Object.keys(row).map(k => k.toLowerCase());
-                    const foundKey = conversaoKeys.find(key => rowKeys.includes(key));
+                    const valorConversaoPlanilha = row.conversao_nome_regra || row['regra de conversao'] || row.conversao;
+                    const conversaoId = findConversaoId(valorConversaoPlanilha, cache['conversoes']);
 
-                    if (foundKey) {
-                        const originalKey = Object.keys(row).find(k => k.toLowerCase() === foundKey);
-                        const valorPlanilha = row[originalKey];
-
-                        if (valorPlanilha && typeof valorPlanilha === 'string') {
-                            const valorTratado = valorPlanilha.trim();
-
-                            // 1. Tenta buscar pelo NOME DA REGRA
-                            let regraEncontrada = todasConversoes.find(c => c.nome_regra.toLowerCase() === valorTratado.toLowerCase());
-
-                            // 2. Se não achou, tenta buscar pela FÓRMULA
-                            if (!regraEncontrada) {
-                                const normalizeString = (str) => String(str).replace(/,/g, '.').replace(/\s+/g, '').toLowerCase();
-
-                                regraEncontrada = todasConversoes.find(c => {
-                                    const formula = `${c.qtd_compra}${c.medida_compra} X ${c.qtd_padrao}${c.medida_padrao}`;
-                                    return normalizeString(formula) === normalizeString(valorTratado);
-                                });
-                            }
-
-                            if (regraEncontrada) {
-                                conversaoId = regraEncontrada.id;
-                            }
-                        }
-                    }
-                    // --- FIM DA CORREÇÃO DEFINITIVA ---
-
-                    const fornecedorId = await findIdByName('fornecedores', 'nome', row.fornecedor_nome);
-                    const grupoId = await findIdByName('grupos', 'nome', row.grupo_nome);
+                    const fornecedorId = await findIdByName('fornecedores', 'nome', row.fornecedor_nome, cache);
+                    const grupoId = await findIdByName('grupos', 'nome', row.grupo_nome, cache);
+                    const localId = await findIdByName('locais', 'nome', row.local_nome, cache);
 
                     const aplicacaoNomes = row.aplicacao_nome || row.aplicacoes || '';
-                    const aplicacaoIds = aplicacaoNomes ? (await Promise.all(aplicacaoNomes.split(',').map(name => findIdByName('aplicacoes', 'nome', name.trim())))) .filter(Boolean) : [];
+                    const aplicacaoIds = aplicacaoNomes ? (await Promise.all(aplicacaoNomes.split(',').map(name => findIdByName('aplicacoes', 'nome', name, cache)))) .filter(Boolean) : [];
 
                     const conjuntoNomes = row.conjunto_nome || row.conjuntos || '';
-                    const conjuntoIds = conjuntoNomes ? (await Promise.all(conjuntoNomes.split(',').map(name => findIdByName('conjuntos', 'nome', name.trim())))) .filter(Boolean) : [];
+                    const conjuntoIds = conjuntoNomes ? (await Promise.all(conjuntoNomes.split(',').map(name => findIdByName('conjuntos', 'nome', name, cache)))) .filter(Boolean) : [];
 
-                    const localId = await findIdByName('locais', 'nome', row.local_nome);
-
-                    if (!row.codigo || !row.descricao) {
-                        throw new Error(`Linha ${i + 2} não tem código ou descrição.`);
-                    }
+                    if (!row.codigo || !row.descricao) throw new Error(`Linha ${i + 2} não tem código ou descrição.`);
 
                     const product = {
                         codigo: row.codigo,
@@ -715,21 +715,20 @@ document.addEventListener('DOMContentLoaded', async function() {
 
                     await addDoc(collection(db, 'produtos'), product);
                     successCount++;
+
                 } catch (error) {
                     errorCount++;
                     errors.push(`Erro na linha ${i + 2} (Código '${row.codigo || "N/A"}'): ${error.message}`);
-                    console.error("Erro ao importar linha:", row, error);
                 }
 
-                await new Promise(resolve => setTimeout(resolve, 0));
+                await new Promise(resolve => setTimeout(resolve, 10)); // pequena pausa
             }
 
             progressModal.style.display = 'none';
 
             let finalMessage = `${successCount} produtos importados com sucesso!`;
             if (errorCount > 0) {
-                finalMessage += `\n\n${errorCount} produtos falharam na importação.\n\nDetalhes dos erros:\n${errors.join("\n")}`;
-                console.log("Erros detalhados:", errors);
+                finalMessage += `\n\n${errorCount} produtos falharam: \n${errors.join("\n")}`;
             }
             alert(finalMessage);
 
