@@ -151,6 +151,7 @@
                                 <th>ICMS</th>
                                 <th>IPI</th>
                                 <th>Frete (Rateado)</th>
+                                <th data-column="acao">Ação</th>
                             </tr>
                         </thead>
                         <tbody>
@@ -158,6 +159,28 @@
                     </table>
                 </div>
                 <button id="btn-confirmar-xml-import" class="btn btn-success" style="width: 100%; margin-top: 20px;">Confirmar Entradas</button>
+            </div>
+        </div>
+    </div>
+    <div id="cadastro-produto-modal" class="modal">
+        <div class="modal-content" style="max-width: 900px;">
+            <div class="modal-header">
+                <h3>Cadastrar Novo Produto</h3>
+                <span class="close-button" id="cadastro-produto-modal-close">&times;</span>
+            </div>
+            <div class="modal-body">
+                <form id="form-novo-produto-modal" style="display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 15px;">
+                    <input type="text" id="modal-produto-codigo" placeholder="Código" required class="form-control">
+                    <input type="text" id="modal-produto-descricao" placeholder="Descrição" required class="form-control" style="grid-column: span 2;">
+                    <input type="text" id="modal-produto-un" placeholder="UN Estocável" required class="form-control">
+                    <input type="text" id="modal-produto-cor" placeholder="Cor" class="form-control">
+                    <select id="modal-produto-local" required class="form-control"><option value="">Selecione o Local...</option></select>
+                    <input type="text" id="modal-produto-locacao" placeholder="Locação (Ex: Corredor A)" class="form-control">
+                    <select id="modal-produto-conversao" class="form-control"><option value="">Nenhuma conversão</option></select>
+                    <select id="modal-produto-fornecedor" required class="form-control"><option value="">Selecione o Fornecedor...</option></select>
+                    <select id="modal-produto-grupo" required class="form-control"><option value="">Selecione o Grupo...</option></select>
+                    <button type="submit" class="btn btn-success" style="grid-column: 1 / -1;">Salvar Produto</button>
+                </form>
             </div>
         </div>
     </div>

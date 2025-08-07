@@ -780,3 +780,8 @@ input:checked + .slider:before {
     color: white;
     transition: width 0.2s ease-in-out;
 }
+
+/* Garante que o modal de cadastro de produto sobreponha o de importação */
+#cadastro-produto-modal {
+    z-index: 1050; /* Um valor maior que o z-index do modal base */
+}
