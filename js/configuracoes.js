@@ -262,6 +262,7 @@ document.addEventListener('DOMContentLoaded', function() {
 
         // SUBSTITUA O BLOCO ANTIGO POR ESTE:
 
+        const colRef = collection(db, config.collectionName);
         unsubscribe = onSnapshot(colRef, (snapshot) => {
             currentData = snapshot.docs.map(doc => ({ id: doc.id, data: doc.data() }));
 
