@@ -892,3 +892,33 @@ input:checked + .slider:before {
 .table-fornecedores td .marca-tag-display {
     margin-bottom: 5px;
 }
+
+/* Arquitetura Corretiva para a Tabela de Produtos */
+.table-produtos-grid thead tr,
+.table-produtos-grid tbody tr {
+    display: grid;
+    /* Checkbox | Código | Descrição | UN | Cor | Fornecedor | Grupo | Aplicações | Locação | Medida */
+    grid-template-columns: 40px 1fr 2.5fr 0.5fr 1fr 1.5fr 1.5fr 1.5fr 1.5fr 1fr;
+    align-items: start;
+    border-bottom: 1px solid #dee2e6;
+    width: 100%;
+}
+
+.table-produtos-grid thead {
+    border-bottom: 2px solid #212529;
+}
+
+.table-produtos-grid th,
+.table-produtos-grid td {
+    padding: 12px;
+    text-align: left;
+    border-bottom: none;
+    word-wrap: break-word;
+    display: flex;
+    align-items: center;
+}
+
+.table-produtos-grid th:first-child,
+.table-produtos-grid td:first-child {
+    justify-content: center;
+}
