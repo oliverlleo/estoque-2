@@ -260,10 +260,64 @@ document.addEventListener('DOMContentLoaded', function() {
             }
         });
 
-        const colRef = collection(db, config.collectionName);
+        // SUBSTITUA O BLOCO ANTIGO POR ESTE:
+
         unsubscribe = onSnapshot(colRef, (snapshot) => {
             currentData = snapshot.docs.map(doc => ({ id: doc.id, data: doc.data() }));
-            renderTable(currentData);
+
+            // Início da lógica de renderização correta
+            tableBody.innerHTML = '';
+            currentData.forEach(item => {
+                const row = document.createElement('tr'); // 1. CRIA UMA ÚNICA LINHA
+
+                // 2. ADICIONA AS CÉLULAS A ESSA LINHA, UMA POR UMA
+                if (config.id === 'fornecedor') {
+                    // Célula Nome
+                    const tdNome = document.createElement('td');
+                    tdNome.textContent = item.data.nome;
+                    row.appendChild(tdNome);
+
+                    // Célula Contatos
+                    const tdContatos = document.createElement('td');
+                    if (item.data.contatos && item.data.contatos.length > 0) {
+                        tdContatos.innerHTML = item.data.contatos.map(c => {
+                            const telefonePuro = String(c.telefone || '').replace(/\D/g, '');
+                            return `<span class="contato-item">${c.nome}: ${formatarTelefone(c.telefone)} <a href="https://wa.me/${telefonePuro}" target="_blank" title="Abrir no WhatsApp" class="whatsapp-link"><i data-feather="message-circle"></i></a></span>`;
+                        }).join('<br>'); // Usa <br> para quebras de linha DENTRO da célula
+                    } else {
+                        tdContatos.textContent = 'Nenhum contato';
+                    }
+                    row.appendChild(tdContatos);
+
+                    // Célula Marcas
+                    const tdMarcas = document.createElement('td');
+                    if (item.data.marcas && item.data.marcas.length > 0) {
+                        tdMarcas.innerHTML = item.data.marcas.map(m => `<span class="marca-tag-display">${m}</span>`).join(' ');
+                    } else {
+                        tdMarcas.textContent = 'Nenhuma marca';
+                    }
+                    row.appendChild(tdMarcas);
+
+                } else {
+                    // Lógica para as outras configurações
+                    if (config.render) {
+                        const tempDiv = document.createElement('div');
+                        tempDiv.innerHTML = `<table><tbody><tr>${config.render(item.data)}</tr></tbody></table>`;
+                        Array.from(tempDiv.querySelector('tr').cells).forEach(cell => row.appendChild(cell.cloneNode(true)));
+                    }
+                }
+
+                // Célula Ações
+                const tdActions = document.createElement('td');
+                tdActions.className = 'actions';
+                tdActions.innerHTML = `<button class="btn-edit" data-id="${item.id}">Editar</button> <button class="btn-delete" data-id="${item.id}">Excluir</button>`;
+                row.appendChild(tdActions);
+
+                // 3. ADICIONA A LINHA COMPLETA E CORRETA NA TABELA
+                tableBody.appendChild(row);
+            });
+
+            feather.replace(); // Atualiza os ícones
         });
 
         tableBody.addEventListener('click', async (e) => {
