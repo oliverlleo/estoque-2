@@ -1,34 +1,25 @@
-function adjustFontSizeToFit(element) {
-    element.style.fontSize = ''; // Reseta para o tamanho padrão do CSS
+document.addEventListener('DOMContentLoaded', () => {
+    processarEtiquetas();
 
-    // A condição de estouro simples, que agora vai funcionar graças ao CSS rígido
-    const isOverflowing = () => element.scrollHeight > element.clientHeight || element.scrollWidth > element.clientWidth;
-
-    if (isOverflowing()) {
-        let currentSize = parseFloat(window.getComputedStyle(element).fontSize);
-        while (isOverflowing() && currentSize > 4) {
-            currentSize -= 1; // Diminui 1px por vez
-            element.style.fontSize = currentSize + 'px';
-        }
+    // Adiciona o listener para o botão de impressão
+    const printButton = document.getElementById('print-button');
+    if(printButton) {
+        printButton.addEventListener('click', () => {
+            window.print();
+        });
     }
-}
+});
 
-// Função principal que processa todas as etiquetas
 function processarEtiquetas() {
     const container = document.getElementById('etiquetas-container');
-    const dadosJSON = localStorage.getItem('etiquetasParaImprimir');
+    const produtos = JSON.parse(localStorage.getItem('produtosParaEtiquetas'));
+    container.innerHTML = ''; // Limpar antes de adicionar
 
-    if (!dadosJSON) {
-        container.innerHTML = '<p>Nenhum dado de etiqueta encontrado. Por favor, gere as etiquetas a partir da página de produtos.</p>';
+    if (!produtos || produtos.length === 0) {
+        container.innerHTML = '<p>Nenhum produto selecionado para gerar etiquetas.</p>';
         return;
     }
 
-    const produtos = JSON.parse(dadosJSON);
-
-    // Limpa o container antes de adicionar novas etiquetas
-    container.innerHTML = '';
-
-    // 1. CRIA TODOS OS ELEMENTOS HTML PRIMEIRO
     produtos.forEach(produto => {
         const pData = produto.data;
         const enderecamento = produto.enderecamento || 'N/A';
@@ -36,22 +27,18 @@ function processarEtiquetas() {
         const etiquetaDiv = document.createElement('div');
         etiquetaDiv.className = 'etiqueta';
 
+        // SUBSTITUA O INNERHTML ANTIGO POR ESTE NOVO:
         etiquetaDiv.innerHTML = `
-            <div class="etiqueta-main">
-                <div class="qr-code" id="qr-${produto.id}"></div>
-                <div class="produto-info">
-                    <div class="info-bloco produto">
-                        <div class="header">PRODUTO</div>
-                        <div class="valor">${pData.descricao || ''}</div>
-                    </div>
-                    <div class="info-bloco codigo">
-                        <div class="header">CÓDIGO</div>
-                        <div class="valor">${pData.codigo || ''}</div>
-                    </div>
+            <div class="etiqueta-corpo">
+                <div class="qr-code-container" id="qr-${produto.id}"></div>
+                <div class="info-container">
+                    <div class="info-descricao">${pData.descricao || ''}</div>
+                    <div class="info-cor">${pData.cor || ''}</div>
+                    <div class="info-codigo">${pData.codigo || ''}</div>
                 </div>
             </div>
-            <div class="etiqueta-footer">
-                LOCAÇÃO: ${enderecamento}
+            <div class="etiqueta-rodape">
+                ${enderecamento}
             </div>
         `;
         container.appendChild(etiquetaDiv);
@@ -59,23 +46,9 @@ function processarEtiquetas() {
         const url = `${window.location.origin}/detalhe-produto.html?id=${produto.id}`;
         new QRCode(document.getElementById(`qr-${produto.id}`), {
             text: url,
-            width: 120,
-            height: 120,
+            width: 140, // Aumentado para melhor leitura
+            height: 140,
             correctLevel: QRCode.CorrectLevel.H
         });
     });
-
-    // 2. PEDE AO NAVEGADOR PARA EXECUTAR O AJUSTE ANTES DA PRÓXIMA RENDERIZAÇÃO
-    requestAnimationFrame(() => {
-        const elementosParaAjustar = document.querySelectorAll('.info-bloco .valor');
-        elementosParaAjustar.forEach(el => {
-            adjustFontSizeToFit(el);
-        });
-    });
-
-    // Limpa o localStorage
-    localStorage.removeItem('etiquetasParaImprimir');
 }
-
-// Inicia o processo quando a página carregar
-document.addEventListener('DOMContentLoaded', processarEtiquetas);
