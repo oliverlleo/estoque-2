@@ -7,7 +7,6 @@
     <script src="https://cdn.jsdelivr.net/npm/qrcodejs@1.0.0/qrcode.min.js"></script>
     <style>
 /* CONTEÚDO COMPLETO PARA A TAG <style> EM etiquetas.html */
-
 /* ESTILOS GERAIS E DE CONTROLE */
 body {
     font-family: Arial, sans-serif;
@@ -21,7 +20,7 @@ body {
 }
 .controls button { font-size: 16px; padding: 10px 20px; cursor: pointer; }
 
-/* ARQUITETURA DA ETIQUETA */
+/* ARQUITETURA DA ETIQUETA - VERSÃO CORRIGIDA E ROBUSTA */
 .etiqueta {
     background-color: white;
     width: 100mm;
@@ -32,12 +31,11 @@ body {
     margin: 20px auto;
     display: flex;
     flex-direction: column;
-    justify-content: space-between;
     overflow: hidden;
 }
 
 .etiqueta-corpo {
-    flex-grow: 1;
+    flex-grow: 1; /* Faz esta div ocupar todo o espaço disponível, empurrando o rodapé para baixo */
     display: flex;
     gap: 5mm;
     align-items: center;
@@ -89,6 +87,7 @@ body {
 }
 
 .etiqueta-rodape {
+    flex-shrink: 0; /* Impede que o rodapé encolha */
     background-color: #000;
     color: #fff;
     font-size: 16pt;
@@ -104,11 +103,7 @@ body {
 @media print {
     body { background-color: white; padding: 0; margin: 0; }
     .controls { display: none !important; }
-    .etiqueta {
-        margin: 0;
-        border: none;
-        page-break-after: always;
-    }
+    .etiqueta { margin: 0; border: none; page-break-after: always; }
     .etiqueta:last-child { page-break-after: avoid; }
     .info-codigo, .etiqueta-rodape {
         background-color: #000 !important;

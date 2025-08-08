@@ -1,9 +1,6 @@
-// SUBSTITUA TODO O CONTEÚDO DE js/etiquetas.js POR ISTO:
+// CONTEÚDO COMPLETO PARA O ARQUIVO js/etiquetas.js
 
-/**
- * LÓGICA ORIGINAL:
- * Esta função ajusta o tamanho da fonte de um elemento para que seu conteúdo não seja cortado.
- */
+// LÓGICA ORIGINAL, MANTIDA INTOCADA.
 function adjustFontSizeToFit(element) {
     element.style.fontSize = '';
 
@@ -18,84 +15,61 @@ function adjustFontSizeToFit(element) {
     }
 }
 
-/**
- * Função principal que usa a ESTRUTURA DO NOVO DESIGN e aplica a LÓGICA ORIGINAL.
- */
+// FUNÇÃO ORIGINAL, MODIFICADA APENAS ONDE NECESSÁRIO.
 function processarEtiquetas() {
-    try {
-        const container = document.getElementById('etiquetas-container');
-        if (!container) {
-            console.error('Erro Crítico: O contêiner de etiquetas #etiquetas-container não foi encontrado no HTML.');
-            return;
-        }
+    const container = document.getElementById('etiquetas-container');
+    const dadosJSON = localStorage.getItem('etiquetasParaImprimir');
 
-        const dadosJSON = localStorage.getItem('etiquetasParaImprimir');
-        if (!dadosJSON) {
-            container.innerHTML = '<p>Nenhum dado de etiqueta encontrado. Por favor, gere as etiquetas a partir da página de produtos.</p>';
-            return;
-        }
-
-        const produtos = JSON.parse(dadosJSON);
-        container.innerHTML = '';
-
-        // CRIA AS ETIQUETAS COM O NOVO DESIGN
-        produtos.forEach(produto => {
-            if (!produto || !produto.data) {
-                console.warn('Um produto na lista de etiquetas está malformado e será ignorado:', produto);
-                return;
-            }
-
-            const pData = produto.data;
-            const enderecamento = produto.enderecamento || 'N/A';
-
-            const etiquetaDiv = document.createElement('div');
-            etiquetaDiv.className = 'etiqueta';
-
-            // Estrutura HTML do novo design
-            etiquetaDiv.innerHTML = `
-                <div class="etiqueta-corpo">
-                    <div class="qr-code-container" id="qr-${produto.id}"></div>
-                    <div class="info-container">
-                        <div class="info-descricao">${pData.descricao || 'Sem Descrição'}</div>
-                        <div class="info-cor">${pData.cor || 'Sem Cor'}</div>
-                        <div class="info-codigo">${pData.codigo || 'Sem Código'}</div>
-                    </div>
-                </div>
-                <div class="etiqueta-rodape">
-                    ${enderecamento}
-                </div>
-            `;
-            container.appendChild(etiquetaDiv);
-
-            const qrElement = document.getElementById(`qr-${produto.id}`);
-            if (qrElement) {
-                const url = `${window.location.origin}/detalhe-produto.html?id=${produto.id}`;
-                new QRCode(qrElement, {
-                    text: url,
-                    width: 140,
-                    height: 140,
-                    correctLevel: QRCode.CorrectLevel.H
-                });
-            }
-        });
-
-        // APLICA A LÓGICA ORIGINAL DE AJUSTE DE TEXTO
-        requestAnimationFrame(() => {
-            const elementosParaAjustar = document.querySelectorAll('.info-descricao');
-            elementosParaAjustar.forEach(el => {
-                adjustFontSizeToFit(el);
-            });
-        });
-
-        localStorage.removeItem('etiquetasParaImprimir');
-
-    } catch (error) {
-        console.error('ERRO AO PROCESSAR AS ETIQUETAS:', error);
-        const container = document.getElementById('etiquetas-container');
-        if (container) {
-            container.innerHTML = `<p style="color: red; font-weight: bold;">Ocorreu um erro. Verifique o console (F12).</p>`;
-        }
+    if (!dadosJSON) {
+        container.innerHTML = '<p>Nenhum dado de etiqueta encontrado. Por favor, gere as etiquetas a partir da página de produtos.</p>';
+        return;
     }
+
+    const produtos = JSON.parse(dadosJSON);
+    container.innerHTML = '';
+
+    produtos.forEach(produto => {
+        const pData = produto.data;
+        const enderecamento = produto.enderecamento || 'N/A';
+
+        const etiquetaDiv = document.createElement('div');
+        etiquetaDiv.className = 'etiqueta';
+
+        // O HTML antigo foi trocado pelo HTML do novo design.
+        // ESTA FOI A ÚNICA ALTERAÇÃO ESTRUTURAL.
+        etiquetaDiv.innerHTML = `
+            <div class="etiqueta-corpo">
+                <div class="qr-code-container" id="qr-${produto.id}"></div>
+                <div class="info-container">
+                    <div class="info-descricao">${pData.descricao || ''}</div>
+                    <div class="info-cor">${pData.cor || ''}</div>
+                    <div class="info-codigo">${pData.codigo || ''}</div>
+                </div>
+            </div>
+            <div class="etiqueta-rodape">
+                ${enderecamento}
+            </div>
+        `;
+        container.appendChild(etiquetaDiv);
+
+        const url = `${window.location.origin}/detalhe-produto.html?id=${produto.id}`;
+        new QRCode(document.getElementById(`qr-${produto.id}`), {
+            text: url,
+            width: 140,
+            height: 140,
+            correctLevel: QRCode.CorrectLevel.H
+        });
+    });
+
+    // CHAMADA ORIGINAL, APENAS COM O SELETOR ATUALIZADO PARA O NOVO DESIGN.
+    requestAnimationFrame(() => {
+        const elementosParaAjustar = document.querySelectorAll('.info-descricao');
+        elementosParaAjustar.forEach(el => {
+            adjustFontSizeToFit(el);
+        });
+    });
+
+    localStorage.removeItem('etiquetasParaImprimir');
 }
 
 document.addEventListener('DOMContentLoaded', processarEtiquetas);
