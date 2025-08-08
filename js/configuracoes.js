@@ -30,16 +30,16 @@ document.addEventListener('DOMContentLoaded', function() {
             render: (d) => {
                 const contatosHtml = (d.contatos || []).map(c => {
                     const telefonePuro = String(c.telefone || '').replace(/\D/g, '');
-                    return `<span style="display: block; white-space: nowrap;">
-                        ${c.nome}: ${formatarTelefone(c.telefone)}
-                        <a href="https://wa.me/${telefonePuro}" target="_blank" title="Abrir no WhatsApp" style="color: #25D366; text-decoration: none; margin-left: 5px;">
-                            <i data-feather="message-circle" style="width: 16px; height: 16px; vertical-align: middle;"></i>
-                        </a>
-                    </span>`
+                    return `<span class="contato-item">${c.nome}: ${formatarTelefone(c.telefone)} <a href="https://wa.me/${telefonePuro}" target="_blank" title="Abrir no WhatsApp" class="whatsapp-link"><i data-feather="message-circle"></i></a></span>`;
                 }).join('');
-                return `<td>${d.nome}</td><td>${contatosHtml || 'Nenhum contato'}</td>`;
+
+                const marcasHtml = (d.marcas || []).map(m => `<span class="marca-tag-display">${m}</span>`).join(' ');
+
+                return `<td>${d.nome}</td>
+                        <td>${contatosHtml || 'Nenhum contato'}</td>
+                        <td>${marcasHtml || 'Nenhuma marca'}</td>`;
             },
-            tableHeaders: "<th>Nome</th><th>Contatos</th>"
+            tableHeaders: "<th>Nome</th><th>Contatos</th><th>Marcas</th>"
         },
         { name: "Grupos", id: "grupo", collectionName: "grupos", fields: { nome: "Nome do Grupo" }, render: (d) => `<td>${d.nome}</td>`, tableHeaders: "<th>Nome</th>" },
         { name: "Aplicações", id: "aplicacao", collectionName: "aplicacoes", fields: { nome: "Nome da Aplicação" }, render: (d) => `<td>${d.nome}</td>`, tableHeaders: "<th>Nome</th>" },
@@ -153,6 +153,14 @@ document.addEventListener('DOMContentLoaded', function() {
                         <div id="lista-contatos-form"></div>
                         <button type="button" id="btn-add-contato" class="btn" style="background-color: #0d6efd; margin-top: 10px;">Adicionar Contato</button>
                     </div>
+                    <div id="marcas-container" style="margin-top: 20px; border-top: 1px solid #dee2e6; padding-top: 20px;">
+                        <h4 style="margin-bottom: 10px;">Marcas</h4>
+                        <div id="marcas-input-wrapper">
+                            <input type="text" id="input-add-marca" placeholder="Digite uma marca e pressione Enter" class="form-control">
+                            <button type="button" id="btn-add-marca" class="btn">Adicionar</button>
+                        </div>
+                        <div id="lista-marcas-tags"></div>
+                    </div>
                 </div>
             </div>
             <div class="card">
@@ -180,6 +188,9 @@ document.addEventListener('DOMContentLoaded', function() {
         if (config.id === 'fornecedor') {
             const contatosContainer = modal.querySelector('#lista-contatos-form');
             const btnAddContato = modal.querySelector('#btn-add-contato');
+            const marcasInput = modal.querySelector('#input-add-marca');
+            const btnAddMarca = modal.querySelector('#btn-add-marca');
+            const marcasTagsContainer = modal.querySelector('#lista-marcas-tags');
 
             const addContatoField = (contato = { nome: '', telefone: '' }) => {
                 const contatoDiv = document.createElement('div');
@@ -190,17 +201,41 @@ document.addEventListener('DOMContentLoaded', function() {
                     <button type="button" class="btn btn-danger btn-remove-contato">Remover</button>
                 `;
                 contatosContainer.appendChild(contatoDiv);
+                contatoDiv.querySelector('.btn-remove-contato').addEventListener('click', () => contatoDiv.remove());
+            };
 
-                contatoDiv.querySelector('.btn-remove-contato').addEventListener('click', () => {
-                    contatoDiv.remove();
-                });
+            const addMarcaTag = (marca) => {
+                if (!marca.trim()) return;
+                const tagSpan = document.createElement('span');
+                tagSpan.className = 'marca-tag';
+                tagSpan.textContent = marca.trim();
+                const removeBtn = document.createElement('button');
+                removeBtn.type = 'button';
+                removeBtn.innerHTML = '&times;';
+                removeBtn.onclick = () => tagSpan.remove();
+                tagSpan.appendChild(removeBtn);
+                marcasTagsContainer.appendChild(tagSpan);
+            };
+
+            const handleAddMarca = () => {
+                addMarcaTag(marcasInput.value);
+                marcasInput.value = '';
+                marcasInput.focus();
             };
 
             btnAddContato.addEventListener('click', () => addContatoField());
+            btnAddMarca.addEventListener('click', handleAddMarca);
+            marcasInput.addEventListener('keydown', (e) => {
+                if (e.key === 'Enter') {
+                    e.preventDefault();
+                    handleAddMarca();
+                }
+            });
 
             form.addEventListener('reset', () => {
                  setTimeout(() => {
                     contatosContainer.innerHTML = '';
+                    marcasTagsContainer.innerHTML = '';
                  }, 0);
             });
         }
@@ -220,15 +255,13 @@ document.addEventListener('DOMContentLoaded', function() {
 
             if (config.id === 'fornecedor') {
                 const contatosNodes = modal.querySelectorAll('.contato-field-group');
-                const contatosData = [];
-                contatosNodes.forEach(node => {
-                    const nome = node.querySelector('.contato-nome').value.trim();
-                    const telefone = node.querySelector('.contato-telefone').value.trim();
-                    if (nome && telefone) {
-                        contatosData.push({ nome, telefone });
-                    }
-                });
-                data.contatos = contatosData;
+                data.contatos = Array.from(contatosNodes).map(node => ({
+                    nome: node.querySelector('.contato-nome').value.trim(),
+                    telefone: node.querySelector('.contato-telefone').value.trim()
+                })).filter(c => c.nome && c.telefone);
+
+                const marcaNodes = modal.querySelectorAll('.marca-tag');
+                data.marcas = Array.from(marcaNodes).map(node => node.firstChild.textContent.trim());
             }
 
             try {
@@ -240,7 +273,6 @@ document.addEventListener('DOMContentLoaded', function() {
                     alert(`${config.name} salvo com sucesso!`);
                 }
                 form.reset();
-                form.querySelector(`#${config.id}-id`).value = '';
             } catch (error) {
                 console.error(`Erro ao salvar ${config.name}:`, error);
                 alert(`Erro ao salvar: ${error.message}`);
@@ -279,6 +311,7 @@ document.addEventListener('DOMContentLoaded', function() {
             if (target.classList.contains('btn-edit')) {
                 const item = currentData.find(d => d.id === id);
                 if (item) {
+                    form.reset();
                     form.querySelector(`#${config.id}-id`).value = item.id;
                     for (const key in config.fields) {
                         const input = form.querySelector(`#${config.id}-${key}`);
@@ -291,7 +324,11 @@ document.addEventListener('DOMContentLoaded', function() {
 
                     if (config.id === 'fornecedor') {
                         const contatosContainer = modal.querySelector('#lista-contatos-form');
+                        const marcasTagsContainer = modal.querySelector('#lista-marcas-tags');
+
                         contatosContainer.innerHTML = '';
+                        marcasTagsContainer.innerHTML = '';
+
                         if (item.data.contatos) {
                             item.data.contatos.forEach(contato => {
                                 const addContatoField = (c = { nome: '', telefone: '' }) => {
@@ -306,6 +343,23 @@ document.addEventListener('DOMContentLoaded', function() {
                                     contatoDiv.querySelector('.btn-remove-contato').addEventListener('click', () => contatoDiv.remove());
                                 };
                                 addContatoField(contato);
+                            });
+                        }
+                        if (item.data.marcas) {
+                            item.data.marcas.forEach(marca => {
+                                const addMarcaTag = (m) => {
+                                    if (!m.trim()) return;
+                                    const tagSpan = document.createElement('span');
+                                    tagSpan.className = 'marca-tag';
+                                    tagSpan.textContent = m.trim();
+                                    const removeBtn = document.createElement('button');
+                                    removeBtn.type = 'button';
+                                    removeBtn.innerHTML = '&times;';
+                                    removeBtn.onclick = () => tagSpan.remove();
+                                    tagSpan.appendChild(removeBtn);
+                                    marcasTagsContainer.appendChild(tagSpan);
+                                };
+                                addMarcaTag(marca);
                             });
                         }
                     }
