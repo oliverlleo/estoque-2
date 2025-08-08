@@ -27,18 +27,6 @@ document.addEventListener('DOMContentLoaded', function() {
             id: "fornecedor",
             collectionName: "fornecedores",
             fields: { nome: "Nome do Fornecedor", imposto: "Imposto (ST)" },
-            render: (d) => {
-                const contatosHtml = (d.contatos || []).map(c => {
-                    const telefonePuro = String(c.telefone || '').replace(/\D/g, '');
-                    return `<span class="contato-item">${c.nome}: ${formatarTelefone(c.telefone)} <a href="https://wa.me/${telefonePuro}" target="_blank" title="Abrir no WhatsApp" class="whatsapp-link"><i data-feather="message-circle"></i></a></span>`;
-                }).join('');
-
-                const marcasHtml = (d.marcas || []).map(m => `<span class="marca-tag-display">${m}</span>`).join(' ');
-
-                return `<td>${d.nome}</td>
-                        <td>${contatosHtml || 'Nenhum contato'}</td>
-                        <td>${marcasHtml || 'Nenhuma marca'}</td>`;
-            },
             tableHeaders: "<th>Nome</th><th>Contatos</th><th>Marcas</th>"
         },
         { name: "Grupos", id: "grupo", collectionName: "grupos", fields: { nome: "Nome do Grupo" }, render: (d) => `<td>${d.nome}</td>`, tableHeaders: "<th>Nome</th>" },
@@ -283,13 +271,47 @@ document.addEventListener('DOMContentLoaded', function() {
             tableBody.innerHTML = '';
             data.forEach(item => {
                 const row = document.createElement('tr');
-                row.innerHTML = `
-                    ${config.render(item.data)}
-                    <td class="actions">
-                        <button class="btn-edit" data-id="${item.id}">Editar</button>
-                        <button class="btn-delete" data-id="${item.id}">Excluir</button>
-                    </td>
+
+                if (config.id === 'fornecedor') {
+                    const tdNome = document.createElement('td');
+                    tdNome.textContent = item.data.nome;
+                    row.appendChild(tdNome);
+
+                    const tdContatos = document.createElement('td');
+                    if (item.data.contatos && item.data.contatos.length > 0) {
+                        tdContatos.innerHTML = item.data.contatos.map(c => {
+                            const telefonePuro = String(c.telefone || '').replace(/\D/g, '');
+                            return `<span class="contato-item">${c.nome}: ${formatarTelefone(c.telefone)} <a href="https://wa.me/${telefonePuro}" target="_blank" title="Abrir no WhatsApp" class="whatsapp-link"><i data-feather="message-circle"></i></a></span>`;
+                        }).join('<br>');
+                    } else {
+                        tdContatos.textContent = 'Nenhum contato';
+                    }
+                    row.appendChild(tdContatos);
+
+                    const tdMarcas = document.createElement('td');
+                    if (item.data.marcas && item.data.marcas.length > 0) {
+                        tdMarcas.innerHTML = item.data.marcas.map(m => `<span class="marca-tag-display">${m}</span>`).join(' ');
+                    } else {
+                        tdMarcas.textContent = 'Nenhuma marca';
+                    }
+                    row.appendChild(tdMarcas);
+
+                } else {
+                    const tempDiv = document.createElement('div');
+                    tempDiv.innerHTML = `<table><tbody><tr>${config.render(item.data)}</tr></tbody></table>`;
+                    Array.from(tempDiv.querySelector('tr').cells).forEach(cell => {
+                        row.appendChild(cell.cloneNode(true));
+                    });
+                }
+
+                const tdActions = document.createElement('td');
+                tdActions.className = 'actions';
+                tdActions.innerHTML = `
+                    <button class="btn-edit" data-id="${item.id}">Editar</button>
+                    <button class="btn-delete" data-id="${item.id}">Excluir</button>
                 `;
+                row.appendChild(tdActions);
+
                 tableBody.appendChild(row);
             });
             feather.replace();
