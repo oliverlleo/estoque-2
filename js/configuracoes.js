@@ -27,7 +27,8 @@ document.addEventListener('DOMContentLoaded', function() {
             id: "fornecedor",
             collectionName: "fornecedores",
             fields: { nome: "Nome do Fornecedor", imposto: "Imposto (ST)" },
-            tableHeaders: "<th>Nome</th><th>Contatos</th><th>Marcas</th><th>Ações</th>"
+            render: (d) => `<td>${d.nome}</td><td>${d.imposto || 0}</td>`,
+            tableHeaders: "<th>Nome</th><th>Imposto (ST)</th><th>Ações</th>"
         },
         { name: "Grupos", id: "grupo", collectionName: "grupos", fields: { nome: "Nome do Grupo" }, render: (d) => `<td>${d.nome}</td>`, tableHeaders: "<th>Nome</th>" },
         { name: "Aplicações", id: "aplicacao", collectionName: "aplicacoes", fields: { nome: "Nome da Aplicação" }, render: (d) => `<td>${d.nome}</td>`, tableHeaders: "<th>Nome</th>" },
@@ -272,40 +273,11 @@ document.addEventListener('DOMContentLoaded', function() {
                 const row = document.createElement('tr'); // 1. CRIA UMA ÚNICA LINHA
 
                 // 2. ADICIONA AS CÉLULAS A ESSA LINHA, UMA POR UMA
-                if (config.id === 'fornecedor') {
-                    // Célula Nome
-                    const tdNome = document.createElement('td');
-                    tdNome.textContent = item.data.nome;
-                    row.appendChild(tdNome);
-
-                    // Célula Contatos
-                    const tdContatos = document.createElement('td');
-                    if (item.data.contatos && item.data.contatos.length > 0) {
-                        tdContatos.innerHTML = item.data.contatos.map(c => {
-                            const telefonePuro = String(c.telefone || '').replace(/\D/g, '');
-                            return `<span class="contato-item">${c.nome}: ${formatarTelefone(c.telefone)} <a href="https://wa.me/${telefonePuro}" target="_blank" title="Abrir no WhatsApp" class="whatsapp-link"><i data-feather="message-circle"></i></a></span>`;
-                        }).join('<br>'); // Usa <br> para quebras de linha DENTRO da célula
-                    } else {
-                        tdContatos.textContent = 'Nenhum contato';
-                    }
-                    row.appendChild(tdContatos);
-
-                    // Célula Marcas
-                    const tdMarcas = document.createElement('td');
-                    if (item.data.marcas && item.data.marcas.length > 0) {
-                        tdMarcas.innerHTML = item.data.marcas.map(m => `<span class="marca-tag-display">${m}</span>`).join(' ');
-                    } else {
-                        tdMarcas.textContent = 'Nenhuma marca';
-                    }
-                    row.appendChild(tdMarcas);
-
-                } else {
-                    // Lógica para as outras configurações
-                    if (config.render) {
-                        const tempDiv = document.createElement('div');
-                        tempDiv.innerHTML = `<table><tbody><tr>${config.render(item.data)}</tr></tbody></table>`;
-                        Array.from(tempDiv.querySelector('tr').cells).forEach(cell => row.appendChild(cell.cloneNode(true)));
-                    }
+                // Lógica para as outras configurações
+                if (config.render) {
+                    const tempDiv = document.createElement('div');
+                    tempDiv.innerHTML = `<table><tbody><tr>${config.render(item.data)}</tr></tbody></table>`;
+                    Array.from(tempDiv.querySelector('tr').cells).forEach(cell => row.appendChild(cell.cloneNode(true)));
                 }
 
                 // Célula Ações
