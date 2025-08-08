@@ -1,6 +1,23 @@
 import { db } from './firebase-config.js';
 import { collection, addDoc, onSnapshot, doc, setDoc, deleteDoc } from "https://www.gstatic.com/firebasejs/9.6.1/firebase-firestore.js";
 
+function formatarTelefone(telefone) {
+    const telLimpo = String(telefone).replace(/\D/g, '');
+    const tam = telLimpo.length;
+
+    if (tam <= 2) {
+        return telLimpo;
+    }
+    if (tam <= 6) {
+        return `(${telLimpo.slice(0, 2)}) ${telLimpo.slice(2)}`;
+    }
+    if (tam <= 10) { // Fixo: (XX) XXXX-XXXX
+        return `(${telLimpo.slice(0, 2)}) ${telLimpo.slice(2, 6)}-${telLimpo.slice(6)}`;
+    }
+    // Celular: (XX) XXXXX-XXXX
+    return `(${telLimpo.slice(0, 2)}) ${telLimpo.slice(2, 7)}-${telLimpo.slice(7)}`;
+}
+
 document.addEventListener('DOMContentLoaded', function() {
     console.log("Página de Configurações V2 (com Modais) carregada.");
 
@@ -11,14 +28,15 @@ document.addEventListener('DOMContentLoaded', function() {
             collectionName: "fornecedores",
             fields: { nome: "Nome do Fornecedor", imposto: "Imposto (ST)" },
             render: (d) => {
-                const contatosHtml = (d.contatos || []).map(c =>
-                    `<span style="display: block; white-space: nowrap;">
-                        ${c.nome}: ${c.telefone}
-                        <a href="https://wa.me/${c.telefone}" target="_blank" title="Abrir no WhatsApp" style="color: #25D366; text-decoration: none; margin-left: 5px;">
+                const contatosHtml = (d.contatos || []).map(c => {
+                    const telefonePuro = String(c.telefone || '').replace(/\D/g, '');
+                    return `<span style="display: block; white-space: nowrap;">
+                        ${c.nome}: ${formatarTelefone(c.telefone)}
+                        <a href="https://wa.me/${telefonePuro}" target="_blank" title="Abrir no WhatsApp" style="color: #25D366; text-decoration: none; margin-left: 5px;">
                             <i data-feather="message-circle" style="width: 16px; height: 16px; vertical-align: middle;"></i>
                         </a>
                     </span>`
-                ).join('');
+                }).join('');
                 return `<td>${d.nome}</td><td>${contatosHtml || 'Nenhum contato'}</td>`;
             },
             tableHeaders: "<th>Nome</th><th>Contatos</th>"
@@ -159,7 +177,6 @@ document.addEventListener('DOMContentLoaded', function() {
         let currentData = [];
         let unsubscribe;
 
-        // --- Lógica de Contatos para Fornecedores ---
         if (config.id === 'fornecedor') {
             const contatosContainer = modal.querySelector('#lista-contatos-form');
             const btnAddContato = modal.querySelector('#btn-add-contato');
@@ -169,7 +186,7 @@ document.addEventListener('DOMContentLoaded', function() {
                 contatoDiv.className = 'contato-field-group';
                 contatoDiv.innerHTML = `
                     <input type="text" placeholder="Nome do Contato" value="${contato.nome}" class="form-control contato-nome">
-                    <input type="tel" placeholder="Telefone (ex: 55119...)" value="${contato.telefone}" class="form-control contato-telefone">
+                    <input type="tel" placeholder="Telefone (só números com DDD)" value="${contato.telefone}" class="form-control contato-telefone">
                     <button type="button" class="btn btn-danger btn-remove-contato">Remover</button>
                 `;
                 contatosContainer.appendChild(contatoDiv);
@@ -282,7 +299,7 @@ document.addEventListener('DOMContentLoaded', function() {
                                     contatoDiv.className = 'contato-field-group';
                                     contatoDiv.innerHTML = `
                                         <input type="text" placeholder="Nome do Contato" value="${c.nome}" class="form-control contato-nome">
-                                        <input type="tel" placeholder="Telefone (ex: 55119...)" value="${c.telefone}" class="form-control contato-telefone">
+                                        <input type="tel" placeholder="Telefone (só números com DDD)" value="${c.telefone}" class="form-control contato-telefone">
                                         <button type="button" class="btn btn-danger btn-remove-contato">Remover</button>
                                     `;
                                     contatosContainer.appendChild(contatoDiv);
