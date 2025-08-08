@@ -266,7 +266,7 @@ document.addEventListener('DOMContentLoaded', function() {
         unsubscribe = onSnapshot(colRef, (snapshot) => {
             currentData = snapshot.docs.map(doc => ({ id: doc.id, data: doc.data() }));
 
-            // Início da lógica de renderização correta
+            // INÍCIO DA LÓGICA DE RENDERIZAÇÃO CORRIGIDA
             tableBody.innerHTML = '';
             currentData.forEach(item => {
                 const row = document.createElement('tr'); // 1. CRIA UMA ÚNICA LINHA
@@ -283,7 +283,7 @@ document.addEventListener('DOMContentLoaded', function() {
                     if (item.data.contatos && item.data.contatos.length > 0) {
                         tdContatos.innerHTML = item.data.contatos.map(c => {
                             const telefonePuro = String(c.telefone || '').replace(/\D/g, '');
-                            return `<span class="contato-item">${c.nome}: ${formatarTelefone(c.telefone)} <a href="https://wa.me/${telefonePuro}" target="_blank" title="Abrir no WhatsApp" class="whatsapp-link"><i data-feather="message-circle"></i></a></span>`;
+                            return `<span class="contato-item">${c.nome}: ${formatarTelefone(c.telefone)} <a href="https://wa.me/55${telefonePuro}" target="_blank" title="Abrir no WhatsApp" class="whatsapp-link"><i data-feather="message-circle"></i></a></span>`;
                         }).join('<br>'); // Usa <br> para quebras de linha DENTRO da célula
                     } else {
                         tdContatos.textContent = 'Nenhum contato';
@@ -300,7 +300,7 @@ document.addEventListener('DOMContentLoaded', function() {
                     row.appendChild(tdMarcas);
 
                 } else {
-                    // Lógica para as outras configurações
+                    // Lógica para as outras configurações (mantida)
                     if (config.render) {
                         const tempDiv = document.createElement('div');
                         tempDiv.innerHTML = `<table><tbody><tr>${config.render(item.data)}</tr></tbody></table>`;
