@@ -1,54 +1,72 @@
-document.addEventListener('DOMContentLoaded', () => {
-    processarEtiquetas();
-
-    // Adiciona o listener para o botão de impressão
-    const printButton = document.getElementById('print-button');
-    if(printButton) {
-        printButton.addEventListener('click', () => {
-            window.print();
-        });
-    }
-});
+// CONTEÚDO COMPLETO PARA O ARQUIVO js/etiquetas.js
 
 function processarEtiquetas() {
-    const container = document.getElementById('etiquetas-container');
-    const produtos = JSON.parse(localStorage.getItem('produtosParaEtiquetas'));
-    container.innerHTML = ''; // Limpar antes de adicionar
+    try {
+        const container = document.getElementById('etiquetas-container');
+        if (!container) {
+            console.error('Erro Crítico: O contêiner de etiquetas #etiquetas-container não foi encontrado no HTML.');
+            return;
+        }
 
-    if (!produtos || produtos.length === 0) {
-        container.innerHTML = '<p>Nenhum produto selecionado para gerar etiquetas.</p>';
-        return;
-    }
+        const dadosJSON = localStorage.getItem('etiquetasParaImprimir');
+        if (!dadosJSON) {
+            container.innerHTML = '<p>Nenhum dado de etiqueta encontrado. Por favor, gere as etiquetas a partir da página de produtos.</p>';
+            return;
+        }
 
-    produtos.forEach(produto => {
-        const pData = produto.data;
-        const enderecamento = produto.enderecamento || 'N/A';
+        const produtos = JSON.parse(dadosJSON);
+        container.innerHTML = ''; // Limpa o container antes de adicionar novas etiquetas
 
-        const etiquetaDiv = document.createElement('div');
-        etiquetaDiv.className = 'etiqueta';
+        produtos.forEach(produto => {
+            if (!produto || !produto.data) {
+                console.warn('Um produto na lista de etiquetas está malformado e será ignorado:', produto);
+                return; // Pula para o próximo produto
+            }
 
-        // SUBSTITUA O INNERHTML ANTIGO POR ESTE NOVO:
-        etiquetaDiv.innerHTML = `
-            <div class="etiqueta-corpo">
-                <div class="qr-code-container" id="qr-${produto.id}"></div>
-                <div class="info-container">
-                    <div class="info-descricao">${pData.descricao || ''}</div>
-                    <div class="info-cor">${pData.cor || ''}</div>
-                    <div class="info-codigo">${pData.codigo || ''}</div>
+            const pData = produto.data;
+            const enderecamento = produto.enderecamento || 'N/A';
+
+            const etiquetaDiv = document.createElement('div');
+            etiquetaDiv.className = 'etiqueta';
+
+            etiquetaDiv.innerHTML = `
+                <div class="etiqueta-corpo">
+                    <div class="qr-code-container" id="qr-${produto.id}"></div>
+                    <div class="info-container">
+                        <div class="info-descricao">${pData.descricao || 'Sem Descrição'}</div>
+                        <div class="info-cor">${pData.cor || 'Sem Cor'}</div>
+                        <div class="info-codigo">${pData.codigo || 'Sem Código'}</div>
+                    </div>
                 </div>
-            </div>
-            <div class="etiqueta-rodape">
-                ${enderecamento}
-            </div>
-        `;
-        container.appendChild(etiquetaDiv);
+                <div class="etiqueta-rodape">
+                    ${enderecamento}
+                </div>
+            `;
+            container.appendChild(etiquetaDiv);
 
-        const url = `${window.location.origin}/detalhe-produto.html?id=${produto.id}`;
-        new QRCode(document.getElementById(`qr-${produto.id}`), {
-            text: url,
-            width: 140, // Aumentado para melhor leitura
-            height: 140,
-            correctLevel: QRCode.CorrectLevel.H
+            const qrElement = document.getElementById(`qr-${produto.id}`);
+            if (qrElement) {
+                const url = `${window.location.origin}/detalhe-produto.html?id=${produto.id}`;
+                new QRCode(qrElement, {
+                    text: url,
+                    width: 140,
+                    height: 140,
+                    correctLevel: QRCode.CorrectLevel.H
+                });
+            }
         });
-    });
+
+        // Limpa o localStorage APÓS a renderização bem-sucedida
+        localStorage.removeItem('etiquetasParaImprimir');
+
+    } catch (error) {
+        console.error('UM ERRO FATAL OCORREU AO PROCESSAR AS ETIQUETAS:', error);
+        const container = document.getElementById('etiquetas-container');
+        if (container) {
+            container.innerHTML = `<p style="color: red; font-weight: bold;">Ocorreu um erro grave. Verifique o console do navegador (F12) para detalhes técnicos.</p>`;
+        }
+    }
 }
+
+// Inicia o processo quando a página carregar
+document.addEventListener('DOMContentLoaded', processarEtiquetas);

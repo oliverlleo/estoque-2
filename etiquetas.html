@@ -6,7 +6,7 @@
     <title>Etiquetas para Impressão</title>
     <script src="https://cdn.jsdelivr.net/npm/qrcodejs@1.0.0/qrcode.min.js"></script>
     <style>
-/* Em etiquetas.html, dentro de <style> */
+/* CONTEÚDO COMPLETO PARA A TAG <style> EM etiquetas.html */
 
 /* ESTILOS GERAIS E DE CONTROLE */
 body {
@@ -21,7 +21,7 @@ body {
 }
 .controls button { font-size: 16px; padding: 10px 20px; cursor: pointer; }
 
-/* NOVA ARQUITETURA DA ETIQUETA */
+/* ARQUITETURA DA ETIQUETA */
 .etiqueta {
     background-color: white;
     width: 100mm;
@@ -32,11 +32,12 @@ body {
     margin: 20px auto;
     display: flex;
     flex-direction: column;
+    justify-content: space-between;
     overflow: hidden;
 }
 
 .etiqueta-corpo {
-    flex: 1; /* Ocupa todo o espaço vertical disponível */
+    flex-grow: 1;
     display: flex;
     gap: 5mm;
     align-items: center;
@@ -44,38 +45,47 @@ body {
 
 .qr-code-container {
     flex-shrink: 0;
+    width: 38mm;
+    height: 38mm;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+}
+.qr-code-container img {
+    max-width: 100%;
+    max-height: 100%;
 }
 
 .info-container {
-    flex: 1;
+    flex-grow: 1;
     display: flex;
     flex-direction: column;
     justify-content: center;
     gap: 3mm;
     height: 100%;
+    text-transform: uppercase;
 }
 
 .info-descricao {
-    font-size: 20pt;
+    font-size: 18pt;
     font-weight: bold;
-    text-transform: uppercase;
     line-height: 1.1;
 }
 
 .info-cor {
-    font-size: 16pt;
-    text-transform: uppercase;
+    font-size: 14pt;
 }
 
 .info-codigo {
     background-color: #000;
     color: #fff;
-    font-size: 18pt;
+    font-size: 16pt;
     font-weight: bold;
     text-align: center;
-    padding: 6px 10px;
+    padding: 8px 12px;
     display: inline-block;
-    align-self: flex-start; /* Alinha o bloco à esquerda */
+    align-self: flex-start;
+    border-radius: 4px;
 }
 
 .etiqueta-rodape {
@@ -86,8 +96,7 @@ body {
     text-align: center;
     text-transform: uppercase;
     padding: 8px 0;
-    margin: 0 -4mm -4mm -4mm; /* Estica para preencher o padding do pai */
-    margin-top: 4mm; /* Adiciona espaço antes do rodapé */
+    margin: 4mm -4mm -4mm -4mm; /* Estica para preencher o padding do pai */
 }
 
 
@@ -101,8 +110,6 @@ body {
         page-break-after: always;
     }
     .etiqueta:last-child { page-break-after: avoid; }
-
-    /* Força fundos e cores a serem impressos */
     .info-codigo, .etiqueta-rodape {
         background-color: #000 !important;
         print-color-adjust: exact;
