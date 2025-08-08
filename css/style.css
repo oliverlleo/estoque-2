@@ -785,3 +785,80 @@ input:checked + .slider:before {
 #cadastro-produto-modal {
     z-index: 1050; /* Um valor maior que o z-index do modal base */
 }
+
+/* Estilos para o formulário de contatos do fornecedor */
+.contato-field-group {
+    display: grid;
+    grid-template-columns: 1fr 1fr auto;
+    gap: 10px;
+    align-items: center;
+    margin-bottom: 10px;
+}
+
+.contato-field-group .btn-remove-contato {
+    padding: 0.5rem;
+    line-height: 1;
+}
+
+/* Estilos para o campo de input de Marcas */
+#marcas-input-wrapper {
+    display: flex;
+    gap: 10px;
+    margin-bottom: 15px;
+}
+
+#marcas-input-wrapper #input-add-marca {
+    flex-grow: 1;
+}
+
+#marcas-input-wrapper #btn-add-marca {
+    flex-shrink: 0;
+    background-color: #0d6efd;
+}
+
+/* Estilos para a lista de Tags de Marcas */
+#lista-marcas-tags, .table td {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 8px;
+}
+
+.marca-tag, .marca-tag-display {
+    background-color: #e9ecef;
+    color: #495057;
+    padding: 5px 10px;
+    border-radius: 15px;
+    font-size: 0.9em;
+    display: inline-flex;
+    align-items: center;
+    white-space: nowrap;
+}
+
+.marca-tag button {
+    background: none;
+    border: none;
+    color: #6c757d;
+    margin-left: 8px;
+    cursor: pointer;
+    font-size: 1.2em;
+    line-height: 1;
+    padding: 0;
+}
+
+/* Estilos para Itens de Contato */
+.contato-item {
+    /* A propriedade display: block; foi REMOVIDA. */
+    white-space: nowrap;
+}
+
+.whatsapp-link {
+   color: #25D366;
+   text-decoration: none;
+   margin-left: 5px;
+}
+
+.whatsapp-link i {
+   width: 16px;
+   height: 16px;
+   vertical-align: middle;
+}
