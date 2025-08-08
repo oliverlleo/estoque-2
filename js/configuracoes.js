@@ -27,7 +27,7 @@ document.addEventListener('DOMContentLoaded', function() {
             id: "fornecedor",
             collectionName: "fornecedores",
             fields: { nome: "Nome do Fornecedor", imposto: "Imposto (ST)" },
-            tableHeaders: "<th>Nome</th><th>Contatos</th><th>Marcas</th>"
+            tableHeaders: "<th>Nome</th><th>Contatos</th><th>Marcas</th><th>Ações</th>"
         },
         { name: "Grupos", id: "grupo", collectionName: "grupos", fields: { nome: "Nome do Grupo" }, render: (d) => `<td>${d.nome}</td>`, tableHeaders: "<th>Nome</th>" },
         { name: "Aplicações", id: "aplicacao", collectionName: "aplicacoes", fields: { nome: "Nome da Aplicação" }, render: (d) => `<td>${d.nome}</td>`, tableHeaders: "<th>Nome</th>" },
@@ -114,41 +114,39 @@ document.addEventListener('DOMContentLoaded', function() {
 
     function generateModalContent(config) {
         let formFields = Object.entries(config.fields).map(([key, label]) => {
-            if (key.includes('movimenta_') || key.includes('recalcula_custo_medio') || key.includes('informa_obra') || key.includes('informa_valor_unitario') || key.includes('reservar_estoque')) {
-                return `
-                    <div style="grid-column: 1 / -1; display: flex; align-items: center; gap: 10px; padding: 0.5rem; background-color: #f8f9fa; border: 1px solid #ced4da; border-radius: 0.25rem;">
-                        <input type="checkbox" id="${config.id}-${key}" style="width: auto; height: 1.2em; width: 1.2em;">
-                        <label for="${config.id}-${key}" style="margin-bottom: 0;">${label}</label>
-                    </div>
-                `;
-            }
             const inputType = (key.includes('imposto') || key.includes('valor')) ? 'number' : 'text';
             const step = inputType === 'number' ? 'step="0.01"' : '';
             return `<input type="${inputType}" id="${config.id}-${key}" placeholder="${label}" required class="form-control" ${step}>`;
         }).join('');
 
+        const fornecedorExtraFields = `
+            <div id="contatos-container" style="margin-top: 20px; border-top: 1px solid #dee2e6; padding-top: 20px;">
+                <h4 style="margin-bottom: 10px;">Contatos</h4>
+                <div id="lista-contatos-form"></div>
+                <button type="button" id="btn-add-contato" class="btn" style="background-color: #0d6efd; margin-top: 10px;">Adicionar Contato</button>
+            </div>
+            <div id="marcas-container" style="margin-top: 20px; border-top: 1px solid #dee2e6; padding-top: 20px;">
+                <h4 style="margin-bottom: 10px;">Marcas</h4>
+                <div id="marcas-input-wrapper">
+                    <input type="text" id="input-add-marca" placeholder="Digite uma marca e pressione Enter" class="form-control">
+                    <button type="button" id="btn-add-marca" class="btn">Adicionar</button>
+                </div>
+                <div id="lista-marcas-tags"></div>
+            </div>
+        `;
+
         return `
             <div class="card">
                 <div class="card-header"><h3>Formulário de ${config.name}</h3></div>
                 <div class="card-body">
-                    <form id="form-${config.id}" style="display: flex; flex-wrap: wrap; gap: 10px; margin-bottom: 20px;">
+                    <form id="form-${config.id}" style="display: flex; flex-direction: column; gap: 10px; margin-bottom: 20px;">
                         <input type="hidden" id="${config.id}-id">
                         ${formFields}
-                        <button type="submit" class="btn btn-success" style="flex-basis: 100%;">Salvar</button>
+
+                        ${config.id === 'fornecedor' ? fornecedorExtraFields : ''}
+
+                        <button type="submit" class="btn btn-success" style="margin-top: 20px;">Salvar</button>
                     </form>
-                    <div id="contatos-container" style="margin-top: 20px;">
-                        <h4 style="margin-bottom: 10px;">Contatos</h4>
-                        <div id="lista-contatos-form"></div>
-                        <button type="button" id="btn-add-contato" class="btn" style="background-color: #0d6efd; margin-top: 10px;">Adicionar Contato</button>
-                    </div>
-                    <div id="marcas-container" style="margin-top: 20px; border-top: 1px solid #dee2e6; padding-top: 20px;">
-                        <h4 style="margin-bottom: 10px;">Marcas</h4>
-                        <div id="marcas-input-wrapper">
-                            <input type="text" id="input-add-marca" placeholder="Digite uma marca e pressione Enter" class="form-control">
-                            <button type="button" id="btn-add-marca" class="btn">Adicionar</button>
-                        </div>
-                        <div id="lista-marcas-tags"></div>
-                    </div>
                 </div>
             </div>
             <div class="card">
@@ -157,7 +155,7 @@ document.addEventListener('DOMContentLoaded', function() {
                     <input type="text" id="filter-${config.id}" class="form-control" placeholder="Filtrar..." style="margin-bottom: 15px;">
                     <div class="table-wrapper">
                         <table id="table-${config.id}" class="table">
-                            <thead><tr>${config.tableHeaders}<th>Ações</th></tr></thead>
+                            <thead><tr>${config.tableHeaders}</tr></thead>
                             <tbody></tbody>
                         </table>
                     </div>
@@ -219,13 +217,6 @@ document.addEventListener('DOMContentLoaded', function() {
                     handleAddMarca();
                 }
             });
-
-            form.addEventListener('reset', () => {
-                 setTimeout(() => {
-                    contatosContainer.innerHTML = '';
-                    marcasTagsContainer.innerHTML = '';
-                 }, 0);
-            });
         }
 
         form.addEventListener('submit', async (e) => {
@@ -234,11 +225,7 @@ document.addEventListener('DOMContentLoaded', function() {
             const data = {};
             for (const key in config.fields) {
                 const input = form.querySelector(`#${config.id}-${key}`);
-                if (input.type === 'checkbox') {
-                    data[key] = input.checked;
-                } else {
-                    data[key] = input.value;
-                }
+                data[key] = input.value;
             }
 
             if (config.id === 'fornecedor') {
@@ -261,61 +248,17 @@ document.addEventListener('DOMContentLoaded', function() {
                     alert(`${config.name} salvo com sucesso!`);
                 }
                 form.reset();
+                if (config.id === 'fornecedor') {
+                    modal.querySelector('#lista-contatos-form').innerHTML = '';
+                    modal.querySelector('#lista-marcas-tags').innerHTML = '';
+                }
+                form.querySelector(`#${config.id}-id`).value = '';
+
             } catch (error) {
                 console.error(`Erro ao salvar ${config.name}:`, error);
                 alert(`Erro ao salvar: ${error.message}`);
             }
         });
-
-        const renderTable = (data) => {
-            tableBody.innerHTML = '';
-            data.forEach(item => {
-                const row = document.createElement('tr');
-
-                if (config.id === 'fornecedor') {
-                    const tdNome = document.createElement('td');
-                    tdNome.textContent = item.data.nome;
-                    row.appendChild(tdNome);
-
-                    const tdContatos = document.createElement('td');
-                    if (item.data.contatos && item.data.contatos.length > 0) {
-                        tdContatos.innerHTML = item.data.contatos.map(c => {
-                            const telefonePuro = String(c.telefone || '').replace(/\D/g, '');
-                            return `<span class="contato-item">${c.nome}: ${formatarTelefone(c.telefone)} <a href="https://wa.me/${telefonePuro}" target="_blank" title="Abrir no WhatsApp" class="whatsapp-link"><i data-feather="message-circle"></i></a></span>`;
-                        }).join('<br>');
-                    } else {
-                        tdContatos.textContent = 'Nenhum contato';
-                    }
-                    row.appendChild(tdContatos);
-
-                    const tdMarcas = document.createElement('td');
-                    if (item.data.marcas && item.data.marcas.length > 0) {
-                        tdMarcas.innerHTML = item.data.marcas.map(m => `<span class="marca-tag-display">${m}</span>`).join(' ');
-                    } else {
-                        tdMarcas.textContent = 'Nenhuma marca';
-                    }
-                    row.appendChild(tdMarcas);
-
-                } else {
-                    const tempDiv = document.createElement('div');
-                    tempDiv.innerHTML = `<table><tbody><tr>${config.render(item.data)}</tr></tbody></table>`;
-                    Array.from(tempDiv.querySelector('tr').cells).forEach(cell => {
-                        row.appendChild(cell.cloneNode(true));
-                    });
-                }
-
-                const tdActions = document.createElement('td');
-                tdActions.className = 'actions';
-                tdActions.innerHTML = `
-                    <button class="btn-edit" data-id="${item.id}">Editar</button>
-                    <button class="btn-delete" data-id="${item.id}">Excluir</button>
-                `;
-                row.appendChild(tdActions);
-
-                tableBody.appendChild(row);
-            });
-            feather.replace();
-        };
 
         const colRef = collection(db, config.collectionName);
         unsubscribe = onSnapshot(colRef, (snapshot) => {
@@ -324,8 +267,8 @@ document.addEventListener('DOMContentLoaded', function() {
         });
 
         tableBody.addEventListener('click', async (e) => {
-            const target = e.target.closest('button');
-            if (!target) return;
+            const target = e.target;
+            if (!target.classList.contains('btn-edit') && !target.classList.contains('btn-delete')) return;
 
             const id = target.dataset.id;
             if (!id) return;
@@ -334,56 +277,40 @@ document.addEventListener('DOMContentLoaded', function() {
                 const item = currentData.find(d => d.id === id);
                 if (item) {
                     form.reset();
+                    if (config.id === 'fornecedor') {
+                        modal.querySelector('#lista-contatos-form').innerHTML = '';
+                        modal.querySelector('#lista-marcas-tags').innerHTML = '';
+                    }
+
                     form.querySelector(`#${config.id}-id`).value = item.id;
                     for (const key in config.fields) {
-                        const input = form.querySelector(`#${config.id}-${key}`);
-                        if (input.type === 'checkbox') {
-                            input.checked = item.data[key] === true;
-                        } else {
-                            input.value = item.data[key] || '';
-                        }
+                        form.querySelector(`#${config.id}-${key}`).value = item.data[key] || '';
                     }
 
                     if (config.id === 'fornecedor') {
-                        const contatosContainer = modal.querySelector('#lista-contatos-form');
-                        const marcasTagsContainer = modal.querySelector('#lista-marcas-tags');
+                        (item.data.contatos || []).forEach(c => {
+                            const contatoDiv = document.createElement('div');
+                            contatoDiv.className = 'contato-field-group';
+                            contatoDiv.innerHTML = `
+                                <input type="text" placeholder="Nome do Contato" value="${c.nome || ''}" class="form-control contato-nome">
+                                <input type="tel" placeholder="Telefone (só números com DDD)" value="${c.telefone || ''}" class="form-control contato-telefone">
+                                <button type="button" class="btn btn-danger btn-remove-contato">Remover</button>
+                            `;
+                            modal.querySelector('#lista-contatos-form').appendChild(contatoDiv);
+                            contatoDiv.querySelector('.btn-remove-contato').addEventListener('click', () => contatoDiv.remove());
+                        });
 
-                        contatosContainer.innerHTML = '';
-                        marcasTagsContainer.innerHTML = '';
-
-                        if (item.data.contatos) {
-                            item.data.contatos.forEach(contato => {
-                                const addContatoField = (c = { nome: '', telefone: '' }) => {
-                                    const contatoDiv = document.createElement('div');
-                                    contatoDiv.className = 'contato-field-group';
-                                    contatoDiv.innerHTML = `
-                                        <input type="text" placeholder="Nome do Contato" value="${c.nome}" class="form-control contato-nome">
-                                        <input type="tel" placeholder="Telefone (só números com DDD)" value="${c.telefone}" class="form-control contato-telefone">
-                                        <button type="button" class="btn btn-danger btn-remove-contato">Remover</button>
-                                    `;
-                                    contatosContainer.appendChild(contatoDiv);
-                                    contatoDiv.querySelector('.btn-remove-contato').addEventListener('click', () => contatoDiv.remove());
-                                };
-                                addContatoField(contato);
-                            });
-                        }
-                        if (item.data.marcas) {
-                            item.data.marcas.forEach(marca => {
-                                const addMarcaTag = (m) => {
-                                    if (!m.trim()) return;
-                                    const tagSpan = document.createElement('span');
-                                    tagSpan.className = 'marca-tag';
-                                    tagSpan.textContent = m.trim();
-                                    const removeBtn = document.createElement('button');
-                                    removeBtn.type = 'button';
-                                    removeBtn.innerHTML = '&times;';
-                                    removeBtn.onclick = () => tagSpan.remove();
-                                    tagSpan.appendChild(removeBtn);
-                                    marcasTagsContainer.appendChild(tagSpan);
-                                };
-                                addMarcaTag(marca);
-                            });
-                        }
+                        (item.data.marcas || []).forEach(m => {
+                            const tagSpan = document.createElement('span');
+                            tagSpan.className = 'marca-tag';
+                            tagSpan.textContent = m;
+                            const removeBtn = document.createElement('button');
+                            removeBtn.type = 'button';
+                            removeBtn.innerHTML = '&times;';
+                            removeBtn.onclick = () => tagSpan.remove();
+                            tagSpan.appendChild(removeBtn);
+                            modal.querySelector('#lista-marcas-tags').appendChild(tagSpan);
+                        });
                     }
                     form.scrollIntoView({ behavior: 'smooth' });
                 }
@@ -404,15 +331,15 @@ document.addEventListener('DOMContentLoaded', function() {
 
         filterInput.addEventListener('input', (e) => {
             const searchTerm = e.target.value.toLowerCase();
-            const filteredData = currentData.filter(item =>
-                Object.values(item.data).some(value =>
+            const filteredData = currentData.filter(item => {
+                return Object.values(item.data).some(value =>
                     String(value).toLowerCase().includes(searchTerm)
-                )
-            );
+                );
+            });
             renderTable(filteredData);
         });
 
-        const observer = new MutationObserver((mutationsList, observer) => {
+        const observer = new MutationObserver((mutationsList) => {
             for(const mutation of mutationsList) {
                 if (mutation.type === 'attributes' && mutation.attributeName === 'style') {
                     if (modal.style.display === 'none' && unsubscribe) {
@@ -425,4 +352,59 @@ document.addEventListener('DOMContentLoaded', function() {
         });
         observer.observe(modal, { attributes: true });
     }
+
+    const renderTable = (data) => {
+        const config = configs.find(c => document.getElementById(`table-${c.id}`));
+        if (!config) return;
+
+        const tableBody = document.getElementById(`table-${config.id}`).querySelector('tbody');
+        tableBody.innerHTML = '';
+
+        data.forEach(item => {
+            const row = document.createElement('tr');
+
+            if (config.id === 'fornecedor') {
+                const tdNome = document.createElement('td');
+                tdNome.textContent = item.data.nome;
+                row.appendChild(tdNome);
+
+                const tdContatos = document.createElement('td');
+                if (item.data.contatos && item.data.contatos.length > 0) {
+                    tdContatos.innerHTML = item.data.contatos.map(c => {
+                        const telefonePuro = String(c.telefone || '').replace(/\D/g, '');
+                        return `<span class="contato-item">${c.nome}: ${formatarTelefone(c.telefone)} <a href="https://wa.me/${telefonePuro}" target="_blank" title="Abrir no WhatsApp" class="whatsapp-link"><i data-feather="message-circle"></i></a></span>`;
+                    }).join('<br>');
+                } else {
+                    tdContatos.textContent = 'Nenhum contato';
+                }
+                row.appendChild(tdContatos);
+
+                const tdMarcas = document.createElement('td');
+                if (item.data.marcas && item.data.marcas.length > 0) {
+                    tdMarcas.innerHTML = item.data.marcas.map(m => `<span class="marca-tag-display">${m}</span>`).join(' ');
+                } else {
+                    tdMarcas.textContent = 'Nenhuma marca';
+                }
+                row.appendChild(tdMarcas);
+
+            } else {
+                const tempDiv = document.createElement('div');
+                tempDiv.innerHTML = `<table><tbody><tr>${config.render(item.data)}</tr></tbody></table>`;
+                Array.from(tempDiv.querySelector('tr').cells).forEach(cell => {
+                    row.appendChild(cell.cloneNode(true));
+                });
+            }
+
+            const tdActions = document.createElement('td');
+            tdActions.className = 'actions';
+            tdActions.innerHTML = `
+                <button class="btn-edit" data-id="${item.id}">Editar</button>
+                <button class="btn-delete" data-id="${item.id}">Excluir</button>
+            `;
+            row.appendChild(tdActions);
+
+            tableBody.appendChild(row);
+        });
+        feather.replace();
+    };
 });
