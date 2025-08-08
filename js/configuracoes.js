@@ -154,7 +154,7 @@ document.addEventListener('DOMContentLoaded', function() {
                 <div class="card-body">
                     <input type="text" id="filter-${config.id}" class="form-control" placeholder="Filtrar..." style="margin-bottom: 15px;">
                     <div class="table-wrapper">
-                        <table id="table-${config.id}" class="table">
+                        <table id="table-${config.id}" class="table ${config.id === 'fornecedor' ? 'table-fornecedores' : ''}">
                             <thead><tr>${config.tableHeaders}</tr></thead>
                             <tbody></tbody>
                         </table>
@@ -266,12 +266,10 @@ document.addEventListener('DOMContentLoaded', function() {
         unsubscribe = onSnapshot(colRef, (snapshot) => {
             currentData = snapshot.docs.map(doc => ({ id: doc.id, data: doc.data() }));
 
-            // Início da lógica de renderização correta
             tableBody.innerHTML = '';
             currentData.forEach(item => {
-                const row = document.createElement('tr'); // 1. CRIA UMA ÚNICA LINHA
+                const row = document.createElement('tr');
 
-                // 2. ADICIONA AS CÉLULAS A ESSA LINHA, UMA POR UMA
                 if (config.id === 'fornecedor') {
                     // Célula Nome
                     const tdNome = document.createElement('td');
@@ -283,8 +281,8 @@ document.addEventListener('DOMContentLoaded', function() {
                     if (item.data.contatos && item.data.contatos.length > 0) {
                         tdContatos.innerHTML = item.data.contatos.map(c => {
                             const telefonePuro = String(c.telefone || '').replace(/\D/g, '');
-                            return `<span class="contato-item">${c.nome}: ${formatarTelefone(c.telefone)} <a href="https://wa.me/${telefonePuro}" target="_blank" title="Abrir no WhatsApp" class="whatsapp-link"><i data-feather="message-circle"></i></a></span>`;
-                        }).join('<br>'); // Usa <br> para quebras de linha DENTRO da célula
+                            return `<div class="contato-item">${c.nome}: ${formatarTelefone(c.telefone)} <a href="https://wa.me/55${telefonePuro}" target="_blank" title="Abrir no WhatsApp" class="whatsapp-link"><i data-feather="message-circle"></i></a></div>`;
+                        }).join('');
                     } else {
                         tdContatos.textContent = 'Nenhum contato';
                     }
@@ -300,7 +298,6 @@ document.addEventListener('DOMContentLoaded', function() {
                     row.appendChild(tdMarcas);
 
                 } else {
-                    // Lógica para as outras configurações
                     if (config.render) {
                         const tempDiv = document.createElement('div');
                         tempDiv.innerHTML = `<table><tbody><tr>${config.render(item.data)}</tr></tbody></table>`;
@@ -314,11 +311,10 @@ document.addEventListener('DOMContentLoaded', function() {
                 tdActions.innerHTML = `<button class="btn-edit" data-id="${item.id}">Editar</button> <button class="btn-delete" data-id="${item.id}">Excluir</button>`;
                 row.appendChild(tdActions);
 
-                // 3. ADICIONA A LINHA COMPLETA E CORRETA NA TABELA
                 tableBody.appendChild(row);
             });
 
-            feather.replace(); // Atualiza os ícones
+            feather.replace();
         });
 
         tableBody.addEventListener('click', async (e) => {
