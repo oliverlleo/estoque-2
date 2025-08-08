@@ -785,3 +785,17 @@ input:checked + .slider:before {
 #cadastro-produto-modal {
     z-index: 1050; /* Um valor maior que o z-index do modal base */
 }
+
+/* Estilos para o formulário de contatos do fornecedor */
+.contato-field-group {
+    display: grid;
+    grid-template-columns: 1fr 1fr auto;
+    gap: 10px;
+    align-items: center;
+    margin-bottom: 10px;
+}
+
+.contato-field-group .btn-remove-contato {
+    padding: 0.5rem;
+    line-height: 1;
+}

@@ -5,8 +5,24 @@ document.addEventListener('DOMContentLoaded', function() {
     console.log("Página de Configurações V2 (com Modais) carregada.");
 
     const configs = [
-        // Mantenha a mesma estrutura de configuração que você já tinha
-        { name: "Fornecedores", id: "fornecedor", collectionName: "fornecedores", fields: { nome: "Nome do Fornecedor", imposto: "Imposto (ST)" }, render: (d) => `<td>${d.nome}</td><td>${d.imposto || 0}</td>`, tableHeaders: "<th>Nome</th><th>Imposto (ST)</th>" },
+        {
+            name: "Fornecedores",
+            id: "fornecedor",
+            collectionName: "fornecedores",
+            fields: { nome: "Nome do Fornecedor", imposto: "Imposto (ST)" },
+            render: (d) => {
+                const contatosHtml = (d.contatos || []).map(c =>
+                    `<span style="display: block; white-space: nowrap;">
+                        ${c.nome}: ${c.telefone}
+                        <a href="https://wa.me/${c.telefone}" target="_blank" title="Abrir no WhatsApp" style="color: #25D366; text-decoration: none; margin-left: 5px;">
+                            <i data-feather="message-circle" style="width: 16px; height: 16px; vertical-align: middle;"></i>
+                        </a>
+                    </span>`
+                ).join('');
+                return `<td>${d.nome}</td><td>${contatosHtml || 'Nenhum contato'}</td>`;
+            },
+            tableHeaders: "<th>Nome</th><th>Contatos</th>"
+        },
         { name: "Grupos", id: "grupo", collectionName: "grupos", fields: { nome: "Nome do Grupo" }, render: (d) => `<td>${d.nome}</td>`, tableHeaders: "<th>Nome</th>" },
         { name: "Aplicações", id: "aplicacao", collectionName: "aplicacoes", fields: { nome: "Nome da Aplicação" }, render: (d) => `<td>${d.nome}</td>`, tableHeaders: "<th>Nome</th>" },
         { name: "Conjuntos", id: "conjunto", collectionName: "conjuntos", fields: { nome: "Nome do Conjunto" }, render: (d) => `<td>${d.nome}</td>`, tableHeaders: "<th>Nome</th>" },
@@ -31,7 +47,7 @@ document.addEventListener('DOMContentLoaded', function() {
             fields: {
                 nome: "Nome do Tipo de Saída",
                 movimenta_estoque: "Movimenta Estoque",
-                informa_obra: "Informa Obra", // Adicionar esta linha
+                informa_obra: "Informa Obra",
                 reservar_estoque: "É uma Reserva?"
             },
             render: (d) => `<td>${d.nome}</td>`,
@@ -62,36 +78,27 @@ document.addEventListener('DOMContentLoaded', function() {
     const modalBody = document.getElementById('modal-body');
     const closeButton = document.querySelector('.close-button');
 
-    // --- 1. Gerar Botões de Gerenciamento ---
     configs.forEach(config => {
         const button = document.createElement('button');
         button.className = 'btn';
-        // Adicionando um estilo base, pode ser qualquer um que combine
         button.style.backgroundColor = '#495057';
         button.textContent = `Gerenciar ${config.name}`;
         button.addEventListener('click', () => openConfigModal(config));
         buttonsContainer.appendChild(button);
     });
 
-    // --- 2. Lógica do Modal ---
     function openConfigModal(config) {
-        // Preencher o conteúdo do modal dinamicamente
         modalTitle.textContent = `Cadastro de ${config.name}`;
         modalBody.innerHTML = generateModalContent(config);
-
-        // Anexar os listeners aos novos elementos dentro do modal
         setupModalCrud(config);
-
-        // Exibir o modal
         modal.style.display = 'block';
     }
 
     function closeModel() {
         modal.style.display = 'none';
-        modalBody.innerHTML = ''; // Limpar o conteúdo para a próxima abertura
+        modalBody.innerHTML = '';
     }
 
-    // Fechar o modal ao clicar no 'X' ou fora do conteúdo
     closeButton.addEventListener('click', closeModel);
     window.addEventListener('click', (event) => {
         if (event.target == modal) {
@@ -99,11 +106,9 @@ document.addEventListener('DOMContentLoaded', function() {
         }
     });
 
-    // --- 3. Gerador de HTML para o corpo do modal ---
     function generateModalContent(config) {
-        // Código de substituição para a variável formFields
         let formFields = Object.entries(config.fields).map(([key, label]) => {
-            if (key.includes('movimenta_') || key.includes('recalcula_custo_medio') || key.includes('informa_obra') || key.includes('informa_valor_unitario') || key.includes('reservar_estoque')) { // Condição para identificar nosso checkbox
+            if (key.includes('movimenta_') || key.includes('recalcula_custo_medio') || key.includes('informa_obra') || key.includes('informa_valor_unitario') || key.includes('reservar_estoque')) {
                 return `
                     <div style="grid-column: 1 / -1; display: flex; align-items: center; gap: 10px; padding: 0.5rem; background-color: #f8f9fa; border: 1px solid #ced4da; border-radius: 0.25rem;">
                         <input type="checkbox" id="${config.id}-${key}" style="width: auto; height: 1.2em; width: 1.2em;">
@@ -111,16 +116,10 @@ document.addEventListener('DOMContentLoaded', function() {
                     </div>
                 `;
             }
-            // Lógica original para campos de texto
             const inputType = (key.includes('imposto') || key.includes('valor')) ? 'number' : 'text';
             const step = inputType === 'number' ? 'step="0.01"' : '';
             return `<input type="${inputType}" id="${config.id}-${key}" placeholder="${label}" required class="form-control" ${step}>`;
         }).join('');
-
-        // Caso especial para Endereçamento
-        if (config.id === 'enderecamento') {
-            formFields += `<select id="enderecamento-localId" required class="form-control"><option value="">Selecione o Local...</option></select>`;
-        }
 
         return `
             <div class="card">
@@ -131,6 +130,11 @@ document.addEventListener('DOMContentLoaded', function() {
                         ${formFields}
                         <button type="submit" class="btn btn-success" style="flex-basis: 100%;">Salvar</button>
                     </form>
+                    <div id="contatos-container" style="margin-top: 20px;">
+                        <h4 style="margin-bottom: 10px;">Contatos</h4>
+                        <div id="lista-contatos-form"></div>
+                        <button type="button" id="btn-add-contato" class="btn" style="background-color: #0d6efd; margin-top: 10px;">Adicionar Contato</button>
+                    </div>
                 </div>
             </div>
             <div class="card">
@@ -148,33 +152,42 @@ document.addEventListener('DOMContentLoaded', function() {
         `;
     }
 
-    // --- 4. Lógica CRUD adaptada para o Modal ---
     function setupModalCrud(config) {
         const form = modal.querySelector(`#form-${config.id}`);
         const tableBody = modal.querySelector(`#table-${config.id} tbody`);
         const filterInput = modal.querySelector(`#filter-${config.id}`);
         let currentData = [];
         let unsubscribe;
-        let locaisMap = {}; // Para mapear ID do local ao nome
 
-        // --- Carregamento especial para Endereçamento ---
-        if (config.id === 'enderecamento') {
-            const localSelect = form.querySelector('#enderecamento-localId');
-            const locaisColRef = collection(db, 'locais');
-            onSnapshot(locaisColRef, (snapshot) => {
-                localSelect.innerHTML = '<option value="">Selecione o Local...</option>';
-                locaisMap = {};
-                snapshot.docs.forEach(doc => {
-                    locaisMap[doc.id] = doc.data().nome;
-                    const option = document.createElement('option');
-                    option.value = doc.id;
-                    option.textContent = doc.data().nome;
-                    localSelect.appendChild(option);
+        // --- Lógica de Contatos para Fornecedores ---
+        if (config.id === 'fornecedor') {
+            const contatosContainer = modal.querySelector('#lista-contatos-form');
+            const btnAddContato = modal.querySelector('#btn-add-contato');
+
+            const addContatoField = (contato = { nome: '', telefone: '' }) => {
+                const contatoDiv = document.createElement('div');
+                contatoDiv.className = 'contato-field-group';
+                contatoDiv.innerHTML = `
+                    <input type="text" placeholder="Nome do Contato" value="${contato.nome}" class="form-control contato-nome">
+                    <input type="tel" placeholder="Telefone (ex: 55119...)" value="${contato.telefone}" class="form-control contato-telefone">
+                    <button type="button" class="btn btn-danger btn-remove-contato">Remover</button>
+                `;
+                contatosContainer.appendChild(contatoDiv);
+
+                contatoDiv.querySelector('.btn-remove-contato').addEventListener('click', () => {
+                    contatoDiv.remove();
                 });
+            };
+
+            btnAddContato.addEventListener('click', () => addContatoField());
+
+            form.addEventListener('reset', () => {
+                 setTimeout(() => {
+                    contatosContainer.innerHTML = '';
+                 }, 0);
             });
         }
 
-        // Save (Create/Update)
         form.addEventListener('submit', async (e) => {
             e.preventDefault();
             const id = form.querySelector(`#${config.id}-id`).value;
@@ -187,9 +200,18 @@ document.addEventListener('DOMContentLoaded', function() {
                     data[key] = input.value;
                 }
             }
-            // --- Salvamento especial para Endereçamento ---
-            if (config.id === 'enderecamento') {
-                data.localId = form.querySelector('#enderecamento-localId').value;
+
+            if (config.id === 'fornecedor') {
+                const contatosNodes = modal.querySelectorAll('.contato-field-group');
+                const contatosData = [];
+                contatosNodes.forEach(node => {
+                    const nome = node.querySelector('.contato-nome').value.trim();
+                    const telefone = node.querySelector('.contato-telefone').value.trim();
+                    if (nome && telefone) {
+                        contatosData.push({ nome, telefone });
+                    }
+                });
+                data.contatos = contatosData;
             }
 
             try {
@@ -208,14 +230,9 @@ document.addEventListener('DOMContentLoaded', function() {
             }
         });
 
-        // Render Table
         const renderTable = (data) => {
             tableBody.innerHTML = '';
             data.forEach(item => {
-                // Adiciona o nome do local para renderização
-                if (config.id === 'enderecamento') {
-                    item.data.localNome = locaisMap[item.data.localId] || 'Local não encontrado';
-                }
                 const row = document.createElement('tr');
                 row.innerHTML = `
                     ${config.render(item.data)}
@@ -226,18 +243,19 @@ document.addEventListener('DOMContentLoaded', function() {
                 `;
                 tableBody.appendChild(row);
             });
+            feather.replace();
         };
 
-        // Fetch data in real-time
         const colRef = collection(db, config.collectionName);
         unsubscribe = onSnapshot(colRef, (snapshot) => {
             currentData = snapshot.docs.map(doc => ({ id: doc.id, data: doc.data() }));
             renderTable(currentData);
         });
 
-        // Edit and Delete
         tableBody.addEventListener('click', async (e) => {
-            const target = e.target;
+            const target = e.target.closest('button');
+            if (!target) return;
+
             const id = target.dataset.id;
             if (!id) return;
 
@@ -253,9 +271,26 @@ document.addEventListener('DOMContentLoaded', function() {
                             input.value = item.data[key] || '';
                         }
                     }
-                     // --- Preenchimento especial para Endereçamento ---
-                    if (config.id === 'enderecamento') {
-                        form.querySelector('#enderecamento-localId').value = item.data.localId;
+
+                    if (config.id === 'fornecedor') {
+                        const contatosContainer = modal.querySelector('#lista-contatos-form');
+                        contatosContainer.innerHTML = '';
+                        if (item.data.contatos) {
+                            item.data.contatos.forEach(contato => {
+                                const addContatoField = (c = { nome: '', telefone: '' }) => {
+                                    const contatoDiv = document.createElement('div');
+                                    contatoDiv.className = 'contato-field-group';
+                                    contatoDiv.innerHTML = `
+                                        <input type="text" placeholder="Nome do Contato" value="${c.nome}" class="form-control contato-nome">
+                                        <input type="tel" placeholder="Telefone (ex: 55119...)" value="${c.telefone}" class="form-control contato-telefone">
+                                        <button type="button" class="btn btn-danger btn-remove-contato">Remover</button>
+                                    `;
+                                    contatosContainer.appendChild(contatoDiv);
+                                    contatoDiv.querySelector('.btn-remove-contato').addEventListener('click', () => contatoDiv.remove());
+                                };
+                                addContatoField(contato);
+                            });
+                        }
                     }
                     form.scrollIntoView({ behavior: 'smooth' });
                 }
@@ -274,25 +309,16 @@ document.addEventListener('DOMContentLoaded', function() {
             }
         });
 
-        // Filter
         filterInput.addEventListener('input', (e) => {
             const searchTerm = e.target.value.toLowerCase();
-            const filteredData = currentData.filter(item => {
-                // Adapta o filtro para Endereçamento
-                 if (config.id === 'enderecamento') {
-                    const localNome = (locaisMap[item.data.localId] || '').toLowerCase();
-                    return Object.values(item.data).some(value =>
-                        String(value).toLowerCase().includes(searchTerm)
-                    ) || localNome.includes(searchTerm);
-                }
-                return Object.values(item.data).some(value =>
+            const filteredData = currentData.filter(item =>
+                Object.values(item.data).some(value =>
                     String(value).toLowerCase().includes(searchTerm)
-                );
-            });
+                )
+            );
             renderTable(filteredData);
         });
 
-        // Adicionar um listener para parar o onSnapshot quando o modal for fechado
         const observer = new MutationObserver((mutationsList, observer) => {
             for(const mutation of mutationsList) {
                 if (mutation.type === 'attributes' && mutation.attributeName === 'style') {
