@@ -862,3 +862,33 @@ input:checked + .slider:before {
    height: 16px;
    vertical-align: middle;
 }
+
+/* Arquitetura da Tabela de Fornecedores com CSS Grid */
+.table-fornecedores thead,
+.table-fornecedores tbody tr {
+    display: grid;
+    grid-template-columns: 2fr 3fr 2.5fr 1fr; /* Nome | Contatos | Marcas | Ações */
+    align-items: start;
+    border-bottom: 1px solid #dee2e6;
+}
+
+.table-fornecedores thead {
+    border-bottom: 2px solid #212529;
+}
+
+.table-fornecedores th,
+.table-fornecedores td {
+    padding: 12px;
+    text-align: left;
+    border-bottom: none; /* A borda agora está na linha (tr) */
+}
+
+.table-fornecedores td {
+    word-wrap: break-word; /* Garante que textos longos não quebrem o layout */
+}
+
+/* Garante que os contatos e marcas não ocupem espaço extra quando vazios */
+.table-fornecedores td .contato-item,
+.table-fornecedores td .marca-tag-display {
+    margin-bottom: 5px;
+}
