@@ -1,5 +1,26 @@
-// CONTEÚDO COMPLETO PARA O ARQUIVO js/etiquetas.js
+// SUBSTITUA TODO O CONTEÚDO DE js/etiquetas.js POR ISTO:
 
+/**
+ * LÓGICA ORIGINAL:
+ * Esta função ajusta o tamanho da fonte de um elemento para que seu conteúdo não seja cortado.
+ */
+function adjustFontSizeToFit(element) {
+    element.style.fontSize = '';
+
+    const isOverflowing = () => element.scrollHeight > element.clientHeight || element.scrollWidth > element.clientWidth;
+
+    if (isOverflowing()) {
+        let currentSize = parseFloat(window.getComputedStyle(element).fontSize);
+        while (isOverflowing() && currentSize > 4) {
+            currentSize -= 1;
+            element.style.fontSize = currentSize + 'px';
+        }
+    }
+}
+
+/**
+ * Função principal que usa a ESTRUTURA DO NOVO DESIGN e aplica a LÓGICA ORIGINAL.
+ */
 function processarEtiquetas() {
     try {
         const container = document.getElementById('etiquetas-container');
@@ -15,12 +36,13 @@ function processarEtiquetas() {
         }
 
         const produtos = JSON.parse(dadosJSON);
-        container.innerHTML = ''; // Limpa o container antes de adicionar novas etiquetas
+        container.innerHTML = '';
 
+        // CRIA AS ETIQUETAS COM O NOVO DESIGN
         produtos.forEach(produto => {
             if (!produto || !produto.data) {
                 console.warn('Um produto na lista de etiquetas está malformado e será ignorado:', produto);
-                return; // Pula para o próximo produto
+                return;
             }
 
             const pData = produto.data;
@@ -29,6 +51,7 @@ function processarEtiquetas() {
             const etiquetaDiv = document.createElement('div');
             etiquetaDiv.className = 'etiqueta';
 
+            // Estrutura HTML do novo design
             etiquetaDiv.innerHTML = `
                 <div class="etiqueta-corpo">
                     <div class="qr-code-container" id="qr-${produto.id}"></div>
@@ -56,17 +79,23 @@ function processarEtiquetas() {
             }
         });
 
-        // Limpa o localStorage APÓS a renderização bem-sucedida
+        // APLICA A LÓGICA ORIGINAL DE AJUSTE DE TEXTO
+        requestAnimationFrame(() => {
+            const elementosParaAjustar = document.querySelectorAll('.info-descricao');
+            elementosParaAjustar.forEach(el => {
+                adjustFontSizeToFit(el);
+            });
+        });
+
         localStorage.removeItem('etiquetasParaImprimir');
 
     } catch (error) {
-        console.error('UM ERRO FATAL OCORREU AO PROCESSAR AS ETIQUETAS:', error);
+        console.error('ERRO AO PROCESSAR AS ETIQUETAS:', error);
         const container = document.getElementById('etiquetas-container');
         if (container) {
-            container.innerHTML = `<p style="color: red; font-weight: bold;">Ocorreu um erro grave. Verifique o console do navegador (F12) para detalhes técnicos.</p>`;
+            container.innerHTML = `<p style="color: red; font-weight: bold;">Ocorreu um erro. Verifique o console (F12).</p>`;
         }
     }
 }
 
-// Inicia o processo quando a página carregar
 document.addEventListener('DOMContentLoaded', processarEtiquetas);
