@@ -893,32 +893,24 @@ input:checked + .slider:before {
     margin-bottom: 5px;
 }
 
-/* Arquitetura Corretiva para a Tabela de Produtos */
-.table-produtos-grid thead tr,
-.table-produtos-grid tbody tr {
-    display: grid;
-    /* Checkbox | Código | Descrição | UN | Cor | Fornecedor | Grupo | Aplicações | Locação | Medida */
-    grid-template-columns: 40px 1fr 2.5fr 0.5fr 1fr 1.5fr 1.5fr 1.5fr 1.5fr 1fr;
-    align-items: start;
-    border-bottom: 1px solid #dee2e6;
-    width: 100%;
+/* =============================================== */
+/* CORREÇÃO PARA FORMATAÇÃO DAS TABELAS PRINCIPAIS */
+/* =============================================== */
+/*
+ * Esta regra garante que as linhas (tr) e células (td) das tabelas de dados
+ * principais se comportem como elementos de tabela padrão, corrigindo a
+ * quebra de layout vertical.
+*/
+#table-produtos tr,
+#table-movimentacoes tr,
+#table-consultas tr,
+#table-reservas tr {
+    display: table-row; /* Força o elemento a se comportar como uma linha de tabela */
 }
 
-.table-produtos-grid thead {
-    border-bottom: 2px solid #212529;
-}
-
-.table-produtos-grid th,
-.table-produtos-grid td {
-    padding: 12px;
-    text-align: left;
-    border-bottom: none;
-    word-wrap: break-word;
-    display: flex;
-    align-items: center;
-}
-
-.table-produtos-grid th:first-child,
-.table-produtos-grid td:first-child {
-    justify-content: center;
+#table-produtos th, #table-produtos td,
+#table-movimentacoes th, #table-movimentacoes td,
+#table-consultas th, #table-consultas td,
+#table-reservas th, #table-reservas td {
+    display: table-cell; /* Força o elemento a se comportar como uma célula de tabela */
 }

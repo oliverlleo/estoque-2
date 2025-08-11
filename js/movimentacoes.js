@@ -144,7 +144,7 @@ document.addEventListener('DOMContentLoaded', async function() {
             costFields.forEach(fieldId => {
                 const field = document.getElementById(fieldId);
                 field.disabled = isSobra;
-                if (isSobra) field.value = ''; 
+                if (isSobra) field.value = '';
             });
 
             quantField.disabled = isSobra;

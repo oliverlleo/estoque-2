@@ -426,7 +426,6 @@ document.addEventListener('DOMContentLoaded', async function() {
                 .map(id => configData.aplicacoes[id]?.nome || 'N/A')
                 .join(', ');
 
-            // Célula por Célula para evitar erros
             row.innerHTML = `
                 <td><input type="checkbox" class="produto-checkbox" data-id="${product.id}"></td>
                 <td>${pData.codigo}</td>
