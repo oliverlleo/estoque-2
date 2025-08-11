@@ -158,7 +158,122 @@ document.addEventListener('DOMContentLoaded', async function() {
 
     formMovimentacao.addEventListener('submit', async (e) => {
         e.preventDefault();
-        // ... (lógica de submissão do formulário principal mantida)
+        const isEntrada = toggle.checked;
+        const produtoId = document.getElementById('mov-produto').value;
+        const quantidade = parseFloat(document.getElementById('mov-quantidade').value);
+        const produto = productsMap[produtoId];
+
+        if (!produtoId || !quantidade) {
+            alert('Por favor, preencha todos os campos obrigatórios.');
+            return;
+        }
+
+        let movimentacaoData = {
+            productId: produtoId,
+            quantidade: quantidade,
+            data: serverTimestamp(),
+            tipo: isEntrada ? 'entrada' : 'saida',
+            // Detalhes do produto no momento da movimentação para referência histórica
+            detalhesProduto: {
+                codigo: produto.codigo,
+                descricao: produto.descricao,
+                un: produto.un
+            }
+        };
+
+        try {
+            await runTransaction(db, async (transaction) => {
+                const productRef = doc(db, 'produtos', produtoId);
+                const productDoc = await transaction.get(productRef);
+                if (!productDoc.exists()) {
+                    throw new Error("Produto não encontrado!");
+                }
+                const estoqueAtual = productDoc.data().estoque || 0;
+
+                if (isEntrada) {
+                    const tipoEntradaId = document.getElementById('mov-tipo-entrada').value;
+                    const tipoEntradaConfig = configData.tipos_entrada[tipoEntradaId];
+                    const nf = document.getElementById('mov-nf').value;
+                    const valorUnitario = parseFloat(document.getElementById('mov-valor-unitario').value) || 0;
+                    const icms = parseFloat(document.getElementById('mov-icms').value) || 0;
+                    const ipi = parseFloat(document.getElementById('mov-ipi').value) || 0;
+                    const frete = parseFloat(document.getElementById('mov-frete').value) || 0;
+
+                    let custo_total_entrada = 0;
+                    if (tipoEntradaConfig && tipoEntradaConfig.calcula_custo_medio) {
+                        custo_total_entrada = (valorUnitario * quantidade) + icms + ipi + frete;
+                    }
+
+                    movimentacaoData = {
+                        ...movimentacaoData,
+                        tipoEntradaId: tipoEntradaId,
+                        detalhesTipoEntrada: { nome: tipoEntradaConfig.nome },
+                        nf: nf,
+                        valorUnitario: valorUnitario,
+                        icms: icms,
+                        ipi: ipi,
+                        frete: frete,
+                        custo_total_entrada: custo_total_entrada,
+                        e_sobra: tipoEntradaConfig.e_sobra || false,
+                    };
+
+                    const novoEstoque = estoqueAtual + quantidade;
+                    transaction.update(productRef, { estoque: novoEstoque });
+
+                } else { // É SAÍDA
+                    const tipoSaidaId = document.getElementById('mov-tipo-saida').value;
+                    const tipoSaidaConfig = configData.tipos_saida[tipoSaidaId];
+                    const requisitante = document.getElementById('mov-requisitante').value;
+                    const obraId = document.getElementById('mov-obra').value;
+
+                    movimentacaoData = {
+                        ...movimentacaoData,
+                        tipoSaidaId: tipoSaidaId,
+                        detalhesTipoSaida: { nome: tipoSaidaConfig.nome },
+                        requisitante: requisitante,
+                        obraId: obraId || null,
+                        detalhesObra: obraId ? { nome: configData.obras[obraId].nome } : null,
+                        reservar_estoque: tipoSaidaConfig.reservar_estoque || false,
+                    };
+
+                    if (movimentacaoData.reservar_estoque) {
+                        const reservasRef = collection(db, 'reservas');
+                        const reservaData = {
+                            produtoId: produtoId,
+                            obraId: obraId,
+                            quantidade: quantidade,
+                            data: serverTimestamp(),
+                            status: 'ativa' // 'ativa', 'baixada', 'cancelada'
+                        };
+                        transaction.set(doc(reservasRef), reservaData);
+                        // A saída do estoque principal será feita em outro processo, ao "baixar" a reserva
+                    } else {
+                        if (estoqueAtual < quantidade) {
+                            throw new Error(`Estoque insuficiente. Disponível: ${estoqueAtual}, Saída: ${quantidade}`);
+                        }
+                        const novoEstoque = estoqueAtual - quantidade;
+                        transaction.update(productRef, { estoque: novoEstoque });
+                    }
+                }
+
+                const movRef = doc(collection(db, 'movimentacoes'));
+                transaction.set(movRef, movimentacaoData);
+            });
+
+            showInfoModal(`Movimentação de ${isEntrada ? 'entrada' : 'saída'} registrada com sucesso!`);
+            console.log(`Movimentação de ${isEntrada ? 'entrada' : 'saída'} registrada com sucesso!`);
+
+            if (isEntrada) {
+                await atualizarCustoMedioProduto(produtoId);
+            }
+
+            formMovimentacao.reset();
+            handleToggleChange(); // Reseta o estado visual do formulário
+
+        } catch (error) {
+            console.error("Erro ao processar movimentação: ", error);
+            showInfoModal("Erro ao processar movimentação: " + error.message);
+        }
     });
 
     // --- Lógica do Modal de Importação XML ---
