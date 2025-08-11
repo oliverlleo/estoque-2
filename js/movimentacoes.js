@@ -570,7 +570,112 @@ document.addEventListener('DOMContentLoaded', async function() {
     }
 
     btnConfirmarXmlImport.addEventListener('click', async () => {
-        // ... (lógica de confirmação da importação mantida)
+        const nf = document.getElementById('xml-nfe-numero').value;
+        const rows = document.querySelectorAll('#xml-products-table tbody tr');
+        let sucessoCount = 0;
+        let erroCount = 0;
+        const produtosParaAtualizarCusto = new Set();
+
+        if (rows.length === 0) {
+            return alert("Não há produtos para importar.");
+        }
+
+        if (confirm(`Confirmar a entrada de ${rows.length} item(ns) da NF-e ${nf}?`)) {
+            for (const row of rows) {
+                const productId = row.dataset.productId;
+
+                // Pula a linha se o produto não estiver cadastrado no sistema
+                if (!productId) {
+                    continue;
+                }
+
+                try {
+                    const quantidadeInformada = parseFloat(row.cells[3].querySelector('input').value);
+                    const valorUnitario = parseFloat(row.cells[4].querySelector('input').value);
+                    const icms = parseFloat(row.cells[5].querySelector('input').value) || 0;
+                    const ipi = parseFloat(row.cells[6].querySelector('input').value) || 0;
+                    const frete = parseFloat(row.cells[7].querySelector('input').value) || 0;
+
+                    if (isNaN(quantidadeInformada) || quantidadeInformada <= 0 || isNaN(valorUnitario)) {
+                        console.warn(`Produto com ID ${productId} pulado por dados inválidos.`);
+                        continue;
+                    }
+
+                    await runTransaction(db, async (transaction) => {
+                        const productRef = doc(db, 'produtos', productId);
+                        const productDoc = await transaction.get(productRef);
+                        if (!productDoc.exists()) {
+                            throw new Error(`Produto com ID ${productId} não encontrado no banco de dados.`);
+                        }
+
+                        const productData = productDoc.data();
+                        let quantidadeParaEstoque = quantidadeInformada;
+
+                        // 1. Lógica de Conversão de Unidades
+                        if (productData.conversaoId) {
+                            const conversaoRef = doc(db, 'conversoes', productData.conversaoId);
+                            const conversaoDoc = await transaction.get(conversaoRef);
+                            if (conversaoDoc.exists()) {
+                                const regra = conversaoDoc.data();
+                                const fator_qtd_compra = parseFloat(String(regra.qtd_compra).replace(',', '.'));
+                                const fator_qtd_padrao = parseFloat(String(regra.qtd_padrao).replace(',', '.'));
+                                if (fator_qtd_compra > 0) {
+                                    quantidadeParaEstoque = (quantidadeInformada / fator_qtd_compra) * fator_qtd_padrao;
+                                }
+                            }
+                        }
+
+                        // 2. Lógica de Cálculo de Custo Total
+                        let custoTotalEntrada = (quantidadeInformada * valorUnitario) + icms + ipi + frete;
+                        if (productData.fornecedorId && configData.fornecedores[productData.fornecedorId]) {
+                            const fornecedor = configData.fornecedores[productData.fornecedorId];
+                            const impostoStPercent = parseFloat(fornecedor.imposto) || 0;
+                            if (impostoStPercent > 0) {
+                                custoTotalEntrada *= (1 + (impostoStPercent / 100));
+                            }
+                        }
+
+                        // 3. Atualiza o Estoque do Produto
+                        const currentEstoque = productData.estoque || 0;
+                        const newEstoque = currentEstoque + quantidadeParaEstoque;
+                        transaction.update(productRef, { estoque: newEstoque });
+
+                        // 4. Cria o Registro de Movimentação
+                        const movementRef = doc(collection(db, 'movimentacoes'));
+                        const movementData = {
+                            tipo: 'entrada',
+                            productId,
+                            data: serverTimestamp(),
+                            nf: nf,
+                            valor_unitario: valorUnitario,
+                            icms: icms,
+                            ipi: ipi,
+                            frete: frete,
+                            observacao: `Importado via XML da NF-e ${nf}`,
+                            quantidade: quantidadeParaEstoque,
+                            quantidade_compra: quantidadeInformada,
+                            custo_total_entrada: custoTotalEntrada
+                        };
+                        transaction.set(movementRef, movementData);
+                    });
+
+                    produtosParaAtualizarCusto.add(productId);
+                    sucessoCount++;
+                } catch (error) {
+                    erroCount++;
+                    console.error(`Falha ao importar produto com ID ${productId}:`, error);
+                }
+            }
+
+            // 5. Atualiza o Custo Médio de todos os produtos importados
+            for (const id of produtosParaAtualizarCusto) {
+                await atualizarCustoMedioProduto(id);
+            }
+
+            alert(`${sucessoCount} produto(s) importado(s) com sucesso!\n${erroCount} produto(s) falharam (verifique o console).`);
+            xmlProductsTableBody.innerHTML = '';
+            xmlImportModal.style.display = 'none';
+        }
     });
 
     // --- Lógica do Modal de Cadastro ---
