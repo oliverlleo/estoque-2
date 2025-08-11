@@ -125,6 +125,42 @@ document.addEventListener('DOMContentLoaded', async function() {
         }
     }
 
+    function updateProductInfo() {
+        const productId = document.getElementById('mov-produto').value;
+        const product = productsMap[productId];
+
+        document.getElementById('mov-codigo-display').textContent = product ? product.codigo : '-';
+        document.getElementById('mov-descricao-display').textContent = product ? product.descricao : '-';
+        document.getElementById('mov-un-display').textContent = product ? product.un : '-';
+        document.getElementById('mov-estoque-display').textContent = product ? (product.estoque || 0) : '-';
+
+        const isSobra = product && product.e_sobra === true;
+        const isEntrada = document.getElementById('movement-toggle').checked;
+
+        const costFields = ['mov-valor-unitario', 'mov-icms', 'mov-ipi', 'mov-frete'];
+        const quantField = document.getElementById('mov-quantidade');
+
+        if(isEntrada) {
+            costFields.forEach(fieldId => {
+                const field = document.getElementById(fieldId);
+                field.disabled = isSobra;
+                if (isSobra) field.value = '';
+            });
+
+            quantField.disabled = isSobra;
+            if (isSobra) {
+                quantField.value = 1;
+                quantField.placeholder = "Entrada de sobra é sempre 1 Unidade";
+            } else {
+                quantField.placeholder = "Quantidade";
+            }
+        } else {
+            costFields.forEach(fieldId => document.getElementById(fieldId).disabled = false);
+            quantField.disabled = false;
+            quantField.placeholder = "Quantidade";
+        }
+    }
+
     function handleToggleChange() {
         const isEntrada = toggle.checked;
         btnImportarXml.style.display = isEntrada ? 'inline-block' : 'none';
@@ -159,120 +195,212 @@ document.addEventListener('DOMContentLoaded', async function() {
     formMovimentacao.addEventListener('submit', async (e) => {
         e.preventDefault();
         const isEntrada = toggle.checked;
-        const produtoId = document.getElementById('mov-produto').value;
+        const productId = document.getElementById('mov-produto').value;
         const quantidade = parseFloat(document.getElementById('mov-quantidade').value);
-        const produto = productsMap[produtoId];
 
-        if (!produtoId || !quantidade) {
-            alert('Por favor, preencha todos os campos obrigatórios.');
+        if (!productId || isNaN(quantidade) || quantidade <= 0) {
+            alert('Por favor, preencha o produto e a quantidade corretamente.');
             return;
         }
 
-        let movimentacaoData = {
-            productId: produtoId,
-            quantidade: quantidade,
-            data: serverTimestamp(),
-            tipo: isEntrada ? 'entrada' : 'saida',
-            // Detalhes do produto no momento da movimentação para referência histórica
-            detalhesProduto: {
-                codigo: produto.codigo,
-                descricao: produto.descricao,
-                un: produto.un
-            }
-        };
+        if (isEntrada) {
+            const productData = productsMap[productId];
 
-        try {
-            await runTransaction(db, async (transaction) => {
-                const productRef = doc(db, 'produtos', produtoId);
-                const productDoc = await transaction.get(productRef);
-                if (!productDoc.exists()) {
-                    throw new Error("Produto não encontrado!");
+            if (productData.e_sobra === true) {
+                // LÓGICA DE ENTRADA DE SOBRA
+                try {
+                    const custoMedioPai = await calcularCustoMedioProduto(productData.produto_pai_id);
+                    if (custoMedioPai <= 0) {
+                        throw new Error("Não foi possível calcular o custo da sobra pois o produto original não possui custo de entrada.");
+                    }
+
+                    const conversaoRef = doc(db, 'conversoes', productData.conversaoId);
+                    const conversaoDoc = await getDoc(conversaoRef);
+                    if (!conversaoDoc.exists()) {
+                        throw new Error("Regra de conversão não encontrada para este produto.");
+                    }
+                    const regra = conversaoDoc.data();
+                    const fatorConversao = parseFloat(regra.fator_conversao_sobra);
+                    if (!fatorConversao || fatorConversao <= 0) {
+                        throw new Error("A regra de conversão não possui um 'fator de conversão para sobra' válido.");
+                    }
+
+                    const custoPorUnidadeSobra = custoMedioPai / fatorConversao;
+                    const medidaDaSobra = parseFloat(productData.medida_sobra);
+                    const custoCalculadoDaSobra = custoPorUnidadeSobra * medidaDaSobra;
+
+                    await runTransaction(db, async (transaction) => {
+                        const productRef = doc(db, 'produtos', productId);
+                        const pDoc = await transaction.get(productRef);
+                        const newEstoque = (pDoc.data().estoque || 0) + 1;
+                        transaction.update(productRef, { estoque: newEstoque });
+
+                        const movementRef = doc(collection(db, 'movimentacoes'));
+                        transaction.set(movementRef, {
+                            tipo: 'entrada',
+                            productId,
+                            data: serverTimestamp(),
+                            quantidade: 1,
+                            custo_total_entrada: custoCalculadoDaSobra,
+                            observacao: `Entrada de sobra com custo calculado a partir do produto pai.`
+                        });
+                    });
+                    alert('Entrada de sobra registrada com sucesso!');
+                    formMovimentacao.reset();
+                    handleToggleChange();
+
+                } catch (error) {
+                    console.error("Erro ao registrar entrada de sobra:", error);
+                    showInfoModal(error.message);
                 }
-                const estoqueAtual = productDoc.data().estoque || 0;
 
-                if (isEntrada) {
+            } else {
+                // LÓGICA DE ENTRADA NORMAL
+                try {
+                    await runTransaction(db, async (transaction) => {
+                        const productRef = doc(db, 'produtos', productId);
+                        const productDoc = await transaction.get(productRef);
+                        if (!productDoc.exists()) { throw new Error("Produto não encontrado!"); }
+                        const productData = productDoc.data();
+                        const conversaoId = productData.conversaoId;
+                        const quantidadeInformada = parseFloat(document.getElementById('mov-quantidade').value);
+                        let quantidadeParaEstoque = quantidadeInformada;
+                        let quantidadeOriginalCompra = quantidadeInformada;
+
+                        if (conversaoId) {
+                            const conversaoRef = doc(db, 'conversoes', conversaoId);
+                            const conversaoDoc = await transaction.get(conversaoRef);
+                            if (conversaoDoc.exists()) {
+                                const regra = conversaoDoc.data();
+                                const fator_qtd_compra = parseFloat(String(regra.qtd_compra).replace(',', '.'));
+                                const fator_qtd_padrao = parseFloat(String(regra.qtd_padrao).replace(',', '.'));
+                                if (fator_qtd_compra > 0) {
+                                    quantidadeParaEstoque = (quantidadeInformada / fator_qtd_compra) * fator_qtd_padrao;
+                                }
+                                const medidaPadrao = regra.medida_padrao || "";
+                                if (medidaPadrao.toUpperCase() === 'PÇ' && !Number.isInteger(quantidadeParaEstoque)) {
+                                    throw new Error(`O cálculo resultou em um valor quebrado (${quantidadeParaEstoque.toFixed(2)} PÇ).`);
+                                }
+                            }
+                        }
+
+                        const valorUnitario = parseFloat(document.getElementById('mov-valor-unitario').value) || 0;
+                        const icms = parseFloat(document.getElementById('mov-icms').value) || 0;
+                        const ipi = parseFloat(document.getElementById('mov-ipi').value) || 0;
+                        const frete = parseFloat(document.getElementById('mov-frete').value) || 0;
+                        let custoTotalEntrada = (quantidadeOriginalCompra * valorUnitario) + icms + ipi + frete;
+                        const fornecedorId = productData.fornecedorId;
+                        if (fornecedorId && configData.fornecedores[fornecedorId]) {
+                            const fornecedor = configData.fornecedores[fornecedorId];
+                            const impostoStPercent = parseFloat(fornecedor.imposto) || 0;
+                            if (impostoStPercent > 0) {
+                                custoTotalEntrada *= (1 + (impostoStPercent / 100));
+                            }
+                        }
+
+                        const tipoEntradaId = document.getElementById('mov-tipo-entrada').value;
+                        const tipoEntradaConfig = configData.tipos_entrada[tipoEntradaId];
+
+                        if (tipoEntradaConfig && tipoEntradaConfig.movimenta_estoque === true) {
+                            const currentEstoque = productDoc.data().estoque || 0;
+                            const newEstoque = currentEstoque + quantidadeParaEstoque;
+                            transaction.update(productRef, { estoque: newEstoque });
+                        }
+
+                        const movementRef = doc(collection(db, 'movimentacoes'));
+                        const movementData = {
+                            tipo: 'entrada',
+                            productId,
+                            data: serverTimestamp(),
+                            tipo_entradaId: document.getElementById('mov-tipo-entrada').value,
+                            nf: document.getElementById('mov-nf').value,
+                            valor_unitario: valorUnitario,
+                            icms: icms,
+                            ipi: ipi,
+                            frete: frete,
+                            observacao: document.getElementById('mov-observacao').value,
+                            quantidade: quantidadeParaEstoque,
+                            quantidade_compra: quantidadeOriginalCompra,
+                            custo_total_entrada: custoTotalEntrada
+                        };
+                        transaction.set(movementRef, movementData);
+                    });
+                    alert('Entrada registrada com sucesso!');
+
                     const tipoEntradaId = document.getElementById('mov-tipo-entrada').value;
                     const tipoEntradaConfig = configData.tipos_entrada[tipoEntradaId];
-                    const nf = document.getElementById('mov-nf').value;
-                    const valorUnitario = parseFloat(document.getElementById('mov-valor-unitario').value) || 0;
-                    const icms = parseFloat(document.getElementById('mov-icms').value) || 0;
-                    const ipi = parseFloat(document.getElementById('mov-ipi').value) || 0;
-                    const frete = parseFloat(document.getElementById('mov-frete').value) || 0;
-
-                    let custo_total_entrada = 0;
-                    if (tipoEntradaConfig && tipoEntradaConfig.calcula_custo_medio) {
-                        custo_total_entrada = (valorUnitario * quantidade) + icms + ipi + frete;
+                    if (tipoEntradaConfig && tipoEntradaConfig.recalcula_custo_medio === true) {
+                        await atualizarCustoMedioProduto(productId);
                     }
-
-                    movimentacaoData = {
-                        ...movimentacaoData,
-                        tipoEntradaId: tipoEntradaId,
-                        detalhesTipoEntrada: { nome: tipoEntradaConfig.nome },
-                        nf: nf,
-                        valorUnitario: valorUnitario,
-                        icms: icms,
-                        ipi: ipi,
-                        frete: frete,
-                        custo_total_entrada: custo_total_entrada,
-                        e_sobra: tipoEntradaConfig.e_sobra || false,
-                    };
-
-                    const novoEstoque = estoqueAtual + quantidade;
-                    transaction.update(productRef, { estoque: novoEstoque });
-
-                } else { // É SAÍDA
-                    const tipoSaidaId = document.getElementById('mov-tipo-saida').value;
-                    const tipoSaidaConfig = configData.tipos_saida[tipoSaidaId];
-                    const requisitante = document.getElementById('mov-requisitante').value;
-                    const obraId = document.getElementById('mov-obra').value;
-
-                    movimentacaoData = {
-                        ...movimentacaoData,
-                        tipoSaidaId: tipoSaidaId,
-                        detalhesTipoSaida: { nome: tipoSaidaConfig.nome },
-                        requisitante: requisitante,
-                        obraId: obraId || null,
-                        detalhesObra: obraId ? { nome: configData.obras[obraId].nome } : null,
-                        reservar_estoque: tipoSaidaConfig.reservar_estoque || false,
-                    };
-
-                    if (movimentacaoData.reservar_estoque) {
-                        const reservasRef = collection(db, 'reservas');
-                        const reservaData = {
-                            produtoId: produtoId,
-                            obraId: obraId,
-                            quantidade: quantidade,
-                            data: serverTimestamp(),
-                            status: 'ativa' // 'ativa', 'baixada', 'cancelada'
-                        };
-                        transaction.set(doc(reservasRef), reservaData);
-                        // A saída do estoque principal será feita em outro processo, ao "baixar" a reserva
-                    } else {
-                        if (estoqueAtual < quantidade) {
-                            throw new Error(`Estoque insuficiente. Disponível: ${estoqueAtual}, Saída: ${quantidade}`);
-                        }
-                        const novoEstoque = estoqueAtual - quantidade;
-                        transaction.update(productRef, { estoque: novoEstoque });
-                    }
+                    formMovimentacao.reset();
+                    handleToggleChange();
+                } catch (error) {
+                    console.error("Erro na transação de entrada:", error);
+                    showInfoModal(error.message);
                 }
-
-                const movRef = doc(collection(db, 'movimentacoes'));
-                transaction.set(movRef, movimentacaoData);
-            });
-
-            showInfoModal(`Movimentação de ${isEntrada ? 'entrada' : 'saída'} registrada com sucesso!`);
-            console.log(`Movimentação de ${isEntrada ? 'entrada' : 'saída'} registrada com sucesso!`);
-
-            if (isEntrada) {
-                await atualizarCustoMedioProduto(produtoId);
             }
+        } else { // Saída
+            const tipoSaidaId = document.getElementById('mov-tipo-saida').value;
+            const tipoSaidaConfig = configData.tipos_saida[tipoSaidaId];
 
-            formMovimentacao.reset();
-            handleToggleChange(); // Reseta o estado visual do formulário
+            if (tipoSaidaConfig && tipoSaidaConfig.reservar_estoque === true) {
+                // Lógica de Reserva
+                try {
+                    await addDoc(collection(db, 'movimentacoes'), {
+                        tipo: 'reserva',
+                        productId,
+                        quantidade,
+                        data: serverTimestamp(),
+                        tipo_saidaId: tipoSaidaId,
+                        requisitante: document.getElementById('mov-requisitante').value,
+                        obraId: document.getElementById('mov-obra').value,
+                        observacao: document.getElementById('mov-observacao').value,
+                    });
+                    alert('Reserva registrada com sucesso!');
+                    formMovimentacao.reset();
+                    handleToggleChange();
+                } catch (error) {
+                    console.error("Erro ao registrar reserva:", error);
+                    showInfoModal(error.message);
+                }
+            } else {
+                // Lógica de Saída Normal
+                try {
+                    await runTransaction(db, async (transaction) => {
+                        const productRef = doc(db, 'produtos', productId);
+                        const productDoc = await transaction.get(productRef);
+                        if (!productDoc.exists()) throw new Error("Produto não encontrado!");
 
-        } catch (error) {
-            console.error("Erro ao processar movimentação: ", error);
-            showInfoModal("Erro ao processar movimentação: " + error.message);
+                        if (tipoSaidaConfig && tipoSaidaConfig.movimenta_estoque === true) {
+                            const currentEstoque = productDoc.data().estoque || 0;
+                            if (currentEstoque < quantidade) {
+                                throw new Error(`Estoque insuficiente! Disponível: ${currentEstoque}`);
+                            }
+                            const newEstoque = currentEstoque - quantidade;
+                            transaction.update(productRef, { estoque: newEstoque });
+                        }
+
+                        const movementRef = doc(collection(db, 'movimentacoes'));
+                        transaction.set(movementRef, {
+                            tipo: 'saida',
+                            productId,
+                            quantidade,
+                            data: serverTimestamp(),
+                            tipo_saidaId: tipoSaidaId,
+                            requisitante: document.getElementById('mov-requisitante').value,
+                            obraId: document.getElementById('mov-obra').value,
+                            observacao: document.getElementById('mov-observacao').value,
+                            valorMedioHistorico: productDoc.data().valorMedio || 0
+                        });
+                    });
+                    alert('Saída registrada com sucesso!');
+                    formMovimentacao.reset();
+                    handleToggleChange();
+                } catch (error) {
+                    console.error("Erro ao registrar saída:", error);
+                    showInfoModal(error.message);
+                }
+            }
         }
     });
 
@@ -455,9 +583,6 @@ document.addEventListener('DOMContentLoaded', async function() {
         }
     }
 
-    function updateProductInfo() {
-        // ... (lógica de atualização de info do produto mantida)
-    }
 
     document.getElementById('mov-produto').addEventListener('change', updateProductInfo);
 
