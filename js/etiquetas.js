@@ -1,6 +1,5 @@
-// CONTEÚDO COMPLETO PARA O ARQUIVO js/etiquetas.js
+// CONTEÚDO FINAL E CORRETO PARA O ARQUIVO js/etiquetas.js
 
-// LÓGICA ORIGINAL, MANTIDA INTOCADA.
 function adjustFontSizeToFit(element) {
     element.style.fontSize = '';
 
@@ -15,7 +14,6 @@ function adjustFontSizeToFit(element) {
     }
 }
 
-// FUNÇÃO ORIGINAL, MODIFICADA APENAS ONDE NECESSÁRIO.
 function processarEtiquetas() {
     const container = document.getElementById('etiquetas-container');
     const dadosJSON = localStorage.getItem('etiquetasParaImprimir');
@@ -35,8 +33,6 @@ function processarEtiquetas() {
         const etiquetaDiv = document.createElement('div');
         etiquetaDiv.className = 'etiqueta';
 
-        // O HTML antigo foi trocado pelo HTML do novo design.
-        // ESTA FOI A ÚNICA ALTERAÇÃO ESTRUTURAL.
         etiquetaDiv.innerHTML = `
             <div class="etiqueta-corpo">
                 <div class="qr-code-container" id="qr-${produto.id}"></div>
@@ -46,7 +42,7 @@ function processarEtiquetas() {
                     <div class="info-codigo">${pData.codigo || ''}</div>
                 </div>
             </div>
-            <div class="etiqueta-rodape">
+            <div class="etiqueta-footer">
                 ${enderecamento}
             </div>
         `;
@@ -61,7 +57,6 @@ function processarEtiquetas() {
         });
     });
 
-    // CHAMADA ORIGINAL, APENAS COM O SELETOR ATUALIZADO PARA O NOVO DESIGN.
     requestAnimationFrame(() => {
         const elementosParaAjustar = document.querySelectorAll('.info-descricao');
         elementosParaAjustar.forEach(el => {

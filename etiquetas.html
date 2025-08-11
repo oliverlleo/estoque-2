@@ -6,8 +6,7 @@
     <title>Etiquetas para Impressão</title>
     <script src="https://cdn.jsdelivr.net/npm/qrcodejs@1.0.0/qrcode.min.js"></script>
     <style>
-/* CONTEÚDO COMPLETO PARA A TAG <style> EM etiquetas.html */
-/* ESTILOS GERAIS E DE CONTROLE */
+/* CONTEÚDO FINAL E CORRETO PARA A TAG <style> */
 body {
     font-family: Arial, sans-serif;
     background-color: #f0f2f5;
@@ -20,7 +19,6 @@ body {
 }
 .controls button { font-size: 16px; padding: 10px 20px; cursor: pointer; }
 
-/* ARQUITETURA DA ETIQUETA - VERSÃO CORRIGIDA E ROBUSTA */
 .etiqueta {
     background-color: white;
     width: 100mm;
@@ -35,10 +33,11 @@ body {
 }
 
 .etiqueta-corpo {
-    flex-grow: 1; /* Faz esta div ocupar todo o espaço disponível, empurrando o rodapé para baixo */
+    flex-grow: 1;
     display: flex;
     gap: 5mm;
     align-items: center;
+    min-height: 0;
 }
 
 .qr-code-container {
@@ -68,6 +67,7 @@ body {
     font-size: 18pt;
     font-weight: bold;
     line-height: 1.1;
+    overflow: hidden;
 }
 
 .info-cor {
@@ -86,8 +86,9 @@ body {
     border-radius: 4px;
 }
 
-.etiqueta-rodape {
-    flex-shrink: 0; /* Impede que o rodapé encolha */
+/* USANDO O NOME ORIGINAL */
+.etiqueta-footer {
+    flex-shrink: 0;
     background-color: #000;
     color: #fff;
     font-size: 16pt;
@@ -95,17 +96,15 @@ body {
     text-align: center;
     text-transform: uppercase;
     padding: 8px 0;
-    margin: 4mm -4mm -4mm -4mm; /* Estica para preencher o padding do pai */
+    margin-top: 4mm;
 }
 
-
-/* ESTILOS DE IMPRESSÃO */
 @media print {
     body { background-color: white; padding: 0; margin: 0; }
     .controls { display: none !important; }
     .etiqueta { margin: 0; border: none; page-break-after: always; }
     .etiqueta:last-child { page-break-after: avoid; }
-    .info-codigo, .etiqueta-rodape {
+    .info-codigo, .etiqueta-footer {
         background-color: #000 !important;
         print-color-adjust: exact;
         -webkit-print-color-adjust: exact;
