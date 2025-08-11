@@ -161,6 +161,112 @@ document.addEventListener('DOMContentLoaded', async function() {
         }
     }
 
+    // --- Lógica da Tabela de Histórico ---
+    function updateTable() {
+        let processedMovements = allMovements.map(mov => {
+            const product = productsMap[mov.productId] || {};
+            let custoUnitario = 0;
+            if (mov.tipo === 'entrada' && mov.quantidade > 0) {
+                let valorTotal;
+                // Prioriza o novo campo 'custo_total_entrada' se ele existir
+                if (mov.custo_total_entrada !== undefined) {
+                    valorTotal = mov.custo_total_entrada;
+                } else {
+                    // Fallback para registros antigos: calcula da forma antiga
+                    valorTotal = (mov.quantidade_compra * (mov.valor_unitario || 0)) + (mov.icms || 0) + (mov.ipi || 0) + (mov.frete || 0);
+                }
+                // O custo unitário é o custo total dividido pela quantidade que efetivamente entrou no estoque
+                custoUnitario = valorTotal / mov.quantidade;
+            }
+
+            const processedMov = {
+                ...mov,
+                custoUnitario: custoUnitario, // Adiciona o custo unitário calculado ao objeto principal
+                _search_data: {
+                    data: mov.data ? new Date(mov.data.seconds * 1000).toLocaleString('pt-BR') : '',
+                    tipo: mov.tipo || '',
+                    codigo: product.codigo || '',
+                    descricao: product.descricao || '',
+                    un: product.un || '',
+                    quantidade: mov.quantidade?.toString() || '',
+                    nf: mov.nf || '',
+                    valor_unitario: (mov.valor_unitario || 0).toString(),
+                    icms: (mov.icms || 0).toString(),
+                    ipi: (mov.ipi || 0).toString(),
+                    frete: (mov.frete || 0).toString(),
+                    custoUnitario: custoUnitario > 0 ? custoUnitario.toFixed(2) : '0.00',
+                    requisitante: mov.requisitante || '',
+                    obraId: configData.obras?.[mov.obraId]?.nome || '',
+                    observacao: mov.observacao || ''
+                }
+            };
+            return processedMov;
+        });
+
+        let filteredMovements = processedMovements.filter(mov => {
+            for (const column in filterState) {
+                const filterValue = filterState[column]?.toLowerCase();
+                if (!filterValue) continue;
+                const cellValue = mov._search_data[column]?.toLowerCase();
+                if (cellValue === undefined || !cellValue.includes(filterValue)) {
+                    return false;
+                }
+            }
+            return true;
+        });
+
+        filteredMovements.sort((a, b) => {
+            let valA = a._search_data[sortState.column];
+            let valB = b._search_data[sortState.column];
+            if (sortState.column === 'data') {
+                valA = a.data ? a.data.toMillis() : 0;
+                valB = b.data ? b.data.toMillis() : 0;
+            }
+            const numericColumns = ['quantidade', 'valor_unitario', 'icms', 'ipi', 'frete', 'custoUnitario'];
+            if (numericColumns.includes(sortState.column)) {
+                valA = parseFloat(valA) || 0;
+                valB = parseFloat(valB) || 0;
+            }
+            if (valA < valB) return sortState.direction === 'asc' ? -1 : 1;
+            if (valA > valB) return sortState.direction === 'asc' ? 1 : -1;
+            return 0;
+        });
+
+        renderTable(filteredMovements);
+    }
+
+    function renderTable(data) {
+        tableBody.innerHTML = '';
+        data.forEach(mov => {
+            const row = document.createElement('tr');
+            const searchData = mov._search_data;
+            const valorUnitarioFmt = mov.valor_unitario ? mov.valor_unitario.toFixed(2) : '-';
+            const icmsFmt = mov.icms ? mov.icms.toFixed(2) : '-';
+            const ipiFmt = mov.ipi ? mov.ipi.toFixed(2) : '-';
+            const freteFmt = mov.frete ? mov.frete.toFixed(2) : '-';
+            const custoUnitarioFmt = mov.custoUnitario > 0 ? mov.custoUnitario.toFixed(2) : '-';
+
+            row.innerHTML = `
+                <td>${searchData.data}</td>
+                <td class="${searchData.tipo}">${searchData.tipo === 'reserva_cancelada' ? 'RESERVA CANCELADA' : searchData.tipo.toUpperCase()}</td>
+                <td>${searchData.codigo || 'N/A'}</td>
+                <td>${searchData.descricao || 'Produto não encontrado'}</td>
+                <td>${searchData.un || 'N/A'}</td>
+                <td>${searchData.quantidade}</td>
+                <td>${searchData.nf || '-'}</td>
+                <td>${valorUnitarioFmt}</td>
+                <td>${icmsFmt}</td>
+                <td>${ipiFmt}</td>
+                <td>${freteFmt}</td>
+                <td>${custoUnitarioFmt}</td>
+                <td>${searchData.requisitante || '-'}</td>
+                <td>${searchData.obraId || '-'}</td>
+                <td>${searchData.observacao || '-'}</td>
+            `;
+            tableBody.appendChild(row);
+        });
+    }
+
     function handleToggleChange() {
         const isEntrada = toggle.checked;
         btnImportarXml.style.display = isEntrada ? 'inline-block' : 'none';
@@ -586,9 +692,6 @@ document.addEventListener('DOMContentLoaded', async function() {
 
     document.getElementById('mov-produto').addEventListener('change', updateProductInfo);
 
-    function updateTable() {
-        // ... (lógica de atualização da tabela de histórico mantida)
-    }
 
     document.getElementById('headers-row').addEventListener('click', e => {
         // ... (lógica de ordenação da tabela mantida)
@@ -599,8 +702,13 @@ document.addEventListener('DOMContentLoaded', async function() {
     });
 
     onSnapshot(collection(db, 'movimentacoes'), (snapshot) => {
-        allMovements = snapshot.docs.map(doc => ({ id: doc.id, ...data }));
-        if (initialDataLoaded) updateTable();
+        allMovements = snapshot.docs.map(doc => {
+            const data = doc.data();
+            return { id: doc.id, ...data };
+        });
+        if (initialDataLoaded) {
+            updateTable();
+        }
     });
 
     loadInitialData().then(() => {
