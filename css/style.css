@@ -892,3 +892,25 @@ input:checked + .slider:before {
 .table-fornecedores td .marca-tag-display {
     margin-bottom: 5px;
 }
+
+/* =============================================== */
+/* CORREÇÃO PARA FORMATAÇÃO DAS TABELAS PRINCIPAIS */
+/* =============================================== */
+/*
+ * Esta regra garante que as linhas (tr) e células (td) das tabelas de dados
+ * principais se comportem como elementos de tabela padrão, corrigindo a
+ * quebra de layout vertical.
+*/
+#table-produtos tr,
+#table-movimentacoes tr,
+#table-consultas tr,
+#table-reservas tr {
+    display: table-row; /* Força o elemento a se comportar como uma linha de tabela */
+}
+
+#table-produtos th, #table-produtos td,
+#table-movimentacoes th, #table-movimentacoes td,
+#table-consultas th, #table-consultas td,
+#table-reservas th, #table-reservas td {
+    display: table-cell; /* Força o elemento a se comportar como uma célula de tabela */
+}
