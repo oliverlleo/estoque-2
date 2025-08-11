@@ -125,6 +125,148 @@ document.addEventListener('DOMContentLoaded', async function() {
         }
     }
 
+    function updateProductInfo() {
+        const productId = document.getElementById('mov-produto').value;
+        const product = productsMap[productId];
+
+        document.getElementById('mov-codigo-display').textContent = product ? product.codigo : '-';
+        document.getElementById('mov-descricao-display').textContent = product ? product.descricao : '-';
+        document.getElementById('mov-un-display').textContent = product ? product.un : '-';
+        document.getElementById('mov-estoque-display').textContent = product ? (product.estoque || 0) : '-';
+
+        const isSobra = product && product.e_sobra === true;
+        const isEntrada = document.getElementById('movement-toggle').checked;
+
+        const costFields = ['mov-valor-unitario', 'mov-icms', 'mov-ipi', 'mov-frete'];
+        const quantField = document.getElementById('mov-quantidade');
+
+        if(isEntrada) {
+            costFields.forEach(fieldId => {
+                const field = document.getElementById(fieldId);
+                field.disabled = isSobra;
+                if (isSobra) field.value = ''; 
+            });
+
+            quantField.disabled = isSobra;
+            if (isSobra) {
+                quantField.value = 1;
+                quantField.placeholder = "Entrada de sobra é sempre 1 Unidade";
+            } else {
+                quantField.placeholder = "Quantidade";
+            }
+        } else {
+            costFields.forEach(fieldId => document.getElementById(fieldId).disabled = false);
+            quantField.disabled = false;
+            quantField.placeholder = "Quantidade";
+        }
+    }
+
+    // --- Lógica da Tabela de Histórico ---
+    function updateTable() {
+        let processedMovements = allMovements.map(mov => {
+            const product = productsMap[mov.productId] || {};
+            let custoUnitario = 0;
+            if (mov.tipo === 'entrada' && mov.quantidade > 0) {
+                let valorTotal;
+                // Prioriza o novo campo 'custo_total_entrada' se ele existir
+                if (mov.custo_total_entrada !== undefined) {
+                    valorTotal = mov.custo_total_entrada;
+                } else {
+                    // Fallback para registros antigos: calcula da forma antiga
+                    valorTotal = (mov.quantidade_compra * (mov.valor_unitario || 0)) + (mov.icms || 0) + (mov.ipi || 0) + (mov.frete || 0);
+                }
+                // O custo unitário é o custo total dividido pela quantidade que efetivamente entrou no estoque
+                custoUnitario = valorTotal / mov.quantidade;
+            }
+
+            const processedMov = {
+                ...mov,
+                custoUnitario: custoUnitario, // Adiciona o custo unitário calculado ao objeto principal
+                _search_data: {
+                    data: mov.data ? new Date(mov.data.seconds * 1000).toLocaleString('pt-BR') : '',
+                    tipo: mov.tipo || '',
+                    codigo: product.codigo || '',
+                    descricao: product.descricao || '',
+                    un: product.un || '',
+                    quantidade: mov.quantidade?.toString() || '',
+                    nf: mov.nf || '',
+                    valor_unitario: (mov.valor_unitario || 0).toString(),
+                    icms: (mov.icms || 0).toString(),
+                    ipi: (mov.ipi || 0).toString(),
+                    frete: (mov.frete || 0).toString(),
+                    custoUnitario: custoUnitario > 0 ? custoUnitario.toFixed(2) : '0.00',
+                    requisitante: mov.requisitante || '',
+                    obraId: configData.obras?.[mov.obraId]?.nome || '',
+                    observacao: mov.observacao || ''
+                }
+            };
+            return processedMov;
+        });
+
+        let filteredMovements = processedMovements.filter(mov => {
+            for (const column in filterState) {
+                const filterValue = filterState[column]?.toLowerCase();
+                if (!filterValue) continue;
+                const cellValue = mov._search_data[column]?.toLowerCase();
+                if (cellValue === undefined || !cellValue.includes(filterValue)) {
+                    return false;
+                }
+            }
+            return true;
+        });
+
+        filteredMovements.sort((a, b) => {
+            let valA = a._search_data[sortState.column];
+            let valB = b._search_data[sortState.column];
+            if (sortState.column === 'data') {
+                valA = a.data ? a.data.toMillis() : 0;
+                valB = b.data ? b.data.toMillis() : 0;
+            }
+            const numericColumns = ['quantidade', 'valor_unitario', 'icms', 'ipi', 'frete', 'custoUnitario'];
+            if (numericColumns.includes(sortState.column)) {
+                valA = parseFloat(valA) || 0;
+                valB = parseFloat(valB) || 0;
+            }
+            if (valA < valB) return sortState.direction === 'asc' ? -1 : 1;
+            if (valA > valB) return sortState.direction === 'asc' ? 1 : -1;
+            return 0;
+        });
+
+        renderTable(filteredMovements);
+    }
+
+    function renderTable(data) {
+        tableBody.innerHTML = '';
+        data.forEach(mov => {
+            const row = document.createElement('tr');
+            const searchData = mov._search_data;
+            const valorUnitarioFmt = mov.valor_unitario ? mov.valor_unitario.toFixed(2) : '-';
+            const icmsFmt = mov.icms ? mov.icms.toFixed(2) : '-';
+            const ipiFmt = mov.ipi ? mov.ipi.toFixed(2) : '-';
+            const freteFmt = mov.frete ? mov.frete.toFixed(2) : '-';
+            const custoUnitarioFmt = mov.custoUnitario > 0 ? mov.custoUnitario.toFixed(2) : '-';
+
+            row.innerHTML = `
+                <td>${searchData.data}</td>
+                <td class="${searchData.tipo}">${searchData.tipo === 'reserva_cancelada' ? 'RESERVA CANCELADA' : searchData.tipo.toUpperCase()}</td>
+                <td>${searchData.codigo || 'N/A'}</td>
+                <td>${searchData.descricao || 'Produto não encontrado'}</td>
+                <td>${searchData.un || 'N/A'}</td>
+                <td>${searchData.quantidade}</td>
+                <td>${searchData.nf || '-'}</td>
+                <td>${valorUnitarioFmt}</td>
+                <td>${icmsFmt}</td>
+                <td>${ipiFmt}</td>
+                <td>${freteFmt}</td>
+                <td>${custoUnitarioFmt}</td>
+                <td>${searchData.requisitante || '-'}</td>
+                <td>${searchData.obraId || '-'}</td>
+                <td>${searchData.observacao || '-'}</td>
+            `;
+            tableBody.appendChild(row);
+        });
+    }
+
     function handleToggleChange() {
         const isEntrada = toggle.checked;
         btnImportarXml.style.display = isEntrada ? 'inline-block' : 'none';
@@ -158,115 +300,213 @@ document.addEventListener('DOMContentLoaded', async function() {
 
     formMovimentacao.addEventListener('submit', async (e) => {
         e.preventDefault();
-        btnMovimentacao.disabled = true;
-        btnMovimentacao.textContent = 'Processando...';
-
         const isEntrada = toggle.checked;
         const productId = document.getElementById('mov-produto').value;
         const quantidade = parseFloat(document.getElementById('mov-quantidade').value);
-        const observacao = document.getElementById('mov-observacao').value;
 
         if (!productId || isNaN(quantidade) || quantidade <= 0) {
-            alert('Por favor, preencha todos os campos obrigatórios corretamente.');
-            btnMovimentacao.disabled = false;
-            handleToggleChange(); // Restaura o texto do botão
+            alert('Por favor, preencha o produto e a quantidade corretamente.');
             return;
         }
 
-        try {
-            await runTransaction(db, async (transaction) => {
-                const productRef = doc(db, 'produtos', productId);
-                const productDoc = await transaction.get(productRef);
+        if (isEntrada) {
+            const productData = productsMap[productId];
 
-                if (!productDoc.exists()) {
-                    throw new Error("Produto não encontrado.");
+            if (productData.e_sobra === true) {
+                // LÓGICA DE ENTRADA DE SOBRA
+                try {
+                    const custoMedioPai = await calcularCustoMedioProduto(productData.produto_pai_id);
+                    if (custoMedioPai <= 0) {
+                        throw new Error("Não foi possível calcular o custo da sobra pois o produto original não possui custo de entrada.");
+                    }
+
+                    const conversaoRef = doc(db, 'conversoes', productData.conversaoId);
+                    const conversaoDoc = await getDoc(conversaoRef);
+                    if (!conversaoDoc.exists()) {
+                        throw new Error("Regra de conversão não encontrada para este produto.");
+                    }
+                    const regra = conversaoDoc.data();
+                    const fatorConversao = parseFloat(regra.fator_conversao_sobra);
+                    if (!fatorConversao || fatorConversao <= 0) {
+                        throw new Error("A regra de conversão não possui um 'fator de conversão para sobra' válido.");
+                    }
+
+                    const custoPorUnidadeSobra = custoMedioPai / fatorConversao;
+                    const medidaDaSobra = parseFloat(productData.medida_sobra);
+                    const custoCalculadoDaSobra = custoPorUnidadeSobra * medidaDaSobra;
+
+                    await runTransaction(db, async (transaction) => {
+                        const productRef = doc(db, 'produtos', productId);
+                        const pDoc = await transaction.get(productRef);
+                        const newEstoque = (pDoc.data().estoque || 0) + 1;
+                        transaction.update(productRef, { estoque: newEstoque });
+
+                        const movementRef = doc(collection(db, 'movimentacoes'));
+                        transaction.set(movementRef, {
+                            tipo: 'entrada',
+                            productId,
+                            data: serverTimestamp(),
+                            quantidade: 1,
+                            custo_total_entrada: custoCalculadoDaSobra,
+                            observacao: `Entrada de sobra com custo calculado a partir do produto pai.`
+                        });
+                    });
+                    alert('Entrada de sobra registrada com sucesso!');
+                    formMovimentacao.reset();
+                    handleToggleChange();
+
+                } catch (error) {
+                    console.error("Erro ao registrar entrada de sobra:", error);
+                    showInfoModal(error.message);
                 }
 
-                const productData = productDoc.data();
-                const currentEstoque = productData.estoque || 0;
-                let newEstoque;
-                const movementData = {
-                    productId,
-                    quantidade,
-                    observacao,
-                    data: serverTimestamp(),
-                    userId: 'defaultUser' // Substituir por usuário logado se houver autenticação
-                };
+            } else {
+                // LÓGICA DE ENTRADA NORMAL
+                try {
+                    await runTransaction(db, async (transaction) => {
+                        const productRef = doc(db, 'produtos', productId);
+                        const productDoc = await transaction.get(productRef);
+                        if (!productDoc.exists()) { throw new Error("Produto não encontrado!"); }
+                        const productData = productDoc.data();
+                        const conversaoId = productData.conversaoId;
+                        const quantidadeInformada = parseFloat(document.getElementById('mov-quantidade').value);
+                        let quantidadeParaEstoque = quantidadeInformada;
+                        let quantidadeOriginalCompra = quantidadeInformada;
 
-                if (isEntrada) {
+                        if (conversaoId) {
+                            const conversaoRef = doc(db, 'conversoes', conversaoId);
+                            const conversaoDoc = await transaction.get(conversaoRef);
+                            if (conversaoDoc.exists()) {
+                                const regra = conversaoDoc.data();
+                                const fator_qtd_compra = parseFloat(String(regra.qtd_compra).replace(',', '.'));
+                                const fator_qtd_padrao = parseFloat(String(regra.qtd_padrao).replace(',', '.'));
+                                if (fator_qtd_compra > 0) {
+                                    quantidadeParaEstoque = (quantidadeInformada / fator_qtd_compra) * fator_qtd_padrao;
+                                }
+                                const medidaPadrao = regra.medida_padrao || "";
+                                if (medidaPadrao.toUpperCase() === 'PÇ' && !Number.isInteger(quantidadeParaEstoque)) {
+                                    throw new Error(`O cálculo resultou em um valor quebrado (${quantidadeParaEstoque.toFixed(2)} PÇ).`);
+                                }
+                            }
+                        }
+
+                        const valorUnitario = parseFloat(document.getElementById('mov-valor-unitario').value) || 0;
+                        const icms = parseFloat(document.getElementById('mov-icms').value) || 0;
+                        const ipi = parseFloat(document.getElementById('mov-ipi').value) || 0;
+                        const frete = parseFloat(document.getElementById('mov-frete').value) || 0;
+                        let custoTotalEntrada = (quantidadeOriginalCompra * valorUnitario) + icms + ipi + frete;
+                        const fornecedorId = productData.fornecedorId;
+                        if (fornecedorId && configData.fornecedores[fornecedorId]) {
+                            const fornecedor = configData.fornecedores[fornecedorId];
+                            const impostoStPercent = parseFloat(fornecedor.imposto) || 0;
+                            if (impostoStPercent > 0) {
+                                custoTotalEntrada *= (1 + (impostoStPercent / 100));
+                            }
+                        }
+
+                        const tipoEntradaId = document.getElementById('mov-tipo-entrada').value;
+                        const tipoEntradaConfig = configData.tipos_entrada[tipoEntradaId];
+
+                        if (tipoEntradaConfig && tipoEntradaConfig.movimenta_estoque === true) {
+                            const currentEstoque = productDoc.data().estoque || 0;
+                            const newEstoque = currentEstoque + quantidadeParaEstoque;
+                            transaction.update(productRef, { estoque: newEstoque });
+                        }
+
+                        const movementRef = doc(collection(db, 'movimentacoes'));
+                        const movementData = {
+                            tipo: 'entrada',
+                            productId,
+                            data: serverTimestamp(),
+                            tipo_entradaId: document.getElementById('mov-tipo-entrada').value,
+                            nf: document.getElementById('mov-nf').value,
+                            valor_unitario: valorUnitario,
+                            icms: icms,
+                            ipi: ipi,
+                            frete: frete,
+                            observacao: document.getElementById('mov-observacao').value,
+                            quantidade: quantidadeParaEstoque,
+                            quantidade_compra: quantidadeOriginalCompra,
+                            custo_total_entrada: custoTotalEntrada
+                        };
+                        transaction.set(movementRef, movementData);
+                    });
+                    alert('Entrada registrada com sucesso!');
+
                     const tipoEntradaId = document.getElementById('mov-tipo-entrada').value;
                     const tipoEntradaConfig = configData.tipos_entrada[tipoEntradaId];
-
-                    if (tipoEntradaConfig?.movimenta_estoque === false) {
-                        newEstoque = currentEstoque; // Não altera o estoque
-                    } else {
-                        newEstoque = currentEstoque + quantidade;
+                    if (tipoEntradaConfig && tipoEntradaConfig.recalcula_custo_medio === true) {
+                        await atualizarCustoMedioProduto(productId);
                     }
-
-                    const valorUnitario = parseFloat(document.getElementById('mov-valor-unitario').value) || 0;
-                    const icms = parseFloat(document.getElementById('mov-icms').value) || 0;
-                    const ipi = parseFloat(document.getElementById('mov-ipi').value) || 0;
-                    const frete = parseFloat(document.getElementById('mov-frete').value) || 0;
-                    const custoTotal = (valorUnitario * quantidade) + icms + ipi + frete;
-
-                    Object.assign(movementData, {
-                        tipo: 'entrada',
-                        tipoEntradaId,
-                        nf: document.getElementById('mov-nf').value,
-                        valor_unitario: valorUnitario,
-                        icms,
-                        ipi,
-                        frete,
-                        custo_total_entrada: custoTotal
-                    });
-
-                } else { // É Saída
-                    const tipoSaidaId = document.getElementById('mov-tipo-saida').value;
-                    const tipoSaidaConfig = configData.tipos_saida[tipoSaidaId];
-
-                    if (tipoSaidaConfig?.movimenta_estoque === false) {
-                        newEstoque = currentEstoque;
-                    } else {
-                        if (currentEstoque < quantidade) {
-                            throw new Error('Estoque insuficiente para a saída.');
-                        }
-                        newEstoque = currentEstoque - quantidade;
-                    }
-
-                    Object.assign(movementData, {
-                        tipo: 'saida',
-                        tipoSaidaId,
-                        requisitante: document.getElementById('mov-requisitante').value,
-                        obraId: document.getElementById('mov-obra').value
-                    });
+                    formMovimentacao.reset();
+                    handleToggleChange();
+                } catch (error) {
+                    console.error("Erro na transação de entrada:", error);
+                    showInfoModal(error.message);
                 }
-
-                transaction.update(productRef, { estoque: newEstoque });
-                const movementRef = doc(collection(db, 'movimentacoes'));
-                transaction.set(movementRef, movementData);
-            });
-
-            // Apenas recalcula o custo se for uma entrada que informa valor
-            if (isEntrada) {
-                 const tipoEntradaId = document.getElementById('mov-tipo-entrada').value;
-                 const tipoEntradaConfig = configData.tipos_entrada[tipoEntradaId];
-                 if (tipoEntradaConfig?.recalcula_custo_medio === true) {
-                    await atualizarCustoMedioProduto(productId);
-                 }
             }
+        } else { // Saída
+            const tipoSaidaId = document.getElementById('mov-tipo-saida').value;
+            const tipoSaidaConfig = configData.tipos_saida[tipoSaidaId];
 
-            alert('Movimentação registrada com sucesso!');
-            formMovimentacao.reset();
-            updateProductInfo(); // Limpa os campos de info do produto
-            toggleObraRequirement(); // Reseta a obrigatoriedade
-            toggleValorUnitarioRequirement(); // Reseta a obrigatoriedade
+            if (tipoSaidaConfig && tipoSaidaConfig.reservar_estoque === true) {
+                // Lógica de Reserva
+                try {
+                    await addDoc(collection(db, 'movimentacoes'), {
+                        tipo: 'reserva',
+                        productId,
+                        quantidade,
+                        data: serverTimestamp(),
+                        tipo_saidaId: tipoSaidaId,
+                        requisitante: document.getElementById('mov-requisitante').value,
+                        obraId: document.getElementById('mov-obra').value,
+                        observacao: document.getElementById('mov-observacao').value,
+                    });
+                    alert('Reserva registrada com sucesso!');
+                    formMovimentacao.reset();
+                    handleToggleChange();
+                } catch (error) {
+                    console.error("Erro ao registrar reserva:", error);
+                    showInfoModal(error.message);
+                }
+            } else {
+                // Lógica de Saída Normal
+                try {
+                    await runTransaction(db, async (transaction) => {
+                        const productRef = doc(db, 'produtos', productId);
+                        const productDoc = await transaction.get(productRef);
+                        if (!productDoc.exists()) throw new Error("Produto não encontrado!");
 
-        } catch (error) {
-            console.error("Erro ao registrar movimentação: ", error);
-            alert(`Falha ao registrar movimentação: ${error.message}`);
-        } finally {
-            btnMovimentacao.disabled = false;
-            handleToggleChange(); // Restaura o texto e estado do botão
+                        if (tipoSaidaConfig && tipoSaidaConfig.movimenta_estoque === true) {
+                            const currentEstoque = productDoc.data().estoque || 0;
+                            if (currentEstoque < quantidade) {
+                                throw new Error(`Estoque insuficiente! Disponível: ${currentEstoque}`);
+                            }
+                            const newEstoque = currentEstoque - quantidade;
+                            transaction.update(productRef, { estoque: newEstoque });
+                        }
+
+                        const movementRef = doc(collection(db, 'movimentacoes'));
+                        transaction.set(movementRef, {
+                            tipo: 'saida',
+                            productId,
+                            quantidade,
+                            data: serverTimestamp(),
+                            tipo_saidaId: tipoSaidaId,
+                            requisitante: document.getElementById('mov-requisitante').value,
+                            obraId: document.getElementById('mov-obra').value,
+                            observacao: document.getElementById('mov-observacao').value,
+                            valorMedioHistorico: productDoc.data().valorMedio || 0
+                        });
+                    });
+                    alert('Saída registrada com sucesso!');
+                    formMovimentacao.reset();
+                    handleToggleChange();
+                } catch (error) {
+                    console.error("Erro ao registrar saída:", error);
+                    showInfoModal(error.message);
+                }
+            }
         }
     });
 
@@ -330,7 +570,112 @@ document.addEventListener('DOMContentLoaded', async function() {
     }
 
     btnConfirmarXmlImport.addEventListener('click', async () => {
-        // ... (lógica de confirmação da importação mantida)
+        const nf = document.getElementById('xml-nfe-numero').value;
+        const rows = document.querySelectorAll('#xml-products-table tbody tr');
+        let sucessoCount = 0;
+        let erroCount = 0;
+        const produtosParaAtualizarCusto = new Set();
+
+        if (rows.length === 0) {
+            return alert("Não há produtos para importar.");
+        }
+
+        if (confirm(`Confirmar a entrada de ${rows.length} item(ns) da NF-e ${nf}?`)) {
+            for (const row of rows) {
+                const productId = row.dataset.productId;
+
+                // Pula a linha se o produto não estiver cadastrado no sistema
+                if (!productId) {
+                    continue;
+                }
+
+                try {
+                    const quantidadeInformada = parseFloat(row.cells[3].querySelector('input').value);
+                    const valorUnitario = parseFloat(row.cells[4].querySelector('input').value);
+                    const icms = parseFloat(row.cells[5].querySelector('input').value) || 0;
+                    const ipi = parseFloat(row.cells[6].querySelector('input').value) || 0;
+                    const frete = parseFloat(row.cells[7].querySelector('input').value) || 0;
+
+                    if (isNaN(quantidadeInformada) || quantidadeInformada <= 0 || isNaN(valorUnitario)) {
+                        console.warn(`Produto com ID ${productId} pulado por dados inválidos.`);
+                        continue;
+                    }
+
+                    await runTransaction(db, async (transaction) => {
+                        const productRef = doc(db, 'produtos', productId);
+                        const productDoc = await transaction.get(productRef);
+                        if (!productDoc.exists()) {
+                            throw new Error(`Produto com ID ${productId} não encontrado no banco de dados.`);
+                        }
+
+                        const productData = productDoc.data();
+                        let quantidadeParaEstoque = quantidadeInformada;
+
+                        // 1. Lógica de Conversão de Unidades
+                        if (productData.conversaoId) {
+                            const conversaoRef = doc(db, 'conversoes', productData.conversaoId);
+                            const conversaoDoc = await transaction.get(conversaoRef);
+                            if (conversaoDoc.exists()) {
+                                const regra = conversaoDoc.data();
+                                const fator_qtd_compra = parseFloat(String(regra.qtd_compra).replace(',', '.'));
+                                const fator_qtd_padrao = parseFloat(String(regra.qtd_padrao).replace(',', '.'));
+                                if (fator_qtd_compra > 0) {
+                                    quantidadeParaEstoque = (quantidadeInformada / fator_qtd_compra) * fator_qtd_padrao;
+                                }
+                            }
+                        }
+
+                        // 2. Lógica de Cálculo de Custo Total
+                        let custoTotalEntrada = (quantidadeInformada * valorUnitario) + icms + ipi + frete;
+                        if (productData.fornecedorId && configData.fornecedores[productData.fornecedorId]) {
+                            const fornecedor = configData.fornecedores[productData.fornecedorId];
+                            const impostoStPercent = parseFloat(fornecedor.imposto) || 0;
+                            if (impostoStPercent > 0) {
+                                custoTotalEntrada *= (1 + (impostoStPercent / 100));
+                            }
+                        }
+
+                        // 3. Atualiza o Estoque do Produto
+                        const currentEstoque = productData.estoque || 0;
+                        const newEstoque = currentEstoque + quantidadeParaEstoque;
+                        transaction.update(productRef, { estoque: newEstoque });
+
+                        // 4. Cria o Registro de Movimentação
+                        const movementRef = doc(collection(db, 'movimentacoes'));
+                        const movementData = {
+                            tipo: 'entrada',
+                            productId,
+                            data: serverTimestamp(),
+                            nf: nf,
+                            valor_unitario: valorUnitario,
+                            icms: icms,
+                            ipi: ipi,
+                            frete: frete,
+                            observacao: `Importado via XML da NF-e ${nf}`,
+                            quantidade: quantidadeParaEstoque,
+                            quantidade_compra: quantidadeInformada,
+                            custo_total_entrada: custoTotalEntrada
+                        };
+                        transaction.set(movementRef, movementData);
+                    });
+
+                    produtosParaAtualizarCusto.add(productId);
+                    sucessoCount++;
+                } catch (error) {
+                    erroCount++;
+                    console.error(`Falha ao importar produto com ID ${productId}:`, error);
+                }
+            }
+
+            // 5. Atualiza o Custo Médio de todos os produtos importados
+            for (const id of produtosParaAtualizarCusto) {
+                await atualizarCustoMedioProduto(id);
+            }
+
+            alert(`${sucessoCount} produto(s) importado(s) com sucesso!\n${erroCount} produto(s) falharam (verifique o console).`);
+            xmlProductsTableBody.innerHTML = '';
+            xmlImportModal.style.display = 'none';
+        }
     });
 
     // --- Lógica do Modal de Cadastro ---
@@ -449,15 +794,9 @@ document.addEventListener('DOMContentLoaded', async function() {
         }
     }
 
-    function updateProductInfo() {
-        // ... (lógica de atualização de info do produto mantida)
-    }
 
     document.getElementById('mov-produto').addEventListener('change', updateProductInfo);
 
-    function updateTable() {
-        // ... (lógica de atualização da tabela de histórico mantida)
-    }
 
     document.getElementById('headers-row').addEventListener('click', e => {
         // ... (lógica de ordenação da tabela mantida)
@@ -468,8 +807,13 @@ document.addEventListener('DOMContentLoaded', async function() {
     });
 
     onSnapshot(collection(db, 'movimentacoes'), (snapshot) => {
-        allMovements = snapshot.docs.map(doc => ({ id: doc.id, ...data }));
-        if (initialDataLoaded) updateTable();
+        allMovements = snapshot.docs.map(doc => {
+            const data = doc.data();
+            return { id: doc.id, ...data };
+        });
+        if (initialDataLoaded) {
+            updateTable();
+        }
     });
 
     loadInitialData().then(() => {
