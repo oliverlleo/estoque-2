@@ -904,13 +904,15 @@ input:checked + .slider:before {
 #table-produtos tr,
 #table-movimentacoes tr,
 #table-consultas tr,
-#table-reservas tr {
-    display: table-row; /* Força o elemento a se comportar como uma linha de tabela */
+#table-reservas tr,
+#xml-products-table tr { /* <- REGRA ADICIONADA AQUI */
+    display: table-row;
 }
 
 #table-produtos th, #table-produtos td,
 #table-movimentacoes th, #table-movimentacoes td,
 #table-consultas th, #table-consultas td,
-#table-reservas th, #table-reservas td {
-    display: table-cell; /* Força o elemento a se comportar como uma célula de tabela */
+#table-reservas th, #table-reservas td,
+#xml-products-table th, #xml-products-table td { /* <- E ADICIONADA AQUI */
+    display: table-cell;
 }
