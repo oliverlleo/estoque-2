@@ -1,19 +1,19 @@
-function adjustFontSizeToFit(element) {
-    element.style.fontSize = ''; // Reseta para o tamanho padrão do CSS
+// CONTEÚDO FINAL E CORRETO PARA O ARQUIVO js/etiquetas.js
 
-    // A condição de estouro simples, que agora vai funcionar graças ao CSS rígido
+function adjustFontSizeToFit(element) {
+    element.style.fontSize = '';
+
     const isOverflowing = () => element.scrollHeight > element.clientHeight || element.scrollWidth > element.clientWidth;
 
     if (isOverflowing()) {
         let currentSize = parseFloat(window.getComputedStyle(element).fontSize);
         while (isOverflowing() && currentSize > 4) {
-            currentSize -= 1; // Diminui 1px por vez
+            currentSize -= 1;
             element.style.fontSize = currentSize + 'px';
         }
     }
 }
 
-// Função principal que processa todas as etiquetas
 function processarEtiquetas() {
     const container = document.getElementById('etiquetas-container');
     const dadosJSON = localStorage.getItem('etiquetasParaImprimir');
@@ -24,11 +24,8 @@ function processarEtiquetas() {
     }
 
     const produtos = JSON.parse(dadosJSON);
-
-    // Limpa o container antes de adicionar novas etiquetas
     container.innerHTML = '';
 
-    // 1. CRIA TODOS OS ELEMENTOS HTML PRIMEIRO
     produtos.forEach(produto => {
         const pData = produto.data;
         const enderecamento = produto.enderecamento || 'N/A';
@@ -37,21 +34,16 @@ function processarEtiquetas() {
         etiquetaDiv.className = 'etiqueta';
 
         etiquetaDiv.innerHTML = `
-            <div class="etiqueta-main">
-                <div class="qr-code" id="qr-${produto.id}"></div>
-                <div class="produto-info">
-                    <div class="info-bloco produto">
-                        <div class="header">PRODUTO</div>
-                        <div class="valor">${pData.descricao || ''}</div>
-                    </div>
-                    <div class="info-bloco codigo">
-                        <div class="header">CÓDIGO</div>
-                        <div class="valor">${pData.codigo || ''}</div>
-                    </div>
+            <div class="etiqueta-corpo">
+                <div class="qr-code-container" id="qr-${produto.id}"></div>
+                <div class="info-container">
+                    <div class="info-descricao">${pData.descricao || ''}</div>
+                    <div class="info-cor">${pData.cor || ''}</div>
+                    <div class="info-codigo">${pData.codigo || ''}</div>
                 </div>
             </div>
             <div class="etiqueta-footer">
-                LOCAÇÃO: ${enderecamento}
+                ${enderecamento}
             </div>
         `;
         container.appendChild(etiquetaDiv);
@@ -59,23 +51,20 @@ function processarEtiquetas() {
         const url = `${window.location.origin}/detalhe-produto.html?id=${produto.id}`;
         new QRCode(document.getElementById(`qr-${produto.id}`), {
             text: url,
-            width: 120,
-            height: 120,
+            width: 140,
+            height: 140,
             correctLevel: QRCode.CorrectLevel.H
         });
     });
 
-    // 2. PEDE AO NAVEGADOR PARA EXECUTAR O AJUSTE ANTES DA PRÓXIMA RENDERIZAÇÃO
     requestAnimationFrame(() => {
-        const elementosParaAjustar = document.querySelectorAll('.info-bloco .valor');
+        const elementosParaAjustar = document.querySelectorAll('.info-descricao');
         elementosParaAjustar.forEach(el => {
             adjustFontSizeToFit(el);
         });
     });
 
-    // Limpa o localStorage
     localStorage.removeItem('etiquetasParaImprimir');
 }
 
-// Inicia o processo quando a página carregar
 document.addEventListener('DOMContentLoaded', processarEtiquetas);

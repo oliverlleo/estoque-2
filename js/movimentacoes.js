@@ -158,7 +158,116 @@ document.addEventListener('DOMContentLoaded', async function() {
 
     formMovimentacao.addEventListener('submit', async (e) => {
         e.preventDefault();
-        // ... (lógica de submissão do formulário principal mantida)
+        btnMovimentacao.disabled = true;
+        btnMovimentacao.textContent = 'Processando...';
+
+        const isEntrada = toggle.checked;
+        const productId = document.getElementById('mov-produto').value;
+        const quantidade = parseFloat(document.getElementById('mov-quantidade').value);
+        const observacao = document.getElementById('mov-observacao').value;
+
+        if (!productId || isNaN(quantidade) || quantidade <= 0) {
+            alert('Por favor, preencha todos os campos obrigatórios corretamente.');
+            btnMovimentacao.disabled = false;
+            handleToggleChange(); // Restaura o texto do botão
+            return;
+        }
+
+        try {
+            await runTransaction(db, async (transaction) => {
+                const productRef = doc(db, 'produtos', productId);
+                const productDoc = await transaction.get(productRef);
+
+                if (!productDoc.exists()) {
+                    throw new Error("Produto não encontrado.");
+                }
+
+                const productData = productDoc.data();
+                const currentEstoque = productData.estoque || 0;
+                let newEstoque;
+                const movementData = {
+                    productId,
+                    quantidade,
+                    observacao,
+                    data: serverTimestamp(),
+                    userId: 'defaultUser' // Substituir por usuário logado se houver autenticação
+                };
+
+                if (isEntrada) {
+                    const tipoEntradaId = document.getElementById('mov-tipo-entrada').value;
+                    const tipoEntradaConfig = configData.tipos_entrada[tipoEntradaId];
+
+                    if (tipoEntradaConfig?.movimenta_estoque === false) {
+                        newEstoque = currentEstoque; // Não altera o estoque
+                    } else {
+                        newEstoque = currentEstoque + quantidade;
+                    }
+
+                    const valorUnitario = parseFloat(document.getElementById('mov-valor-unitario').value) || 0;
+                    const icms = parseFloat(document.getElementById('mov-icms').value) || 0;
+                    const ipi = parseFloat(document.getElementById('mov-ipi').value) || 0;
+                    const frete = parseFloat(document.getElementById('mov-frete').value) || 0;
+                    const custoTotal = (valorUnitario * quantidade) + icms + ipi + frete;
+
+                    Object.assign(movementData, {
+                        tipo: 'entrada',
+                        tipoEntradaId,
+                        nf: document.getElementById('mov-nf').value,
+                        valor_unitario: valorUnitario,
+                        icms,
+                        ipi,
+                        frete,
+                        custo_total_entrada: custoTotal
+                    });
+
+                } else { // É Saída
+                    const tipoSaidaId = document.getElementById('mov-tipo-saida').value;
+                    const tipoSaidaConfig = configData.tipos_saida[tipoSaidaId];
+
+                    if (tipoSaidaConfig?.movimenta_estoque === false) {
+                        newEstoque = currentEstoque;
+                    } else {
+                        if (currentEstoque < quantidade) {
+                            throw new Error('Estoque insuficiente para a saída.');
+                        }
+                        newEstoque = currentEstoque - quantidade;
+                    }
+
+                    Object.assign(movementData, {
+                        tipo: 'saida',
+                        tipoSaidaId,
+                        requisitante: document.getElementById('mov-requisitante').value,
+                        obraId: document.getElementById('mov-obra').value
+                    });
+                }
+
+                transaction.update(productRef, { estoque: newEstoque });
+                const movementRef = doc(collection(db, 'movimentacoes'));
+                transaction.set(movementRef, movementData);
+            });
+
+            // Apenas recalcula o custo se for uma entrada que informa valor
+            if (isEntrada) {
+                 const tipoEntradaId = document.getElementById('mov-tipo-entrada').value;
+                 const tipoEntradaConfig = configData.tipos_entrada[tipoEntradaId];
+                 if (tipoEntradaConfig?.recalcula_custo_medio === true) {
+                    await atualizarCustoMedioProduto(productId);
+                 }
+            }
+
+            alert('Movimentação registrada com sucesso!');
+            formMovimentacao.reset();
+            updateProductInfo(); // Limpa os campos de info do produto
+            toggleObraRequirement(); // Reseta a obrigatoriedade
+            toggleValorUnitarioRequirement(); // Reseta a obrigatoriedade
+
+        } catch (error) {
+            console.error("Erro ao registrar movimentação: ", error);
+            alert(`Falha ao registrar movimentação: ${error.message}`);
+        } finally {
+            btnMovimentacao.disabled = false;
+            handleToggleChange(); // Restaura o texto e estado do botão
+        }
     });
 
     // --- Lógica do Modal de Importação XML ---
