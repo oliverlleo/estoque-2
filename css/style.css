@@ -938,3 +938,27 @@ input:checked + .slider:before {
     color: #212529;
     cursor: pointer;
 }
+
+/* ======================================================= */
+/* CORREÇÃO PARA TABELAS DENTRO DO MODAL DE CONFIGURAÇÕES  */
+/* ======================================================= */
+
+/* * Força o layout de tabela padrão para todas as tabelas dentro do modal,
+ * exceto para a tabela de fornecedores (.table-fornecedores),
+ * que tem um layout de grid personalizado.
+*/
+#config-modal .table:not(.table-fornecedores) tr {
+    display: table-row;
+}
+
+#config-modal .table:not(.table-fornecedores) th,
+#config-modal .table:not(.table-fornecedores) td {
+    display: table-cell;
+    vertical-align: middle; /* Alinha o conteúdo da célula verticalmente */
+    border-bottom: 1px solid #dee2e6; /* Garante a linha separadora */
+}
+
+/* Remove a borda da linha (tr) que pode ter sido herdada de outra regra */
+#config-modal .table:not(.table-fornecedores) tr {
+    border-bottom: none;
+}
