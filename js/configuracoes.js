@@ -29,10 +29,10 @@ document.addEventListener('DOMContentLoaded', function() {
             fields: { nome: { label: "Nome do Fornecedor" }, imposto: { label: "Imposto (ST)", type: 'number' } },
             tableHeaders: "<th>Nome</th><th>Contatos</th><th>Marcas</th><th>Ações</th>"
         },
-        { name: "Grupos", id: "grupo", collectionName: "grupos", fields: { nome: { label: "Nome do Grupo" } }, render: (d) => `<td>${d.nome}</td>`, tableHeaders: "<th>Nome</th>" },
-        { name: "Aplicações", id: "aplicacao", collectionName: "aplicacoes", fields: { nome: { label: "Nome da Aplicação" } }, render: (d) => `<td>${d.nome}</td>`, tableHeaders: "<th>Nome</th>" },
-        { name: "Conjuntos", id: "conjunto", collectionName: "conjuntos", fields: { nome: { label: "Nome do Conjunto" } }, render: (d) => `<td>${d.nome}</td>`, tableHeaders: "<th>Nome</th>" },
-        { name: "Locação", id: "local", collectionName: "locais", fields: { nome: { label: "Nome do Local" } }, render: (d) => `<td>${d.nome}</td>`, tableHeaders: "<th>Nome</th>" },
+        { name: "Grupos", id: "grupo", collectionName: "grupos", fields: { nome: { label: "Nome do Grupo" } }, render: (d) => `<td>${d.nome || ''}</td>`, tableHeaders: "<th>Nome</th><th>Ações</th>" },
+        { name: "Aplicações", id: "aplicacao", collectionName: "aplicacoes", fields: { nome: { label: "Nome da Aplicação" } }, render: (d) => `<td>${d.nome || ''}</td>`, tableHeaders: "<th>Nome</th><th>Ações</th>" },
+        { name: "Conjuntos", id: "conjunto", collectionName: "conjuntos", fields: { nome: { label: "Nome do Conjunto" } }, render: (d) => `<td>${d.nome || ''}</td>`, tableHeaders: "<th>Nome</th><th>Ações</th>" },
+        { name: "Locação", id: "local", collectionName: "locais", fields: { nome: { label: "Nome do Local" } }, render: (d) => `<td>${d.nome || ''}</td>`, tableHeaders: "<th>Nome</th><th>Ações</th>" },
         {
             name: "Tipos de Entrada",
             id: "tipo-entrada",
@@ -43,8 +43,13 @@ document.addEventListener('DOMContentLoaded', function() {
                 recalcula_custo_medio: { label: "Recalcula Custo Médio", type: 'checkbox' },
                 informa_valor_unitario: { label: "Informa Valor Unitário", type: 'checkbox' }
             },
-            render: (d) => `<td>${d.nome}</td>`,
-            tableHeaders: "<th>Nome</th>"
+            render: (d) => `
+            <td>${d.nome || ''}</td>
+            <td>${d.movimenta_estoque ? 'Sim' : 'Não'}</td>
+            <td>${d.recalcula_custo_medio ? 'Sim' : 'Não'}</td>
+            <td>${d.informa_valor_unitario ? 'Sim' : 'Não'}</td>
+        `,
+            tableHeaders: "<th>Nome</th><th>Mov. Estoque</th><th>Recalc. Custo</th><th>Informa Valor</th><th>Ações</th>"
         },
         {
             name: "Tipos de Saída",
@@ -56,10 +61,15 @@ document.addEventListener('DOMContentLoaded', function() {
                 informa_obra: { label: "Informa Obra", type: 'checkbox' },
                 reservar_estoque: { label: "Reserva", type: 'checkbox' }
             },
-            render: (d) => `<td>${d.nome}</td>`,
-            tableHeaders: "<th>Nome</th>"
+            render: (d) => `
+            <td>${d.nome || ''}</td>
+            <td>${d.movimenta_estoque ? 'Sim' : 'Não'}</td>
+            <td>${d.informa_obra ? 'Sim' : 'Não'}</td>
+            <td>${d.reservar_estoque ? 'Sim' : 'Não'}</td>
+        `,
+            tableHeaders: "<th>Nome</th><th>Mov. Estoque</th><th>Informa Obra</th><th>Reserva</th><th>Ações</th>"
         },
-        { name: "Obras", id: "obra", collectionName: "obras", fields: { codigo: { label: "Código da Obra" }, nome: { label: "Nome da Obra" } }, render: (d) => `<td>${d.codigo || ''}</td><td>${d.nome}</td>`, tableHeaders: "<th>Código</th><th>Nome</th>" },
+        { name: "Obras", id: "obra", collectionName: "obras", fields: { codigo: { label: "Código da Obra" }, nome: { label: "Nome da Obra" } }, render: (d) => `<td>${d.codigo || ''}</td><td>${d.nome || ''}</td>`, tableHeaders: "<th>Código</th><th>Nome</th><th>Ações</th>" },
         {
             name: "Conversão de Unidade",
             id: "conversao",
@@ -73,8 +83,8 @@ document.addEventListener('DOMContentLoaded', function() {
                 unidade_sobra: { label: "Unidade da Sobra (Ex: mm)" },
                 fator_conversao_sobra: { label: "Fator Conversão Sobra (Ex: 5800)" }
             },
-            render: (d) => `<td>${d.nome_regra}</td><td>${d.qtd_compra} ${d.medida_compra} = ${d.qtd_padrao} ${d.medida_padrao}</td><td>1 ${d.medida_padrao} = ${d.fator_conversao_sobra} ${d.unidade_sobra}</td>`,
-            tableHeaders: "<th>Nome da Regra</th><th>Fórmula Padrão</th><th>Fórmula Sobra</th>"
+            render: (d) => `<td>${d.nome_regra}</td><td>${d.qtd_compra || ''} ${d.medida_compra || ''} = ${d.qtd_padrao || ''} ${d.medida_padrao || ''}</td><td>1 ${d.medida_padrao || ''} = ${d.fator_conversao_sobra || ''} ${d.unidade_sobra || ''}</td>`,
+            tableHeaders: "<th>Nome da Regra</th><th>Fórmula Padrão</th><th>Fórmula Sobra</th><th>Ações</th>"
         }
     ];
 
