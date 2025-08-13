@@ -940,39 +940,26 @@ input:checked + .slider:before {
 }
 
 /* ======================================================= */
-/* CORREÇÃO PARA TABELAS DENTRO DO MODAL DE CONFIGURAÇÕES  */
+/* CORREÇÃO UNIFICADA PARA LAYOUT DE TABELAS DO SISTEMA    */
 /* ======================================================= */
 
-/* * Força o layout de tabela padrão para todas as tabelas dentro do modal,
- * exceto para a tabela de fornecedores (.table-fornecedores),
- * que tem um layout de grid personalizado.
+/* * Esta regra unificada força o layout de tabela padrão para as tabelas
+ * nos modais de Configuração, na página de Detalhes da Obra e no modal
+ * de importação de NF-e, garantindo que as colunas sejam exibidas corretamente.
+ * A tabela de fornecedores é excluída por ter um layout próprio.
 */
-#config-modal .table:not(.table-fornecedores) tr {
+#config-modal .table:not(.table-fornecedores) tr,
+#table-itens-obra tr,
+#xml-products-table tr {
     display: table-row;
 }
 
 #config-modal .table:not(.table-fornecedores) th,
-#config-modal .table:not(.table-fornecedores) td {
-    display: table-cell;
-    vertical-align: middle; /* Alinha o conteúdo da célula verticalmente */
-    border-bottom: 1px solid #dee2e6; /* Garante a linha separadora */
-}
-
-/* Remove a borda da linha (tr) que pode ter sido herdada de outra regra */
-#config-modal .table:not(.table-fornecedores) tr {
-    border-bottom: none;
-}
-
-/* ======================================================= */
-/* CORREÇÃO PARA A TABELA NA PÁGINA DE DETALHES DA OBRA    */
-/* ======================================================= */
-
-#table-itens-obra tr {
-    display: table-row;
-}
-
+#config-modal .table:not(.table-fornecedores) td,
 #table-itens-obra th,
-#table-itens-obra td {
+#table-itens-obra td,
+#xml-products-table th,
+#xml-products-table td {
     display: table-cell;
     vertical-align: middle;
 }
