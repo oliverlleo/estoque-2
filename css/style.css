@@ -962,3 +962,17 @@ input:checked + .slider:before {
 #config-modal .table:not(.table-fornecedores) tr {
     border-bottom: none;
 }
+
+/* ======================================================= */
+/* CORREÇÃO PARA A TABELA NA PÁGINA DE DETALHES DA OBRA    */
+/* ======================================================= */
+
+#table-itens-obra tr {
+    display: table-row;
+}
+
+#table-itens-obra th,
+#table-itens-obra td {
+    display: table-cell;
+    vertical-align: middle;
+}
