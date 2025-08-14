@@ -914,3 +914,77 @@ input:checked + .slider:before {
 #table-reservas th, #table-reservas td {
     display: table-cell; /* Força o elemento a se comportar como uma célula de tabela */
 }
+
+/* Estilos para o Form Checkbox no Modal de Configurações */
+.form-check {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    background-color: #f8f9fa;
+    padding: 10px;
+    border-radius: 0.25rem;
+    border: 1px solid #ced4da;
+}
+
+.form-check-input {
+    width: 1.25rem;
+    height: 1.25rem;
+    cursor: pointer;
+}
+
+.form-check-label {
+    margin: 0;
+    font-weight: 500;
+    color: #212529;
+    cursor: pointer;
+}
+
+/* ======================================================= */
+/* CORREÇÃO UNIFICADA PARA LAYOUT DE TABELAS DO SISTEMA    */
+/* ======================================================= */
+
+#config-modal .table:not(.table-fornecedores) tr,
+#table-itens-obra tr {
+    display: table-row;
+}
+
+#config-modal .table:not(.table-fornecedores) th,
+#config-modal .table:not(.table-fornecedores) td,
+#table-itens-obra th,
+#table-itens-obra td {
+    display: table-cell;
+    vertical-align: middle;
+}
+
+/* ======================================================= */
+/* LAYOUT PERSONALIZADO PARA MODAL DE IMPORTAÇÃO DE NF-e   */
+/* ======================================================= */
+
+/* 1. Aumenta a largura máxima do modal de importação */
+#xml-import-modal .modal-content {
+    max-width: 1400px;
+}
+
+/* 2. Aplica um layout de Grid para a tabela de produtos da NF-e */
+#xml-products-table tr {
+    display: grid;
+    /* Definição das 9 colunas: Descrição (2.5fr) ocupa o maior espaço. */
+    grid-template-columns: 150px 2.5fr 100px 80px 120px 100px 100px 120px 120px;
+    gap: 10px;
+    align-items: center;
+    border-bottom: 1px solid #dee2e6;
+    padding: 5px 0;
+}
+
+#xml-products-table thead tr {
+    font-weight: 600;
+    border-bottom-width: 2px;
+}
+
+/* Reseta estilos de célula para o contexto do grid */
+#xml-products-table th,
+#xml-products-table td {
+    padding: 0;
+    border: none;
+    text-align: left;
+}

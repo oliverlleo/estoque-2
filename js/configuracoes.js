@@ -26,55 +26,65 @@ document.addEventListener('DOMContentLoaded', function() {
             name: "Fornecedores",
             id: "fornecedor",
             collectionName: "fornecedores",
-            fields: { nome: "Nome do Fornecedor", imposto: "Imposto (ST)" },
+            fields: { nome: { label: "Nome do Fornecedor" }, imposto: { label: "Imposto (ST)", type: 'number' } },
             tableHeaders: "<th>Nome</th><th>Contatos</th><th>Marcas</th><th>Ações</th>"
         },
-        { name: "Grupos", id: "grupo", collectionName: "grupos", fields: { nome: "Nome do Grupo" }, render: (d) => `<td>${d.nome}</td>`, tableHeaders: "<th>Nome</th>" },
-        { name: "Aplicações", id: "aplicacao", collectionName: "aplicacoes", fields: { nome: "Nome da Aplicação" }, render: (d) => `<td>${d.nome}</td>`, tableHeaders: "<th>Nome</th>" },
-        { name: "Conjuntos", id: "conjunto", collectionName: "conjuntos", fields: { nome: "Nome do Conjunto" }, render: (d) => `<td>${d.nome}</td>`, tableHeaders: "<th>Nome</th>" },
-        { name: "Gerenciar Locação", id: "local", collectionName: "locais", fields: { nome: "Nome do Local" }, render: (d) => `<td>${d.nome}</td>`, tableHeaders: "<th>Nome</th>" },
+        { name: "Grupos", id: "grupo", collectionName: "grupos", fields: { nome: { label: "Nome do Grupo" } }, render: (d) => `<td>${d.nome || ''}</td>`, tableHeaders: "<th>Nome</th><th>Ações</th>" },
+        { name: "Aplicações", id: "aplicacao", collectionName: "aplicacoes", fields: { nome: { label: "Nome da Aplicação" } }, render: (d) => `<td>${d.nome || ''}</td>`, tableHeaders: "<th>Nome</th><th>Ações</th>" },
+        { name: "Conjuntos", id: "conjunto", collectionName: "conjuntos", fields: { nome: { label: "Nome do Conjunto" } }, render: (d) => `<td>${d.nome || ''}</td>`, tableHeaders: "<th>Nome</th><th>Ações</th>" },
+        { name: "Locação", id: "local", collectionName: "locais", fields: { nome: { label: "Nome do Local" } }, render: (d) => `<td>${d.nome || ''}</td>`, tableHeaders: "<th>Nome</th><th>Ações</th>" },
         {
             name: "Tipos de Entrada",
             id: "tipo-entrada",
             collectionName: "tipos_entrada",
             fields: {
-                nome: "Nome do Tipo de Entrada",
-                movimenta_estoque: "Movimenta Estoque",
-                recalcula_custo_medio: "Recalcula Custo Médio",
-                informa_valor_unitario: "Informa Valor Unitário"
+                nome: { label: "Nome do Tipo de Entrada" },
+                movimenta_estoque: { label: "Movimenta Estoque", type: 'checkbox' },
+                recalcula_custo_medio: { label: "Recalcula Custo Médio", type: 'checkbox' },
+                informa_valor_unitario: { label: "Informa Valor Unitário", type: 'checkbox' }
             },
-            render: (d) => `<td>${d.nome}</td>`,
-            tableHeaders: "<th>Nome</th>"
+            render: (d) => `
+            <td>${d.nome || ''}</td>
+            <td>${d.movimenta_estoque ? 'Sim' : 'Não'}</td>
+            <td>${d.recalcula_custo_medio ? 'Sim' : 'Não'}</td>
+            <td>${d.informa_valor_unitario ? 'Sim' : 'Não'}</td>
+        `,
+            tableHeaders: "<th>Nome</th><th>Mov. Estoque</th><th>Recalc. Custo</th><th>Informa Valor</th><th>Ações</th>"
         },
         {
             name: "Tipos de Saída",
             id: "tipo-saida",
             collectionName: "tipos_saida",
             fields: {
-                nome: "Nome do Tipo de Saída",
-                movimenta_estoque: "Movimenta Estoque",
-                informa_obra: "Informa Obra",
-                reservar_estoque: "É uma Reserva?"
+                nome: { label: "Nome do Tipo de Saída" },
+                movimenta_estoque: { label: "Movimenta Estoque", type: 'checkbox' },
+                informa_obra: { label: "Informa Obra", type: 'checkbox' },
+                reservar_estoque: { label: "Reserva", type: 'checkbox' }
             },
-            render: (d) => `<td>${d.nome}</td>`,
-            tableHeaders: "<th>Nome</th>"
+            render: (d) => `
+            <td>${d.nome || ''}</td>
+            <td>${d.movimenta_estoque ? 'Sim' : 'Não'}</td>
+            <td>${d.informa_obra ? 'Sim' : 'Não'}</td>
+            <td>${d.reservar_estoque ? 'Sim' : 'Não'}</td>
+        `,
+            tableHeaders: "<th>Nome</th><th>Mov. Estoque</th><th>Informa Obra</th><th>Reserva</th><th>Ações</th>"
         },
-        { name: "Obras", id: "obra", collectionName: "obras", fields: { codigo: "Código da Obra", nome: "Nome da Obra" }, render: (d) => `<td>${d.codigo || ''}</td><td>${d.nome}</td>`, tableHeaders: "<th>Código</th><th>Nome</th>" },
+        { name: "Obras", id: "obra", collectionName: "obras", fields: { codigo: { label: "Código da Obra" }, nome: { label: "Nome da Obra" } }, render: (d) => `<td>${d.codigo || ''}</td><td>${d.nome || ''}</td>`, tableHeaders: "<th>Código</th><th>Nome</th><th>Ações</th>" },
         {
             name: "Conversão de Unidade",
             id: "conversao",
             collectionName: "conversoes",
             fields: {
-                nome_regra: "Nome da Regra (ex: Metro p/ Peça)",
-                qtd_compra: "Unidade de Compra (valor)",
-                medida_compra: "Medida Compra (ex: m, kg, cm)",
-                qtd_padrao: "Unidade Padrão (valor)",
-                medida_padrao: "Medida Padrão (ex: Pç, Un, Cx)",
-                unidade_sobra: "Unidade da Sobra (Ex: mm)",
-                fator_conversao_sobra: "Fator Conversão Sobra (Ex: 5800)"
+                nome_regra: { label: "Nome da Regra (ex: Metro p/ Peça)" },
+                qtd_compra: { label: "Unidade de Compra (valor)" },
+                medida_compra: { label: "Medida Compra (ex: m, kg, cm)" },
+                qtd_padrao: { label: "Unidade Padrão (valor)" },
+                medida_padrao: { label: "Medida Padrão (ex: Pç, Un, Cx)" },
+                unidade_sobra: { label: "Unidade da Sobra (Ex: mm)" },
+                fator_conversao_sobra: { label: "Fator Conversão Sobra (Ex: 5800)" }
             },
-            render: (d) => `<td>${d.nome_regra}</td><td>${d.qtd_compra} ${d.medida_compra} = ${d.qtd_padrao} ${d.medida_padrao}</td><td>1 ${d.medida_padrao} = ${d.fator_conversao_sobra} ${d.unidade_sobra}</td>`,
-            tableHeaders: "<th>Nome da Regra</th><th>Fórmula Padrão</th><th>Fórmula Sobra</th>"
+            render: (d) => `<td>${d.nome_regra}</td><td>${d.qtd_compra || ''} ${d.medida_compra || ''} = ${d.qtd_padrao || ''} ${d.medida_padrao || ''}</td><td>1 ${d.medida_padrao || ''} = ${d.fator_conversao_sobra || ''} ${d.unidade_sobra || ''}</td>`,
+            tableHeaders: "<th>Nome da Regra</th><th>Fórmula Padrão</th><th>Fórmula Sobra</th><th>Ações</th>"
         }
     ];
 
@@ -88,7 +98,7 @@ document.addEventListener('DOMContentLoaded', function() {
         const button = document.createElement('button');
         button.className = 'btn';
         button.style.backgroundColor = '#495057';
-        button.textContent = `Gerenciar ${config.name}`;
+        button.textContent = config.name;
         button.addEventListener('click', () => openConfigModal(config));
         buttonsContainer.appendChild(button);
     });
@@ -113,10 +123,24 @@ document.addEventListener('DOMContentLoaded', function() {
     });
 
     function generateModalContent(config) {
-        let formFields = Object.entries(config.fields).map(([key, label]) => {
-            const inputType = (key.includes('imposto') || key.includes('valor')) ? 'number' : 'text';
+        let formFields = Object.entries(config.fields).map(([key, fieldDef]) => {
+            const id = `${config.id}-${key}`;
+            const label = fieldDef.label;
+            const type = fieldDef.type || 'text';
+
+            if (type === 'checkbox') {
+                return `
+                    <div class="form-check">
+                        <input type="checkbox" id="${id}" class="form-check-input">
+                        <label for="${id}" class="form-check-label">${label}</label>
+                    </div>
+                `;
+            }
+
+            const inputType = type === 'number' ? 'number' : 'text';
             const step = inputType === 'number' ? 'step="0.01"' : '';
-            return `<input type="${inputType}" id="${config.id}-${key}" placeholder="${label}" required class="form-control" ${step}>`;
+            return `<input type="${inputType}" id="${id}" placeholder="${label}" class="form-control" ${step}>`;
+
         }).join('');
 
         const fornecedorExtraFields = `
@@ -225,7 +249,11 @@ document.addEventListener('DOMContentLoaded', function() {
             const data = {};
             for (const key in config.fields) {
                 const input = form.querySelector(`#${config.id}-${key}`);
-                data[key] = input.value;
+                if (input.type === 'checkbox') {
+                    data[key] = input.checked;
+                } else {
+                    data[key] = input.value;
+                }
             }
 
             if (config.id === 'fornecedor') {
@@ -335,7 +363,12 @@ document.addEventListener('DOMContentLoaded', function() {
 
                     form.querySelector(`#${config.id}-id`).value = item.id;
                     for (const key in config.fields) {
-                        form.querySelector(`#${config.id}-${key}`).value = item.data[key] || '';
+                        const input = form.querySelector(`#${config.id}-${key}`);
+                        if (input.type === 'checkbox') {
+                            input.checked = item.data[key] === true;
+                        } else {
+                            input.value = item.data[key] || '';
+                        }
                     }
 
                     if (config.id === 'fornecedor') {
