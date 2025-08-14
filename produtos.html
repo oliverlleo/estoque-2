@@ -31,74 +31,36 @@
         <section class="content">
             <div class="card">
                 <div class="card-header">
-                    <div style="display: flex; justify-content: space-between; align-items: center;">
-                        <h3 id="form-title">Cadastro de Produto</h3>
-                        <div class="toggle-container" style="margin-bottom: 0;">
-                            <span id="toggle-label-sobra" style="font-weight: normal; color: #6c757d;">Sobra</span>
-                            <label class="toggle-switch">
-                                <input type="checkbox" id="form-toggle" checked>
-                                <span class="slider"></span>
-                            </label>
-                            <span id="toggle-label-produto" style="font-weight: bold; color: #0d6efd;">Produto</span>
-                        </div>
-                    </div>
+                    <h3 id="form-title">Cadastro de Produto</h3>
                 </div>
                 <div class="card-body">
                     <div id="form-wrapper-produto">
                         <form id="form-produto" style="display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 15px;">
                             <input type="hidden" id="produto-id">
                             <input type="text" id="produto-codigo" placeholder="Código" required class="form-control">
-                            <input type="text" id="produto-descricao" placeholder="Descrição" required class="form-control">
+                            <input type="text" id="produto-descricao" placeholder="Descrição" required class="form-control" style="grid-column: span 2;">
                             <input type="text" id="produto-un" placeholder="UN Estocável" required class="form-control">
                             <input type="text" id="produto-cor" placeholder="Cor" class="form-control">
-                            <input type="text" id="produto-locacao" placeholder="Locação (Ex: Corredor A, Gôndola 5)" class="form-control">
-                            <select id="produto-local" required class="form-control"><option value="">Selecione o Local...</option></select>
-                            <select id="produto-conversao" class="form-control">
-                                <option value="">Nenhuma conversão aplicada</option>
-                            </select>
                             <select id="produto-fornecedor" required class="form-control"><option value="">Selecione o Fornecedor...</option></select>
                             <select id="produto-grupo" required class="form-control"><option value="">Selecione o Grupo...</option></select>
+                             <select id="produto-conversao" class="form-control">
+                                <option value="">Nenhuma conversão aplicada</option>
+                            </select>
                             <div class="multiselect-container" id="multiselect-aplicacao">
                                 <div class="multiselect-display-area form-control">
                                     <span class="multiselect-placeholder">Selecione a Aplicação...</span>
                                     <span class="multiselect-arrow"></span>
                                 </div>
-                                <div class="multiselect-options">
-                                    </div>
+                                <div class="multiselect-options"></div>
                             </div>
-
                             <div class="multiselect-container" id="multiselect-conjunto">
                                 <div class="multiselect-display-area form-control">
                                     <span class="multiselect-placeholder">Selecione o Conjunto...</span>
                                     <span class="multiselect-arrow"></span>
                                 </div>
-                                <div class="multiselect-options">
-                                    </div>
+                                <div class="multiselect-options"></div>
                             </div>
                             <button type="submit" class="btn btn-success" style="grid-column: 1 / -1;">Salvar Produto</button>
-                        </form>
-                    </div>
-                    <div id="form-wrapper-sobra" style="display: none;">
-                        <form id="form-sobra" style="display: grid; grid-template-columns: 1fr 1fr; gap: 15px;">
-                            <div style="grid-column: 1 / -1;">
-                                <label for="sobra-produto-original">Selecione o Produto Original</label>
-                                <select id="sobra-produto-original" required class="form-control">
-                                    <option value="">Pesquise por código ou descrição...</option>
-                                </select>
-                            </div>
-
-                            <div id="sobra-info-display" style="grid-column: 1 / -1; display: grid; grid-template-columns: 1fr 1fr; gap: 10px; background-color: #f8f9fa; padding: 10px; border-radius: 4px; font-size: 0.9em;">
-                                <p><strong>Cód:</strong> <span id="sobra-codigo-display">-</span></p>
-                                <p><strong>Descr:</strong> <span id="sobra-descricao-display">-</span></p>
-                                <p><strong>UN:</strong> <span id="sobra-un-display">-</span></p>
-                            </div>
-
-                            <div style="grid-column: 1 / -1;">
-                                <label for="sobra-medida">Informe a Medida da Sobra (ex: 1500)</label>
-                                <input type="number" id="sobra-medida" placeholder="Medida em mm, cm, etc." required class="form-control">
-                            </div>
-
-                            <button type="submit" class="btn btn-success" style="grid-column: 1 / -1;">Salvar Sobra como Novo Produto</button>
                         </form>
                     </div>
                 </div>
@@ -109,19 +71,15 @@
                     <div style="display: flex; justify-content: space-between; align-items: center;">
                         <h3>Produtos Cadastrados</h3>
                         <div style="display: flex; align-items: center; gap: 10px;">
-                            <button id="btn-editar-selecionado" class="btn btn-edit">Editar Selecionado</button>
-                            <button id="btn-gerenciar-locacoes" class="btn" style="background-color: #fd7e14;">Gerenciar Locações</button>
-                            <button id="btn-excluir-selecionados" class="btn btn-delete">Excluir Selecionados</button>
-
+                            <button id="btn-editar-selecionado" class="btn btn-edit">Editar</button>
+                            <button id="btn-gerenciar-locacoes" class="btn" style="background-color: #fd7e14; color:white;">Gerenciar Locações</button>
+                            <button id="btn-excluir-selecionados" class="btn btn-delete">Excluir</button>
                             <div class="dropdown">
                                 <button class="btn" style="background-color: #495057;">Ações em Lote</button>
                                 <div class="dropdown-content">
-                                    <a href="#" id="btn-importar-excel">Importar Produtos (Excel)</a>
-                                    <a href="#" id="btn-exportar-modelo">Exportar Modelo (Excel)</a>
                                     <a href="#" id="btn-gerar-etiquetas">Gerar Etiquetas</a>
                                 </div>
                             </div>
-                            <input type="file" id="import-excel-input" accept=".xlsx, .xls" style="display: none;">
                         </div>
                     </div>
                 </div>
@@ -136,11 +94,8 @@
                                     <th>Descrição</th>
                                     <th>UN</th>
                                     <th>Cor</th>
-                                    <th>Fornecedor</th>
-                                    <th>Grupo</th>
-                                    <th>Aplicações</th>
-                                    <th>Estoque</th>
-                                    <th>Medida (Sobra)</th>
+                                    <th>Estoque Total</th>
+                                    <th>Locações</th>
                                 </tr>
                             </thead>
                             <tbody></tbody>
@@ -149,46 +104,32 @@
                 </div>
             </div>
         </section>
-        <div id="locacoes-modal" class="modal">
-            <div class="modal-content" style="max-width: 800px;">
-                <div class="modal-header">
-                    <h3 id="locacoes-modal-title">Gerenciar Locações do Produto</h3>
-                    <span class="close-button" id="locacoes-modal-close">&times;</span>
-                </div>
-                <div class="modal-body">
-                    <div id="locacoes-modal-produto-info" style="margin-bottom: 20px;"></div>
-                    <form id="form-add-locacao" style="display: flex; gap: 10px; margin-bottom: 20px;">
-                        <select id="locacao-localId" class="form-control" required></select>
-                        <input type="text" id="locacao-descricao" class="form-control" placeholder="Descrição (Ex: Prateleira 5, Gôndola B)" required>
-                        <button type="submit" class="btn btn-success">Adicionar</button>
-                    </form>
-                    <div class="table-wrapper">
-                        <table id="table-locacoes-produto" class="table">
-                            <thead><tr><th>Local</th><th>Descrição</th><th>Estoque</th><th>Ações</th></tr></thead>
-                            <tbody></tbody>
-                        </table>
-                    </div>
-                </div>
-            </div>
-        </div>
     </main>
-    <div id="import-progress-modal" class="modal">
-        <div class="modal-content" style="max-width: 500px;">
+
+    <div id="locacoes-modal" class="modal">
+        <div class="modal-content" style="max-width: 800px;">
             <div class="modal-header">
-                <h3>Processando Planilha...</h3>
+                <h3 id="locacoes-modal-title">Gerenciar Locações do Produto</h3>
+                <span class="close-button" id="locacoes-modal-close">&times;</span>
             </div>
             <div class="modal-body">
-                <p id="import-progress-message">Aguarde, preparando para importar...</p>
-                <div class="progress-bar-container">
-                    <div id="import-progress-bar" class="progress-bar"></div>
+                <div id="locacoes-modal-produto-info" style="margin-bottom: 20px; background-color: #f8f9fa; padding: 15px; border-radius: 5px;"></div>
+                <form id="form-add-locacao" style="display: flex; gap: 10px; margin-bottom: 20px; align-items: center;">
+                    <select id="locacao-localId" class="form-control" required style="flex: 1;"><option value="">Selecione o Local...</option></select>
+                    <input type="text" id="locacao-descricao" class="form-control" placeholder="Descrição (Ex: Prateleira 5)" required style="flex: 2;">
+                    <button type="submit" class="btn btn-success">Adicionar</button>
+                </form>
+                <div class="table-wrapper">
+                    <table id="table-locacoes-produto" class="table">
+                        <thead><tr><th>Local</th><th>Descrição</th><th>Estoque</th><th>Ações</th></tr></thead>
+                        <tbody></tbody>
+                    </table>
                 </div>
             </div>
         </div>
     </div>
-    <script src="https://cdn.sheetjs.com/xlsx-latest/package/dist/xlsx.full.min.js"></script>
-    <script type="module" src="js/main.js"></script>
+
     <script type="module" src="js/produtos.js"></script>
-    <script src="https://cdn.jsdelivr.net/npm/qrcodejs@1.0.0/qrcode.min.js"></script>
     <script> feather.replace() </script>
 </body>
 </html>
