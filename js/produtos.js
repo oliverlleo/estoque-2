@@ -18,29 +18,19 @@ document.addEventListener('DOMContentLoaded', async function() {
 
     const codigoInput = document.getElementById('produto-codigo');
     const productIdInput = document.getElementById('produto-id');
-    const locacaoInput = document.getElementById('produto-locacao');
 
     function applyFilters() {
         const generalSearchTerm = filterInput.value.toLowerCase();
-        const locacaoSearchTerm = locacaoInput.value.toLowerCase();
 
         const filteredData = productsData.filter(product => {
             const pData = product.data;
 
-            // Lógica do filtro geral (existente)
+            // Lógica do filtro geral
             const matchesGeneral = generalSearchTerm === '' || Object.values(pData).some(value =>
                 String(value).toLowerCase().includes(generalSearchTerm)
             );
 
-            // Lógica do novo filtro de locação
-            // Reconstrói a string 'locacaoCompleta' da mesma forma que renderTable faz
-            const localNome = configData.locais[pData.localId]?.nome || '';
-            const locacaoDesc = pData.locacao || '';
-            const locacaoCompleta = [localNome, locacaoDesc].filter(Boolean).join(' - ').toLowerCase();
-            const matchesLocacao = locacaoSearchTerm === '' || locacaoCompleta.includes(locacaoSearchTerm);
-
-            // Retorna verdadeiro apenas se o produto corresponder a AMBOS os filtros
-            return matchesGeneral && matchesLocacao;
+            return matchesGeneral;
         });
 
         renderTable(filteredData);
@@ -92,8 +82,6 @@ document.addEventListener('DOMContentLoaded', async function() {
             // A chamada foi removida daqui
         }
     });
-
-    locacaoInput.addEventListener('input', applyFilters);
 
     let productsData = [];
     const configData = {};
@@ -226,25 +214,20 @@ document.addEventListener('DOMContentLoaded', async function() {
     selectSobraOriginal.addEventListener('change', (e) => {
         const selectedId = e.target.value;
         const displayInfo = {
-            codigo: '-', descricao: '-', un: '-', locacao: '-'
+            codigo: '-', descricao: '-', un: '-'
         };
 
         if (selectedId) {
             const product = productsData.find(p => p.id === selectedId);
             if (product) {
-                const localNome = configData.locais[product.data.localId]?.nome || '';
-                const locacaoDesc = product.data.locacao || '';
-
                 displayInfo.codigo = product.data.codigo;
                 displayInfo.descricao = product.data.descricao;
                 displayInfo.un = product.data.un;
-                displayInfo.locacao = [localNome, locacaoDesc].filter(Boolean).join(' - ') || 'N/A';
             }
         }
         document.getElementById('sobra-codigo-display').textContent = displayInfo.codigo;
         document.getElementById('sobra-descricao-display').textContent = displayInfo.descricao;
         document.getElementById('sobra-un-display').textContent = displayInfo.un;
-        document.getElementById('sobra-locacao-display').textContent = displayInfo.locacao;
     });
 
     formSobra.addEventListener('submit', async (e) => {
@@ -381,14 +364,12 @@ document.addEventListener('DOMContentLoaded', async function() {
             descricao: document.getElementById('produto-descricao').value,
             un: document.getElementById('produto-un').value,
             cor: document.getElementById('produto-cor').value,
-            locacao: document.getElementById('produto-locacao').value,
-            localId: document.getElementById('produto-local').value,
             fornecedorId: document.getElementById('produto-fornecedor').value,
             grupoId: document.getElementById('produto-grupo').value,
             aplicacaoIds: aplicacaoSelect.getSelectedIds(),
             conjuntoIds: conjuntoSelect.getSelectedIds(),
             conversaoId: document.getElementById('produto-conversao').value,
-            arquivado: false // <-- ADICIONE ESTA LINHA
+            arquivado: false
         };
 
         try {
@@ -396,6 +377,7 @@ document.addEventListener('DOMContentLoaded', async function() {
                 await setDoc(doc(db, 'produtos', productId), product, { merge: true });
                 alert('Produto atualizado com sucesso!');
             } else {
+                product.estoque = 0; // Novos produtos começam com estoque total zero
                 await addDoc(collection(db, 'produtos'), product);
                 alert('Produto cadastrado com sucesso!');
             }
@@ -419,9 +401,6 @@ document.addEventListener('DOMContentLoaded', async function() {
 
             const fornecedor = configData.fornecedores[pData.fornecedorId]?.nome || 'N/A';
             const grupo = configData.grupos[pData.grupoId]?.nome || 'N/A';
-            const localNome = configData.locais[pData.localId]?.nome || '';
-            const locacaoDesc = pData.locacao || '';
-            const locacaoCompleta = [localNome, locacaoDesc].filter(Boolean).join(' - ') || 'N/A';
             const aplicacoesNomes = (pData.aplicacaoIds || [])
                 .map(id => configData.aplicacoes[id]?.nome || 'N/A')
                 .join(', ');
@@ -435,7 +414,6 @@ document.addEventListener('DOMContentLoaded', async function() {
                 <td>${fornecedor}</td>
                 <td>${grupo}</td>
                 <td>${aplicacoesNomes}</td>
-                <td>${locacaoCompleta}</td>
                 <td>${pData.medida_sobra || '-'}</td>
             `;
             tableBody.appendChild(row);
@@ -530,8 +508,6 @@ document.addEventListener('DOMContentLoaded', async function() {
             document.getElementById('produto-descricao').value = product.data.descricao;
             document.getElementById('produto-un').value = product.data.un;
             document.getElementById('produto-cor').value = product.data.cor;
-            document.getElementById('produto-locacao').value = product.data.locacao || '';
-            document.getElementById('produto-local').value = product.data.localId;
             document.getElementById('produto-fornecedor').value = product.data.fornecedorId;
             document.getElementById('produto-grupo').value = product.data.grupoId;
             document.getElementById('produto-conversao').value = product.data.conversaoId || "";
@@ -559,15 +535,10 @@ document.addEventListener('DOMContentLoaded', async function() {
         const dadosParaEtiqueta = productsData
             .filter(product => idsSelecionados.includes(product.id))
             .map(product => {
-                const pData = product.data;
-                const localNome = configData.locais[pData.localId]?.nome || '';
-                const locacaoDesc = pData.locacao || '';
-                const locacaoCompleta = [localNome, locacaoDesc].filter(Boolean).join(' - ') || 'N/A';
-
                 return {
                     id: product.id,
-                    data: pData,
-                    enderecamento: locacaoCompleta
+                    data: product.data,
+                    enderecamento: 'Múltiplas Locações'
                 };
             });
 
@@ -688,7 +659,6 @@ document.addEventListener('DOMContentLoaded', async function() {
 
                     const fornecedorId = await findIdByName('fornecedores', 'nome', row.fornecedor_nome, cache);
                     const grupoId = await findIdByName('grupos', 'nome', row.grupo_nome, cache);
-                    const localId = await findIdByName('locais', 'nome', row.local_nome, cache);
 
                     const aplicacaoNomes = row.aplicacao_nome || row.aplicacoes || '';
                     const aplicacaoIds = aplicacaoNomes ? (await Promise.all(aplicacaoNomes.split(',').map(name => findIdByName('aplicacoes', 'nome', name, cache)))) .filter(Boolean) : [];
@@ -707,10 +677,9 @@ document.addEventListener('DOMContentLoaded', async function() {
                         grupoId: grupoId || "",
                         aplicacaoIds: aplicacaoIds || [],
                         conjuntoIds: conjuntoIds || [],
-                        localId: localId || "",
-                        locacao: row.locacao || "",
                         conversaoId: conversaoId || "",
-                        arquivado: false
+                        arquivado: false,
+                        estoque: 0
                     };
 
                     await addDoc(collection(db, 'produtos'), product);
@@ -736,6 +705,112 @@ document.addEventListener('DOMContentLoaded', async function() {
         };
         reader.readAsArrayBuffer(file);
     }
+
+    // --- NEW: Location Modal Logic ---
+    const locacaoModal = document.getElementById('locacao-modal');
+    const locacaoModalClose = document.getElementById('locacao-modal-close');
+    const btnGerenciarLocacao = document.getElementById('btn-gerenciar-locacao');
+    const formAddLocacao = document.getElementById('form-add-locacao');
+    const tableLocacoesBody = document.querySelector('#table-locacoes tbody');
+    let currentSelectedProductIdForLocacao = null;
+
+    btnGerenciarLocacao.addEventListener('click', () => {
+        const checkboxesMarcados = document.querySelectorAll('.produto-checkbox:checked');
+        if (checkboxesMarcados.length !== 1) {
+            alert('Por favor, selecione exatamente um produto para gerenciar as locações.');
+            return;
+        }
+        const productId = checkboxesMarcados[0].dataset.id;
+        openLocacaoModalForProduct(productId);
+    });
+
+    locacaoModalClose.onclick = () => locacaoModal.style.display = 'none';
+    window.addEventListener('click', (event) => {
+        if (event.target == locacaoModal) {
+            locacaoModal.style.display = 'none';
+        }
+    });
+
+    async function openLocacaoModalForProduct(productId) {
+        currentSelectedProductIdForLocacao = productId;
+        const product = productsData.find(p => p.id === productId);
+        if (!product) return;
+
+        document.getElementById('locacao-produto-info').innerHTML = `
+            <p><strong>Produto:</strong> ${product.data.descricao}</p>
+            <p><strong>Código:</strong> ${product.data.codigo}</p>
+        `;
+        document.getElementById('locacao-produto-id').value = productId;
+
+        const localSelect = document.getElementById('locacao-local');
+        localSelect.innerHTML = '<option value="">Selecione...</option>';
+        for (const [id, data] of Object.entries(configData.locais)) {
+            localSelect.innerHTML += `<option value="${id}">${data.nome}</option>`;
+        }
+
+        await renderLocacoesTable(productId);
+        locacaoModal.style.display = 'block';
+    }
+
+    async function renderLocacoesTable(productId) {
+        const locacoesRef = collection(db, 'produtos', productId, 'localizacoes');
+        const snapshot = await getDocs(locacoesRef);
+        tableLocacoesBody.innerHTML = '';
+
+        if (snapshot.empty) {
+            tableLocacoesBody.innerHTML = '<tr><td colspan="4">Nenhuma locação cadastrada para este produto.</td></tr>';
+            return;
+        }
+
+        snapshot.forEach(doc => {
+            const loc = doc.data();
+            const localNome = configData.locais[loc.localId]?.nome || 'N/A';
+            const row = `
+                <tr>
+                    <td>${localNome}</td>
+                    <td>${loc.locacao}</td>
+                    <td>${loc.estoque || 0}</td>
+                    <td><button class="btn btn-delete btn-excluir-locacao" data-loc-id="${doc.id}" ${loc.estoque > 0 ? 'disabled title="Não é possível excluir locação com estoque"' : ''}>Excluir</button></td>
+                </tr>`;
+            tableLocacoesBody.innerHTML += row;
+        });
+    }
+
+    formAddLocacao.addEventListener('submit', async (e) => {
+        e.preventDefault();
+        const productId = document.getElementById('locacao-produto-id').value;
+        const newLocacao = {
+            localId: document.getElementById('locacao-local').value,
+            locacao: document.getElementById('locacao-descricao').value.trim(),
+            estoque: 0 // Novas locações sempre começam com estoque zero
+        };
+
+        try {
+            const locacoesRef = collection(db, 'produtos', productId, 'localizacoes');
+            await addDoc(locacoesRef, newLocacao);
+            formAddLocacao.reset();
+            await renderLocacoesTable(productId);
+        } catch (error) {
+            console.error("Erro ao adicionar locação:", error);
+            alert("Erro ao salvar locação.");
+        }
+    });
+
+    tableLocacoesBody.addEventListener('click', async (e) => {
+        if (e.target.classList.contains('btn-excluir-locacao')) {
+            const locId = e.target.dataset.locId;
+            if (confirm('Tem certeza que deseja excluir esta locação?')) {
+                try {
+                    const locRef = doc(db, 'produtos', currentSelectedProductIdForLocacao, 'localizacoes', locId);
+                    await deleteDoc(locRef);
+                    await renderLocacoesTable(currentSelectedProductIdForLocacao);
+                } catch (error) {
+                    console.error("Erro ao excluir locação:", error);
+                    alert("Erro ao excluir.");
+                }
+            }
+        }
+    });
 });
 
 // Substitua a função exportarModeloExcel antiga por esta

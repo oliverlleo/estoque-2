@@ -51,8 +51,6 @@
                             <input type="text" id="produto-descricao" placeholder="Descrição" required class="form-control">
                             <input type="text" id="produto-un" placeholder="UN Estocável" required class="form-control">
                             <input type="text" id="produto-cor" placeholder="Cor" class="form-control">
-                            <input type="text" id="produto-locacao" placeholder="Locação (Ex: Corredor A, Gôndola 5)" class="form-control">
-                            <select id="produto-local" required class="form-control"><option value="">Selecione o Local...</option></select>
                             <select id="produto-conversao" class="form-control">
                                 <option value="">Nenhuma conversão aplicada</option>
                             </select>
@@ -91,7 +89,6 @@
                                 <p><strong>Cód:</strong> <span id="sobra-codigo-display">-</span></p>
                                 <p><strong>Descr:</strong> <span id="sobra-descricao-display">-</span></p>
                                 <p><strong>UN:</strong> <span id="sobra-un-display">-</span></p>
-                                <p><strong>Locação:</strong> <span id="sobra-locacao-display">-</span></p>
                             </div>
 
                             <div style="grid-column: 1 / -1;">
@@ -112,7 +109,7 @@
                         <div style="display: flex; align-items: center; gap: 10px;">
                             <button id="btn-editar-selecionado" class="btn btn-edit">Editar Selecionado</button>
                             <button id="btn-excluir-selecionados" class="btn btn-delete">Excluir Selecionados</button>
-
+                            <button id="btn-gerenciar-locacao" class="btn" style="background-color: #ffc107; color: #000;">Gerenciar Locações</button>
                             <div class="dropdown">
                                 <button class="btn" style="background-color: #495057;">Ações em Lote</button>
                                 <div class="dropdown-content">
@@ -139,7 +136,6 @@
                                     <th>Fornecedor</th>
                                     <th>Grupo</th>
                                     <th>Aplicações</th>
-                                    <th>Locação</th>
                                     <th>Medida (Sobra)</th>
                                 </tr>
                             </thead>
@@ -149,6 +145,38 @@
                 </div>
             </div>
         </section>
+        <div id="locacao-modal" class="modal">
+            <div class="modal-content" style="max-width: 800px;">
+                <div class="modal-header">
+                    <h3 id="locacao-modal-title">Gerenciar Locações</h3>
+                    <span id="locacao-modal-close" class="close-button">&times;</span>
+                </div>
+                <div class="modal-body">
+                    <div id="locacao-produto-info" style="margin-bottom: 20px; padding-bottom: 15px; border-bottom: 1px solid #dee2e6;">
+                        </div>
+                    <h4>Adicionar Nova Locação</h4>
+                    <form id="form-add-locacao" style="display: flex; gap: 15px; align-items: flex-end; margin-bottom: 20px;">
+                        <input type="hidden" id="locacao-produto-id">
+                        <div style="flex-grow: 1;">
+                            <label for="locacao-local">Local</label>
+                            <select id="locacao-local" class="form-control" required></select>
+                        </div>
+                        <div style="flex-grow: 2;">
+                            <label for="locacao-descricao">Descrição da Locação (Ex: Prateleira 5, Gôndola A)</label>
+                            <input type="text" id="locacao-descricao" class="form-control" placeholder="Descrição" required>
+                        </div>
+                        <button type="submit" class="btn btn-success">Adicionar</button>
+                    </form>
+                    <h4>Locações Cadastradas</h4>
+                    <div class="table-wrapper">
+                        <table id="table-locacoes" class="table">
+                            <thead><tr><th>Local</th><th>Descrição</th><th>Estoque</th><th>Ações</th></tr></thead>
+                            <tbody></tbody>
+                        </table>
+                    </div>
+                </div>
+            </div>
+        </div>
     </main>
     <div id="import-progress-modal" class="modal">
         <div class="modal-content" style="max-width: 500px;">
