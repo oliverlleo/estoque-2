@@ -3,11 +3,9 @@ import { collection, getDocs, addDoc, onSnapshot, doc, setDoc, deleteDoc, query,
 
 document.addEventListener('DOMContentLoaded', async function() {
     const form = document.getElementById('form-produto');
-    // Se o formulário principal não existir, não estamos na página de produtos.
     if (!form) {
-        return;
+        return; // Not on the products page, do nothing.
     }
-
     console.log("Página de Produtos carregada.");
 
     const tableBody = document.querySelector('#table-produtos tbody');
