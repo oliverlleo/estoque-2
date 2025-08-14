@@ -1,82 +1,390 @@
 import { db } from './firebase-config.js';
-import { collection, getDocs, addDoc, onSnapshot, doc, setDoc, deleteDoc, query, where, writeBatch } from "https://www.gstatic.com/firebasejs/9.6.1/firebase-firestore.js";
+import { collection, getDocs, addDoc, onSnapshot, doc, setDoc, deleteDoc, query, where, runTransaction, serverTimestamp, getDoc } from "https://www.gstatic.com/firebasejs/9.6.1/firebase-firestore.js";
 
 document.addEventListener('DOMContentLoaded', async function() {
+    console.log("Página de Produtos carregada.");
+
     const form = document.getElementById('form-produto');
     const tableBody = document.querySelector('#table-produtos tbody');
     const filterInput = document.getElementById('filter-produtos');
+    const formToggle = document.getElementById('form-toggle');
+    const formWrapperProduto = document.getElementById('form-wrapper-produto');
+    const formWrapperSobra = document.getElementById('form-wrapper-sobra');
+    const formSobra = document.getElementById('form-sobra');
+    const formTitle = document.getElementById('form-title');
+    const labelSobra = document.getElementById('toggle-label-sobra');
+    const labelProduto = document.getElementById('toggle-label-produto');
+    const selectSobraOriginal = document.getElementById('sobra-produto-original');
+
+    const codigoInput = document.getElementById('produto-codigo');
+    const productIdInput = document.getElementById('produto-id');
+
+    function applyFilters() {
+        const searchTerm = filterInput.value.toLowerCase();
+        if (!searchTerm) {
+            renderTable(productsData);
+            return;
+        }
+        const filtered = productsData.filter(p =>
+            p.data.codigo.toLowerCase().includes(searchTerm) ||
+            p.data.descricao.toLowerCase().includes(searchTerm)
+        );
+        renderTable(filtered);
+    }
+
+    // --- Validação de Código Duplicado em Tempo Real ---
+    codigoInput.addEventListener('input', () => {
+        const codigo = codigoInput.value.trim();
+        const currentId = productIdInput.value;
+
+        // Se o campo estiver vazio, remove o estilo de erro e para a execução
+        if (!codigo) {
+            codigoInput.classList.remove('is-invalid');
+            return;
+        }
+
+        // Verifica se algum produto no array `productsData` tem o mesmo código,
+        // ignorando o próprio produto que está sendo editado (se for o caso).
+        const isDuplicate = productsData.some(product =>
+            product.data.codigo.toLowerCase() === codigo.toLowerCase() && product.id !== currentId
+        );
+
+        // Adiciona ou remove a classe de erro com base no resultado
+        if (isDuplicate) {
+            codigoInput.classList.add('is-invalid');
+        } else {
+            codigoInput.classList.remove('is-invalid');
+        }
+    });
+
+    formToggle.addEventListener('change', () => {
+        const isProduto = formToggle.checked;
+        if (isProduto) {
+             formWrapperProduto.style.display = 'block';
+             formWrapperSobra.style.display = 'none';
+             formTitle.textContent = 'Cadastro de Produto';
+             labelProduto.style.fontWeight = 'bold';
+             labelProduto.style.color = '#0d6efd';
+             labelSobra.style.fontWeight = 'normal';
+             labelSobra.style.color = '#6c757d';
+        } else {
+            formWrapperProduto.style.display = 'none';
+            formWrapperSobra.style.display = 'block';
+            formTitle.textContent = 'Cadastro de Sobra';
+            labelSobra.style.fontWeight = 'bold';
+            labelSobra.style.color = '#0d6efd';
+            labelProduto.style.fontWeight = 'normal';
+            labelProduto.style.color = '#6c757d';
+            // A chamada foi removida daqui
+        }
+    });
+
     let productsData = [];
     const configData = {};
 
-    // --- Seletores do Modal de Locações ---
-    const locacoesModal = document.getElementById('locacoes-modal');
-    const locacoesModalClose = document.getElementById('locacoes-modal-close');
-    const locacoesModalTitle = document.getElementById('locacoes-modal-title');
-    const locacoesModalProdutoInfo = document.getElementById('locacoes-modal-produto-info');
-    const formAddLocacao = document.getElementById('form-add-locacao');
-    const tableLocacoesProdutoBody = document.querySelector('#table-locacoes-produto tbody');
-    const selectLocalId = document.getElementById('locacao-localId');
-    let currentProductIdForLocacao = null;
-    let unsubscribeLocacoes = null;
+    // 1. Fetch all configuration data for dropdowns and mapping
+    const configCollections = [
+        { name: 'fornecedor', collectionName: 'fornecedores', displayField: 'nome' },
+        { name: 'grupo', collectionName: 'grupos', displayField: 'nome' },
+        { name: 'local', collectionName: 'locais', displayField: 'nome' },
+    ];
 
-    const configCollections = ['fornecedores', 'grupos', 'locais', 'aplicacoes', 'conjuntos', 'conversoes'];
-    for (const name of configCollections) {
-        const snapshot = await getDocs(collection(db, name));
-        configData[name] = {};
-        snapshot.forEach(doc => {
-            configData[name][doc.id] = doc.data();
+    for (const config of configCollections) {
+        const selectElement = document.getElementById(`produto-${config.name}`);
+        const colRef = collection(db, config.collectionName);
+        const snapshot = await getDocs(colRef);
+
+        configData[config.collectionName] = {};
+        if (selectElement) {
+             selectElement.innerHTML = `<option value="">Selecione ${config.name}...</option>`;
+        }
+
+        snapshot.docs.forEach(doc => {
+            const id = doc.id;
+            const data = doc.data();
+            configData[config.collectionName][id] = data;
+
+            if (selectElement) {
+                const option = document.createElement('option');
+                option.value = id;
+                option.textContent = config.displayFunction ? config.displayFunction(data, configData) : data[config.displayField];
+                selectElement.appendChild(option);
+            }
         });
     }
 
-    function populateDropdowns() {
-        // Popula os selects do formulário principal
-        const selects = {
-            'produto-fornecedor': configData.fornecedores,
-            'produto-grupo': configData.grupos,
-            'produto-conversao': configData.conversoes,
-        };
-        for (const [selectId, data] of Object.entries(selects)) {
-            const select = document.getElementById(selectId);
-            for (const [id, item] of Object.entries(data)) {
-                select.innerHTML += `<option value="${id}">${item.nome || item.nome_regra}</option>`;
+    // Populate Conversions Select
+    const conversaoSelect = document.getElementById('produto-conversao');
+    const conversoesSnapshot = await getDocs(collection(db, 'conversoes'));
+    conversoesSnapshot.forEach(doc => {
+        const conversao = doc.data();
+        const displayText = `${conversao.qtd_compra}${conversao.medida_compra} X ${conversao.qtd_padrao}${conversao.medida_padrao}`;
+        conversaoSelect.innerHTML += `<option value="${doc.id}" title="${conversao.nome_regra}">${displayText}</option>`;
+    });
+
+
+    const fileInput = document.getElementById('import-excel-input');
+    // Listener para quando um arquivo é selecionado
+    fileInput.addEventListener('change', handleFileImport);
+
+    function setupMultiSelect(containerId, items) {
+        const container = document.getElementById(containerId);
+        const displayArea = container.querySelector('.multiselect-display-area');
+        const placeholder = container.querySelector('.multiselect-placeholder');
+        const optionsContainer = container.querySelector('.multiselect-options');
+
+        // Limpa opções antigas e popula com as novas
+        optionsContainer.innerHTML = '';
+        const list = document.createElement('ul');
+        for (const [id, data] of Object.entries(items)) {
+            const listItem = document.createElement('li');
+            listItem.innerHTML = `<input type="checkbox" data-id="${id}" data-name="${data.nome}"> ${data.nome}`;
+            list.appendChild(listItem);
+        }
+        optionsContainer.appendChild(list);
+
+        // Lógica para abrir/fechar o dropdown
+        displayArea.addEventListener('click', () => {
+            optionsContainer.style.display = optionsContainer.style.display === 'block' ? 'none' : 'block';
+        });
+
+        // Lógica para atualizar o texto do display
+        optionsContainer.addEventListener('change', () => {
+            const selected = optionsContainer.querySelectorAll('input[type="checkbox"]:checked');
+            if (selected.length === 0) {
+                placeholder.textContent = `Selecione...`;
+                placeholder.style.color = '';
+            } else {
+                placeholder.textContent = `${selected.length} selecionado(s)`;
+                placeholder.style.color = '#212529'; // Cor de texto normal
             }
-        }
-        // Popula o select de locais no modal
-        selectLocalId.innerHTML = '<option value="">Selecione o Local...</option>';
-        for (const [id, item] of Object.entries(configData.locais)) {
-            selectLocalId.innerHTML += `<option value="${id}">${item.nome}</option>`;
-        }
+        });
+
+        return {
+            getSelectedIds: () => Array.from(optionsContainer.querySelectorAll('input:checked')).map(cb => cb.dataset.id),
+            setSelectedIds: (ids = []) => {
+                optionsContainer.querySelectorAll('input').forEach(cb => {
+                    cb.checked = ids.includes(cb.dataset.id);
+                });
+                optionsContainer.dispatchEvent(new Event('change')); // Força a atualização do texto
+            }
+        };
     }
 
-    populateDropdowns();
+    // Popula e configura o multi-select de Aplicação
+    const aplicacoesSnapshot = await getDocs(collection(db, 'aplicacoes'));
+    configData['aplicacoes'] = {};
+    aplicacoesSnapshot.forEach(doc => configData['aplicacoes'][doc.id] = doc.data());
+    const aplicacaoSelect = setupMultiSelect('multiselect-aplicacao', configData['aplicacoes']);
 
+    // Popula e configura o multi-select de Conjunto
+    const conjuntosSnapshot = await getDocs(collection(db, 'conjuntos'));
+    configData['conjuntos'] = {};
+    conjuntosSnapshot.forEach(doc => configData['conjuntos'][doc.id] = doc.data());
+    const conjuntoSelect = setupMultiSelect('multiselect-conjunto', configData['conjuntos']);
+
+    // Fechar os dropdowns se clicar fora deles
+    window.addEventListener('click', function(e) {
+        if (!document.getElementById('multiselect-aplicacao').contains(e.target)) {
+            document.querySelector('#multiselect-aplicacao .multiselect-options').style.display = 'none';
+        }
+        if (!document.getElementById('multiselect-conjunto').contains(e.target)) {
+            document.querySelector('#multiselect-conjunto .multiselect-options').style.display = 'none';
+        }
+    });
+
+    function populateSobraSelect() {
+        // Guarda a opção "selecione" e limpa o resto
+        const firstOption = selectSobraOriginal.options[0];
+        selectSobraOriginal.innerHTML = '';
+        selectSobraOriginal.appendChild(firstOption);
+
+        productsData.forEach(product => {
+            const option = document.createElement('option');
+            option.value = product.id;
+            option.textContent = `${product.data.codigo} - ${product.data.descricao}`;
+            selectSobraOriginal.appendChild(option);
+        });
+    }
+
+    selectSobraOriginal.addEventListener('change', (e) => {
+        const selectedId = e.target.value;
+        const displayInfo = {
+            codigo: '-', descricao: '-', un: '-'
+        };
+
+        if (selectedId) {
+            const product = productsData.find(p => p.id === selectedId);
+            if (product) {
+                displayInfo.codigo = product.data.codigo;
+                displayInfo.descricao = product.data.descricao;
+                displayInfo.un = product.data.un;
+            }
+        }
+        document.getElementById('sobra-codigo-display').textContent = displayInfo.codigo;
+        document.getElementById('sobra-descricao-display').textContent = displayInfo.descricao;
+        document.getElementById('sobra-un-display').textContent = displayInfo.un;
+        // A linha de locação será removida do HTML
+    });
+
+    formSobra.addEventListener('submit', async (e) => {
+        e.preventDefault();
+        const originalProductId = selectSobraOriginal.value;
+        const medidaSobraStr = document.getElementById('sobra-medida').value;
+
+        if (!originalProductId || !medidaSobraStr) {
+            alert('Por favor, selecione um produto original e informe a medida da sobra.');
+            return;
+        }
+
+        const medidaSobra = parseFloat(medidaSobraStr.replace(',', '.'));
+
+        try {
+            const originalProductData = productsData.find(p => p.id === originalProductId)?.data;
+            if (!originalProductData) {
+                throw new Error('Produto original não encontrado.');
+            }
+
+            // --- ETAPA 1: Calcular o Valor Médio da Peça Original (PAI) ---
+            const movementsSnapshot = await getDocs(collection(db, 'movimentacoes'));
+            const productMovements = movementsSnapshot.docs
+                .map(doc => doc.data())
+                .filter(mov => mov.productId === originalProductId && mov.tipo === 'entrada' && mov.custo_total_entrada > 0);
+
+            let totalCost = 0;
+            let totalQuantityForAvg = 0;
+            productMovements.forEach(m => {
+                totalCost += (m.custo_total_entrada || 0);
+                totalQuantityForAvg += m.quantidade;
+            });
+            const custoMedioDaPecaOriginal = totalQuantityForAvg > 0 ? totalCost / totalQuantityForAvg : 0;
+
+            if (custoMedioDaPecaOriginal === 0) {
+                throw new Error('Não foi possível calcular o custo do produto original. Verifique se ele possui movimentações de entrada com custo.');
+            }
+
+            // --- ETAPA 2: Buscar a Regra de Conversão para achar a dimensão padrão ---
+            if (!originalProductData.conversaoId) {
+                throw new Error('O produto original não possui uma regra de conversão associada. Não é possível calcular o custo proporcional.');
+            }
+            const conversaoRef = doc(db, 'conversoes', originalProductData.conversaoId);
+            const conversaoSnap = await getDoc(conversaoRef);
+            if (!conversaoSnap.exists()) {
+                throw new Error('Regra de conversão não encontrada.');
+            }
+            const conversaoData = conversaoSnap.data();
+
+            // --- ETAPA 3: Calcular o Custo Proporcional da Sobra ---
+            const qtdCompra = parseFloat(String(conversaoData.qtd_compra).replace(',', '.'));
+            const medidaCompra = conversaoData.medida_compra.toLowerCase(); // ex: 'm'
+            let dimensaoPadraoNaUnidadeSobra = qtdCompra;
+
+            // Converte a dimensão padrão para a mesma unidade da sobra (assumindo mm)
+            if (medidaCompra === 'm') {
+                dimensaoPadraoNaUnidadeSobra *= 1000; // m para mm
+            } else if (medidaCompra === 'cm') {
+                dimensaoPadraoNaUnidadeSobra *= 10; // cm para mm
+            }
+            // Adicionar outras conversões se necessário
+
+            if (dimensaoPadraoNaUnidadeSobra <= 0) {
+                throw new Error('A dimensão padrão na regra de conversão é inválida.');
+            }
+
+            const custoProporcionalDaSobra = (medidaSobra / dimensaoPadraoNaUnidadeSobra) * custoMedioDaPecaOriginal;
+
+            // --- ETAPA 4: Executar a Criação em uma Transação ---
+            await runTransaction(db, async (transaction) => {
+                const newSobraProductData = {
+                    ...originalProductData,
+                    codigo: `${originalProductData.codigo}-S${medidaSobraStr}`,
+                    medida_sobra: medidaSobraStr,
+                    estoque: 1,
+                };
+                delete newSobraProductData.id;
+
+                const newProductRef = doc(collection(db, 'produtos'));
+                transaction.set(newProductRef, newSobraProductData);
+
+                const newMovementRef = doc(collection(db, 'movimentacoes'));
+                const movementData = {
+                    tipo: 'entrada',
+                    productId: newProductRef.id,
+                    quantidade: 1,
+                    custo_total_entrada: custoProporcionalDaSobra,
+                    data: serverTimestamp(),
+                    observacao: `Entrada de sobra proporcional do produto ${originalProductData.codigo}`
+                };
+                transaction.set(newMovementRef, movementData);
+            });
+
+            alert(`Sobra cadastrada com sucesso! Custo proporcional calculado: R$ ${custoProporcionalDaSobra.toFixed(2)}`);
+            formSobra.reset();
+            selectSobraOriginal.dispatchEvent(new Event('change'));
+
+        } catch (error) {
+            console.error("Erro detalhado ao salvar sobra:", error);
+            alert(`Erro ao salvar a sobra: ${error.message}`);
+        }
+    });
+
+
+    // 2. Handle Product Form Submission (Create/Update)
     form.addEventListener('submit', async (e) => {
         e.preventDefault();
+
+        // --- BLOQUEIO DE SUBMISSÃO ---
+        // Se o campo de código está marcado como inválido, exibe um alerta e impede o envio.
+        if (codigoInput.classList.contains('is-invalid')) {
+            alert('O código do produto já existe. Por favor, insira um código único.');
+            return; // Impede a continuação do processo de salvar
+        }
+
         const productId = document.getElementById('produto-id').value;
-        const productData = {
+
+        // --- INÍCIO DA VALIDAÇÃO DE CÓDIGO DUPLICADO ---
+        if (!productId) { // Executa a validação apenas se for um NOVO produto
+            const newCode = document.getElementById('produto-codigo').value;
+            const isDuplicate = productsData.some(
+                product => product.data.codigo.toLowerCase() === newCode.toLowerCase()
+            );
+
+            if (isDuplicate) {
+                alert(`Erro: O código "${newCode}" já está cadastrado. Por favor, utilize outro código.`);
+                return; // Interrompe a execução da função e não salva o produto
+            }
+        }
+        // --- FIM DA VALIDAÇÃO DE CÓDIGO DUPLICADO ---
+
+        const product = {
             codigo: document.getElementById('produto-codigo').value,
             descricao: document.getElementById('produto-descricao').value,
             un: document.getElementById('produto-un').value,
             cor: document.getElementById('produto-cor').value,
             fornecedorId: document.getElementById('produto-fornecedor').value,
             grupoId: document.getElementById('produto-grupo').value,
+            aplicacaoIds: aplicacaoSelect.getSelectedIds(),
+            conjuntoIds: conjuntoSelect.getSelectedIds(),
             conversaoId: document.getElementById('produto-conversao').value,
-            // Removidos localId e locacao
-            arquivado: false,
-            estoque: productId ? (productsData.find(p => p.id === productId)?.data.estoque || 0) : 0, // Mantém estoque existente
+            arquivado: false // <-- ADICIONE ESTA LINHA
         };
 
         try {
             if (productId) {
-                await setDoc(doc(db, 'produtos', productId), productData, { merge: true });
+                await setDoc(doc(db, 'produtos', productId), product, { merge: true });
                 alert('Produto atualizado com sucesso!');
             } else {
-                await addDoc(collection(db, 'produtos'), productData);
+                await addDoc(collection(db, 'produtos'), product);
                 alert('Produto cadastrado com sucesso!');
             }
             form.reset();
             document.getElementById('produto-id').value = '';
+            codigoInput.classList.remove('is-invalid'); // Garante que o campo fique limpo
+            filterInput.value = ''; // Limpa o filtro geral na caixa de pesquisa da tabela
+            applyFilters(); // Re-aplica os filtros (agora vazios) para mostrar a tabela completa
+
         } catch (error) {
+            console.error("Erro ao salvar produto:", error);
             alert(`Erro ao salvar: ${error.message}`);
         }
     });
@@ -87,7 +395,15 @@ document.addEventListener('DOMContentLoaded', async function() {
             const row = document.createElement('tr');
             const pData = product.data;
             const locacoes = product.locacoes || [];
-            const locacoesDesc = locacoes.map(l => `${configData.locais[l.localId]?.nome || 'N/A'} - ${l.descricao} (${l.estoque})`).join('<br>');
+            const locacoesDesc = locacoes.length > 0
+                ? locacoes.map(l => `${configData.locais[l.localId]?.nome || ''} - ${l.descricao} (${l.estoque})`).join('<br>')
+                : 'Nenhuma';
+
+            const fornecedor = configData.fornecedores[pData.fornecedorId]?.nome || 'N/A';
+            const grupo = configData.grupos[pData.grupoId]?.nome || 'N/A';
+            const aplicacoesNomes = (pData.aplicacaoIds || [])
+                .map(id => configData.aplicacoes[id]?.nome || 'N/A')
+                .join(', ');
 
             row.innerHTML = `
                 <td><input type="checkbox" class="produto-checkbox" data-id="${product.id}"></td>
@@ -95,39 +411,85 @@ document.addEventListener('DOMContentLoaded', async function() {
                 <td>${pData.descricao}</td>
                 <td>${pData.un}</td>
                 <td>${pData.cor || '-'}</td>
+                <td>${fornecedor}</td>
+                <td>${grupo}</td>
+                <td>${aplicacoesNomes}</td>
                 <td>${pData.estoque || 0}</td>
-                <td>${locacoesDesc || 'Nenhuma'}</td>
+                <td>${locacoesDesc}</td>
+                <td>${pData.medida_sobra || '-'}</td>
             `;
             tableBody.appendChild(row);
         });
     };
 
-    onSnapshot(query(collection(db, 'produtos'), where("arquivado", "!=", true)), (snapshot) => {
+    // 4. Listen for real-time updates and fetch nested locations
+    const q = query(collection(db, 'produtos'), where("arquivado", "!=", true));
+    onSnapshot(q, (snapshot) => {
         const promises = snapshot.docs.map(async (pDoc) => {
             const product = { id: pDoc.id, data: pDoc.data() };
+            // Fetch locations for each product
             const locacoesSnap = await getDocs(collection(db, `produtos/${pDoc.id}/locacoes`));
             product.locacoes = locacoesSnap.docs.map(lDoc => ({ id: lDoc.id, ...lDoc.data() }));
+            // Recalculate total stock based on locations
+            product.data.estoque = product.locacoes.reduce((acc, loc) => acc + (loc.estoque || 0), 0);
             return product;
         });
 
         Promise.all(promises).then(results => {
             productsData = results;
             applyFilters();
+            populateSobraSelect();
         });
     });
 
-    function applyFilters() {
-        const searchTerm = filterInput.value.toLowerCase();
-        const filtered = productsData.filter(p =>
-            p.data.codigo.toLowerCase().includes(searchTerm) ||
-            p.data.descricao.toLowerCase().includes(searchTerm)
-        );
-        renderTable(filtered);
-    }
-    filterInput.addEventListener('input', applyFilters);
+
+    // Listener para o botão de importar (que aciona o input de arquivo)
+    document.getElementById('btn-importar-excel').addEventListener('click', (e) => { e.preventDefault(); fileInput.click(); });
+    document.getElementById('btn-exportar-modelo').addEventListener('click', (e) => { e.preventDefault(); exportarModeloExcel(); });
+
+    const btnEditarSelecionado = document.getElementById('btn-editar-selecionado');
+    const btnExcluirSelecionados = document.getElementById('btn-excluir-selecionados');
+    const checkboxMestre = document.getElementById('checkbox-mestre');
+
+    // Lógica para o checkbox mestre (selecionar todos)
+    checkboxMestre.addEventListener('change', (e) => {
+        const isChecked = e.target.checked;
+        document.querySelectorAll('.produto-checkbox').forEach(checkbox => {
+            checkbox.checked = isChecked;
+        });
+    });
+
+    // Lógica para atualizar o checkbox mestre quando um item é clicado individualmente
+    tableBody.addEventListener('change', (e) => {
+        if (e.target.classList.contains('produto-checkbox')) {
+            const todosCheckboxes = document.querySelectorAll('.produto-checkbox');
+            const total = todosCheckboxes.length;
+            const marcados = document.querySelectorAll('.produto-checkbox:checked').length;
+
+            if (marcados === 0) {
+                checkboxMestre.checked = false;
+                checkboxMestre.indeterminate = false;
+            } else if (marcados === total) {
+                checkboxMestre.checked = true;
+                checkboxMestre.indeterminate = false;
+            } else {
+                checkboxMestre.indeterminate = true;
+            }
+        }
+    });
 
     // --- Lógica do Modal de Locações ---
-    document.getElementById('btn-gerenciar-locacoes').addEventListener('click', () => {
+    const locacoesModal = document.getElementById('locacoes-modal');
+    const locacoesModalClose = document.getElementById('locacoes-modal-close');
+    const btnGerenciarLocacoes = document.getElementById('btn-gerenciar-locacoes');
+    const locacoesModalProdutoInfo = document.getElementById('locacoes-modal-produto-info');
+    const formAddLocacao = document.getElementById('form-add-locacao');
+    const tableLocacoesProdutoBody = document.querySelector('#table-locacoes-produto tbody');
+    const selectLocalId = document.getElementById('locacao-localId');
+    let currentProductIdForLocacao = null;
+    let unsubscribeLocacoes = null;
+
+    btnGerenciarLocacoes.addEventListener('click', () => {
         const checked = document.querySelectorAll('.produto-checkbox:checked');
         if (checked.length !== 1) {
             alert('Por favor, selecione exatamente um produto para gerenciar as locações.');
@@ -136,26 +498,15 @@ document.addEventListener('DOMContentLoaded', async function() {
         openLocacoesModal(checked[0].dataset.id);
     });
 
-    tableBody.addEventListener('change', (e) => {
-        if (e.target.classList.contains('produto-checkbox')) {
-            const checkedCount = document.querySelectorAll('.produto-checkbox:checked').length;
-            if(checkedCount === 1) {
-                 document.getElementById('btn-gerenciar-locacoes').click();
-            }
-        }
-    });
-
     async function openLocacoesModal(productId) {
         currentProductIdForLocacao = productId;
         const product = productsData.find(p => p.id === productId);
         if (!product) return;
 
-        locacoesModalProdutoInfo.innerHTML = `
-            <p><strong>Produto:</strong> ${product.data.descricao}</p>
-            <p><strong>Código:</strong> ${product.data.codigo}</p>
-        `;
+        locacoesModalProdutoInfo.innerHTML = `<strong>Produto:</strong> ${product.data.codigo} - ${product.data.descricao}`;
 
         if (unsubscribeLocacoes) unsubscribeLocacoes();
+
         const locacoesRef = collection(db, `produtos/${productId}/locacoes`);
         unsubscribeLocacoes = onSnapshot(locacoesRef, (snapshot) => {
             tableLocacoesProdutoBody.innerHTML = '';
@@ -167,7 +518,7 @@ document.addEventListener('DOMContentLoaded', async function() {
                     <td>${locacao.descricao}</td>
                     <td>${locacao.estoque || 0}</td>
                     <td>
-                        <button class="btn-delete btn-delete-locacao" data-id="${doc.id}" ${locacao.estoque > 0 ? 'disabled' : ''}>Excluir</button>
+                        <button class="btn-delete btn-sm btn-delete-locacao" data-id="${doc.id}" ${locacao.estoque > 0 ? 'disabled' : ''}>Excluir</button>
                     </td>
                 `;
                 tableLocacoesProdutoBody.appendChild(row);
@@ -179,10 +530,14 @@ document.addEventListener('DOMContentLoaded', async function() {
     formAddLocacao.addEventListener('submit', async (e) => {
         e.preventDefault();
         const newLocacao = {
-            localId: document.getElementById('locacao-localId').value,
+            localId: selectLocalId.value,
             descricao: document.getElementById('locacao-descricao').value,
             estoque: 0
         };
+        if (!newLocacao.localId || !newLocacao.descricao) {
+            alert("Por favor, preencha todos os campos da locação.");
+            return;
+        }
         await addDoc(collection(db, `produtos/${currentProductIdForLocacao}/locacoes`), newLocacao);
         formAddLocacao.reset();
     });
@@ -191,25 +546,62 @@ document.addEventListener('DOMContentLoaded', async function() {
         if (e.target.classList.contains('btn-delete-locacao')) {
             const locacaoId = e.target.dataset.id;
             if (confirm('Tem certeza que deseja excluir esta locação?')) {
-                await deleteDoc(doc(db, `produtos/${currentProductIdForLocacao}/locacoes`, locacaoId));
+                const locacaoRef = doc(db, `produtos/${currentProductIdForLocacao}/locacoes`, locacaoId);
+                await deleteDoc(locacaoRef);
             }
         }
     });
 
-    locacoesModalClose.onclick = () => locacoesModal.style.display = 'none';
+    locacoesModalClose.onclick = () => {
+        locacoesModal.style.display = 'none';
+        if (unsubscribeLocacoes) unsubscribeLocacoes();
+    };
     window.onclick = (event) => {
-        if (event.target == locacoesModal) locacoesModal.style.display = 'none';
+        if (event.target == locacoesModal) {
+            locacoesModal.style.display = 'none';
+            if (unsubscribeLocacoes) unsubscribeLocacoes();
+        }
     };
 
-    // --- Lógica de Edição e Exclusão ---
-    document.getElementById('btn-editar-selecionado').addEventListener('click', () => {
-        const checked = document.querySelectorAll('.produto-checkbox:checked');
-        if (checked.length !== 1) {
-            alert('Selecione um produto para editar.');
+    // Listener para o botão EXCLUIR SELECIONADOS
+    btnExcluirSelecionados.addEventListener('click', async () => {
+        const checkboxesMarcados = document.querySelectorAll('.produto-checkbox:checked');
+        if (checkboxesMarcados.length === 0) {
+            alert('Por favor, selecione ao menos um produto para excluir.');
             return;
         }
-        const product = productsData.find(p => p.id === checked[0].dataset.id);
+
+        if (confirm(`Tem certeza que deseja ARQUIVAR ${checkboxesMarcados.length} produto(s)? Eles não aparecerão nas listas, mas seu histórico será mantido.`)) {
+            const promises = [];
+            checkboxesMarcados.forEach(checkbox => {
+                const id = checkbox.dataset.id;
+                promises.push(setDoc(doc(db, 'produtos', id), { arquivado: true }, { merge: true }));
+            });
+
+            try {
+                await Promise.all(promises);
+                alert(`${promises.length} produto(s) arquivado(s) com sucesso!`);
+                checkboxMestre.checked = false; // Desmarca o checkbox mestre
+            } catch (error) {
+                alert(`Erro ao arquivar produtos: ${error.message}`);
+                console.error("Erro ao arquivar em lote:", error);
+            }
+        }
+    });
+
+    // Listener para o botão EDITAR SELECIONADO
+    btnEditarSelecionado.addEventListener('click', () => {
+        const checkboxesMarcados = document.querySelectorAll('.produto-checkbox:checked');
+        if (checkboxesMarcados.length !== 1) {
+            alert('Por favor, selecione exatamente um produto para editar.');
+            return;
+        }
+
+        const id = checkboxesMarcados[0].dataset.id;
+        const product = productsData.find(p => p.id === id);
+
         if (product) {
+            // Reutiliza a mesma lógica de preenchimento do formulário que já existia
             document.getElementById('produto-id').value = product.id;
             document.getElementById('produto-codigo').value = product.data.codigo;
             document.getElementById('produto-descricao').value = product.data.descricao;
@@ -218,24 +610,287 @@ document.addEventListener('DOMContentLoaded', async function() {
             document.getElementById('produto-fornecedor').value = product.data.fornecedorId;
             document.getElementById('produto-grupo').value = product.data.grupoId;
             document.getElementById('produto-conversao').value = product.data.conversaoId || "";
+
+            aplicacaoSelect.setSelectedIds(product.data.aplicacaoIds);
+            conjuntoSelect.setSelectedIds(product.data.conjuntoIds);
+
             form.scrollIntoView({ behavior: 'smooth' });
         }
     });
 
-    document.getElementById('btn-excluir-selecionados').addEventListener('click', async () => {
-        const checked = document.querySelectorAll('.produto-checkbox:checked');
-        if (checked.length === 0) {
-            alert('Selecione produtos para excluir.');
-            return;
+    filterInput.addEventListener('input', applyFilters);
+
+    document.getElementById('btn-gerar-etiquetas').addEventListener('click', (e) => {
+        e.preventDefault(); // Previne o comportamento padrão do link
+
+        const checkboxesMarcados = document.querySelectorAll('.produto-checkbox:checked');
+        if (checkboxesMarcados.length === 0) {
+            return alert("Selecione ao menos um produto para gerar etiquetas.");
         }
-        if (confirm(`Tem certeza que deseja arquivar ${checked.length} produto(s)?`)) {
-            const batch = writeBatch(db);
-            checked.forEach(cb => {
-                const docRef = doc(db, 'produtos', cb.dataset.id);
-                batch.update(docRef, { arquivado: true });
+
+        const idsSelecionados = Array.from(checkboxesMarcados).map(cb => cb.dataset.id);
+
+        // Filtra os dados dos produtos com base nos IDs selecionados
+        const dadosParaEtiqueta = productsData
+            .filter(product => idsSelecionados.includes(product.id))
+            .map(product => {
+                // Since a product can have multiple locations, we don't pass a specific one.
+                // This could be changed if a new business rule for labels is defined.
+                return {
+                    id: product.id,
+                    data: product.data,
+                    enderecamento: '' // Left blank for now
+                };
             });
-            await batch.commit();
-            alert('Produtos arquivados com sucesso.');
+
+        if (dadosParaEtiqueta.length > 0) {
+            localStorage.setItem('etiquetasParaImprimir', JSON.stringify(dadosParaEtiqueta));
+            window.open('etiquetas.html', '_blank');
         }
     });
+
+    const dropdownBtn = document.querySelector('.dropdown .btn');
+    const dropdownContainer = document.querySelector('.dropdown');
+
+    dropdownBtn.addEventListener('click', (e) => {
+        e.stopPropagation(); // Impede que o clique se propague para o window
+        dropdownContainer.classList.toggle('active');
+    });
+
+    // Fecha o dropdown se o usuário clicar em qualquer outro lugar da tela
+    window.addEventListener('click', () => {
+        if (dropdownContainer.classList.contains('active')) {
+            dropdownContainer.classList.remove('active');
+        }
+    });
+
+    // --- Seletores para o Modal de Progresso ---
+    const progressModal = document.getElementById('import-progress-modal');
+    const progressMessage = document.getElementById('import-progress-message');
+    const progressBar = document.getElementById('import-progress-bar');
+
+    /**
+     * Função auxiliar genérica para encontrar ID de documentos em coleções simples.
+     */
+    async function findIdByName(collectionName, fieldName, value, cache) {
+        if (!value) return null;
+        const lowerCaseValue = String(value).trim().toLowerCase();
+
+        const data = cache[collectionName];
+        if (!data) {
+            console.error(`Cache para ${collectionName} não foi pré-carregado.`);
+            return null;
+        }
+
+        const found = data.find(item => String(item[fieldName]).trim().toLowerCase() === lowerCaseValue);
+        return found ? found.id : null;
+    }
+
+    /**
+     * Função especialista e robusta para encontrar o ID da regra de conversão.
+     * Tenta encontrar pelo nome da regra OU pela fórmula.
+     */
+    function findConversaoId(valorPlanilha, todasConversoes) {
+        if (!valorPlanilha) return null;
+
+        // Função de normalização agressiva
+        const normalize = (str) => String(str).toLowerCase().replace(/,/g, '.').replace(/[^a-z0-9.]/g, '');
+
+        const valorNormalizado = normalize(valorPlanilha);
+
+        for (const conv of todasConversoes) {
+            // 1. Tenta pelo nome da regra
+            if (normalize(conv.nome_regra) === valorNormalizado) {
+                return conv.id;
+            }
+            // 2. Tenta pela fórmula
+            const formula = `${conv.qtd_compra}${conv.medida_compra}X${conv.qtd_padrao}${conv.medida_padrao}`;
+            if (normalize(formula) === valorNormalizado) {
+                return conv.id;
+            }
+        }
+
+        return null; // Retorna null se não encontrar por nenhum método
+    }
+
+    /**
+     * Função principal de importação, agora usando a lógica robusta.
+     */
+    async function handleFileImport(event) {
+        const file = event.target.files[0];
+        if (!file) return;
+
+        const reader = new FileReader();
+        reader.onload = async (e) => {
+            const data = new Uint8Array(e.target.result);
+            const workbook = XLSX.read(data, { type: 'array' });
+            const sheetName = workbook.SheetNames[0];
+            const worksheet = workbook.Sheets[sheetName];
+            const json = XLSX.utils.sheet_to_json(worksheet, { raw: false });
+
+            if (json.length === 0) {
+                alert("A planilha está vazia ou em um formato inválido.");
+                return;
+            }
+
+            progressModal.style.display = 'block';
+
+            // Pré-carrega todos os dados necessários para evitar múltiplas leituras do DB
+            const cache = {};
+            const collectionsToCache = ['fornecedores', 'grupos', 'aplicacoes', 'conjuntos', 'locais', 'conversoes'];
+            for (const name of collectionsToCache) {
+                const snapshot = await getDocs(collection(db, name));
+                cache[name] = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
+            }
+
+            let successCount = 0;
+            let errorCount = 0;
+            let errors = [];
+            const totalRows = json.length;
+
+            for (let i = 0; i < totalRows; i++) {
+                const row = json[i];
+                const progress = ((i + 1) / totalRows) * 100;
+                progressMessage.textContent = `Importando ${i + 1} de ${totalRows}...`;
+                progressBar.style.width = `${progress}%`;
+
+                try {
+                    const valorConversaoPlanilha = row.conversao_nome_regra || row['regra de conversao'] || row.conversao;
+                    const conversaoId = findConversaoId(valorConversaoPlanilha, cache['conversoes']);
+
+                    const fornecedorId = await findIdByName('fornecedores', 'nome', row.fornecedor_nome, cache);
+                    const grupoId = await findIdByName('grupos', 'nome', row.grupo_nome, cache);
+                    const localId = await findIdByName('locais', 'nome', row.local_nome, cache);
+
+                    const aplicacaoNomes = row.aplicacao_nome || row.aplicacoes || '';
+                    const aplicacaoIds = aplicacaoNomes ? (await Promise.all(aplicacaoNomes.split(',').map(name => findIdByName('aplicacoes', 'nome', name, cache)))) .filter(Boolean) : [];
+
+                    const conjuntoNomes = row.conjunto_nome || row.conjuntos || '';
+                    const conjuntoIds = conjuntoNomes ? (await Promise.all(conjuntoNomes.split(',').map(name => findIdByName('conjuntos', 'nome', name, cache)))) .filter(Boolean) : [];
+
+                    if (!row.codigo || !row.descricao) throw new Error(`Linha ${i + 2} não tem código ou descrição.`);
+
+                    const product = {
+                        codigo: row.codigo,
+                        descricao: row.descricao,
+                        un: row.un || "",
+                        cor: row.cor || "",
+                        fornecedorId: fornecedorId || "",
+                        grupoId: grupoId || "",
+                        aplicacaoIds: aplicacaoIds || [],
+                        conjuntoIds: conjuntoIds || [],
+                        localId: localId || "",
+                        locacao: row.locacao || "",
+                        conversaoId: conversaoId || "",
+                        arquivado: false
+                    };
+
+                    await addDoc(collection(db, 'produtos'), product);
+                    successCount++;
+
+                } catch (error) {
+                    errorCount++;
+                    errors.push(`Erro na linha ${i + 2} (Código '${row.codigo || "N/A"}'): ${error.message}`);
+                }
+
+                await new Promise(resolve => setTimeout(resolve, 10)); // pequena pausa
+            }
+
+            progressModal.style.display = 'none';
+
+            let finalMessage = `${successCount} produtos importados com sucesso!`;
+            if (errorCount > 0) {
+                finalMessage += `\n\n${errorCount} produtos falharam: \n${errors.join("\n")}`;
+            }
+            alert(finalMessage);
+
+            fileInput.value = '';
+        };
+        reader.readAsArrayBuffer(file);
+    }
 });
+
+// Substitua a função exportarModeloExcel antiga por esta
+async function exportarModeloExcel() {
+    alert("Gerando modelo inteligente... Por favor, aguarde.");
+    try {
+        // 1. Buscar todos os dados necessários do Firestore em paralelo
+        const dataSources = {
+            fornecedores: { collectionName: 'fornecedores', field: 'nome' },
+            grupos: { collectionName: 'grupos', field: 'nome' },
+            aplicacoes: { collectionName: 'aplicacoes', field: 'nome' },
+            conjuntos: { collectionName: 'conjuntos', field: 'nome' },
+            enderecamentos: { collectionName: 'enderecamentos', field: 'codigo' },
+            conversoes: { collectionName: 'conversoes', field: 'nome_regra' }
+        };
+
+        const fetchedData = {};
+        const promises = Object.keys(dataSources).map(async (key) => {
+            const source = dataSources[key];
+            const snapshot = await getDocs(collection(db, source.collectionName));
+            fetchedData[key] = snapshot.docs.map(doc => doc.data()[source.field]).filter(Boolean);
+        });
+        await Promise.all(promises);
+
+        // 2. Criar um novo Workbook (arquivo Excel)
+        const workbook = XLSX.utils.book_new();
+
+        // 3. Criar e adicionar as abas de dados (que ficarão ocultas)
+        Object.keys(fetchedData).forEach(key => {
+            const sheetName = `_dados_${key}`;
+            const data = fetchedData[key].map(item => [item]); // SheetJS espera um array de arrays
+            if (data.length > 0) {
+                const dataSheet = XLSX.utils.aoa_to_sheet(data);
+                XLSX.utils.book_append_sheet(workbook, dataSheet, sheetName);
+            }
+        });
+
+        // 4. Criar a aba principal de "Produtos"
+        const headers = ["codigo", "descricao", "un", "cor", "fornecedor_nome", "grupo_nome", "aplicacao_nome", "conjunto_nome", "enderecamento_codigo", "conversao_nome_regra"];
+        const mainSheet = XLSX.utils.json_to_sheet([{}], { header: headers });
+
+        // 5. Adicionar a "Validação de Dados" (Dropdowns)
+        const validations = [
+            { col: 'F', source: '_dados_fornecedores' }, // fornecedor_nome
+            { col: 'G', source: '_dados_grupos' },       // grupo_nome
+            { col: 'H', source: '_dados_aplicacoes' },   // aplicacao_nome
+            { col: 'I', source: '_dados_conjuntos' },    // conjunto_nome
+            { col: 'J', source: '_dados_enderecamentos' },// enderecamento_codigo
+            { col: 'K', source: '_dados_conversoes' }     // conversao_nome_regra
+        ];
+
+        const numRowsToApplyValidation = 1000; // Aplicar validação para 1000 linhas
+        mainSheet['!dataValidations'] = [];
+
+        validations.forEach(v => {
+            if (workbook.SheetNames.includes(v.source)) { // Apenas adiciona validação se a aba de dados existir
+                mainSheet['!dataValidations'].push({
+                    sqref: `${v.col}2:${v.col}${numRowsToApplyValidation}`, // Ex: F2:F1000
+                    validation: {
+                        type: 'list',
+                        allowBlank: true,
+                        showDropDown: true,
+                        formula1: `=${v.source}!$A$1:$A$${fetchedData[v.source.replace('_dados_','')].length}`
+                    }
+                });
+            }
+        });
+
+        XLSX.utils.book_append_sheet(workbook, mainSheet, "Produtos");
+
+        // 6. Opcional: Ocultar as abas de dados
+        Object.keys(fetchedData).forEach(key => {
+            const sheetName = `_dados_${key}`;
+            if(workbook.Sheets[sheetName]) {
+                workbook.Sheets[sheetName].Hidden = 1;
+            }
+        });
+
+        // 7. Forçar o download do arquivo
+        XLSX.writeFile(workbook, "modelo_importacao_produtos_inteligente.xlsx");
+
+    } catch (error) {
+        console.error("Erro ao gerar modelo Excel:", error);
+        alert("Ocorreu um erro ao gerar o modelo. Verifique o console para mais detalhes.");
+    }
+}

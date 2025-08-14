@@ -26,31 +26,19 @@ document.addEventListener('DOMContentLoaded', async function() {
 
         consolidatedData = await Promise.all(productsSnapshot.docs.map(async (productDoc) => {
             const product = productDoc.data();
-            product.id = productDoc.id; // Garante que o ID está no objeto
+            product.id = productDoc.id;
 
             const estoqueAtual = product.estoque || 0;
             const valorMedio = product.valorMedio || 0;
             const valorTotalEstoque = estoqueAtual * valorMedio;
 
-            let locacaoCompleta = 'N/A';
-            try {
-                const locacoesRef = collection(db, 'produtos', product.id, 'locacoes');
-                const locacoesSnapshot = await getDocs(locacoesRef);
-
-                if (!locacoesSnapshot.empty) {
-                    const locacoesStrings = locacoesSnapshot.docs.map(doc => {
-                        const loc = doc.data();
-                        const localNome = locais[loc.localId]?.nome || 'Desconhecido';
-                        return `${localNome} - ${loc.descricao} (Estoque: ${loc.estoque})`;
-                    });
-                    locacaoCompleta = locacoesStrings.join('<br>');
-                } else {
-                    locacaoCompleta = 'Nenhuma locação';
-                }
-            } catch (e) {
-                console.error(`Erro ao buscar locações para o produto ${product.codigo}:`, e);
-                locacaoCompleta = 'Erro ao carregar';
-            }
+            const locacoesSnap = await getDocs(collection(db, 'produtos', product.id, 'locacoes'));
+            const locacoes = locacoesSnap.docs.map(doc => {
+                const loc = doc.data();
+                const localNome = locais[loc.localId]?.nome || 'Desconhecido';
+                return `${localNome} - ${loc.descricao} (${loc.estoque || 0})`;
+            });
+            const locacaoCompleta = locacoes.length > 0 ? locacoes.join('<br>') : 'Nenhuma';
 
             return {
                 ...product,
