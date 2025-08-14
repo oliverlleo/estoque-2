@@ -91,7 +91,6 @@
                                 <p><strong>Cód:</strong> <span id="sobra-codigo-display">-</span></p>
                                 <p><strong>Descr:</strong> <span id="sobra-descricao-display">-</span></p>
                                 <p><strong>UN:</strong> <span id="sobra-un-display">-</span></p>
-                                <p><strong>Locação:</strong> <span id="sobra-locacao-display">-</span></p>
                             </div>
 
                             <div style="grid-column: 1 / -1;">
@@ -111,6 +110,7 @@
                         <h3>Produtos Cadastrados</h3>
                         <div style="display: flex; align-items: center; gap: 10px;">
                             <button id="btn-editar-selecionado" class="btn btn-edit">Editar Selecionado</button>
+                            <button id="btn-gerenciar-locacoes" class="btn" style="background-color: #fd7e14;">Gerenciar Locações</button>
                             <button id="btn-excluir-selecionados" class="btn btn-delete">Excluir Selecionados</button>
 
                             <div class="dropdown">
@@ -139,7 +139,7 @@
                                     <th>Fornecedor</th>
                                     <th>Grupo</th>
                                     <th>Aplicações</th>
-                                    <th>Locação</th>
+                                    <th>Estoque</th>
                                     <th>Medida (Sobra)</th>
                                 </tr>
                             </thead>
@@ -149,6 +149,28 @@
                 </div>
             </div>
         </section>
+        <div id="locacoes-modal" class="modal">
+            <div class="modal-content" style="max-width: 800px;">
+                <div class="modal-header">
+                    <h3 id="locacoes-modal-title">Gerenciar Locações do Produto</h3>
+                    <span class="close-button" id="locacoes-modal-close">&times;</span>
+                </div>
+                <div class="modal-body">
+                    <div id="locacoes-modal-produto-info" style="margin-bottom: 20px;"></div>
+                    <form id="form-add-locacao" style="display: flex; gap: 10px; margin-bottom: 20px;">
+                        <select id="locacao-localId" class="form-control" required></select>
+                        <input type="text" id="locacao-descricao" class="form-control" placeholder="Descrição (Ex: Prateleira 5, Gôndola B)" required>
+                        <button type="submit" class="btn btn-success">Adicionar</button>
+                    </form>
+                    <div class="table-wrapper">
+                        <table id="table-locacoes-produto" class="table">
+                            <thead><tr><th>Local</th><th>Descrição</th><th>Estoque</th><th>Ações</th></tr></thead>
+                            <tbody></tbody>
+                        </table>
+                    </div>
+                </div>
+            </div>
+        </div>
     </main>
     <div id="import-progress-modal" class="modal">
         <div class="modal-content" style="max-width: 500px;">

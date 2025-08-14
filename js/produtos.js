@@ -18,11 +18,9 @@ document.addEventListener('DOMContentLoaded', async function() {
 
     const codigoInput = document.getElementById('produto-codigo');
     const productIdInput = document.getElementById('produto-id');
-    const locacaoInput = document.getElementById('produto-locacao');
 
     function applyFilters() {
         const generalSearchTerm = filterInput.value.toLowerCase();
-        const locacaoSearchTerm = locacaoInput.value.toLowerCase();
 
         const filteredData = productsData.filter(product => {
             const pData = product.data;
@@ -32,15 +30,7 @@ document.addEventListener('DOMContentLoaded', async function() {
                 String(value).toLowerCase().includes(generalSearchTerm)
             );
 
-            // Lógica do novo filtro de locação
-            // Reconstrói a string 'locacaoCompleta' da mesma forma que renderTable faz
-            const localNome = configData.locais[pData.localId]?.nome || '';
-            const locacaoDesc = pData.locacao || '';
-            const locacaoCompleta = [localNome, locacaoDesc].filter(Boolean).join(' - ').toLowerCase();
-            const matchesLocacao = locacaoSearchTerm === '' || locacaoCompleta.includes(locacaoSearchTerm);
-
-            // Retorna verdadeiro apenas se o produto corresponder a AMBOS os filtros
-            return matchesGeneral && matchesLocacao;
+            return matchesGeneral;
         });
 
         renderTable(filteredData);
@@ -92,8 +82,6 @@ document.addEventListener('DOMContentLoaded', async function() {
             // A chamada foi removida daqui
         }
     });
-
-    locacaoInput.addEventListener('input', applyFilters);
 
     let productsData = [];
     const configData = {};
@@ -226,25 +214,21 @@ document.addEventListener('DOMContentLoaded', async function() {
     selectSobraOriginal.addEventListener('change', (e) => {
         const selectedId = e.target.value;
         const displayInfo = {
-            codigo: '-', descricao: '-', un: '-', locacao: '-'
+            codigo: '-', descricao: '-', un: '-'
         };
 
         if (selectedId) {
             const product = productsData.find(p => p.id === selectedId);
             if (product) {
-                const localNome = configData.locais[product.data.localId]?.nome || '';
-                const locacaoDesc = product.data.locacao || '';
-
                 displayInfo.codigo = product.data.codigo;
                 displayInfo.descricao = product.data.descricao;
                 displayInfo.un = product.data.un;
-                displayInfo.locacao = [localNome, locacaoDesc].filter(Boolean).join(' - ') || 'N/A';
             }
         }
         document.getElementById('sobra-codigo-display').textContent = displayInfo.codigo;
         document.getElementById('sobra-descricao-display').textContent = displayInfo.descricao;
         document.getElementById('sobra-un-display').textContent = displayInfo.un;
-        document.getElementById('sobra-locacao-display').textContent = displayInfo.locacao;
+        // A linha de locação será removida do HTML correspondente se necessário
     });
 
     formSobra.addEventListener('submit', async (e) => {
@@ -381,14 +365,13 @@ document.addEventListener('DOMContentLoaded', async function() {
             descricao: document.getElementById('produto-descricao').value,
             un: document.getElementById('produto-un').value,
             cor: document.getElementById('produto-cor').value,
-            locacao: document.getElementById('produto-locacao').value,
-            localId: document.getElementById('produto-local').value,
             fornecedorId: document.getElementById('produto-fornecedor').value,
             grupoId: document.getElementById('produto-grupo').value,
             aplicacaoIds: aplicacaoSelect.getSelectedIds(),
             conjuntoIds: conjuntoSelect.getSelectedIds(),
             conversaoId: document.getElementById('produto-conversao').value,
-            arquivado: false // <-- ADICIONE ESTA LINHA
+            arquivado: false,
+            estoque: 0 // Inicia o estoque total como 0
         };
 
         try {
@@ -419,9 +402,6 @@ document.addEventListener('DOMContentLoaded', async function() {
 
             const fornecedor = configData.fornecedores[pData.fornecedorId]?.nome || 'N/A';
             const grupo = configData.grupos[pData.grupoId]?.nome || 'N/A';
-            const localNome = configData.locais[pData.localId]?.nome || '';
-            const locacaoDesc = pData.locacao || '';
-            const locacaoCompleta = [localNome, locacaoDesc].filter(Boolean).join(' - ') || 'N/A';
             const aplicacoesNomes = (pData.aplicacaoIds || [])
                 .map(id => configData.aplicacoes[id]?.nome || 'N/A')
                 .join(', ');
@@ -435,7 +415,7 @@ document.addEventListener('DOMContentLoaded', async function() {
                 <td>${fornecedor}</td>
                 <td>${grupo}</td>
                 <td>${aplicacoesNomes}</td>
-                <td>${locacaoCompleta}</td>
+                <td>${pData.estoque || 0}</td>
                 <td>${pData.medida_sobra || '-'}</td>
             `;
             tableBody.appendChild(row);
@@ -530,8 +510,6 @@ document.addEventListener('DOMContentLoaded', async function() {
             document.getElementById('produto-descricao').value = product.data.descricao;
             document.getElementById('produto-un').value = product.data.un;
             document.getElementById('produto-cor').value = product.data.cor;
-            document.getElementById('produto-locacao').value = product.data.locacao || '';
-            document.getElementById('produto-local').value = product.data.localId;
             document.getElementById('produto-fornecedor').value = product.data.fornecedorId;
             document.getElementById('produto-grupo').value = product.data.grupoId;
             document.getElementById('produto-conversao').value = product.data.conversaoId || "";
@@ -560,20 +538,173 @@ document.addEventListener('DOMContentLoaded', async function() {
             .filter(product => idsSelecionados.includes(product.id))
             .map(product => {
                 const pData = product.data;
-                const localNome = configData.locais[pData.localId]?.nome || '';
-                const locacaoDesc = pData.locacao || '';
-                const locacaoCompleta = [localNome, locacaoDesc].filter(Boolean).join(' - ') || 'N/A';
-
+                // Como um produto pode ter múltiplas locações, não adicionamos uma locação específica aqui.
+                // Isso pode ser revisto se a regra de negócio para etiquetas mudar.
                 return {
                     id: product.id,
                     data: pData,
-                    enderecamento: locacaoCompleta
+                    enderecamento: '' // Deixado em branco por enquanto
                 };
             });
 
         if (dadosParaEtiqueta.length > 0) {
             localStorage.setItem('etiquetasParaImprimir', JSON.stringify(dadosParaEtiqueta));
             window.open('etiquetas.html', '_blank');
+        }
+    });
+
+    // --- NOVA LÓGICA PARA GERENCIAR LOCAÇÕES ---
+
+    const locacoesModal = document.getElementById('locacoes-modal');
+    const locacoesModalCloseBtn = document.getElementById('locacoes-modal-close');
+    const btnGerenciarLocacoes = document.getElementById('btn-gerenciar-locacoes');
+    const locacoesModalTitle = document.getElementById('locacoes-modal-title');
+    const locacoesModalProdutoInfo = document.getElementById('locacoes-modal-produto-info');
+    const formAddLocacao = document.getElementById('form-add-locacao');
+    const locacaoLocalIdSelect = document.getElementById('locacao-localId');
+    const locacaoDescricaoInput = document.getElementById('locacao-descricao');
+    const tableLocacoesProdutoBody = document.querySelector('#table-locacoes-produto tbody');
+
+    let unsubLocacoesListener = null;
+    let currentProductId = null;
+
+    // Abrir o modal
+    btnGerenciarLocacoes.addEventListener('click', () => {
+        const checkboxesMarcados = document.querySelectorAll('.produto-checkbox:checked');
+        if (checkboxesMarcados.length !== 1) {
+            alert('Por favor, selecione exatamente um produto para gerenciar as locações.');
+            return;
+        }
+        const productId = checkboxesMarcados[0].dataset.id;
+        abrirModalLocacoes(productId);
+    });
+
+    // Fechar o modal
+    locacoesModalCloseBtn.addEventListener('click', () => {
+        locacoesModal.style.display = 'none';
+        if (unsubLocacoesListener) {
+            unsubLocacoesListener(); // Para de ouvir quando o modal é fechado
+            unsubLocacoesListener = null;
+        }
+    });
+    window.addEventListener('click', (event) => {
+        if (event.target === locacoesModal) {
+            locacoesModal.style.display = 'none';
+            if (unsubLocacoesListener) {
+                unsubLocacoesListener(); // Para de ouvir quando o modal é fechado
+                unsubLocacoesListener = null;
+            }
+        }
+    });
+
+    // Função principal para abrir e popular o modal
+    async function abrirModalLocacoes(productId) {
+        currentProductId = productId;
+        const product = productsData.find(p => p.id === productId)?.data;
+        if (!product) {
+            alert('Produto não encontrado!');
+            return;
+        }
+
+        // Preenche informações do produto e título do modal
+        locacoesModalTitle.textContent = `Gerenciar Locações do Produto`;
+        locacoesModalProdutoInfo.innerHTML = `<strong>Produto:</strong> ${product.codigo} - ${product.descricao}`;
+
+        // Popula o select de locais
+        locacaoLocalIdSelect.innerHTML = '<option value="">Selecione o Local...</option>';
+        for (const [id, local] of Object.entries(configData.locais)) {
+            locacaoLocalIdSelect.innerHTML += `<option value="${id}">${local.nome}</option>`;
+        }
+
+        // Limpa a tabela e o formulário
+        tableLocacoesProdutoBody.innerHTML = '<tr><td colspan="4">Carregando...</td></tr>';
+        formAddLocacao.reset();
+
+        // Cancela o listener anterior se existir
+        if (unsubLocacoesListener) {
+            unsubLocacoesListener();
+        }
+
+        // Ouve em tempo real as locações do produto
+        const locacoesRef = collection(db, 'produtos', productId, 'locacoes');
+        unsubLocacoesListener = onSnapshot(locacoesRef, (snapshot) => {
+            renderTabelaLocacoes(snapshot);
+        });
+
+        locacoesModal.style.display = 'block';
+    }
+
+    // Renderiza a tabela de locações
+    function renderTabelaLocacoes(snapshot) {
+        tableLocacoesProdutoBody.innerHTML = '';
+        if (snapshot.empty) {
+            tableLocacoesProdutoBody.innerHTML = '<tr><td colspan="4">Nenhuma locação cadastrada.</td></tr>';
+            return;
+        }
+        snapshot.forEach(doc => {
+            const locacao = doc.data();
+            const locacaoId = doc.id;
+            const localNome = configData.locais[locacao.localId]?.nome || 'Local Desconhecido';
+            const row = document.createElement('tr');
+            row.innerHTML = `
+                <td>${localNome}</td>
+                <td>${locacao.descricao}</td>
+                <td>${locacao.estoque}</td>
+                <td>
+                    <button class="btn btn-delete btn-sm btn-excluir-locacao" data-locacao-id="${locacaoId}" data-estoque="${locacao.estoque}">Excluir</button>
+                </td>
+            `;
+            tableLocacoesProdutoBody.appendChild(row);
+        });
+    }
+
+    // Adicionar uma nova locação
+    formAddLocacao.addEventListener('submit', async (e) => {
+        e.preventDefault();
+        const localId = locacaoLocalIdSelect.value;
+        const descricao = locacaoDescricaoInput.value.trim();
+
+        if (!localId || !descricao) {
+            alert('Por favor, selecione um local e preencha a descrição.');
+            return;
+        }
+
+        try {
+            const locacoesRef = collection(db, 'produtos', currentProductId, 'locacoes');
+            await addDoc(locacoesRef, {
+                localId: localId,
+                descricao: descricao,
+                estoque: 0
+            });
+            formAddLocacao.reset();
+        } catch (error) {
+            console.error("Erro ao adicionar locação:", error);
+            alert('Falha ao adicionar locação.');
+        }
+    });
+
+    // Excluir uma locação (usando delegação de evento)
+    tableLocacoesProdutoBody.addEventListener('click', async (e) => {
+        if (e.target.classList.contains('btn-excluir-locacao')) {
+            const button = e.target;
+            const locacaoId = button.dataset.locacaoId;
+            const estoque = parseInt(button.dataset.estoque, 10);
+
+            if (estoque > 0) {
+                alert('Não é possível excluir uma locação com estoque. Por favor, transfira ou dê baixa dos itens primeiro.');
+                return;
+            }
+
+            if (confirm('Tem certeza que deseja excluir esta locação?')) {
+                try {
+                    const locacaoRef = doc(db, 'produtos', currentProductId, 'locacoes', locacaoId);
+                    await deleteDoc(locacaoRef);
+                    // A tabela será atualizada automaticamente pelo listener onSnapshot
+                } catch (error) {
+                    console.error("Erro ao excluir locação:", error);
+                    alert('Falha ao excluir locação.');
+                }
+            }
         }
     });
 

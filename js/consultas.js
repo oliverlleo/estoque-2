@@ -13,9 +13,7 @@ document.addEventListener('DOMContentLoaded', async function() {
 
     let consolidatedData = [];
 
-    // Substitua a função inteira em js/consultas.js por esta versão definitiva:
     async function fetchDataAndCalculate() {
-        // 1. Busca apenas as fontes de dados essenciais: produtos e locais.
         const [productsSnapshot, locaisSnapshot] = await Promise.all([
             getDocs(query(collection(db, 'produtos'), where("arquivado", "!=", true))),
             getDocs(collection(db, 'locais'))
@@ -26,33 +24,43 @@ document.addEventListener('DOMContentLoaded', async function() {
             locais[doc.id] = doc.data();
         });
 
-        // 2. Mapeia os dados do produto DIRETAMENTE, sem cálculos.
-        consolidatedData = productsSnapshot.docs.map(productDoc => {
+        consolidatedData = await Promise.all(productsSnapshot.docs.map(async (productDoc) => {
             const product = productDoc.data();
+            product.id = productDoc.id; // Garante que o ID está no objeto
 
-            // 2.1. LÊ o saldo de estoque direto do produto.
             const estoqueAtual = product.estoque || 0;
-
-            // 2.2. LÊ o valor médio direto do produto.
             const valorMedio = product.valorMedio || 0;
-
-            // 2.3. Calcula o valor total apenas para exibição na tela.
             const valorTotalEstoque = estoqueAtual * valorMedio;
 
-            const localNome = locais[product.localId]?.nome || '';
-            const locacaoDesc = product.locacao || '';
-            const locacaoCompleta = [localNome, locacaoDesc].filter(Boolean).join(' - ') || 'N/A';
+            let locacaoCompleta = 'N/A';
+            try {
+                const locacoesRef = collection(db, 'produtos', product.id, 'locacoes');
+                const locacoesSnapshot = await getDocs(locacoesRef);
+
+                if (!locacoesSnapshot.empty) {
+                    const locacoesStrings = locacoesSnapshot.docs.map(doc => {
+                        const loc = doc.data();
+                        const localNome = locais[loc.localId]?.nome || 'Desconhecido';
+                        return `${localNome} - ${loc.descricao} (Estoque: ${loc.estoque})`;
+                    });
+                    locacaoCompleta = locacoesStrings.join('<br>');
+                } else {
+                    locacaoCompleta = 'Nenhuma locação';
+                }
+            } catch (e) {
+                console.error(`Erro ao buscar locações para o produto ${product.codigo}:`, e);
+                locacaoCompleta = 'Erro ao carregar';
+            }
 
             return {
                 ...product,
                 estoque: estoqueAtual,
-                valorMedio, // Valor lido, não recalculado
-                valorTotalEstoque, // Valor calculado para exibição
+                valorMedio,
+                valorTotalEstoque,
                 local: locacaoCompleta
             };
-        });
+        }));
 
-        // 3. Renderiza a tabela. A função agora é 100% "read-only".
         renderTable(consolidatedData);
     }
 
