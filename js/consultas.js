@@ -15,20 +15,14 @@ document.addEventListener('DOMContentLoaded', async function() {
 
     async function fetchDataAndCalculate() {
         // 1. Fetch all necessary data
-        const [productsSnapshot, movementsSnapshot, locationsSnapshot] = await Promise.all([
+        const [productsSnapshot, movementsSnapshot] = await Promise.all([
             getDocs(collection(db, 'produtos')),
-            getDocs(collection(db, 'movimentacoes')),
-            getDocs(collection(db, 'enderecamentos'))
+            getDocs(collection(db, 'movimentacoes'))
         ]);
 
         const products = {};
         productsSnapshot.forEach(doc => {
             products[doc.id] = { id: doc.id, ...doc.data() };
-        });
-
-        const locations = {};
-        locationsSnapshot.forEach(doc => {
-            locations[doc.id] = doc.data();
         });
 
         const movementsByProduct = {};
@@ -56,8 +50,7 @@ document.addEventListener('DOMContentLoaded', async function() {
             const valorMedio = totalQuantity > 0 ? totalCost / totalQuantity : 0;
             const valorTotalEstoque = (product.estoque || 0) * valorMedio;
 
-            const local = locations[product.enderecamentoId] ?
-                `${locations[product.enderecamentoId].codigo} - ${locations[product.enderecamentoId].local}` : 'N/A';
+            const local = 'Múltiplas (ver produto)'; // Static text since product can have multiple locations
 
             const medidas = productMovements
                 .filter(m => m.medida)
@@ -113,11 +106,17 @@ document.addEventListener('DOMContentLoaded', async function() {
         const filteredData = consolidatedData.filter(item => {
             const matchesCodigo = item.codigo.toLowerCase().includes(filterValues.codigo);
             const matchesDescricao = item.descricao.toLowerCase().includes(filterValues.descricao);
-            const matchesLocal = item.local.toLowerCase().includes(filterValues.local);
-            return matchesCodigo && matchesDescricao && matchesLocal;
+            // const matchesLocal = item.local.toLowerCase().includes(filterValues.local); // Filtering by location is disabled
+            return matchesCodigo && matchesDescricao;
         });
 
         renderTable(filteredData);
+
+        // Also disable the local filter input
+        if (filters.local) {
+            filters.local.disabled = true;
+            filters.local.placeholder = 'Filtro de local desabilitado';
+        }
     }
 
     Object.values(filters).forEach(input => input.addEventListener('input', applyFilters));

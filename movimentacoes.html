@@ -34,6 +34,7 @@
                     <div class="card-body">
                         <form id="form-entrada" style="display: flex; flex-direction: column; gap: 10px;">
                             <select id="entrada-produto" required class="form-control"><option value="">Selecione o Produto...</option></select>
+                            <select id="entrada-localizacao" required class="form-control" style="display: none;"><option value="">Selecione a Locação de Destino...</option></select>
                             <select id="entrada-tipo" required class="form-control"><option value="">Tipo de Entrada...</option></select>
                             <p class="auto-filled-field"><strong>Código:</strong> <span id="entrada-codigo-display">-</span></p>
                             <p class="auto-filled-field"><strong>Descrição:</strong> <span id="entrada-descricao-display">-</span></p>
@@ -57,11 +58,13 @@
                     <div class="card-body">
                         <form id="form-saida" style="display: flex; flex-direction: column; gap: 10px;">
                             <select id="saida-produto" required class="form-control"><option value="">Selecione o Produto...</option></select>
+                            <select id="saida-localizacao" required class="form-control" style="display: none;"><option value="">Selecione a Locação de Origem...</option></select>
                             <select id="saida-tipo" required class="form-control"><option value="">Tipo de Saída...</option></select>
                             <p class="auto-filled-field"><strong>Código:</strong> <span id="saida-codigo-display">-</span></p>
                             <p class="auto-filled-field"><strong>Descrição:</strong> <span id="saida-descricao-display">-</span></p>
                             <p class="auto-filled-field"><strong>UN Estoque:</strong> <span id="saida-un-display">-</span></p>
-                            <p class="auto-filled-field"><strong>Estoque Atual:</strong> <span id="saida-estoque-display">-</span></p>
+                            <p class="auto-filled-field" id="saida-estoque-display-wrapper"><strong>Estoque Total:</strong> <span id="saida-estoque-display">-</span></p>
+                            <p class="auto-filled-field" id="saida-estoque-locacao-display-wrapper" style="display: none;"><strong>Estoque na Locação:</strong> <span id="saida-estoque-locacao-display">-</span></p>
                             <input type="number" id="saida-quantidade" placeholder="Quantidade a Retirar" required step="any" class="form-control">
                             <input type="text" id="saida-requisitante" placeholder="Requisitante" class="form-control">
                             <select id="saida-obra" class="form-control"><option value="">Selecione a Obra...</option></select>
@@ -84,6 +87,7 @@
                                     <th>Data</th>
                                     <th>Tipo</th>
                                     <th>Produto</th>
+                                     <th>Locação</th>
                                     <th>Qtde</th>
                                     <th>Valor Total</th>
                                     <th>Requisitante/NF</th>

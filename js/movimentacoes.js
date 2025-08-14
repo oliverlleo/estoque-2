@@ -46,23 +46,74 @@ document.addEventListener('DOMContentLoaded', async function() {
                  });
             }
         }
+        // Also load locais, which doesn't have a dedicated select in the main form
+        const locaisSnapshot = await getDocs(collection(db, 'locais'));
+        configData['locais'] = {};
+        locaisSnapshot.forEach(doc => {
+            configData['locais'][doc.id] = doc.data();
+        });
+    }
+
+    async function updateProductLocations(productId, locacaoSelectId) {
+        const locacaoSelect = document.getElementById(locacaoSelectId);
+        locacaoSelect.innerHTML = '<option value="">Carregando locações...</option>';
+        locacaoSelect.style.display = 'none';
+
+        if (locacaoSelectId === 'saida-localizacao') {
+             document.getElementById('saida-estoque-locacao-display-wrapper').style.display = 'none';
+        }
+
+        if (productId) {
+            const locacoesRef = collection(db, 'produtos', productId, 'localizacoes');
+            const snapshot = await getDocs(locacoesRef);
+
+            if (snapshot.empty) {
+                locacaoSelect.innerHTML = '<option value="">Nenhuma locação cadastrada</option>';
+            } else {
+                locacaoSelect.innerHTML = '<option value="">Selecione a Locação...</option>';
+                snapshot.forEach(doc => {
+                    const loc = doc.data();
+                    const localNome = configData.locais[loc.localId]?.nome || 'N/A';
+                    locacaoSelect.innerHTML += `<option value="${doc.id}" data-estoque="${loc.estoque || 0}">${localNome} - ${loc.locacao}</option>`;
+                });
+            }
+            locacaoSelect.style.display = 'block';
+        }
     }
 
     // --- Form Auto-fill ---
     function setupAutoFill() {
         document.getElementById('entrada-produto').addEventListener('change', (e) => {
-            const product = productsMap[e.target.value];
+            const productId = e.target.value;
+            const product = productsMap[productId];
             document.getElementById('entrada-codigo-display').textContent = product ? product.codigo : '-';
             document.getElementById('entrada-descricao-display').textContent = product ? product.descricao : '-';
             document.getElementById('entrada-un-display').textContent = product ? product.un_compra : '-';
+            updateProductLocations(productId, 'entrada-localizacao');
         });
 
         document.getElementById('saida-produto').addEventListener('change', (e) => {
-            const product = productsMap[e.target.value];
+            const productId = e.target.value;
+            const product = productsMap[productId];
             document.getElementById('saida-codigo-display').textContent = product ? product.codigo : '-';
             document.getElementById('saida-descricao-display').textContent = product ? product.descricao : '-';
             document.getElementById('saida-un-display').textContent = product ? product.un : '-';
             document.getElementById('saida-estoque-display').textContent = product ? (product.estoque || 0) : '-';
+            updateProductLocations(productId, 'saida-localizacao');
+        });
+
+        document.getElementById('saida-localizacao').addEventListener('change', (e) => {
+            const selectedOption = e.target.options[e.target.selectedIndex];
+            const estoqueNaLocacao = selectedOption.dataset.estoque || 0;
+            const estoqueWrapper = document.getElementById('saida-estoque-locacao-display-wrapper');
+            const estoqueSpan = document.getElementById('saida-estoque-locacao-display');
+
+            if (e.target.value) {
+                estoqueSpan.textContent = estoqueNaLocacao;
+                estoqueWrapper.style.display = 'block';
+            } else {
+                estoqueWrapper.style.display = 'none';
+            }
         });
     }
 
@@ -70,31 +121,47 @@ document.addEventListener('DOMContentLoaded', async function() {
     formEntrada.addEventListener('submit', async (e) => {
         e.preventDefault();
         const productId = document.getElementById('entrada-produto').value;
+        const localizacaoId = document.getElementById('entrada-localizacao').value;
         const quantidade = parseFloat(document.getElementById('entrada-quantidade').value);
 
-        if (!productId || isNaN(quantidade) || quantidade <= 0) {
-            alert('Por favor, preencha o produto e a quantidade corretamente.');
+        if (!productId || !localizacaoId || isNaN(quantidade) || quantidade <= 0) {
+            alert('Por favor, preencha o produto, locação e a quantidade corretamente.');
             return;
         }
 
         try {
             await runTransaction(db, async (transaction) => {
                 const productRef = doc(db, 'produtos', productId);
-                const productDoc = await transaction.get(productRef);
+                const localizacaoRef = doc(db, 'produtos', productId, 'localizacoes', localizacaoId);
 
-                if (!productDoc.exists()) {
-                    throw "Produto não encontrado!";
+                const productDoc = await transaction.get(productRef);
+                const locacaoDoc = await transaction.get(localizacaoRef);
+
+                if (!productDoc.exists() || !locacaoDoc.exists()) {
+                    throw "Produto ou Locação não encontrado(a)!";
                 }
 
-                const currentEstoque = productDoc.data().estoque || 0;
-                const newEstoque = currentEstoque + quantidade;
+                const locacaoData = locacaoDoc.data();
+                const localNome = configData.locais[locacaoData.localId]?.nome || 'N/A';
+                const locacaoCompleta = `${localNome} - ${locacaoData.locacao}`;
 
-                transaction.update(productRef, { estoque: newEstoque });
+                // Update location stock
+                const currentEstoqueLocacao = locacaoDoc.data().estoque || 0;
+                const newEstoqueLocacao = currentEstoqueLocacao + quantidade;
+                transaction.update(localizacaoRef, { estoque: newEstoqueLocacao });
 
+                // Update total product stock
+                const currentEstoqueTotal = productDoc.data().estoque || 0;
+                const newEstoqueTotal = currentEstoqueTotal + quantidade;
+                transaction.update(productRef, { estoque: newEstoqueTotal });
+
+                // Create movement record
                 const movementRef = doc(collection(db, 'movimentacoes'));
                 const movementData = {
                     tipo: 'entrada',
                     produtoId,
+                    localizacaoId,
+                    locacaoCompleta, // Denormalized location string
                     quantidade,
                     data: serverTimestamp(),
                     tipo_entradaId: document.getElementById('entrada-tipo').value,
@@ -119,34 +186,50 @@ document.addEventListener('DOMContentLoaded', async function() {
     formSaida.addEventListener('submit', async (e) => {
         e.preventDefault();
         const productId = document.getElementById('saida-produto').value;
+        const localizacaoId = document.getElementById('saida-localizacao').value;
         const quantidade = parseFloat(document.getElementById('saida-quantidade').value);
 
-         if (!productId || isNaN(quantidade) || quantidade <= 0) {
-            alert('Por favor, preencha o produto e a quantidade corretamente.');
+         if (!productId || !localizacaoId || isNaN(quantidade) || quantidade <= 0) {
+            alert('Por favor, preencha o produto, locação e a quantidade corretamente.');
             return;
         }
 
         try {
             await runTransaction(db, async (transaction) => {
                 const productRef = doc(db, 'produtos', productId);
+                const localizacaoRef = doc(db, 'produtos', productId, 'localizacoes', localizacaoId);
+
                 const productDoc = await transaction.get(productRef);
+                const locacaoDoc = await transaction.get(localizacaoRef);
 
-                if (!productDoc.exists()) {
-                    throw "Produto não encontrado!";
+                if (!productDoc.exists() || !locacaoDoc.exists()) {
+                    throw "Produto ou Locação não encontrado(a)!";
                 }
 
-                const currentEstoque = productDoc.data().estoque || 0;
-                if (currentEstoque < quantidade) {
-                    throw `Estoque insuficiente! Disponível: ${currentEstoque}`;
+                const locacaoData = locacaoDoc.data();
+                const localNome = configData.locais[locacaoData.localId]?.nome || 'N/A';
+                const locacaoCompleta = `${localNome} - ${locacaoData.locacao}`;
+
+                // Check and update location stock
+                const currentEstoqueLocacao = locacaoDoc.data().estoque || 0;
+                if (currentEstoqueLocacao < quantidade) {
+                    throw `Estoque insuficiente na locação! Disponível: ${currentEstoqueLocacao}`;
                 }
-                const newEstoque = currentEstoque - quantidade;
+                const newEstoqueLocacao = currentEstoqueLocacao - quantidade;
+                transaction.update(localizacaoRef, { estoque: newEstoqueLocacao });
 
-                transaction.update(productRef, { estoque: newEstoque });
+                // Update total product stock
+                const currentEstoqueTotal = productDoc.data().estoque || 0;
+                const newEstoqueTotal = currentEstoqueTotal - quantidade;
+                transaction.update(productRef, { estoque: newEstoqueTotal });
 
+                // Create movement record
                 const movementRef = doc(collection(db, 'movimentacoes'));
                 const movementData = {
                     tipo: 'saida',
                     produtoId,
+                    localizacaoId,
+                    locacaoCompleta, // Denormalized location string
                     quantidade,
                     data: serverTimestamp(),
                     tipo_saidaId: document.getElementById('saida-tipo').value,
@@ -188,6 +271,7 @@ document.addEventListener('DOMContentLoaded', async function() {
                 <td>${new Date(mov.data.seconds * 1000).toLocaleString('pt-BR')}</td>
                 <td class="${mov.tipo}">${mov.tipo.toUpperCase()}</td>
                 <td>${produtoDesc}</td>
+                <td>${mov.locacaoCompleta || 'N/A'}</td>
                 <td>${mov.quantidade}</td>
                 <td>${valorTotal}</td>
                 <td>${mov.requisitante || mov.nf || '-'}</td>

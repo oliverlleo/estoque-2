@@ -7,6 +7,12 @@ document.addEventListener('DOMContentLoaded', async function() {
     const form = document.getElementById('form-produto');
     const tableBody = document.querySelector('#table-produtos tbody');
     const filterInput = document.getElementById('filter-produtos');
+    const locacaoModal = document.getElementById('locacao-modal');
+    const locacaoModalClose = document.getElementById('locacao-modal-close');
+    const btnGerenciarLocacao = document.getElementById('btn-gerenciar-locacao');
+    const formAddLocacao = document.getElementById('form-add-locacao');
+    const tableLocacoesBody = document.querySelector('#table-locacoes tbody');
+    let currentSelectedProductIdForLocacao = null;
 
     let productsData = [];
     const configData = {};
@@ -16,12 +22,12 @@ document.addEventListener('DOMContentLoaded', async function() {
         { name: 'fornecedor', collectionName: 'fornecedores', displayField: 'nome' },
         { name: 'grupo', collectionName: 'grupos', displayField: 'nome' },
         { name: 'aplicacao', collectionName: 'aplicacoes', displayField: 'nome' },
-        { name: 'conjunto', collectionName: 'conjuntos', displayField: 'nome' },
-        { name: 'enderecamento', collectionName: 'enderecamentos', displayFunction: (doc) => `${doc.codigo} - ${doc.local}` }
+        { name: 'conjunto', collectionName: 'conjuntos', displayField: 'nome' }
     ];
 
     for (const config of configCollections) {
         const selectElement = document.getElementById(`produto-${config.name}`);
+        if (!selectElement) continue; // Skip if element not found, e.g., enderecamento
         const colRef = collection(db, config.collectionName);
         const snapshot = await getDocs(colRef);
 
@@ -40,6 +46,116 @@ document.addEventListener('DOMContentLoaded', async function() {
         });
     }
 
+    // Modal Logic
+    btnGerenciarLocacao.addEventListener('click', () => {
+        const checkboxesMarcados = document.querySelectorAll('.produto-checkbox:checked');
+        if (checkboxesMarcados.length !== 1) {
+            alert('Por favor, selecione exatamente um produto para gerenciar as locações.');
+            return;
+        }
+        const productId = checkboxesMarcados[0].dataset.id;
+        openLocacaoModalForProduct(productId);
+    });
+
+    locacaoModalClose.onclick = () => locacaoModal.style.display = 'none';
+    window.addEventListener('click', (event) => {
+        if (event.target == locacaoModal) {
+            locacaoModal.style.display = 'none';
+        }
+    });
+
+    tableLocacoesBody.addEventListener('click', async (e) => {
+        if (e.target.classList.contains('btn-excluir-locacao')) {
+            const locId = e.target.dataset.locId;
+            if (confirm('Tem certeza que deseja excluir esta locação?')) {
+                try {
+                    const locRef = doc(db, 'produtos', currentSelectedProductIdForLocacao, 'localizacoes', locId);
+                    await deleteDoc(locRef);
+                    await renderLocacoesTable(currentSelectedProductIdForLocacao);
+                } catch (error) {
+                    console.error("Erro ao excluir locação:", error);
+                    alert("Erro ao excluir.");
+                }
+            }
+        }
+    });
+
+    // Fetch 'locais' for the modal dropdown
+    const locaisColRef = collection(db, 'locais');
+    const locaisSnapshot = await getDocs(locaisColRef);
+    configData['locais'] = {};
+    locaisSnapshot.docs.forEach(doc => {
+        configData['locais'][doc.id] = doc.data();
+    });
+
+    async function openLocacaoModalForProduct(productId) {
+        currentSelectedProductIdForLocacao = productId;
+        const product = productsData.find(p => p.id === productId);
+        if (!product) return;
+
+        // Preenche informações do produto no modal
+        document.getElementById('locacao-produto-info').innerHTML = `
+            <p><strong>Produto:</strong> ${product.data.descricao}</p>
+            <p><strong>Código:</strong> ${product.data.codigo}</p>
+        `;
+        document.getElementById('locacao-produto-id').value = productId;
+
+        // Popula o dropdown de locais
+        const localSelect = document.getElementById('locacao-local');
+        localSelect.innerHTML = '<option value="">Selecione...</option>';
+        for (const [id, data] of Object.entries(configData.locais)) {
+            localSelect.innerHTML += `<option value="${id}">${data.nome}</option>`;
+        }
+
+        // Carrega e exibe as locações existentes
+        await renderLocacoesTable(productId);
+        locacaoModal.style.display = 'block';
+    }
+
+    async function renderLocacoesTable(productId) {
+        const locacoesRef = collection(db, 'produtos', productId, 'localizacoes');
+        const snapshot = await getDocs(locacoesRef);
+        tableLocacoesBody.innerHTML = '';
+
+        if (snapshot.empty) {
+            tableLocacoesBody.innerHTML = '<tr><td colspan="4">Nenhuma locação cadastrada para este produto.</td></tr>';
+            return;
+        }
+
+        snapshot.forEach(doc => {
+            const loc = doc.data();
+            const localNome = configData.locais[loc.localId]?.nome || 'N/A';
+            const row = `
+                <tr>
+                    <td>${localNome}</td>
+                    <td>${loc.locacao}</td>
+                    <td>${loc.estoque || 0}</td>
+                    <td><button class="btn btn-delete btn-excluir-locacao" data-loc-id="${doc.id}" ${loc.estoque > 0 ? 'disabled title="Não é possível excluir locação com estoque"' : ''}>Excluir</button></td>
+                </tr>`;
+            tableLocacoesBody.innerHTML += row;
+        });
+    }
+
+    formAddLocacao.addEventListener('submit', async (e) => {
+        e.preventDefault();
+        const productId = document.getElementById('locacao-produto-id').value;
+        const newLocacao = {
+            localId: document.getElementById('locacao-local').value,
+            locacao: document.getElementById('locacao-descricao').value.trim(),
+            estoque: 0 // Novas locações sempre começam com estoque zero
+        };
+
+        try {
+            const locacoesRef = collection(db, 'produtos', productId, 'localizacoes');
+            await addDoc(locacoesRef, newLocacao);
+            formAddLocacao.reset();
+            await renderLocacoesTable(productId);
+        } catch (error) {
+            console.error("Erro ao adicionar locação:", error);
+            alert("Erro ao salvar locação.");
+        }
+    });
+
     // 2. Handle Product Form Submission (Create/Update)
     form.addEventListener('submit', async (e) => {
         e.preventDefault();
@@ -56,8 +172,12 @@ document.addEventListener('DOMContentLoaded', async function() {
             grupoId: document.getElementById('produto-grupo').value,
             aplicacaoId: document.getElementById('produto-aplicacao').value,
             conjuntoId: document.getElementById('produto-conjunto').value,
-            enderecamentoId: document.getElementById('produto-enderecamento').value,
         };
+
+        // Add initial stock field when creating a product
+        if (!productId) {
+            product.estoque = 0;
+        }
 
         try {
             if (productId) {
@@ -84,19 +204,17 @@ document.addEventListener('DOMContentLoaded', async function() {
 
             const fornecedor = configData.fornecedores[pData.fornecedorId]?.nome || 'N/A';
             const grupo = configData.grupos[pData.grupoId]?.nome || 'N/A';
-            const enderecamentoDoc = configData.enderecamentos[pData.enderecamentoId];
-            const enderecamento = enderecamentoDoc ? `${enderecamentoDoc.codigo} - ${enderecamentoDoc.local}` : 'N/A';
 
             row.innerHTML = `
+                <td><input type="checkbox" class="produto-checkbox" data-id="${product.id}"></td>
                 <td>${pData.codigo}</td>
                 <td>${pData.codigo_global}</td>
-                <td>${pData.descricao}</td>
+                <td><a href="detalhe-produto.html?id=${product.id}">${pData.descricao}</a></td>
                 <td>${pData.un}</td>
                 <td>${pData.un_compra}</td>
                 <td>${pData.cor}</td>
                 <td>${fornecedor}</td>
                 <td>${grupo}</td>
-                <td>${enderecamento}</td>
                 <td class="actions">
                     <button class="btn-edit" data-id="${product.id}">Editar</button>
                     <button class="btn-delete" data-id="${product.id}">Excluir</button>
@@ -132,7 +250,6 @@ document.addEventListener('DOMContentLoaded', async function() {
                 document.getElementById('produto-grupo').value = product.data.grupoId;
                 document.getElementById('produto-aplicacao').value = product.data.aplicacaoId;
                 document.getElementById('produto-conjunto').value = product.data.conjuntoId;
-                document.getElementById('produto-enderecamento').value = product.data.enderecamentoId;
                 form.scrollIntoView({ behavior: 'smooth' });
             }
         }
@@ -144,6 +261,14 @@ document.addEventListener('DOMContentLoaded', async function() {
                     .catch(error => alert(`Erro ao excluir: ${error.message}`));
             }
         }
+    });
+
+    const selectAllCheckbox = document.getElementById('select-all-produtos');
+    selectAllCheckbox.addEventListener('change', (e) => {
+        const checkboxes = document.querySelectorAll('.produto-checkbox');
+        checkboxes.forEach(checkbox => {
+            checkbox.checked = e.target.checked;
+        });
     });
 
     filterInput.addEventListener('input', (e) => {

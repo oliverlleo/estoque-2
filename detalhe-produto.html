@@ -1,0 +1,64 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Detalhe do Produto - Controle de Estoque</title>
+    <link rel="stylesheet" href="css/style.css">
+    <script src="https://cdn.jsdelivr.net/npm/feather-icons/dist/feather.min.js"></script>
+</head>
+<body>
+    <aside class="sidebar">
+        <div class="sidebar-header">
+            <h2>Estoque</h2>
+        </div>
+        <nav>
+            <ul>
+                <li><a href="index.html"><i data-feather="home"></i>Dashboard</a></li>
+                <li><a href="configuracoes.html"><i data-feather="settings"></i>Configurações</a></li>
+                <li><a href="produtos.html" class="active"><i data-feather="box"></i>Produtos</a></li>
+                <li><a href="movimentacoes.html"><i data-feather="git-commit"></i>Movimentações</a></li>
+                <li><a href="consultas.html"><i data-feather="search"></i>Consultas</a></li>
+            </ul>
+        </nav>
+    </aside>
+    <main class="main-content">
+        <header>
+            <h1 id="product-name-header">Detalhes do Produto</h1>
+        </header>
+        <section class="content">
+            <div class="card">
+                <div class="card-header">
+                    <h3>Informaçõs Gerais</h3>
+                </div>
+                <div class="card-body" id="details-container">
+                    <p>Carregando...</p>
+                </div>
+            </div>
+            <div class="card">
+                <div class="card-header">
+                    <h3>Locações e Estoque</h3>
+                </div>
+                <div class="card-body">
+                    <div class="table-wrapper">
+                        <table id="table-locacoes" class="table">
+                            <thead>
+                                <tr>
+                                    <th>Local</th>
+                                    <th>Descrição da Locação</th>
+                                    <th>Estoque</th>
+                                </tr>
+                            </thead>
+                            <tbody id="locacoes-lista">
+                                <tr><td colspan="3">Carregando...</td></tr>
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+            </div>
+        </section>
+    </main>
+    <script type="module" src="js/detalhe-produto.js"></script>
+    <script> feather.replace() </script>
+</body>
+</html>
