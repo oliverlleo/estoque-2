@@ -297,6 +297,7 @@ document.addEventListener('DOMContentLoaded', async function() {
     function handleToggleChange() {
         const isEntrada = toggle.checked;
         btnImportarXml.style.display = isEntrada ? 'inline-block' : 'none';
+        btnTransferencia.style.display = isEntrada ? 'none' : 'inline-block';
         entradaFields.forEach(el => el.style.display = isEntrada ? '' : 'none');
         saidaFields.forEach(el => el.style.display = isEntrada ? 'none' : '');
 
@@ -517,6 +518,193 @@ document.addEventListener('DOMContentLoaded', async function() {
             }
         }
     });
+
+    // --- LÓGICA PARA TRANSFERÊNCIA DE ESTOQUE ---
+    const transferenciaModal = document.getElementById('transferencia-modal');
+    const btnTransferencia = document.getElementById('btn-transferencia');
+    const closeTransferenciaModal = document.getElementById('transferencia-modal-close');
+    const formTransferencia = document.getElementById('form-transferencia');
+    const transfProdutoSelect = document.getElementById('transf-produto');
+    const transfOrigemSelect = document.getElementById('transf-locacao-origem');
+    const transfDestinoSelect = document.getElementById('transf-locacao-destino');
+
+    // Abre o modal
+    btnTransferencia.addEventListener('click', () => {
+        transferenciaModal.style.display = 'block';
+        // Popula o dropdown de produtos no modal, se ainda não estiver populado
+        if (transfProdutoSelect.options.length <= 1) {
+            for (const productId in productsMap) {
+                const product = productsMap[productId];
+                const option = document.createElement('option');
+                option.value = productId;
+                option.textContent = `${product.codigo} - ${product.descricao}`;
+                transfProdutoSelect.appendChild(option);
+            }
+        }
+    });
+
+    // Fecha o modal
+    closeTransferenciaModal.addEventListener('click', () => {
+        transferenciaModal.style.display = 'none';
+    });
+
+    // Lógica de seleção de produto no modal de transferência
+    transfProdutoSelect.addEventListener('change', () => {
+        const productId = transfProdutoSelect.value;
+        const product = productsMap[productId];
+
+        // Limpa e desabilita os selects de locação
+        transfOrigemSelect.innerHTML = '<option value="">Selecione a origem...</option>';
+        transfOrigemSelect.disabled = true;
+        transfDestinoSelect.innerHTML = '<option value="">Selecione o destino...</option>';
+        transfDestinoSelect.disabled = true;
+        document.getElementById('transf-estoque-origem-display').textContent = '0';
+        document.getElementById('transf-codigo-display').textContent = '-';
+        document.getElementById('transf-descricao-display').textContent = '-';
+
+        if (product) {
+            document.getElementById('transf-codigo-display').textContent = product.codigo;
+            document.getElementById('transf-descricao-display').textContent = product.descricao;
+
+            if (product.locacoes && product.locacoes.length > 0) {
+                // Popula locações de ORIGEM (apenas com estoque)
+                product.locacoes.forEach(loc => {
+                    if (loc.estoque > 0) {
+                        const option = document.createElement('option');
+                        option.value = loc.locacao;
+                        option.textContent = `${loc.locacao} (Estoque: ${loc.estoque})`;
+                        transfOrigemSelect.appendChild(option);
+                    }
+                });
+
+                // Popula locações de DESTINO (todas)
+                product.locacoes.forEach(loc => {
+                    const option = document.createElement('option');
+                    option.value = loc.locacao;
+                    option.textContent = loc.locacao;
+                    transfDestinoSelect.appendChild(option);
+                });
+
+                transfOrigemSelect.disabled = false;
+                transfDestinoSelect.disabled = false;
+            }
+        }
+    });
+
+    // Lógica de seleção de locação de origem
+    transfOrigemSelect.addEventListener('change', () => {
+        const productId = transfProdutoSelect.value;
+        const product = productsMap[productId];
+        const origem = transfOrigemSelect.value;
+
+        if (product && origem) {
+            const locacaoData = product.locacoes.find(l => l.locacao === origem);
+            document.getElementById('transf-estoque-origem-display').textContent = locacaoData ? locacaoData.estoque : '0';
+        } else {
+            document.getElementById('transf-estoque-origem-display').textContent = '0';
+        }
+
+        // Filtra o select de destino para não mostrar a origem
+        const destino = transfDestinoSelect.value;
+        transfDestinoSelect.innerHTML = '<option value="">Selecione o destino...</option>';
+        product.locacoes.forEach(loc => {
+            if (loc.locacao !== origem) {
+                const option = document.createElement('option');
+                option.value = loc.locacao;
+                option.textContent = loc.locacao;
+                transfDestinoSelect.appendChild(option);
+            }
+        });
+        // Restaura a seleção se possível
+        if (destino && destino !== origem) {
+            transfDestinoSelect.value = destino;
+        }
+    });
+
+    // Lógica de submissão do formulário de transferência
+    formTransferencia.addEventListener('submit', async (e) => {
+        e.preventDefault();
+
+        const productId = transfProdutoSelect.value;
+        const origem = transfOrigemSelect.value;
+        const destino = transfDestinoSelect.value;
+        const quantidade = parseFloat(document.getElementById('transf-quantidade').value);
+
+        // Validação
+        if (!productId || !origem || !destino || !quantidade || quantidade <= 0) {
+            alert('Por favor, preencha todos os campos corretamente.');
+            return;
+        }
+        if (origem === destino) {
+            alert('A locação de origem e destino não podem ser as mesmas.');
+            return;
+        }
+        const product = productsMap[productId];
+        const locacaoOrigemData = product.locacoes.find(l => l.locacao === origem);
+        if (!locacaoOrigemData || locacaoOrigemData.estoque < quantidade) {
+            alert(`Quantidade a transferir excede o estoque disponível na origem (${locacaoOrigemData.estoque || 0}).`);
+            return;
+        }
+
+        try {
+            await runTransaction(db, async (transaction) => {
+                const productRef = doc(db, 'produtos', productId);
+                const productDoc = await transaction.get(productRef);
+                if (!productDoc.exists()) {
+                    throw new Error('Produto não encontrado no banco de dados.');
+                }
+
+                const pData = productDoc.data();
+                const locacoes = pData.locacoes || [];
+                const origemIndex = locacoes.findIndex(l => l.locacao === origem);
+                const destinoIndex = locacoes.findIndex(l => l.locacao === destino);
+
+                if (origemIndex === -1 || destinoIndex === -1) {
+                    throw new Error('Locação de origem ou destino não encontrada.');
+                }
+
+                // Re-valida o estoque dentro da transação
+                if (locacoes[origemIndex].estoque < quantidade) {
+                    throw new Error('Estoque insuficiente na origem. A transação foi cancelada.');
+                }
+
+                // Realiza a transferência
+                locacoes[origemIndex].estoque -= quantidade;
+                locacoes[destinoIndex].estoque += quantidade;
+
+                transaction.update(productRef, { locacoes: locacoes });
+
+                // Cria um registro de movimentação
+                const movementRef = doc(collection(db, 'movimentacoes'));
+                transaction.set(movementRef, {
+                    tipo: 'transferencia',
+                    productId,
+                    quantidade,
+                    data: serverTimestamp(),
+                    observacao: `Transferência da locação ${origem} para ${destino}.`
+                });
+            });
+
+            alert('Transferência realizada com sucesso!');
+
+            // Atualiza o mapa local para refletir a mudança
+            const locOrigem = productsMap[productId].locacoes.find(l => l.locacao === origem);
+            const locDestino = productsMap[productId].locacoes.find(l => l.locacao === destino);
+            if (locOrigem) locOrigem.estoque -= quantidade;
+            if (locDestino) locDestino.estoque += quantidade;
+
+            formTransferencia.reset();
+            transferenciaModal.style.display = 'none';
+            updateProductInfo(); // Atualiza a info do produto principal se estiver selecionado
+        } catch (error) {
+            console.error("Erro na transferência de estoque:", error);
+            alert(`Erro ao realizar a transferência: ${error.message}`);
+        }
+    });
+
+
+    // --- FIM DA LÓGICA DE TRANSFERÊNCIA ---
+
 
     // --- Lógica do Modal de Importação XML ---
     btnImportarXml.addEventListener('click', () => { xmlImportModal.style.display = 'block'; });
