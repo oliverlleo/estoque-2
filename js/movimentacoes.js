@@ -372,7 +372,7 @@ document.addEventListener('DOMContentLoaded', async function() {
                     const tipoEntradaId = document.getElementById('mov-tipo-entrada').value;
                     const tipoEntradaConfig = configData.tipos_entrada[tipoEntradaId];
 
-                    if (tipoEntradaConfig && tipoEntradaConfig.movimenta_estoque === true) {
+                    if (tipoEntradaConfig && tipoEntradaConfig.movimenta_estoque == true) {
                         locacoes[locacaoIndex].estoque = (locacoes[locacaoIndex].estoque || 0) + quantidadeParaEstoque;
                         transaction.update(productRef, { locacoes: locacoes });
                     }
@@ -429,7 +429,7 @@ document.addEventListener('DOMContentLoaded', async function() {
             const tipoSaidaId = document.getElementById('mov-tipo-saida').value;
             const tipoSaidaConfig = configData.tipos_saida[tipoSaidaId];
 
-            if (tipoSaidaConfig && tipoSaidaConfig.reservar_estoque === true) {
+            if (tipoSaidaConfig && tipoSaidaConfig.reservar_estoque == true) {
                 // Lógica de Reserva
                 try {
                     await addDoc(collection(db, 'movimentacoes'), {
@@ -475,7 +475,7 @@ document.addEventListener('DOMContentLoaded', async function() {
                         }
 
                         // A verificação do tipo de saída já foi feita, aqui só verificamos se movimenta estoque
-                        if (tipoSaidaConfig && tipoSaidaConfig.movimenta_estoque === true) {
+                        if (tipoSaidaConfig && tipoSaidaConfig.movimenta_estoque == true) {
                             // Re-valida o estoque dentro da transação para segurança
                             if ((locacoes[locacaoIndex].estoque || 0) < quantidade) {
                                throw new Error(`Estoque insuficiente na locação ${locacaoSelecionada}! Disponível: ${locacoes[locacaoIndex].estoque || 0}`);
