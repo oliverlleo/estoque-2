@@ -13,12 +13,12 @@ document.addEventListener('DOMContentLoaded', async function() {
 
     let consolidatedData = [];
 
-    // Substitua a função inteira em js/consultas.js por esta versão definitiva:
     async function fetchDataAndCalculate() {
-        // 1. Busca apenas as fontes de dados essenciais: produtos e locais.
-        const [productsSnapshot, locaisSnapshot] = await Promise.all([
+        // 1. Busca todas as fontes de dados necessárias em paralelo.
+        const [productsSnapshot, locaisSnapshot, movementsSnapshot] = await Promise.all([
             getDocs(query(collection(db, 'produtos'), where("arquivado", "!=", true))),
-            getDocs(collection(db, 'locais'))
+            getDocs(collection(db, 'locais')),
+            getDocs(query(collection(db, 'movimentacoes'), where("tipo", "==", "reserva")))
         ]);
 
         const locais = {};
@@ -26,18 +26,23 @@ document.addEventListener('DOMContentLoaded', async function() {
             locais[doc.id] = doc.data();
         });
 
-        // 2. Mapeia os dados do produto e calcula os valores derivados.
+        // 2. Calcula a quantidade total reservada para cada produto.
+        const reservasMap = {};
+        movementsSnapshot.forEach(doc => {
+            const mov = doc.data();
+            reservasMap[mov.productId] = (reservasMap[mov.productId] || 0) + mov.quantidade;
+        });
+
+        // 3. Mapeia os dados do produto e calcula os valores derivados.
         consolidatedData = productsSnapshot.docs.map(productDoc => {
             const product = productDoc.data();
+            const productId = productDoc.id;
 
             let estoqueAtual = 0;
             let locacaoCompleta = 'N/A';
 
             if (product.locacoes && Array.isArray(product.locacoes)) {
-                // Calcula o estoque total somando o estoque de cada locação
                 estoqueAtual = product.locacoes.reduce((acc, loc) => acc + (loc.estoque || 0), 0);
-
-                // Cria a string detalhada de locações para exibição
                 if (product.locacoes.length > 0) {
                     locacaoCompleta = product.locacoes.map(loc => {
                         const localNome = locais[loc.localId]?.nome || 'Desconhecido';
@@ -46,19 +51,22 @@ document.addEventListener('DOMContentLoaded', async function() {
                 }
             }
 
+            const quantidadeReservada = reservasMap[productId] || 0;
             const valorMedio = product.valorMedio || 0;
             const valorTotalEstoque = estoqueAtual * valorMedio;
 
             return {
                 ...product,
                 estoque: estoqueAtual,
+                cor: product.cor || '-', // Adiciona o campo cor
+                quantidadeReservada: quantidadeReservada, // Adiciona o campo de reserva
                 valorMedio,
                 valorTotalEstoque,
-                local: locacaoCompleta // Reutilizando a coluna 'local' para a nova string de locação
+                local: locacaoCompleta
             };
         });
 
-        // 3. Renderiza a tabela. A função agora é 100% "read-only".
+        // 4. Renderiza a tabela.
         renderTable(consolidatedData);
     }
 
@@ -67,11 +75,12 @@ document.addEventListener('DOMContentLoaded', async function() {
         data.forEach(item => {
             const row = document.createElement('tr');
             row.className = 'main-row';
-            // Dentro da função renderTable em js/consultas.js
             row.innerHTML = `
                 <td>${item.codigo}</td>
                 <td>${item.descricao}</td>
+                <td>${item.cor}</td>
                 <td>${item.estoque || 0}</td>
+                <td>${item.quantidadeReservada || 0}</td>
                 <td>${item.un}</td>
                 <td>${(item.valorMedio || 0).toFixed(2)}</td>
                 <td>${(item.valorTotalEstoque || 0).toFixed(2)}</td>
