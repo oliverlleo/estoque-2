@@ -19,45 +19,44 @@ document.addEventListener('DOMContentLoaded', async function() {
             getDocs(collection(db, 'locais'))
         ]);
 
-        const locais = {};
+        const locaisMap = {};
         locaisSnapshot.forEach(doc => {
-            locais[doc.id] = doc.data();
+            locaisMap[doc.id] = doc.data();
         });
 
         const productPromises = productsSnapshot.docs.map(async (productDoc) => {
             const product = productDoc.data();
             const productId = productDoc.id;
 
-            const estoqueSnapshot = await getDocs(collection(db, 'produtos', productId, 'estoquePorLocacao'));
+            const estoqueSnapshot = await getDocs(collection(db, `produtos/${productId}/estoquePorLocacao`));
 
-            let estoqueAtual = 0;
+            let estoqueTotal = 0;
             const locacoesComEstoque = [];
 
-            if (!estoqueSnapshot.empty) {
-                estoqueSnapshot.forEach(estoqueDoc => {
-                    const estoqueData = estoqueDoc.data();
-                    const quantidade = estoqueData.quantidade || 0;
+            estoqueSnapshot.forEach(estoqueDoc => {
+                const estoqueData = estoqueDoc.data();
+                const locacaoCodigo = estoqueDoc.id;
+                const quantidadeNaLocacao = estoqueData.quantidade || 0;
 
-                    if (quantidade > 0) {
-                        estoqueAtual += quantidade;
-                        const locacaoCodigo = estoqueDoc.id;
-                        const locacaoInfo = product.locacoes?.find(l => l.codigo === locacaoCodigo);
-                        const localNome = locacaoInfo ? (locais[locacaoInfo.localId]?.nome || 'Desconhecido') : 'Desconhecido';
-                        locacoesComEstoque.push(`${localNome} - ${locacaoCodigo} (${quantidade})`);
-                    }
-                });
-            }
+                estoqueTotal += quantidadeNaLocacao;
+
+                if (quantidadeNaLocacao > 0) {
+                    const locacaoInfo = product.locacoes?.find(l => l.codigo === locacaoCodigo);
+                    const localNome = locacaoInfo ? (locaisMap[locacaoInfo.localId]?.nome || 'N/A') : 'N/A';
+                    locacoesComEstoque.push(`${localNome} - ${locacaoCodigo} (${quantidadeNaLocacao})`);
+                }
+            });
 
             const valorMedio = product.valorMedio || 0;
-            const valorTotalEstoque = estoqueAtual * valorMedio;
+            const valorTotalEstoque = estoqueTotal * valorMedio;
 
             return {
                 ...product,
                 id: productId,
-                estoque: estoqueAtual,
+                estoque: estoqueTotal,
                 valorMedio,
                 valorTotalEstoque,
-                locacoesComEstoque: locacoesComEstoque.length > 0 ? locacoesComEstoque : ['Sem estoque']
+                local: locacoesComEstoque.join('<br>') || 'Sem estoque'
             };
         });
 
@@ -68,22 +67,18 @@ document.addEventListener('DOMContentLoaded', async function() {
     function renderTable(data) {
         tableBody.innerHTML = '';
         data.forEach(item => {
-            // Only render items that have stock
             if (item.estoque <= 0) return;
 
             const row = document.createElement('tr');
             row.className = 'main-row';
-
-            const locacoesHtml = item.locacoesComEstoque.join('<br>');
-
             row.innerHTML = `
                 <td>${item.codigo}</td>
                 <td>${item.descricao}</td>
-                <td>${item.estoque}</td>
+                <td>${item.estoque || 0}</td>
                 <td>${item.un}</td>
                 <td>${(item.valorMedio || 0).toFixed(2)}</td>
                 <td>${(item.valorTotalEstoque || 0).toFixed(2)}</td>
-                <td>${locacoesHtml}</td>
+                <td>${item.local}</td>
             `;
             tableBody.appendChild(row);
         });
@@ -99,8 +94,7 @@ document.addEventListener('DOMContentLoaded', async function() {
         const filteredData = consolidatedData.filter(item => {
             const matchesCodigo = (item.codigo || '').toLowerCase().includes(filterValues.codigo);
             const matchesDescricao = (item.descricao || '').toLowerCase().includes(filterValues.descricao);
-            const matchesLocal = item.locacoesComEstoque.some(locStr => locStr.toLowerCase().includes(filterValues.local));
-
+            const matchesLocal = (item.local || '').toLowerCase().includes(filterValues.local);
             return matchesCodigo && matchesDescricao && matchesLocal;
         });
 
