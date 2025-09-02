@@ -1,5 +1,5 @@
 import { db } from './firebase-config.js';
-import { collection, getDocs, addDoc, onSnapshot, doc, setDoc, deleteDoc, query, where, runTransaction, serverTimestamp, getDoc } from "https://www.gstatic.com/firebasejs/9.6.1/firebase-firestore.js";
+import { collection, getDocs, addDoc, onSnapshot, doc, setDoc, deleteDoc, query, where, runTransaction, serverTimestamp, getDoc, writeBatch, deleteField } from "https://www.gstatic.com/firebasejs/9.6.1/firebase-firestore.js";
 
 document.addEventListener('DOMContentLoaded', async function() {
     console.log("Página de Produtos carregada.");
@@ -18,11 +18,12 @@ document.addEventListener('DOMContentLoaded', async function() {
 
     const codigoInput = document.getElementById('produto-codigo');
     const productIdInput = document.getElementById('produto-id');
-    const locacaoInput = document.getElementById('produto-locacao');
+    const btnAddLocacao = document.getElementById('btn-add-locacao');
+    const locacoesContainer = document.getElementById('locacoes-container');
+
 
     function applyFilters() {
         const generalSearchTerm = filterInput.value.toLowerCase();
-        const locacaoSearchTerm = locacaoInput.value.toLowerCase();
 
         const filteredData = productsData.filter(product => {
             const pData = product.data;
@@ -32,15 +33,7 @@ document.addEventListener('DOMContentLoaded', async function() {
                 String(value).toLowerCase().includes(generalSearchTerm)
             );
 
-            // Lógica do novo filtro de locação
-            // Reconstrói a string 'locacaoCompleta' da mesma forma que renderTable faz
-            const localNome = configData.locais[pData.localId]?.nome || '';
-            const locacaoDesc = pData.locacao || '';
-            const locacaoCompleta = [localNome, locacaoDesc].filter(Boolean).join(' - ').toLowerCase();
-            const matchesLocacao = locacaoSearchTerm === '' || locacaoCompleta.includes(locacaoSearchTerm);
-
-            // Retorna verdadeiro apenas se o produto corresponder a AMBOS os filtros
-            return matchesGeneral && matchesLocacao;
+            return matchesGeneral;
         });
 
         renderTable(filteredData);
@@ -93,8 +86,6 @@ document.addEventListener('DOMContentLoaded', async function() {
         }
     });
 
-    locacaoInput.addEventListener('input', applyFilters);
-
     let productsData = [];
     const configData = {};
 
@@ -102,7 +93,6 @@ document.addEventListener('DOMContentLoaded', async function() {
     const configCollections = [
         { name: 'fornecedor', collectionName: 'fornecedores', displayField: 'nome' },
         { name: 'grupo', collectionName: 'grupos', displayField: 'nome' },
-        { name: 'local', collectionName: 'locais', displayField: 'nome' },
     ];
 
     for (const config of configCollections) {
@@ -128,6 +118,12 @@ document.addEventListener('DOMContentLoaded', async function() {
             }
         });
     }
+    // Fetch 'locais' separately as it's used for the dynamic rows, not a static select
+    const locaisSnapshot = await getDocs(collection(db, 'locais'));
+    configData['locais'] = {};
+    locaisSnapshot.forEach(doc => {
+        configData['locais'][doc.id] = doc.data();
+    });
 
     // Populate Conversions Select
     const conversaoSelect = document.getElementById('produto-conversao');
@@ -209,6 +205,85 @@ document.addEventListener('DOMContentLoaded', async function() {
         }
     });
 
+    // --- LÓGICA PARA GERENCIAR LOCAÇÕES DINÂMICAS ---
+
+    const addLocacaoRow = (locacao = '', localId = '') => {
+        const row = document.createElement('div');
+        row.className = 'locacao-row';
+        row.style.display = 'flex';
+        row.style.gap = '10px';
+        row.style.alignItems = 'center';
+
+        const locacaoInput = document.createElement('input');
+        locacaoInput.type = 'text';
+        locacaoInput.placeholder = 'Locação (ex: 10-B-15-C)';
+        locacaoInput.className = 'form-control locacao-input';
+        locacaoInput.value = locacao;
+        locacaoInput.maxLength = 11;
+
+        const localSelect = document.createElement('select');
+        localSelect.className = 'form-control local-select';
+        localSelect.innerHTML = '<option value="">Selecione o Local...</option>';
+        for (const [id, data] of Object.entries(configData.locais)) {
+            const option = document.createElement('option');
+            option.value = id;
+            option.textContent = data.nome;
+            if (id === localId) {
+                option.selected = true;
+            }
+            localSelect.appendChild(option);
+        }
+
+        const removeBtn = document.createElement('button');
+        removeBtn.type = 'button';
+        removeBtn.className = 'btn btn-delete btn-remove-locacao';
+        removeBtn.textContent = 'Remover';
+
+        row.appendChild(locacaoInput);
+        row.appendChild(localSelect);
+        row.appendChild(removeBtn);
+
+        locacoesContainer.appendChild(row);
+    };
+
+    const formatLocacaoInput = (e) => {
+        let value = e.target.value.toUpperCase().replace(/[^A-Z0-9]/g, '');
+        let formattedValue = '';
+
+        if (value.length > 0) {
+            formattedValue += value.substring(0, 2);
+        }
+        if (value.length > 2) {
+            formattedValue += '-' + value.substring(2, 3);
+        }
+        if (value.length > 3) {
+            formattedValue += '-' + value.substring(3, 5);
+        }
+        if (value.length > 5) {
+            formattedValue += '-' + value.substring(5, 6);
+        }
+
+        e.target.value = formattedValue.substring(0, 11);
+    };
+
+    locacoesContainer.addEventListener('input', (e) => {
+        if (e.target.classList.contains('locacao-input')) {
+            formatLocacaoInput(e);
+        }
+    });
+
+    btnAddLocacao.addEventListener('click', () => {
+        addLocacaoRow();
+    });
+
+    locacoesContainer.addEventListener('click', (e) => {
+        if (e.target.classList.contains('btn-remove-locacao')) {
+            e.target.closest('.locacao-row').remove();
+        }
+    });
+
+    // --- FIM DA LÓGICA DE LOCAÇÕES ---
+
     function populateSobraSelect() {
         // Guarda a opção "selecione" e limpa o resto
         const firstOption = selectSobraOriginal.options[0];
@@ -232,13 +307,18 @@ document.addEventListener('DOMContentLoaded', async function() {
         if (selectedId) {
             const product = productsData.find(p => p.id === selectedId);
             if (product) {
-                const localNome = configData.locais[product.data.localId]?.nome || '';
-                const locacaoDesc = product.data.locacao || '';
+                let locacaoCompleta = 'N/A';
+                if (product.data.locacoes && product.data.locacoes.length > 0) {
+                    locacaoCompleta = product.data.locacoes.map(loc => {
+                        const localNome = configData.locais[loc.localId]?.nome || 'Local desconhecido';
+                        return `${loc.locacao} (${localNome})`;
+                    }).join(', ');
+                }
 
                 displayInfo.codigo = product.data.codigo;
                 displayInfo.descricao = product.data.descricao;
                 displayInfo.un = product.data.un;
-                displayInfo.locacao = [localNome, locacaoDesc].filter(Boolean).join(' - ') || 'N/A';
+                displayInfo.locacao = locacaoCompleta;
             }
         }
         document.getElementById('sobra-codigo-display').textContent = displayInfo.codigo;
@@ -376,23 +456,59 @@ document.addEventListener('DOMContentLoaded', async function() {
         }
         // --- FIM DA VALIDAÇÃO DE CÓDIGO DUPLICADO ---
 
+        const locacaoRows = locacoesContainer.querySelectorAll('.locacao-row');
+        const locacoes = [];
+        const locacaoPattern = /^[0-9]{2}-[A-Z]{1}-[0-9]{2}-[A-Z]{1}$/;
+
+        for (const row of locacaoRows) {
+            const locacaoInput = row.querySelector('.locacao-input');
+            const localSelect = row.querySelector('.local-select');
+            const locacao = locacaoInput.value.toUpperCase();
+            const localId = localSelect.value;
+
+            if (!locacao || !localId) {
+                alert('Todas as locações devem ter um código e um local selecionado. Remova as linhas não utilizadas.');
+                return;
+            }
+
+            if (!locacaoPattern.test(locacao)) {
+                alert(`O formato da locação "${locacao}" é inválido. Use o formato NN-L-NN-L (ex: 10-B-15-C).`);
+                return;
+            }
+
+            locacoes.push({
+                locacao: locacao,
+                localId: localId,
+                estoque: 0 // Estoque inicial é sempre 0 ao cadastrar
+            });
+        }
+
         const product = {
             codigo: document.getElementById('produto-codigo').value,
             descricao: document.getElementById('produto-descricao').value,
             un: document.getElementById('produto-un').value,
             cor: document.getElementById('produto-cor').value,
-            locacao: document.getElementById('produto-locacao').value,
-            localId: document.getElementById('produto-local').value,
             fornecedorId: document.getElementById('produto-fornecedor').value,
             grupoId: document.getElementById('produto-grupo').value,
             aplicacaoIds: aplicacaoSelect.getSelectedIds(),
             conjuntoIds: conjuntoSelect.getSelectedIds(),
             conversaoId: document.getElementById('produto-conversao').value,
-            arquivado: false // <-- ADICIONE ESTA LINHA
+            locacoes: locacoes, // NOVO CAMPO
+            arquivado: false
         };
 
         try {
             if (productId) {
+                // Ao atualizar, precisamos manter o estoque existente. Esta lógica será mais complexa.
+                // Por enquanto, vamos apenas setar, mas o ideal é uma transação que preserve o estoque.
+                // Esta parte será melhorada na etapa de migração e movimentação.
+                const originalProduct = productsData.find(p => p.id === productId)?.data;
+                if (originalProduct && originalProduct.locacoes) {
+                    product.locacoes = locacoes.map(novaLoc => {
+                        const existente = originalProduct.locacoes.find(antiga => antiga.locacao === novaLoc.locacao && antiga.localId === novaLoc.localId);
+                        return existente ? existente : novaLoc; // Mantém a locação existente com seu estoque
+                    });
+                }
                 await setDoc(doc(db, 'produtos', productId), product, { merge: true });
                 alert('Produto atualizado com sucesso!');
             } else {
@@ -400,10 +516,11 @@ document.addEventListener('DOMContentLoaded', async function() {
                 alert('Produto cadastrado com sucesso!');
             }
             form.reset();
+            locacoesContainer.innerHTML = ''; // Limpa as locações dinâmicas
             document.getElementById('produto-id').value = '';
-            codigoInput.classList.remove('is-invalid'); // Garante que o campo fique limpo
-            filterInput.value = ''; // Limpa o filtro geral na caixa de pesquisa da tabela
-            applyFilters(); // Re-aplica os filtros (agora vazios) para mostrar a tabela completa
+            codigoInput.classList.remove('is-invalid');
+            filterInput.value = '';
+            applyFilters();
 
         } catch (error) {
             console.error("Erro ao salvar produto:", error);
@@ -419,9 +536,15 @@ document.addEventListener('DOMContentLoaded', async function() {
 
             const fornecedor = configData.fornecedores[pData.fornecedorId]?.nome || 'N/A';
             const grupo = configData.grupos[pData.grupoId]?.nome || 'N/A';
-            const localNome = configData.locais[pData.localId]?.nome || '';
-            const locacaoDesc = pData.locacao || '';
-            const locacaoCompleta = [localNome, locacaoDesc].filter(Boolean).join(' - ') || 'N/A';
+
+            let locacaoCompleta = 'N/A';
+            if (pData.locacoes && pData.locacoes.length > 0) {
+                locacaoCompleta = pData.locacoes.map(loc => {
+                    const localNome = configData.locais[loc.localId]?.nome || 'Local desconhecido';
+                    return `${loc.locacao} (${localNome})`;
+                }).join('<br>');
+            }
+
             const aplicacoesNomes = (pData.aplicacaoIds || [])
                 .map(id => configData.aplicacoes[id]?.nome || 'N/A')
                 .join(', ');
@@ -441,6 +564,69 @@ document.addEventListener('DOMContentLoaded', async function() {
             tableBody.appendChild(row);
         });
     };
+
+    async function runMigrationV2() {
+        if (localStorage.getItem('migration_locacoes_v2_done') === 'true') {
+            console.log('Migração de locações já foi executada.');
+            return;
+        }
+
+        console.log('Iniciando migração de dados de produtos para nova estrutura de locações...');
+        alert('Iniciando migração de dados de produtos. Isso pode levar alguns momentos. Não feche a página.');
+
+        try {
+            const productsRef = collection(db, 'produtos');
+            const snapshot = await getDocs(productsRef);
+            const batch = writeBatch(db);
+            let migratedCount = 0;
+
+            snapshot.docs.forEach(document => {
+                const product = document.data();
+                const productId = document.id;
+
+                // Migra apenas documentos que não têm o campo 'locacoes'
+                if (product.locacoes === undefined) {
+                    const newLocacoes = [];
+                    // Se os campos antigos existem e têm valor, cria a locação a partir deles
+                    if (product.locacao && product.localId) {
+                        newLocacoes.push({
+                            locacao: product.locacao,
+                            localId: product.localId,
+                            estoque: product.estoque || 0
+                        });
+                    }
+
+                    const updateData = {
+                        locacoes: newLocacoes,
+                        locacao: deleteField(),
+                        localId: deleteField(),
+                        estoque: deleteField()
+                    };
+
+                    batch.update(doc(db, 'produtos', productId), updateData);
+                    migratedCount++;
+                }
+            });
+
+            if (migratedCount > 0) {
+                await batch.commit();
+                alert(`Migração concluída! ${migratedCount} produtos foram atualizados para a nova estrutura de locações.`);
+                console.log(`Migração concluída! ${migratedCount} produtos foram atualizados.`);
+            } else {
+                alert('Nenhum produto precisou ser migrado. A estrutura de dados já está atualizada.');
+                console.log('Nenhum produto para migrar.');
+            }
+
+            localStorage.setItem('migration_locacoes_v2_done', 'true');
+        } catch (error) {
+            console.error('Erro durante a migração:', error);
+            alert(`Ocorreu um erro durante a migração: ${error.message}`);
+        }
+    }
+
+    // Roda a migração uma vez
+    runMigrationV2();
+
 
     // 4. Listen for real-time updates
     const q = query(collection(db, 'produtos'), where("arquivado", "!=", true));
@@ -524,20 +710,29 @@ document.addEventListener('DOMContentLoaded', async function() {
         const product = productsData.find(p => p.id === id);
 
         if (product) {
-            // Reutiliza a mesma lógica de preenchimento do formulário que já existia
+            // Limpa o formulário e o container de locações antes de preencher
+            form.reset();
+            locacoesContainer.innerHTML = '';
+
+            // Preenche os campos do formulário
             document.getElementById('produto-id').value = product.id;
             document.getElementById('produto-codigo').value = product.data.codigo;
             document.getElementById('produto-descricao').value = product.data.descricao;
             document.getElementById('produto-un').value = product.data.un;
             document.getElementById('produto-cor').value = product.data.cor;
-            document.getElementById('produto-locacao').value = product.data.locacao || '';
-            document.getElementById('produto-local').value = product.data.localId;
             document.getElementById('produto-fornecedor').value = product.data.fornecedorId;
             document.getElementById('produto-grupo').value = product.data.grupoId;
             document.getElementById('produto-conversao').value = product.data.conversaoId || "";
 
             aplicacaoSelect.setSelectedIds(product.data.aplicacaoIds);
             conjuntoSelect.setSelectedIds(product.data.conjuntoIds);
+
+            // Preenche as locações dinâmicas
+            if (product.data.locacoes && Array.isArray(product.data.locacoes)) {
+                product.data.locacoes.forEach(loc => {
+                    addLocacaoRow(loc.locacao, loc.localId);
+                });
+            }
 
             form.scrollIntoView({ behavior: 'smooth' });
         }
@@ -560,9 +755,13 @@ document.addEventListener('DOMContentLoaded', async function() {
             .filter(product => idsSelecionados.includes(product.id))
             .map(product => {
                 const pData = product.data;
-                const localNome = configData.locais[pData.localId]?.nome || '';
-                const locacaoDesc = pData.locacao || '';
-                const locacaoCompleta = [localNome, locacaoDesc].filter(Boolean).join(' - ') || 'N/A';
+                let locacaoCompleta = 'N/A';
+                if (pData.locacoes && pData.locacoes.length > 0) {
+                    locacaoCompleta = pData.locacoes.map(loc => {
+                        const localNome = configData.locais[loc.localId]?.nome || 'Local desconhecido';
+                        return `${loc.locacao} (${localNome})`;
+                    }).join(', ');
+                }
 
                 return {
                     id: product.id,
@@ -707,9 +906,8 @@ document.addEventListener('DOMContentLoaded', async function() {
                         grupoId: grupoId || "",
                         aplicacaoIds: aplicacaoIds || [],
                         conjuntoIds: conjuntoIds || [],
-                        localId: localId || "",
-                        locacao: row.locacao || "",
                         conversaoId: conversaoId || "",
+                        locacoes: [],
                         arquivado: false
                     };
 
