@@ -426,43 +426,14 @@ document.addEventListener('DOMContentLoaded', async function() {
                 showInfoModal(error.message);
             }
         } else { // Saída
-            // Validação de estoque ANTES da transação
-            const productData = productsMap[productId];
-            const locacaoData = productData.locacoes.find(l => l.locacao === locacaoSelecionada);
-            if (!locacaoData || (locacaoData.estoque || 0) < quantidade) {
-                alert(`Estoque insuficiente na locação ${locacaoSelecionada}! Disponível: ${locacaoData?.estoque || 0}`);
-                return;
-            }
+            const tipoSaidaId = document.getElementById('mov-tipo-saida').value;
+            const tipoSaidaConfig = configData.tipos_saida[tipoSaidaId];
 
-            try {
-                await runTransaction(db, async (transaction) => {
-                    const productRef = doc(db, 'produtos', productId);
-                    const productDoc = await transaction.get(productRef);
-                    if (!productDoc.exists()) throw new Error("Produto não encontrado!");
-
-                    const pData = productDoc.data();
-                    const locacoes = pData.locacoes || [];
-                    const locacaoIndex = locacoes.findIndex(l => l.locacao === locacaoSelecionada);
-
-                    if (locacaoIndex === -1) {
-                        throw new Error("Locação selecionada não encontrada no produto.");
-                    }
-
-                    const tipoSaidaId = document.getElementById('mov-tipo-saida').value;
-                    const tipoSaidaConfig = configData.tipos_saida[tipoSaidaId];
-
-                    if (tipoSaidaConfig && tipoSaidaConfig.movimenta_estoque === true) {
-                        // Re-valida o estoque dentro da transação para segurança
-                        if ((locacoes[locacaoIndex].estoque || 0) < quantidade) {
-                           throw new Error(`Estoque insuficiente na locação ${locacaoSelecionada}! Disponível: ${locacoes[locacaoIndex].estoque || 0}`);
-                        }
-                        locacoes[locacaoIndex].estoque -= quantidade;
-                        transaction.update(productRef, { locacoes: locacoes });
-                    }
-
-                    const movementRef = doc(collection(db, 'movimentacoes'));
-                    transaction.set(movementRef, {
-                        tipo: 'saida',
+            if (tipoSaidaConfig && tipoSaidaConfig.reservar_estoque === true) {
+                // Lógica de Reserva
+                try {
+                    await addDoc(collection(db, 'movimentacoes'), {
+                        tipo: 'reserva',
                         productId,
                         locacao: locacaoSelecionada, // Campo novo
                         quantidade,
@@ -471,23 +442,78 @@ document.addEventListener('DOMContentLoaded', async function() {
                         requisitante: document.getElementById('mov-requisitante').value,
                         obraId: document.getElementById('mov-obra').value,
                         observacao: document.getElementById('mov-observacao').value,
-                        valorMedioHistorico: pData.valorMedio || 0
                     });
-                });
-                alert('Saída registrada com sucesso!');
-                // ATUALIZA O MAPA DE PRODUTOS LOCAL
-                const productData = productsMap[productId];
-                if (productData && productData.locacoes) {
-                    const locacaoIndex = productData.locacoes.findIndex(l => l.locacao === locacaoSelecionada);
-                    if (locacaoIndex !== -1) {
-                        productsMap[productId].locacoes[locacaoIndex].estoque -= quantidade;
-                    }
+                    alert('Reserva registrada com sucesso!');
+                    formMovimentacao.reset();
+                    handleToggleChange();
+                } catch (error) {
+                    console.error("Erro ao registrar reserva:", error);
+                    showInfoModal(error.message);
                 }
-                formMovimentacao.reset();
-                handleToggleChange();
-            } catch (error) {
-                console.error("Erro ao registrar saída:", error);
-                showInfoModal(error.message);
+            } else {
+                // Lógica de Saída Normal
+                // Validação de estoque ANTES da transação
+                const productData = productsMap[productId];
+                const locacaoData = productData.locacoes.find(l => l.locacao === locacaoSelecionada);
+                if (!locacaoData || (locacaoData.estoque || 0) < quantidade) {
+                    alert(`Estoque insuficiente na locação ${locacaoSelecionada}! Disponível: ${locacaoData?.estoque || 0}`);
+                    return;
+                }
+
+                try {
+                    await runTransaction(db, async (transaction) => {
+                        const productRef = doc(db, 'produtos', productId);
+                        const productDoc = await transaction.get(productRef);
+                        if (!productDoc.exists()) throw new Error("Produto não encontrado!");
+
+                        const pData = productDoc.data();
+                        const locacoes = pData.locacoes || [];
+                        const locacaoIndex = locacoes.findIndex(l => l.locacao === locacaoSelecionada);
+
+                        if (locacaoIndex === -1) {
+                            throw new Error("Locação selecionada não encontrada no produto.");
+                        }
+
+                        // A verificação do tipo de saída já foi feita, aqui só verificamos se movimenta estoque
+                        if (tipoSaidaConfig && tipoSaidaConfig.movimenta_estoque === true) {
+                            // Re-valida o estoque dentro da transação para segurança
+                            if ((locacoes[locacaoIndex].estoque || 0) < quantidade) {
+                               throw new Error(`Estoque insuficiente na locação ${locacaoSelecionada}! Disponível: ${locacoes[locacaoIndex].estoque || 0}`);
+                            }
+                            locacoes[locacaoIndex].estoque -= quantidade;
+                            transaction.update(productRef, { locacoes: locacoes });
+                        }
+
+                        const movementRef = doc(collection(db, 'movimentacoes'));
+                        transaction.set(movementRef, {
+                            tipo: 'saida',
+                            productId,
+                            locacao: locacaoSelecionada,
+                            quantidade,
+                            data: serverTimestamp(),
+                            tipo_saidaId: tipoSaidaId,
+                            requisitante: document.getElementById('mov-requisitante').value,
+                            obraId: document.getElementById('mov-obra').value,
+                            observacao: document.getElementById('mov-observacao').value,
+                            valorMedioHistorico: pData.valorMedio || 0
+                        });
+                    });
+                    alert('Saída registrada com sucesso!');
+
+                    // ATUALIZA O MAPA DE PRODUTOS LOCAL
+                    const productData = productsMap[productId];
+                    if (productData && productData.locacoes) {
+                        const locacaoIndex = productData.locacoes.findIndex(l => l.locacao === locacaoSelecionada);
+                        if (locacaoIndex !== -1) {
+                            productsMap[productId].locacoes[locacaoIndex].estoque -= quantidade;
+                        }
+                    }
+                    formMovimentacao.reset();
+                    handleToggleChange();
+                } catch (error) {
+                    console.error("Erro ao registrar saída:", error);
+                    showInfoModal(error.message);
+                }
             }
         }
     });
