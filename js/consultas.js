@@ -26,29 +26,35 @@ document.addEventListener('DOMContentLoaded', async function() {
             locais[doc.id] = doc.data();
         });
 
-        // 2. Mapeia os dados do produto DIRETAMENTE, sem cálculos.
+        // 2. Mapeia os dados do produto e calcula os valores derivados.
         consolidatedData = productsSnapshot.docs.map(productDoc => {
             const product = productDoc.data();
 
-            // 2.1. LÊ o saldo de estoque direto do produto.
-            const estoqueAtual = product.estoque || 0;
+            let estoqueAtual = 0;
+            let locacaoCompleta = 'N/A';
 
-            // 2.2. LÊ o valor médio direto do produto.
+            if (product.locacoes && Array.isArray(product.locacoes)) {
+                // Calcula o estoque total somando o estoque de cada locação
+                estoqueAtual = product.locacoes.reduce((acc, loc) => acc + (loc.estoque || 0), 0);
+
+                // Cria a string detalhada de locações para exibição
+                if (product.locacoes.length > 0) {
+                    locacaoCompleta = product.locacoes.map(loc => {
+                        const localNome = locais[loc.localId]?.nome || 'Desconhecido';
+                        return `${loc.locacao} (${localNome}) - <b>Estoque: ${loc.estoque || 0}</b>`;
+                    }).join('<br>');
+                }
+            }
+
             const valorMedio = product.valorMedio || 0;
-
-            // 2.3. Calcula o valor total apenas para exibição na tela.
             const valorTotalEstoque = estoqueAtual * valorMedio;
-
-            const localNome = locais[product.localId]?.nome || '';
-            const locacaoDesc = product.locacao || '';
-            const locacaoCompleta = [localNome, locacaoDesc].filter(Boolean).join(' - ') || 'N/A';
 
             return {
                 ...product,
                 estoque: estoqueAtual,
-                valorMedio, // Valor lido, não recalculado
-                valorTotalEstoque, // Valor calculado para exibição
-                local: locacaoCompleta
+                valorMedio,
+                valorTotalEstoque,
+                local: locacaoCompleta // Reutilizando a coluna 'local' para a nova string de locação
             };
         });
 

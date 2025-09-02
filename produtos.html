@@ -51,8 +51,6 @@
                             <input type="text" id="produto-descricao" placeholder="Descrição" required class="form-control">
                             <input type="text" id="produto-un" placeholder="UN Estocável" required class="form-control">
                             <input type="text" id="produto-cor" placeholder="Cor" class="form-control">
-                            <input type="text" id="produto-locacao" placeholder="Locação (Ex: Corredor A, Gôndola 5)" class="form-control">
-                            <select id="produto-local" required class="form-control"><option value="">Selecione o Local...</option></select>
                             <select id="produto-conversao" class="form-control">
                                 <option value="">Nenhuma conversão aplicada</option>
                             </select>
@@ -75,6 +73,12 @@
                                 <div class="multiselect-options">
                                     </div>
                             </div>
+
+                            <div id="locacoes-container" style="grid-column: 1 / -1; display: flex; flex-direction: column; gap: 10px; border-top: 1px solid #eee; padding-top: 15px; margin-top: 15px;">
+                                <!-- As locações dinâmicas serão adicionadas aqui -->
+                            </div>
+                            <button type="button" id="btn-add-locacao" class="btn" style="grid-column: 1 / -1; background-color: #6c757d; color: white;">Adicionar Locação</button>
+
                             <button type="submit" class="btn btn-success" style="grid-column: 1 / -1;">Salvar Produto</button>
                         </form>
                     </div>
