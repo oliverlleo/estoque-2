@@ -925,7 +925,6 @@ document.addEventListener('DOMContentLoaded', async function() {
     });
 
     async function loadInitialData() {
-        const productSelect = document.getElementById('mov-produto');
         const tipoEntradaSelect = document.getElementById('mov-tipo-entrada');
         const tipoSaidaSelect = document.getElementById('mov-tipo-saida');
         const obraSelect = document.getElementById('mov-obra');
@@ -933,12 +932,9 @@ document.addEventListener('DOMContentLoaded', async function() {
         const q = query(collection(db, 'produtos'), where("arquivado", "!=", true));
         const productsSnapshot = await getDocs(q);
         productsMap = {};
-        productSelect.innerHTML = '<option value="">Selecione o Produto...</option>';
         productsSnapshot.forEach(doc => {
              const product = doc.data();
              productsMap[doc.id] = { id: doc.id, ...product };
-             const optionText = `${product.codigo || 'S/C'} - ${product.descricao || 'N/A'}`.trim();
-             productSelect.innerHTML += `<option value="${doc.id}">${optionText}</option>`;
         });
 
         configData.tipos_entrada = await loadConfigToSelect(tipoEntradaSelect, 'tipos_entrada', 'nome');
