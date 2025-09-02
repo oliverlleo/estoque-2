@@ -18,29 +18,83 @@ document.addEventListener('DOMContentLoaded', async function() {
 
     const codigoInput = document.getElementById('produto-codigo');
     const productIdInput = document.getElementById('produto-id');
-    const locacaoInput = document.getElementById('produto-locacao');
+
+    let productsData = [];
+    const configData = {};
+
+    // --- Lógica para Múltiplas Locações ---
+    const btnAddLocacao = document.getElementById('btn-add-locacao');
+    const locacoesContainer = document.getElementById('locacoes-container');
+
+    const createLocacaoItem = (locacao = {}) => {
+        const locacaoItem = document.createElement('div');
+        locacaoItem.className = 'locacao-item';
+
+        const codigoInputEl = document.createElement('input');
+        codigoInputEl.type = 'text';
+        codigoInputEl.placeholder = 'Ex: 10-A-01-B';
+        codigoInputEl.className = 'form-control locacao-codigo-input';
+        codigoInputEl.pattern = '\\d{2}-[A-Za-z]-\\d{2}-[A-Za-z]';
+        codigoInputEl.title = 'Formato esperado: XX-L-XX-L (ex: 10-A-01-B)';
+        codigoInputEl.value = locacao.codigo || '';
+        codigoInputEl.required = true;
+
+        const localSelect = document.createElement('select');
+        localSelect.className = 'form-control locacao-local-select';
+        localSelect.required = true;
+
+        localSelect.innerHTML = `<option value="">Selecione o Local...</option>`;
+        for (const [id, local] of Object.entries(configData.locais)) {
+            const option = document.createElement('option');
+            option.value = id;
+            option.textContent = local.nome;
+            if (locacao.localId === id) {
+                option.selected = true;
+            }
+            localSelect.appendChild(option);
+        }
+
+        const removeBtn = document.createElement('button');
+        removeBtn.type = 'button';
+        removeBtn.textContent = 'Remover';
+        removeBtn.className = 'btn btn-danger btn-remove-locacao';
+        removeBtn.addEventListener('click', () => {
+            locacaoItem.remove();
+        });
+
+        locacaoItem.appendChild(codigoInputEl);
+        locacaoItem.appendChild(localSelect);
+        locacaoItem.appendChild(removeBtn);
+
+        locacoesContainer.appendChild(locacaoItem);
+    };
 
     function applyFilters() {
         const generalSearchTerm = filterInput.value.toLowerCase();
-        const locacaoSearchTerm = locacaoInput.value.toLowerCase();
 
         const filteredData = productsData.filter(product => {
+            if (generalSearchTerm === '') return true;
+
             const pData = product.data;
 
-            // Lógica do filtro geral (existente)
-            const matchesGeneral = generalSearchTerm === '' || Object.values(pData).some(value =>
-                String(value).toLowerCase().includes(generalSearchTerm)
-            );
+            const textToSearch = [
+                pData.codigo,
+                pData.descricao,
+                pData.un,
+                pData.cor,
+                configData.fornecedores[pData.fornecedorId]?.nome,
+                configData.grupos[pData.grupoId]?.nome,
+            ].join(' ').toLowerCase();
 
-            // Lógica do novo filtro de locação
-            // Reconstrói a string 'locacaoCompleta' da mesma forma que renderTable faz
-            const localNome = configData.locais[pData.localId]?.nome || '';
-            const locacaoDesc = pData.locacao || '';
-            const locacaoCompleta = [localNome, locacaoDesc].filter(Boolean).join(' - ').toLowerCase();
-            const matchesLocacao = locacaoSearchTerm === '' || locacaoCompleta.includes(locacaoSearchTerm);
+            const matchesGeneral = textToSearch.includes(generalSearchTerm);
 
-            // Retorna verdadeiro apenas se o produto corresponder a AMBOS os filtros
-            return matchesGeneral && matchesLocacao;
+            const matchesLocacao = pData.locacoes && pData.locacoes.some(loc => {
+                const localNome = configData.locais[loc.localId]?.nome || '';
+                const locacaoCompleta = `${localNome} - ${loc.codigo}`;
+                return locacaoCompleta.toLowerCase().includes(generalSearchTerm);
+            });
+
+            return matchesGeneral || matchesLocacao;
         });
 
         renderTable(filteredData);
@@ -51,19 +105,15 @@ document.addEventListener('DOMContentLoaded', async function() {
         const codigo = codigoInput.value.trim();
         const currentId = productIdInput.value;
 
-        // Se o campo estiver vazio, remove o estilo de erro e para a execução
         if (!codigo) {
             codigoInput.classList.remove('is-invalid');
             return;
         }
 
-        // Verifica se algum produto no array `productsData` tem o mesmo código,
-        // ignorando o próprio produto que está sendo editado (se for o caso).
         const isDuplicate = productsData.some(product =>
             product.data.codigo.toLowerCase() === codigo.toLowerCase() && product.id !== currentId
         );
 
-        // Adiciona ou remove a classe de erro com base no resultado
         if (isDuplicate) {
             codigoInput.classList.add('is-invalid');
         } else {
@@ -89,14 +139,8 @@ document.addEventListener('DOMContentLoaded', async function() {
             labelSobra.style.color = '#0d6efd';
             labelProduto.style.fontWeight = 'normal';
             labelProduto.style.color = '#6c757d';
-            // A chamada foi removida daqui
         }
     });
-
-    locacaoInput.addEventListener('input', applyFilters);
-
-    let productsData = [];
-    const configData = {};
 
     // 1. Fetch all configuration data for dropdowns and mapping
     const configCollections = [
@@ -138,9 +182,9 @@ document.addEventListener('DOMContentLoaded', async function() {
         conversaoSelect.innerHTML += `<option value="${doc.id}" title="${conversao.nome_regra}">${displayText}</option>`;
     });
 
+    btnAddLocacao.addEventListener('click', () => createLocacaoItem());
 
     const fileInput = document.getElementById('import-excel-input');
-    // Listener para quando um arquivo é selecionado
     fileInput.addEventListener('change', handleFileImport);
 
     function setupMultiSelect(containerId, items) {
@@ -149,7 +193,6 @@ document.addEventListener('DOMContentLoaded', async function() {
         const placeholder = container.querySelector('.multiselect-placeholder');
         const optionsContainer = container.querySelector('.multiselect-options');
 
-        // Limpa opções antigas e popula com as novas
         optionsContainer.innerHTML = '';
         const list = document.createElement('ul');
         for (const [id, data] of Object.entries(items)) {
@@ -159,12 +202,10 @@ document.addEventListener('DOMContentLoaded', async function() {
         }
         optionsContainer.appendChild(list);
 
-        // Lógica para abrir/fechar o dropdown
         displayArea.addEventListener('click', () => {
             optionsContainer.style.display = optionsContainer.style.display === 'block' ? 'none' : 'block';
         });
 
-        // Lógica para atualizar o texto do display
         optionsContainer.addEventListener('change', () => {
             const selected = optionsContainer.querySelectorAll('input[type="checkbox"]:checked');
             if (selected.length === 0) {
@@ -172,7 +213,7 @@ document.addEventListener('DOMContentLoaded', async function() {
                 placeholder.style.color = '';
             } else {
                 placeholder.textContent = `${selected.length} selecionado(s)`;
-                placeholder.style.color = '#212529'; // Cor de texto normal
+                placeholder.style.color = '#212529';
             }
         });
 
@@ -182,24 +223,21 @@ document.addEventListener('DOMContentLoaded', async function() {
                 optionsContainer.querySelectorAll('input').forEach(cb => {
                     cb.checked = ids.includes(cb.dataset.id);
                 });
-                optionsContainer.dispatchEvent(new Event('change')); // Força a atualização do texto
+                optionsContainer.dispatchEvent(new Event('change'));
             }
         };
     }
 
-    // Popula e configura o multi-select de Aplicação
     const aplicacoesSnapshot = await getDocs(collection(db, 'aplicacoes'));
     configData['aplicacoes'] = {};
     aplicacoesSnapshot.forEach(doc => configData['aplicacoes'][doc.id] = doc.data());
     const aplicacaoSelect = setupMultiSelect('multiselect-aplicacao', configData['aplicacoes']);
 
-    // Popula e configura o multi-select de Conjunto
     const conjuntosSnapshot = await getDocs(collection(db, 'conjuntos'));
     configData['conjuntos'] = {};
     conjuntosSnapshot.forEach(doc => configData['conjuntos'][doc.id] = doc.data());
     const conjuntoSelect = setupMultiSelect('multiselect-conjunto', configData['conjuntos']);
 
-    // Fechar os dropdowns se clicar fora deles
     window.addEventListener('click', function(e) {
         if (!document.getElementById('multiselect-aplicacao').contains(e.target)) {
             document.querySelector('#multiselect-aplicacao .multiselect-options').style.display = 'none';
@@ -210,7 +248,6 @@ document.addEventListener('DOMContentLoaded', async function() {
     });
 
     function populateSobraSelect() {
-        // Guarda a opção "selecione" e limpa o resto
         const firstOption = selectSobraOriginal.options[0];
         selectSobraOriginal.innerHTML = '';
         selectSobraOriginal.appendChild(firstOption);
@@ -232,13 +269,18 @@ document.addEventListener('DOMContentLoaded', async function() {
         if (selectedId) {
             const product = productsData.find(p => p.id === selectedId);
             if (product) {
-                const localNome = configData.locais[product.data.localId]?.nome || '';
-                const locacaoDesc = product.data.locacao || '';
+                let locacaoCompleta = 'N/A';
+                if (product.data.locacoes && Array.isArray(product.data.locacoes) && product.data.locacoes.length > 0) {
+                    locacaoCompleta = product.data.locacoes.map(loc => {
+                        const localNome = configData.locais[loc.localId]?.nome || 'Local desconhecido';
+                        return `${localNome} - ${loc.codigo}`;
+                    }).join(', ');
+                }
 
                 displayInfo.codigo = product.data.codigo;
                 displayInfo.descricao = product.data.descricao;
                 displayInfo.un = product.data.un;
-                displayInfo.locacao = [localNome, locacaoDesc].filter(Boolean).join(' - ') || 'N/A';
+                displayInfo.locacao = locacaoCompleta;
             }
         }
         document.getElementById('sobra-codigo-display').textContent = displayInfo.codigo;
@@ -265,7 +307,6 @@ document.addEventListener('DOMContentLoaded', async function() {
                 throw new Error('Produto original não encontrado.');
             }
 
-            // --- ETAPA 1: Calcular o Valor Médio da Peça Original (PAI) ---
             const movementsSnapshot = await getDocs(collection(db, 'movimentacoes'));
             const productMovements = movementsSnapshot.docs
                 .map(doc => doc.data())
@@ -283,7 +324,6 @@ document.addEventListener('DOMContentLoaded', async function() {
                 throw new Error('Não foi possível calcular o custo do produto original. Verifique se ele possui movimentações de entrada com custo.');
             }
 
-            // --- ETAPA 2: Buscar a Regra de Conversão para achar a dimensão padrão ---
             if (!originalProductData.conversaoId) {
                 throw new Error('O produto original não possui uma regra de conversão associada. Não é possível calcular o custo proporcional.');
             }
@@ -294,18 +334,15 @@ document.addEventListener('DOMContentLoaded', async function() {
             }
             const conversaoData = conversaoSnap.data();
 
-            // --- ETAPA 3: Calcular o Custo Proporcional da Sobra ---
             const qtdCompra = parseFloat(String(conversaoData.qtd_compra).replace(',', '.'));
-            const medidaCompra = conversaoData.medida_compra.toLowerCase(); // ex: 'm'
+            const medidaCompra = conversaoData.medida_compra.toLowerCase();
             let dimensaoPadraoNaUnidadeSobra = qtdCompra;
 
-            // Converte a dimensão padrão para a mesma unidade da sobra (assumindo mm)
             if (medidaCompra === 'm') {
-                dimensaoPadraoNaUnidadeSobra *= 1000; // m para mm
+                dimensaoPadraoNaUnidadeSobra *= 1000;
             } else if (medidaCompra === 'cm') {
-                dimensaoPadraoNaUnidadeSobra *= 10; // cm para mm
+                dimensaoPadraoNaUnidadeSobra *= 10;
             }
-            // Adicionar outras conversões se necessário
 
             if (dimensaoPadraoNaUnidadeSobra <= 0) {
                 throw new Error('A dimensão padrão na regra de conversão é inválida.');
@@ -313,13 +350,12 @@ document.addEventListener('DOMContentLoaded', async function() {
 
             const custoProporcionalDaSobra = (medidaSobra / dimensaoPadraoNaUnidadeSobra) * custoMedioDaPecaOriginal;
 
-            // --- ETAPA 4: Executar a Criação em uma Transação ---
             await runTransaction(db, async (transaction) => {
                 const newSobraProductData = {
                     ...originalProductData,
                     codigo: `${originalProductData.codigo}-S${medidaSobraStr}`,
                     medida_sobra: medidaSobraStr,
-                    estoque: 1,
+                    estoque: 1, // Estoque legado, pode ser removido no futuro
                 };
                 delete newSobraProductData.id;
 
@@ -333,9 +369,16 @@ document.addEventListener('DOMContentLoaded', async function() {
                     quantidade: 1,
                     custo_total_entrada: custoProporcionalDaSobra,
                     data: serverTimestamp(),
-                    observacao: `Entrada de sobra proporcional do produto ${originalProductData.codigo}`
+                    observacao: `Entrada de sobra proporcional do produto ${originalProductData.codigo}`,
+                    locacaoCodigo: newSobraProductData.locacoes[0]?.codigo || 'N/A' // Pega a primeira locação
                 };
                 transaction.set(newMovementRef, movementData);
+
+                // Cria o estoque na subcoleção
+                if (newSobraProductData.locacoes && newSobraProductData.locacoes.length > 0) {
+                    const estoqueRef = doc(db, 'produtos', newProductRef.id, 'estoquePorLocacao', newSobraProductData.locacoes[0].codigo);
+                    transaction.set(estoqueRef, { quantidade: 1 });
+                }
             });
 
             alert(`Sobra cadastrada com sucesso! Custo proporcional calculado: R$ ${custoProporcionalDaSobra.toFixed(2)}`);
@@ -348,47 +391,51 @@ document.addEventListener('DOMContentLoaded', async function() {
         }
     });
 
-
-    // 2. Handle Product Form Submission (Create/Update)
     form.addEventListener('submit', async (e) => {
         e.preventDefault();
 
-        // --- BLOQUEIO DE SUBMISSÃO ---
-        // Se o campo de código está marcado como inválido, exibe um alerta e impede o envio.
         if (codigoInput.classList.contains('is-invalid')) {
             alert('O código do produto já existe. Por favor, insira um código único.');
-            return; // Impede a continuação do processo de salvar
+            return;
         }
 
         const productId = document.getElementById('produto-id').value;
+        const newCode = document.getElementById('produto-codigo').value;
+        const isDuplicate = productsData.some(
+            product => product.data.codigo.toLowerCase() === newCode.toLowerCase() && product.id !== productId
+        );
 
-        // --- INÍCIO DA VALIDAÇÃO DE CÓDIGO DUPLICADO ---
-        if (!productId) { // Executa a validação apenas se for um NOVO produto
-            const newCode = document.getElementById('produto-codigo').value;
-            const isDuplicate = productsData.some(
-                product => product.data.codigo.toLowerCase() === newCode.toLowerCase()
-            );
-
-            if (isDuplicate) {
-                alert(`Erro: O código "${newCode}" já está cadastrado. Por favor, utilize outro código.`);
-                return; // Interrompe a execução da função e não salva o produto
-            }
+        if (isDuplicate) {
+            alert(`Erro: O código "${newCode}" já está cadastrado.`);
+            return;
         }
-        // --- FIM DA VALIDAÇÃO DE CÓDIGO DUPLICADO ---
+
+        const locacoes = [];
+        document.querySelectorAll('#locacoes-container .locacao-item').forEach(item => {
+            const codigo = item.querySelector('.locacao-codigo-input').value.trim();
+            const localId = item.querySelector('.locacao-local-select').value;
+            if (codigo && localId) {
+                locacoes.push({ codigo, localId });
+            }
+        });
+
+        if (locacoes.length === 0) {
+            alert('Adicione pelo menos uma locação para o produto.');
+            return;
+        }
 
         const product = {
-            codigo: document.getElementById('produto-codigo').value,
+            codigo: newCode,
             descricao: document.getElementById('produto-descricao').value,
             un: document.getElementById('produto-un').value,
             cor: document.getElementById('produto-cor').value,
-            locacao: document.getElementById('produto-locacao').value,
-            localId: document.getElementById('produto-local').value,
+            locacoes: locacoes,
             fornecedorId: document.getElementById('produto-fornecedor').value,
             grupoId: document.getElementById('produto-grupo').value,
             aplicacaoIds: aplicacaoSelect.getSelectedIds(),
             conjuntoIds: conjuntoSelect.getSelectedIds(),
             conversaoId: document.getElementById('produto-conversao').value,
-            arquivado: false // <-- ADICIONE ESTA LINHA
+            arquivado: false
         };
 
         try {
@@ -401,9 +448,12 @@ document.addEventListener('DOMContentLoaded', async function() {
             }
             form.reset();
             document.getElementById('produto-id').value = '';
-            codigoInput.classList.remove('is-invalid'); // Garante que o campo fique limpo
-            filterInput.value = ''; // Limpa o filtro geral na caixa de pesquisa da tabela
-            applyFilters(); // Re-aplica os filtros (agora vazios) para mostrar a tabela completa
+            locacoesContainer.innerHTML = '';
+            aplicacaoSelect.setSelectedIds([]);
+            conjuntoSelect.setSelectedIds([]);
+            codigoInput.classList.remove('is-invalid');
+            filterInput.value = '';
+            applyFilters();
 
         } catch (error) {
             console.error("Erro ao salvar produto:", error);
@@ -419,9 +469,15 @@ document.addEventListener('DOMContentLoaded', async function() {
 
             const fornecedor = configData.fornecedores[pData.fornecedorId]?.nome || 'N/A';
             const grupo = configData.grupos[pData.grupoId]?.nome || 'N/A';
-            const localNome = configData.locais[pData.localId]?.nome || '';
-            const locacaoDesc = pData.locacao || '';
-            const locacaoCompleta = [localNome, locacaoDesc].filter(Boolean).join(' - ') || 'N/A';
+
+            let locacaoCompleta = 'N/A';
+            if (pData.locacoes && Array.isArray(pData.locacoes) && pData.locacoes.length > 0) {
+                locacaoCompleta = pData.locacoes.map(loc => {
+                    const localNome = configData.locais[loc.localId]?.nome || 'Desconhecido';
+                    return `${localNome} - ${loc.codigo}`;
+                }).join(', ');
+            }
+
             const aplicacoesNomes = (pData.aplicacaoIds || [])
                 .map(id => configData.aplicacoes[id]?.nome || 'N/A')
                 .join(', ');
@@ -442,16 +498,13 @@ document.addEventListener('DOMContentLoaded', async function() {
         });
     };
 
-    // 4. Listen for real-time updates
     const q = query(collection(db, 'produtos'), where("arquivado", "!=", true));
     onSnapshot(q, (snapshot) => {
         productsData = snapshot.docs.map(doc => ({ id: doc.id, data: doc.data() }));
-        renderTable(productsData);
+        applyFilters();
         populateSobraSelect();
     });
 
-
-    // Listener para o botão de importar (que aciona o input de arquivo)
     document.getElementById('btn-importar-excel').addEventListener('click', (e) => { e.preventDefault(); fileInput.click(); });
     document.getElementById('btn-exportar-modelo').addEventListener('click', (e) => { e.preventDefault(); exportarModeloExcel(); });
 
@@ -459,7 +512,6 @@ document.addEventListener('DOMContentLoaded', async function() {
     const btnExcluirSelecionados = document.getElementById('btn-excluir-selecionados');
     const checkboxMestre = document.getElementById('checkbox-mestre');
 
-    // Lógica para o checkbox mestre (selecionar todos)
     checkboxMestre.addEventListener('change', (e) => {
         const isChecked = e.target.checked;
         document.querySelectorAll('.produto-checkbox').forEach(checkbox => {
@@ -467,7 +519,6 @@ document.addEventListener('DOMContentLoaded', async function() {
         });
     });
 
-    // Lógica para atualizar o checkbox mestre quando um item é clicado individualmente
     tableBody.addEventListener('change', (e) => {
         if (e.target.classList.contains('produto-checkbox')) {
             const todosCheckboxes = document.querySelectorAll('.produto-checkbox');
@@ -486,7 +537,6 @@ document.addEventListener('DOMContentLoaded', async function() {
         }
     });
 
-    // Listener para o botão EXCLUIR SELECIONADOS
     btnExcluirSelecionados.addEventListener('click', async () => {
         const checkboxesMarcados = document.querySelectorAll('.produto-checkbox:checked');
         if (checkboxesMarcados.length === 0) {
@@ -504,7 +554,7 @@ document.addEventListener('DOMContentLoaded', async function() {
             try {
                 await Promise.all(promises);
                 alert(`${promises.length} produto(s) arquivado(s) com sucesso!`);
-                checkboxMestre.checked = false; // Desmarca o checkbox mestre
+                checkboxMestre.checked = false;
             } catch (error) {
                 alert(`Erro ao arquivar produtos: ${error.message}`);
                 console.error("Erro ao arquivar em lote:", error);
@@ -512,7 +562,6 @@ document.addEventListener('DOMContentLoaded', async function() {
         }
     });
 
-    // Listener para o botão EDITAR SELECIONADO
     btnEditarSelecionado.addEventListener('click', () => {
         const checkboxesMarcados = document.querySelectorAll('.produto-checkbox:checked');
         if (checkboxesMarcados.length !== 1) {
@@ -524,20 +573,22 @@ document.addEventListener('DOMContentLoaded', async function() {
         const product = productsData.find(p => p.id === id);
 
         if (product) {
-            // Reutiliza a mesma lógica de preenchimento do formulário que já existia
+            locacoesContainer.innerHTML = '';
             document.getElementById('produto-id').value = product.id;
             document.getElementById('produto-codigo').value = product.data.codigo;
             document.getElementById('produto-descricao').value = product.data.descricao;
             document.getElementById('produto-un').value = product.data.un;
             document.getElementById('produto-cor').value = product.data.cor;
-            document.getElementById('produto-locacao').value = product.data.locacao || '';
-            document.getElementById('produto-local').value = product.data.localId;
             document.getElementById('produto-fornecedor').value = product.data.fornecedorId;
             document.getElementById('produto-grupo').value = product.data.grupoId;
             document.getElementById('produto-conversao').value = product.data.conversaoId || "";
 
             aplicacaoSelect.setSelectedIds(product.data.aplicacaoIds);
             conjuntoSelect.setSelectedIds(product.data.conjuntoIds);
+
+            if (product.data.locacoes && Array.isArray(product.data.locacoes)) {
+                product.data.locacoes.forEach(loc => createLocacaoItem(loc));
+            }
 
             form.scrollIntoView({ behavior: 'smooth' });
         }
@@ -546,7 +597,7 @@ document.addEventListener('DOMContentLoaded', async function() {
     filterInput.addEventListener('input', applyFilters);
 
     document.getElementById('btn-gerar-etiquetas').addEventListener('click', (e) => {
-        e.preventDefault(); // Previne o comportamento padrão do link
+        e.preventDefault();
 
         const checkboxesMarcados = document.querySelectorAll('.produto-checkbox:checked');
         if (checkboxesMarcados.length === 0) {
@@ -555,14 +606,17 @@ document.addEventListener('DOMContentLoaded', async function() {
 
         const idsSelecionados = Array.from(checkboxesMarcados).map(cb => cb.dataset.id);
 
-        // Filtra os dados dos produtos com base nos IDs selecionados
         const dadosParaEtiqueta = productsData
             .filter(product => idsSelecionados.includes(product.id))
             .map(product => {
                 const pData = product.data;
-                const localNome = configData.locais[pData.localId]?.nome || '';
-                const locacaoDesc = pData.locacao || '';
-                const locacaoCompleta = [localNome, locacaoDesc].filter(Boolean).join(' - ') || 'N/A';
+                let locacaoCompleta = 'N/A';
+                if (pData.locacoes && Array.isArray(pData.locacoes) && pData.locacoes.length > 0) {
+                    locacaoCompleta = pData.locacoes.map(loc => {
+                        const localNome = configData.locais[loc.localId]?.nome || 'Desconhecido';
+                        return `${localNome} - ${loc.codigo}`;
+                    }).join(', ');
+                }
 
                 return {
                     id: product.id,
@@ -581,25 +635,20 @@ document.addEventListener('DOMContentLoaded', async function() {
     const dropdownContainer = document.querySelector('.dropdown');
 
     dropdownBtn.addEventListener('click', (e) => {
-        e.stopPropagation(); // Impede que o clique se propague para o window
+        e.stopPropagation();
         dropdownContainer.classList.toggle('active');
     });
 
-    // Fecha o dropdown se o usuário clicar em qualquer outro lugar da tela
     window.addEventListener('click', () => {
         if (dropdownContainer.classList.contains('active')) {
             dropdownContainer.classList.remove('active');
         }
     });
 
-    // --- Seletores para o Modal de Progresso ---
     const progressModal = document.getElementById('import-progress-modal');
     const progressMessage = document.getElementById('import-progress-message');
     const progressBar = document.getElementById('import-progress-bar');
 
-    /**
-     * Função auxiliar genérica para encontrar ID de documentos em coleções simples.
-     */
     async function findIdByName(collectionName, fieldName, value, cache) {
         if (!value) return null;
         const lowerCaseValue = String(value).trim().toLowerCase();
@@ -614,36 +663,18 @@ document.addEventListener('DOMContentLoaded', async function() {
         return found ? found.id : null;
     }
 
-    /**
-     * Função especialista e robusta para encontrar o ID da regra de conversão.
-     * Tenta encontrar pelo nome da regra OU pela fórmula.
-     */
     function findConversaoId(valorPlanilha, todasConversoes) {
         if (!valorPlanilha) return null;
-
-        // Função de normalização agressiva
         const normalize = (str) => String(str).toLowerCase().replace(/,/g, '.').replace(/[^a-z0-9.]/g, '');
-
         const valorNormalizado = normalize(valorPlanilha);
-
         for (const conv of todasConversoes) {
-            // 1. Tenta pelo nome da regra
-            if (normalize(conv.nome_regra) === valorNormalizado) {
-                return conv.id;
-            }
-            // 2. Tenta pela fórmula
+            if (normalize(conv.nome_regra) === valorNormalizado) return conv.id;
             const formula = `${conv.qtd_compra}${conv.medida_compra}X${conv.qtd_padrao}${conv.medida_padrao}`;
-            if (normalize(formula) === valorNormalizado) {
-                return conv.id;
-            }
+            if (normalize(formula) === valorNormalizado) return conv.id;
         }
-
-        return null; // Retorna null se não encontrar por nenhum método
+        return null;
     }
 
-    /**
-     * Função principal de importação, agora usando a lógica robusta.
-     */
     async function handleFileImport(event) {
         const file = event.target.files[0];
         if (!file) return;
@@ -663,7 +694,6 @@ document.addEventListener('DOMContentLoaded', async function() {
 
             progressModal.style.display = 'block';
 
-            // Pré-carrega todos os dados necessários para evitar múltiplas leituras do DB
             const cache = {};
             const collectionsToCache = ['fornecedores', 'grupos', 'aplicacoes', 'conjuntos', 'locais', 'conversoes'];
             for (const name of collectionsToCache) {
@@ -688,15 +718,20 @@ document.addEventListener('DOMContentLoaded', async function() {
 
                     const fornecedorId = await findIdByName('fornecedores', 'nome', row.fornecedor_nome, cache);
                     const grupoId = await findIdByName('grupos', 'nome', row.grupo_nome, cache);
-                    const localId = await findIdByName('locais', 'nome', row.local_nome, cache);
 
                     const aplicacaoNomes = row.aplicacao_nome || row.aplicacoes || '';
-                    const aplicacaoIds = aplicacaoNomes ? (await Promise.all(aplicacaoNomes.split(',').map(name => findIdByName('aplicacoes', 'nome', name, cache)))) .filter(Boolean) : [];
+                    const aplicacaoIds = aplicacaoNomes ? (await Promise.all(aplicacaoNomes.split(',').map(name => findIdByName('aplicacoes', 'nome', name, cache)))).filter(Boolean) : [];
 
                     const conjuntoNomes = row.conjunto_nome || row.conjuntos || '';
-                    const conjuntoIds = conjuntoNomes ? (await Promise.all(conjuntoNomes.split(',').map(name => findIdByName('conjuntos', 'nome', name, cache)))) .filter(Boolean) : [];
+                    const conjuntoIds = conjuntoNomes ? (await Promise.all(conjuntoNomes.split(',').map(name => findIdByName('conjuntos', 'nome', name, cache)))).filter(Boolean) : [];
 
                     if (!row.codigo || !row.descricao) throw new Error(`Linha ${i + 2} não tem código ou descrição.`);
+
+                    const localId = await findIdByName('locais', 'nome', row.local_nome, cache);
+                    const locacoes = [];
+                    if (localId && row.locacao) {
+                        locacoes.push({ codigo: row.locacao, localId: localId });
+                    }
 
                     const product = {
                         codigo: row.codigo,
@@ -707,8 +742,7 @@ document.addEventListener('DOMContentLoaded', async function() {
                         grupoId: grupoId || "",
                         aplicacaoIds: aplicacaoIds || [],
                         conjuntoIds: conjuntoIds || [],
-                        localId: localId || "",
-                        locacao: row.locacao || "",
+                        locacoes: locacoes,
                         conversaoId: conversaoId || "",
                         arquivado: false
                     };
@@ -721,7 +755,7 @@ document.addEventListener('DOMContentLoaded', async function() {
                     errors.push(`Erro na linha ${i + 2} (Código '${row.codigo || "N/A"}'): ${error.message}`);
                 }
 
-                await new Promise(resolve => setTimeout(resolve, 10)); // pequena pausa
+                await new Promise(resolve => setTimeout(resolve, 10));
             }
 
             progressModal.style.display = 'none';
@@ -738,17 +772,15 @@ document.addEventListener('DOMContentLoaded', async function() {
     }
 });
 
-// Substitua a função exportarModeloExcel antiga por esta
 async function exportarModeloExcel() {
     alert("Gerando modelo inteligente... Por favor, aguarde.");
     try {
-        // 1. Buscar todos os dados necessários do Firestore em paralelo
         const dataSources = {
             fornecedores: { collectionName: 'fornecedores', field: 'nome' },
             grupos: { collectionName: 'grupos', field: 'nome' },
             aplicacoes: { collectionName: 'aplicacoes', field: 'nome' },
             conjuntos: { collectionName: 'conjuntos', field: 'nome' },
-            enderecamentos: { collectionName: 'enderecamentos', field: 'codigo' },
+            locais: { collectionName: 'locais', field: 'nome' },
             conversoes: { collectionName: 'conversoes', field: 'nome_regra' }
         };
 
@@ -760,40 +792,36 @@ async function exportarModeloExcel() {
         });
         await Promise.all(promises);
 
-        // 2. Criar um novo Workbook (arquivo Excel)
         const workbook = XLSX.utils.book_new();
 
-        // 3. Criar e adicionar as abas de dados (que ficarão ocultas)
         Object.keys(fetchedData).forEach(key => {
             const sheetName = `_dados_${key}`;
-            const data = fetchedData[key].map(item => [item]); // SheetJS espera um array de arrays
+            const data = fetchedData[key].map(item => [item]);
             if (data.length > 0) {
                 const dataSheet = XLSX.utils.aoa_to_sheet(data);
                 XLSX.utils.book_append_sheet(workbook, dataSheet, sheetName);
             }
         });
 
-        // 4. Criar a aba principal de "Produtos"
-        const headers = ["codigo", "descricao", "un", "cor", "fornecedor_nome", "grupo_nome", "aplicacao_nome", "conjunto_nome", "enderecamento_codigo", "conversao_nome_regra"];
+        const headers = ["codigo", "descricao", "un", "cor", "fornecedor_nome", "grupo_nome", "aplicacao_nome", "conjunto_nome", "local_nome", "locacao", "conversao_nome_regra"];
         const mainSheet = XLSX.utils.json_to_sheet([{}], { header: headers });
 
-        // 5. Adicionar a "Validação de Dados" (Dropdowns)
         const validations = [
-            { col: 'F', source: '_dados_fornecedores' }, // fornecedor_nome
-            { col: 'G', source: '_dados_grupos' },       // grupo_nome
-            { col: 'H', source: '_dados_aplicacoes' },   // aplicacao_nome
-            { col: 'I', source: '_dados_conjuntos' },    // conjunto_nome
-            { col: 'J', source: '_dados_enderecamentos' },// enderecamento_codigo
-            { col: 'K', source: '_dados_conversoes' }     // conversao_nome_regra
+            { col: 'E', source: '_dados_fornecedores' },
+            { col: 'F', source: '_dados_grupos' },
+            { col: 'G', source: '_dados_aplicacoes' },
+            { col: 'H', source: '_dados_conjuntos' },
+            { col: 'I', source: '_dados_locais' },
+            { col: 'K', source: '_dados_conversoes' }
         ];
 
-        const numRowsToApplyValidation = 1000; // Aplicar validação para 1000 linhas
+        const numRowsToApplyValidation = 1000;
         mainSheet['!dataValidations'] = [];
 
         validations.forEach(v => {
-            if (workbook.SheetNames.includes(v.source)) { // Apenas adiciona validação se a aba de dados existir
+            if (workbook.SheetNames.includes(v.source)) {
                 mainSheet['!dataValidations'].push({
-                    sqref: `${v.col}2:${v.col}${numRowsToApplyValidation}`, // Ex: F2:F1000
+                    sqref: `${v.col}2:${v.col}${numRowsToApplyValidation}`,
                     validation: {
                         type: 'list',
                         allowBlank: true,
@@ -806,7 +834,6 @@ async function exportarModeloExcel() {
 
         XLSX.utils.book_append_sheet(workbook, mainSheet, "Produtos");
 
-        // 6. Opcional: Ocultar as abas de dados
         Object.keys(fetchedData).forEach(key => {
             const sheetName = `_dados_${key}`;
             if(workbook.Sheets[sheetName]) {
@@ -814,7 +841,6 @@ async function exportarModeloExcel() {
             }
         });
 
-        // 7. Forçar o download do arquivo
         XLSX.writeFile(workbook, "modelo_importacao_produtos_inteligente.xlsx");
 
     } catch (error) {

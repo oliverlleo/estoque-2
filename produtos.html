@@ -51,8 +51,14 @@
                             <input type="text" id="produto-descricao" placeholder="Descrição" required class="form-control">
                             <input type="text" id="produto-un" placeholder="UN Estocável" required class="form-control">
                             <input type="text" id="produto-cor" placeholder="Cor" class="form-control">
-                            <input type="text" id="produto-locacao" placeholder="Locação (Ex: Corredor A, Gôndola 5)" class="form-control">
-                            <select id="produto-local" required class="form-control"><option value="">Selecione o Local...</option></select>
+                            <div class="form-section" style="grid-column: 1 / -1;">
+                                <div class="form-section-header">
+                                    <h4>Locações de Estoque</h4>
+                                    <button type="button" id="btn-add-locacao" class="btn">Adicionar Locação</button>
+                                </div>
+                                <div id="locacoes-container">
+                                </div>
+                            </div>
                             <select id="produto-conversao" class="form-control">
                                 <option value="">Nenhuma conversão aplicada</option>
                             </select>

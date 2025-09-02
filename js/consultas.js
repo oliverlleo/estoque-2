@@ -1,5 +1,5 @@
 import { db } from './firebase-config.js';
-import { collection, getDocs, doc, updateDoc, query, where } from "https://www.gstatic.com/firebasejs/9.6.1/firebase-firestore.js";
+import { collection, getDocs, query, where } from "https://www.gstatic.com/firebasejs/9.6.1/firebase-firestore.js";
 
 document.addEventListener('DOMContentLoaded', async function() {
     console.log("Página de Consultas carregada.");
@@ -13,9 +13,7 @@ document.addEventListener('DOMContentLoaded', async function() {
 
     let consolidatedData = [];
 
-    // Substitua a função inteira em js/consultas.js por esta versão definitiva:
     async function fetchDataAndCalculate() {
-        // 1. Busca apenas as fontes de dados essenciais: produtos e locais.
         const [productsSnapshot, locaisSnapshot] = await Promise.all([
             getDocs(query(collection(db, 'produtos'), where("arquivado", "!=", true))),
             getDocs(collection(db, 'locais'))
@@ -26,54 +24,69 @@ document.addEventListener('DOMContentLoaded', async function() {
             locais[doc.id] = doc.data();
         });
 
-        // 2. Mapeia os dados do produto DIRETAMENTE, sem cálculos.
-        consolidatedData = productsSnapshot.docs.map(productDoc => {
+        const productPromises = productsSnapshot.docs.map(async (productDoc) => {
             const product = productDoc.data();
+            const productId = productDoc.id;
 
-            // 2.1. LÊ o saldo de estoque direto do produto.
-            const estoqueAtual = product.estoque || 0;
+            const estoqueSnapshot = await getDocs(collection(db, 'produtos', productId, 'estoquePorLocacao'));
 
-            // 2.2. LÊ o valor médio direto do produto.
+            let estoqueAtual = 0;
+            const locacoesComEstoque = [];
+
+            if (!estoqueSnapshot.empty) {
+                estoqueSnapshot.forEach(estoqueDoc => {
+                    const estoqueData = estoqueDoc.data();
+                    const quantidade = estoqueData.quantidade || 0;
+
+                    if (quantidade > 0) {
+                        estoqueAtual += quantidade;
+                        const locacaoCodigo = estoqueDoc.id;
+                        const locacaoInfo = product.locacoes?.find(l => l.codigo === locacaoCodigo);
+                        const localNome = locacaoInfo ? (locais[locacaoInfo.localId]?.nome || 'Desconhecido') : 'Desconhecido';
+                        locacoesComEstoque.push(`${localNome} - ${locacaoCodigo} (${quantidade})`);
+                    }
+                });
+            }
+
             const valorMedio = product.valorMedio || 0;
-
-            // 2.3. Calcula o valor total apenas para exibição na tela.
             const valorTotalEstoque = estoqueAtual * valorMedio;
-
-            const localNome = locais[product.localId]?.nome || '';
-            const locacaoDesc = product.locacao || '';
-            const locacaoCompleta = [localNome, locacaoDesc].filter(Boolean).join(' - ') || 'N/A';
 
             return {
                 ...product,
+                id: productId,
                 estoque: estoqueAtual,
-                valorMedio, // Valor lido, não recalculado
-                valorTotalEstoque, // Valor calculado para exibição
-                local: locacaoCompleta
+                valorMedio,
+                valorTotalEstoque,
+                locacoesComEstoque: locacoesComEstoque.length > 0 ? locacoesComEstoque : ['Sem estoque']
             };
         });
 
-        // 3. Renderiza a tabela. A função agora é 100% "read-only".
+        consolidatedData = await Promise.all(productPromises);
         renderTable(consolidatedData);
     }
 
     function renderTable(data) {
         tableBody.innerHTML = '';
         data.forEach(item => {
+            // Only render items that have stock
+            if (item.estoque <= 0) return;
+
             const row = document.createElement('tr');
             row.className = 'main-row';
-            // Dentro da função renderTable em js/consultas.js
+
+            const locacoesHtml = item.locacoesComEstoque.join('<br>');
+
             row.innerHTML = `
                 <td>${item.codigo}</td>
                 <td>${item.descricao}</td>
-                <td>${item.estoque || 0}</td>
+                <td>${item.estoque}</td>
                 <td>${item.un}</td>
                 <td>${(item.valorMedio || 0).toFixed(2)}</td>
                 <td>${(item.valorTotalEstoque || 0).toFixed(2)}</td>
-                <td>${item.local}</td>
+                <td>${locacoesHtml}</td>
             `;
             tableBody.appendChild(row);
         });
-        feather.replace();
     }
 
     function applyFilters() {
@@ -86,7 +99,8 @@ document.addEventListener('DOMContentLoaded', async function() {
         const filteredData = consolidatedData.filter(item => {
             const matchesCodigo = (item.codigo || '').toLowerCase().includes(filterValues.codigo);
             const matchesDescricao = (item.descricao || '').toLowerCase().includes(filterValues.descricao);
-            const matchesLocal = (item.local || '').toLowerCase().includes(filterValues.local);
+            const matchesLocal = item.locacoesComEstoque.some(locStr => locStr.toLowerCase().includes(filterValues.local));
+
             return matchesCodigo && matchesDescricao && matchesLocal;
         });
 
@@ -97,6 +111,6 @@ document.addEventListener('DOMContentLoaded', async function() {
 
     fetchDataAndCalculate().catch(error => {
         console.error("Erro ao carregar dados da consulta:", error);
-        tableBody.innerHTML = `<tr><td colspan="10" style="text-align:center; color: red;">Erro ao carregar dados: ${error.message}</td></tr>`;
+        tableBody.innerHTML = `<tr><td colspan="7" style="text-align:center; color: red;">Erro ao carregar dados: ${error.message}</td></tr>`;
     });
 });

@@ -988,3 +988,31 @@ input:checked + .slider:before {
     border: none;
     text-align: left;
 }
+
+.form-section {
+    border-top: 2px solid #e9ecef;
+    padding-top: 15px;
+    margin-top: 15px;
+}
+.form-section-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 15px;
+}
+.form-section-header h4 {
+    margin: 0;
+}
+#locacoes-container .locacao-item {
+    display: grid;
+    grid-template-columns: 1fr 1fr auto;
+    gap: 10px;
+    align-items: center;
+    margin-bottom: 10px;
+    padding: 10px;
+    background-color: #f8f9fa;
+    border-radius: 4px;
+}
+.locacao-codigo-input:invalid {
+    border-color: #dc3545;
+}
