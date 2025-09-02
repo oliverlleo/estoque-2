@@ -33,9 +33,10 @@
                 <div class="card-header">
                     <div style="display: flex; justify-content: space-between; align-items: center;">
                         <h3>Registrar Movimentação</h3>
-                        <div style="display: flex; align-items: center; gap: 20px;">
+                        <div style="display: flex; align-items: center; gap: 10px;">
                             <button id="btn-importar-xml" class="btn" style="background-color: #0d6efd;">Importar NF-e (XML)</button>
-                            <div class="toggle-container">
+                            <button id="btn-transferencia" class="btn" style="background-color: #ffc107; display: none;">Transferência Local</button>
+                            <div class="toggle-container" style="margin-left: 10px;">
                                 <span id="toggle-label-saida" style="font-weight: bold; color: #dc3545;">Saída</span>
                                 <label class="toggle-switch">
                                     <input type="checkbox" id="movement-toggle">
@@ -118,6 +119,53 @@
             </div>
         </section>
     </main>
+
+    <div id="transferencia-modal" class="modal">
+        <div class="modal-content" style="max-width: 800px;">
+            <div class="modal-header">
+                <h3>Transferência de Estoque Entre Locais</h3>
+                <span class="close-button" id="transferencia-modal-close">&times;</span>
+            </div>
+            <div class="modal-body">
+                <form id="form-transferencia">
+                    <div class="form-grid-2-col">
+                        <div style="grid-column: 1 / -1;">
+                            <label for="transf-produto">Selecione o Produto</label>
+                            <select id="transf-produto" required class="form-control">
+                                <option value="">Selecione...</option>
+                            </select>
+                        </div>
+
+                        <p class="auto-filled-field"><strong>Código:</strong> <span id="transf-codigo-display">-</span></p>
+                        <p class="auto-filled-field"><strong>Descrição:</strong> <span id="transf-descricao-display">-</span></p>
+
+                        <div>
+                            <label for="transf-locacao-origem">Locação de Origem</label>
+                            <select id="transf-locacao-origem" required class="form-control" disabled>
+                                <option value="">Selecione a origem...</option>
+                            </select>
+                        </div>
+
+                        <p class="auto-filled-field"><strong>Estoque na Origem:</strong> <span id="transf-estoque-origem-display">0</span></p>
+
+                        <div>
+                            <label for="transf-quantidade">Quantidade a Transferir</label>
+                            <input type="number" id="transf-quantidade" placeholder="0" required step="any" class="form-control">
+                        </div>
+
+                        <div>
+                            <label for="transf-locacao-destino">Locação de Destino</label>
+                            <select id="transf-locacao-destino" required class="form-control" disabled>
+                                <option value="">Selecione o destino...</option>
+                            </select>
+                        </div>
+                    </div>
+                    <button type="submit" id="btn-confirmar-transferencia" class="btn btn-success" style="width: 100%; margin-top: 20px;">Confirmar Transferência</button>
+                </form>
+            </div>
+        </div>
+    </div>
+
     <div id="info-modal" class="modal">
         <div class="modal-content" style="max-width: 500px;">
             <div class="modal-header" id="info-modal-header">
