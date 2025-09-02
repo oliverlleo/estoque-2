@@ -80,9 +80,16 @@ document.addEventListener('DOMContentLoaded', () => {
 
             const row = document.createElement('tr');
 
-            // Simplificado: não há mais 'saida_confirmada'
-            const statusClass = `status-${mov.tipo.replace('reserva_', '')}`; // reserva, cancelada
+            const statusClass = `status-${mov.tipo.replace('reserva_', '')}`;
             const statusText = mov.tipo.replace('reserva_', 'RESERVA ').toUpperCase();
+
+            // Calcula o estoque total atual do produto
+            let estoqueAtual = 0;
+            if (product.locacoes && Array.isArray(product.locacoes)) {
+                estoqueAtual = product.locacoes.reduce((acc, loc) => acc + (loc.estoque || 0), 0);
+            }
+
+            const corEstoque = estoqueAtual < mov.quantidade ? 'red' : 'green';
 
             row.innerHTML = `
                 <td><span class="status-badge ${statusClass}">${statusText}</span></td>
@@ -92,6 +99,7 @@ document.addEventListener('DOMContentLoaded', () => {
                 <td>${product.un || 'N/A'}</td>
                 <td>${product.cor || '-'}</td>
                 <td>${mov.quantidade}</td>
+                <td style="color: ${corEstoque}; font-weight: bold;">${estoqueAtual.toFixed(2)}</td>
                 <td>${obra.nome || 'N/A'}</td>
                 <td>${mov.observacao || ''}</td>
                 <td class="actions">
@@ -139,13 +147,28 @@ document.addEventListener('DOMContentLoaded', () => {
                     throw new Error("Produto da reserva não encontrado.");
                 }
 
-                const currentEstoque = productDoc.data().estoque || 0;
-                if (currentEstoque < movData.quantidade) {
-                    throw new Error(`Estoque insuficiente! Disponível: ${currentEstoque}, Reservado: ${movData.quantidade}`);
+                const pData = productDoc.data();
+                const locacoes = pData.locacoes || [];
+                const locacaoDaReserva = movData.locacao;
+
+                if (!locacaoDaReserva) {
+                    throw new Error("A reserva não especifica uma locação de origem e não pode ser confirmada.");
                 }
 
-                const newEstoque = currentEstoque - movData.quantidade;
-                transaction.update(productRef, { estoque: newEstoque });
+                const locacaoIndex = locacoes.findIndex(l => l.locacao === locacaoDaReserva);
+                if (locacaoIndex === -1) {
+                    throw new Error(`A locação de origem da reserva (${locacaoDaReserva}) não foi encontrada no produto.`);
+                }
+
+                const estoqueNaLocacao = locacoes[locacaoIndex].estoque || 0;
+                if (estoqueNaLocacao < movData.quantidade) {
+                    throw new Error(`Estoque insuficiente na locação ${locacaoDaReserva}! Disponível: ${estoqueNaLocacao}, Reservado: ${movData.quantidade}`);
+                }
+
+                // Debita o estoque da locação específica
+                locacoes[locacaoIndex].estoque -= movData.quantidade;
+
+                transaction.update(productRef, { locacoes: locacoes });
                 transaction.update(movRef, {
                     tipo: 'saida',
                     reserva_confirmada: true,
