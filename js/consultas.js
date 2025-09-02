@@ -13,9 +13,11 @@ document.addEventListener('DOMContentLoaded', async function() {
 
     let consolidatedData = [];
 
-// SUBSTITUA A FUNÇÃO 'fetchDataAndCalculate' EXISTENTE POR ESTA
+// SUBSTITUA A FUNÇÃO 'fetchDataAndCalculate' PELA VERSÃO CORRETA ABAIXO
 async function fetchDataAndCalculate() {
-    tableBody.innerHTML = '<tr><td colspan="7" style="text-align:center;">Buscando e calculando estoque...</td></tr>';
+    const tableBody = document.querySelector('#table-consultas tbody');
+    tableBody.innerHTML = '<tr><td colspan="7" style="text-align:center;">Buscando produtos...</td></tr>';
+
     try {
         const [productsSnapshot, locaisSnapshot] = await Promise.all([
             getDocs(query(collection(db, 'produtos'), where("arquivado", "!=", true))),
@@ -35,24 +37,34 @@ async function fetchDataAndCalculate() {
         const productPromises = productsSnapshot.docs.map(async (productDoc) => {
             const product = productDoc.data();
             const productId = productDoc.id;
-            const estoqueSnapshot = await getDocs(collection(db, `produtos/${productId}/estoquePorLocacao`));
 
             let estoqueTotal = 0;
-            const locacoesComEstoque = [];
+            let locacoesFormatadas = [];
 
-            estoqueSnapshot.forEach(estoqueDoc => {
-                const estoqueData = estoqueDoc.data();
-                const locacaoCodigo = estoqueDoc.id;
-                const quantidadeNaLocacao = estoqueData.quantidade || 0;
+            // LÓGICA CORRIGIDA:
+            // PRIMEIRO, ele procura o estoque no formato NOVO (múltiplas locações).
+            const estoqueSnapshot = await getDocs(collection(db, `produtos/${productId}/estoquePorLocacao`));
 
-                estoqueTotal += quantidadeNaLocacao;
-
-                if (quantidadeNaLocacao > 0) {
-                    const locacaoInfo = product.locacoes?.find(l => l.codigo === locacaoCodigo);
-                    const localNome = locacaoInfo ? (locaisMap[locacaoInfo.localId]?.nome || 'N/A') : 'N/A';
-                    locacoesComEstoque.push(`${localNome} - ${locacaoCodigo} (${quantidadeNaLocacao})`);
-                }
-            });
+            if (!estoqueSnapshot.empty) {
+                // Se achou, calcula o estoque a partir das múltiplas locações.
+                estoqueSnapshot.forEach(estoqueDoc => {
+                    const quantidadeNaLocacao = estoqueDoc.data().quantidade || 0;
+                    estoqueTotal += quantidadeNaLocacao;
+                    if (quantidadeNaLocacao > 0) {
+                        const locacaoInfo = product.locacoes?.find(l => l.codigo === estoqueDoc.id);
+                        const localNome = locacaoInfo ? (locaisMap[locacaoInfo.localId]?.nome || 'N/A') : 'N/A';
+                        locacoesFormatadas.push(`${localNome} - ${estoqueDoc.id} (${quantidadeNaLocacao})`);
+                    }
+                });
+            } else if (product.estoque && product.estoque > 0) {
+                // SE NÃO ACHOU no formato novo, ele agora PROCURA no formato ANTIGO.
+                // Isso garante que seus dados já gravados apareçam.
+                estoqueTotal = product.estoque;
+                const localNome = product.localId ? (locaisMap[product.localId]?.nome || '') : '';
+                const locacaoDesc = product.locacao || '';
+                const locacaoAntiga = [localNome, locacaoDesc].filter(Boolean).join(' - ');
+                locacoesFormatadas.push(`${locacaoAntiga} (${estoqueTotal})`);
+            }
 
             const valorMedio = product.valorMedio || 0;
             const valorTotalEstoque = estoqueTotal * valorMedio;
@@ -62,7 +74,7 @@ async function fetchDataAndCalculate() {
                 estoque: estoqueTotal,
                 valorMedio,
                 valorTotalEstoque,
-                local: locacoesComEstoque.join('<br>') || 'Sem estoque registrado'
+                local: locacoesFormatadas.join('<br>') || 'Sem estoque'
             };
         });
 
@@ -70,7 +82,7 @@ async function fetchDataAndCalculate() {
         renderTable(consolidatedData);
 
     } catch (error) {
-        console.error("ERRO AO CARREGAR CONSULTA:", error);
+        console.error("ERRO CRÍTICO AO CARREGAR CONSULTA:", error);
         tableBody.innerHTML = `<tr><td colspan="7" style="text-align:center; color: red;"><b>Falha na Consulta:</b> ${error.message}</td></tr>`;
     }
 }
