@@ -13,55 +13,84 @@ document.addEventListener('DOMContentLoaded', async function() {
 
     let consolidatedData = [];
 
+    // SUBSTITUA A FUNÇÃO ANTIGA POR ESTA VERSÃO COMPLETA E CORRIGIDA
     async function fetchDataAndCalculate() {
-        const [productsSnapshot, locaisSnapshot] = await Promise.all([
-            getDocs(query(collection(db, 'produtos'), where("arquivado", "!=", true))),
-            getDocs(collection(db, 'locais'))
-        ]);
+        // 1. Mostra uma mensagem de "Carregando..." para o usuário saber que algo está acontecendo.
+        const tableBody = document.querySelector('#table-consultas tbody');
+        tableBody.innerHTML = '<tr><td colspan="7" style="text-align:center;">Carregando dados e calculando estoque...</td></tr>';
 
-        const locaisMap = {};
-        locaisSnapshot.forEach(doc => {
-            locaisMap[doc.id] = doc.data();
-        });
+        try {
+            // 2. Busca as fontes de dados essenciais: produtos e locais.
+            const [productsSnapshot, locaisSnapshot] = await Promise.all([
+                getDocs(query(collection(db, 'produtos'), where("arquivado", "!=", true))),
+                getDocs(collection(db, 'locais'))
+            ]);
 
-        const productPromises = productsSnapshot.docs.map(async (productDoc) => {
-            const product = productDoc.data();
-            const productId = productDoc.id;
-
-            const estoqueSnapshot = await getDocs(collection(db, `produtos/${productId}/estoquePorLocacao`));
-
-            let estoqueTotal = 0;
-            const locacoesComEstoque = [];
-
-            estoqueSnapshot.forEach(estoqueDoc => {
-                const estoqueData = estoqueDoc.data();
-                const locacaoCodigo = estoqueDoc.id;
-                const quantidadeNaLocacao = estoqueData.quantidade || 0;
-
-                estoqueTotal += quantidadeNaLocacao;
-
-                if (quantidadeNaLocacao > 0) {
-                    const locacaoInfo = product.locacoes?.find(l => l.codigo === locacaoCodigo);
-                    const localNome = locacaoInfo ? (locaisMap[locacaoInfo.localId]?.nome || 'N/A') : 'N/A';
-                    locacoesComEstoque.push(`${localNome} - ${locacaoCodigo} (${quantidadeNaLocacao})`);
-                }
+            const locaisMap = {};
+            locaisSnapshot.forEach(doc => {
+                locaisMap[doc.id] = doc.data();
             });
 
-            const valorMedio = product.valorMedio || 0;
-            const valorTotalEstoque = estoqueTotal * valorMedio;
+            // 3. Mapeia os dados dos produtos e busca o estoque de suas locações em paralelo.
+            const productPromises = productsSnapshot.docs.map(async (productDoc) => {
+                const product = productDoc.data();
+                const productId = productDoc.id;
 
-            return {
-                ...product,
-                id: productId,
-                estoque: estoqueTotal,
-                valorMedio,
-                valorTotalEstoque,
-                local: locacoesComEstoque.join('<br>') || 'Sem estoque'
-            };
-        });
+                // 3.1. Busca a subcoleção de estoque para este produto específico.
+                const estoqueSnapshot = await getDocs(collection(db, `produtos/${productId}/estoquePorLocacao`));
 
-        consolidatedData = await Promise.all(productPromises);
-        renderTable(consolidatedData);
+                let estoqueTotal = 0;
+                const locacoesComEstoque = [];
+
+                // 3.2. Itera sobre cada locação que tem estoque.
+                estoqueSnapshot.forEach(estoqueDoc => {
+                    const estoqueData = estoqueDoc.data();
+                    const locacaoCodigo = estoqueDoc.id;
+                    const quantidadeNaLocacao = estoqueData.quantidade || 0;
+
+                    if (quantidadeNaLocacao > 0) { // Apenas adiciona se tiver estoque
+                        estoqueTotal += quantidadeNaLocacao;
+
+                        // Encontra o 'localId' a partir do array de locações no produto.
+                        const locacaoInfo = product.locacoes?.find(l => l.codigo === locacaoCodigo);
+                        const localNome = locacaoInfo ? (locaisMap[locacaoInfo.localId]?.nome || 'Local Desconhecido') : 'Local Desconhecido';
+
+                        locacoesComEstoque.push(`${localNome} - ${locacaoCodigo} (${quantidadeNaLocacao})`);
+                    }
+                });
+
+                // 3.3. Calcula o valor médio e total.
+                const valorMedio = product.valorMedio || 0;
+                const valorTotalEstoque = estoqueTotal * valorMedio;
+
+                // Só retorna o produto se ele tiver alguma locação com estoque ou se não tiver locações definidas
+                // (para produtos antigos ou sem estoque). Pode ser ajustado se necessário.
+                if (estoqueTotal > 0 || !product.locacoes || product.locacoes.length === 0) {
+                    return {
+                        ...product,
+                        id: productId,
+                        estoque: estoqueTotal,
+                        valorMedio,
+                        valorTotalEstoque,
+                        local: locacoesComEstoque.join('<br>') || 'Sem locação com estoque'
+                    };
+                }
+                return null; // Retorna nulo para produtos com locações mas sem estoque
+            });
+
+            // 4. Aguarda todas as buscas de estoque terminarem.
+            let resolvedData = await Promise.all(productPromises);
+
+            // 4.1 Filtra os produtos nulos (sem estoque)
+            consolidatedData = resolvedData.filter(p => p !== null);
+
+            // 5. Renderiza a tabela com os dados corretos.
+            renderTable(consolidatedData);
+
+        } catch (error) {
+            console.error("Erro CRÍTICO ao buscar dados da consulta:", error);
+            tableBody.innerHTML = `<tr><td colspan="7" style="text-align:center; color: red;">Falha ao carregar dados. Verifique o console.</td></tr>`;
+        }
     }
 
     function renderTable(data) {
