@@ -126,7 +126,7 @@ document.addEventListener('DOMContentLoaded', async function() {
     }
 
     function updateProductInfo() {
-        const productId = document.getElementById('mov-produto').value;
+        const productId = document.getElementById('mov-produto-id').value;
         const product = productsMap[productId];
         const locacaoSelect = document.getElementById('mov-locacao');
         const isEntrada = document.getElementById('movement-toggle').checked;
@@ -329,7 +329,7 @@ document.addEventListener('DOMContentLoaded', async function() {
     formMovimentacao.addEventListener('submit', async (e) => {
         e.preventDefault();
         const isEntrada = toggle.checked;
-        const productId = document.getElementById('mov-produto').value;
+        const productId = document.getElementById('mov-produto-id').value;
         const locacaoSelecionada = document.getElementById('mov-locacao').value;
         const quantidade = parseFloat(document.getElementById('mov-quantidade').value);
 
@@ -991,8 +991,60 @@ document.addEventListener('DOMContentLoaded', async function() {
     }
 
 
-    document.getElementById('mov-produto').addEventListener('change', updateProductInfo);
+    // --- LÓGICA DO CAMPO DE BUSCA DE PRODUTO ---
+    const productSearchInput = document.getElementById('mov-produto-search');
+    const productSearchIdInput = document.getElementById('mov-produto-id');
+    const productResultsDiv = document.getElementById('mov-produto-results');
 
+    productSearchInput.addEventListener('input', () => {
+        const searchTerm = productSearchInput.value.toLowerCase();
+        productResultsDiv.innerHTML = '';
+        productResultsDiv.style.display = 'none';
+
+        if (searchTerm.length < 2) {
+            return;
+        }
+
+        const filteredProducts = Object.values(productsMap).filter(p =>
+            p.codigo.toLowerCase().includes(searchTerm) ||
+            p.descricao.toLowerCase().includes(searchTerm)
+        );
+
+        if (filteredProducts.length > 0) {
+            productResultsDiv.style.display = 'block';
+            filteredProducts.slice(0, 10).forEach(p => { // Limita a 10 resultados
+                const div = document.createElement('div');
+                div.className = 'search-result-item';
+                div.textContent = `${p.codigo} - ${p.descricao}`;
+                div.dataset.id = p.id;
+                productResultsDiv.appendChild(div);
+            });
+        }
+    });
+
+    productResultsDiv.addEventListener('click', (e) => {
+        if (e.target.classList.contains('search-result-item')) {
+            const productId = e.target.dataset.id;
+            const product = productsMap[productId];
+
+            productSearchInput.value = `${product.codigo} - ${product.descricao}`;
+            productSearchIdInput.value = productId;
+
+            productResultsDiv.innerHTML = '';
+            productResultsDiv.style.display = 'none';
+
+            updateProductInfo(); // Chama a função para atualizar o resto do formulário
+        }
+    });
+
+    // Esconde os resultados se clicar fora
+    document.addEventListener('click', (e) => {
+        if (!e.target.closest('.search-container')) {
+            productResultsDiv.style.display = 'none';
+        }
+    });
+
+    // --- FIM DA LÓGICA DE BUSCA ---
 
     document.getElementById('headers-row').addEventListener('click', e => {
         // ... (lógica de ordenação da tabela mantida)
