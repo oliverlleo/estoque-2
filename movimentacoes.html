@@ -64,18 +64,14 @@
                             <input type="number" id="mov-quantidade" placeholder="Quantidade" required step="any" class="form-control" style="grid-column: 1 / -1;">
 
                             <!-- Container para Campos de ENTRADA -->
-                            <div id="entrada-fields-container" style="grid-column: 1 / -1; display: flex; flex-direction: column; gap: 10px;">
-                                <div style="display: flex; gap: 10px;">
-                                    <select id="mov-tipo-entrada" class="form-control"><option value="">Tipo de Entrada...</option></select>
-                                    <input type="text" id="mov-nf" placeholder="Nº Nota Fiscal" class="form-control">
-                                    <input type="number" id="mov-valor-unitario" placeholder="Valor Unitário" step="0.01" class="form-control">
-                                </div>
-                                <div style="display: flex; gap: 10px;">
-                                    <input type="number" id="mov-icms" placeholder="ICMS Total" step="0.01" class="form-control">
-                                    <input type="number" id="mov-ipi" placeholder="IPI Total" step="0.01" class="form-control">
-                                    <input type="number" id="mov-frete" placeholder="Frete Total" step="0.01" class="form-control">
-                                    <input type="text" id="mov-observacao-entrada" placeholder="Observação" class="form-control" style="flex-grow: 1;">
-                                </div>
+                            <div id="entrada-fields-container" style="grid-column: 1 / -1; display: flex; gap: 10px; align-items: flex-end;">
+                                <select id="mov-tipo-entrada" class="form-control" style="flex-basis: 160px;"><option value="">Tipo de Entrada...</option></select>
+                                <input type="text" id="mov-nf" placeholder="Nº Nota Fiscal" class="form-control" style="flex-basis: 140px;">
+                                <input type="number" id="mov-valor-unitario" placeholder="Valor Unitário" step="0.01" class="form-control" style="flex-basis: 140px;">
+                                <input type="number" id="mov-icms" placeholder="ICMS Total" step="0.01" class="form-control" style="flex-basis: 120px;">
+                                <input type="number" id="mov-ipi" placeholder="IPI Total" step="0.01" class="form-control" style="flex-basis: 120px;">
+                                <input type="number" id="mov-frete" placeholder="Frete Total" step="0.01" class="form-control" style="flex-basis: 120px;">
+                                <input type="text" id="mov-observacao-entrada" placeholder="Observação" class="form-control" style="flex-grow: 1;">
                             </div>
 
                             <!-- Container para Campos de SAÍDA -->
