@@ -1057,16 +1057,26 @@ document.addEventListener('DOMContentLoaded', async function() {
         }
     });
 
-    loadInitialData().then(() => {
-        handleToggleChange();
-        initialDataLoaded = true;
-        updateTable();
-        popularDropdownsCadastroModal();
-
-        // Esconde o spinner e exibe o formulário
-        document.getElementById('loading-spinner').style.display = 'none';
-        document.getElementById('movement-wrapper').style.display = 'block';
-    });
+    loadInitialData()
+        .then(() => {
+            handleToggleChange();
+            initialDataLoaded = true;
+            updateTable();
+            popularDropdownsCadastroModal();
+        })
+        .catch(error => {
+            console.error("Erro ao carregar dados iniciais:", error);
+            // Opcional: mostrar uma mensagem de erro para o usuário em um modal ou div
+            const wrapper = document.getElementById('movement-wrapper');
+            if(wrapper) {
+                wrapper.innerHTML = '<p style="color: red; text-align: center;">Ocorreu um erro ao carregar os dados. Por favor, tente recarregar a página.</p>';
+            }
+        })
+        .finally(() => {
+            // Este bloco será executado sempre, seja com sucesso ou erro.
+            // Remove a classe 'is-loading' do body para esconder o spinner e mostrar o conteúdo.
+            document.body.classList.remove('is-loading');
+        });
 });
 
 // Substitua a função inteira em js/movimentacoes.js por esta versão CORRIGIDA:

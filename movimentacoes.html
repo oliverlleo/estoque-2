@@ -37,9 +37,17 @@
             0% { transform: rotate(0deg); }
             100% { transform: rotate(360deg); }
         }
+
+        /* Controle de visibilidade durante o carregamento */
+        body.is-loading #movement-wrapper {
+            display: none;
+        }
+        body:not(.is-loading) #loading-spinner {
+            display: none;
+        }
     </style>
 </head>
-<body>
+<body class="is-loading">
     <aside class="sidebar">
         <div class="sidebar-header">
             <h2><i data-feather="archive"></i> Estoque</h2>
@@ -62,7 +70,7 @@
         </header>
         <section class="content">
             <div id="loading-spinner" class="loader"></div>
-            <div class="card" id="movement-wrapper" style="display: none;">
+            <div class="card" id="movement-wrapper">
                 <div class="card-header">
                     <div style="display: flex; justify-content: space-between; align-items: center;">
                         <h3>Registrar Movimentação</h3>
