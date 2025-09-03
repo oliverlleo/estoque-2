@@ -1062,7 +1062,9 @@ document.addEventListener('DOMContentLoaded', async function() {
         initialDataLoaded = true;
         updateTable();
         popularDropdownsCadastroModal();
-        // Exibe o formulário que estava oculto por padrão
+
+        // Esconde o spinner e exibe o formulário
+        document.getElementById('loading-spinner').style.display = 'none';
         document.getElementById('movement-wrapper').style.display = 'block';
     });
 });
