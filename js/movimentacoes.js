@@ -498,13 +498,12 @@ document.addEventListener('DOMContentLoaded', async function() {
                     });
                     alert('Saída registrada com sucesso!');
 
-                    // ATUALIZA O MAPA DE PRODUTOS LOCAL
-                    const productData = productsMap[productId];
-                    if (productData && productData.locacoes) {
-                        const locacaoIndex = productData.locacoes.findIndex(l => l.locacao === locacaoSelecionada);
-                        if (locacaoIndex !== -1) {
-                            productsMap[productId].locacoes[locacaoIndex].estoque -= quantidade;
-                        }
+                    // ATUALIZA O MAPA DE PRODUTOS LOCAL (FORMA ROBUSTA)
+                    // Recarrega os dados do produto do banco de dados para garantir consistência.
+                    const productRef = doc(db, 'produtos', productId);
+                    const updatedDoc = await getDoc(productRef);
+                    if (updatedDoc.exists()) {
+                        productsMap[productId] = { id: productId, ...updatedDoc.data() };
                     }
                     formMovimentacao.reset();
                     handleToggleChange();
@@ -684,11 +683,12 @@ document.addEventListener('DOMContentLoaded', async function() {
 
             alert('Transferência realizada com sucesso!');
 
-            // Atualiza o mapa local para refletir a mudança
-            const locOrigem = productsMap[productId].locacoes.find(l => l.locacao === origem);
-            const locDestino = productsMap[productId].locacoes.find(l => l.locacao === destino);
-            if (locOrigem) locOrigem.estoque -= quantidade;
-            if (locDestino) locDestino.estoque += quantidade;
+            // Atualiza o mapa local para refletir a mudança (FORMA ROBUSTA)
+            const productRef = doc(db, 'produtos', productId);
+            const updatedDoc = await getDoc(productRef);
+            if (updatedDoc.exists()) {
+                productsMap[productId] = { id: productId, ...updatedDoc.data() };
+            }
 
             formTransferencia.reset();
             transferenciaModal.style.display = 'none';

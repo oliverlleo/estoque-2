@@ -8,14 +8,15 @@
     <script src="https://cdn.jsdelivr.net/npm/feather-icons/dist/feather.min.js"></script>
     <style>
         /*
-         * TARGETED FIX:
-         * Override the global .form-control rule (width: 100%; display: block;)
+         * DEFINITIVE TARGETED FIX:
+         * Overrides the global .form-control rule (width: 100%; display: block;)
          * specifically for the stock entry fields container. This allows the flexbox
          * properties (flex-basis, flex-grow) to control the layout correctly,
          * putting all fields on a single line as requested.
         */
         #entrada-fields-container .form-control {
             width: auto;
+            display: inline-block; /* This is the key to override display:block from the main stylesheet */
         }
     </style>
 </head>
@@ -65,13 +66,14 @@
                             <div class="search-container" style="grid-column: 1 / 4; position: relative;">
                                 <input type="text" id="mov-produto-search" placeholder="Buscar produto por código ou descrição..." class="form-control" autocomplete="off">
                                 <input type="hidden" id="mov-produto-id">
-                                <div id="mov-produto-results" class="search-results"></div>
+                                <div id="mov-produto-results" class="search-results" style="position: absolute; background-color: white; border: 1px solid #ccc; width: 100%; z-index: 100; max-height: 200px; overflow-y: auto;"></div>
                             </div>
                             <select id="mov-locacao" required class="form-control" style="grid-column: 4 / 5;" disabled><option value="">Locação...</option></select>
 
                             <p class="auto-filled-field"><strong>Código:</strong> <span id="mov-codigo-display">-</span></p>
                             <p class="auto-filled-field"><strong>Descrição:</strong> <span id="mov-descricao-display">-</span></p>
                             <p class="auto-filled-field" id="mov-un-display-wrapper"><strong>UN:</strong> <span id="mov-un-display">-</span></p>
+                            <p class="auto-filled-field" id="mov-estoque-display-wrapper" style="display: none;"><strong>Estoque Atual:</strong> <span id="mov-estoque-display">-</span></p>
 
                             <input type="number" id="mov-quantidade" placeholder="Quantidade" required step="any" class="form-control" style="grid-column: 1 / -1;">
 
@@ -94,7 +96,6 @@
                                     <select id="mov-obra" class="form-control"><option value="">Selecione a Obra...</option></select>
                                     <input type="text" id="mov-observacao-saida" placeholder="Observação" class="form-control" style="flex-grow: 1;">
                                 </div>
-                                <p class="auto-filled-field" id="mov-estoque-display-wrapper" style="display: none;"><strong>Estoque Atual:</strong> <span id="mov-estoque-display">-</span></p>
                             </div>
                         </div>
                         <button type="submit" id="btn-movimentacao" class="btn" style="width: 100%; margin-top: 20px;">Confirmar</button>
@@ -106,14 +107,7 @@
                 <div class="card-header"><h3>Histórico de Movimentações</h3></div>
                 <div class="card-body">
                     <div id="history-filters-container" class="filters-container">
-                        <input type="text" class="form-control filter-input" data-column="data" placeholder="Filtrar por Data...">
-                        <input type="text" class="form-control filter-input" data-column="tipo" placeholder="Filtrar por Tipo...">
-                        <input type="text" class="form-control filter-input" data-column="codigo" placeholder="Filtrar por Código...">
-                        <input type="text" class="form-control filter-input" data-column="descricao" placeholder="Filtrar por Descrição...">
-                        <input type="text" class="form-control filter-input" data-column="quantidade" placeholder="Filtrar por Qtde...">
-                        <input type="text" class="form-control filter-input" data-column="nf" placeholder="Filtrar por NF...">
-                        <input type="text" class="form-control filter-input" data-column="requisitante" placeholder="Filtrar por Requisitante...">
-                        <input type="text" class="form-control filter-input" data-column="obraId" placeholder="Filtrar por Obra...">
+                        <!-- Filters will be populated by JS or can be added here if static -->
                     </div>
                     <div class="table-wrapper">
                         <table id="table-movimentacoes" class="table">
@@ -159,24 +153,19 @@
                                 <option value="">Selecione...</option>
                             </select>
                         </div>
-
                         <p class="auto-filled-field"><strong>Código:</strong> <span id="transf-codigo-display">-</span></p>
                         <p class="auto-filled-field"><strong>Descrição:</strong> <span id="transf-descricao-display">-</span></p>
-
                         <div>
                             <label for="transf-locacao-origem">Locação de Origem</label>
                             <select id="transf-locacao-origem" required class="form-control" disabled>
                                 <option value="">Selecione a origem...</option>
                             </select>
                         </div>
-
                         <p class="auto-filled-field"><strong>Estoque na Origem:</strong> <span id="transf-estoque-origem-display">0</span></p>
-
                         <div>
                             <label for="transf-quantidade">Quantidade a Transferir</label>
                             <input type="number" id="transf-quantidade" placeholder="0" required step="any" class="form-control">
                         </div>
-
                         <div>
                             <label for="transf-locacao-destino">Locação de Destino</label>
                             <select id="transf-locacao-destino" required class="form-control" disabled>
@@ -227,8 +216,7 @@
                                 <th data-column="acao">Ação</th>
                             </tr>
                         </thead>
-                        <tbody>
-                            </tbody>
+                        <tbody></tbody>
                     </table>
                 </div>
                 <button id="btn-confirmar-xml-import" class="btn btn-success" style="width: 100%; margin-top: 20px;">Confirmar Entradas</button>
