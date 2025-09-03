@@ -8,15 +8,19 @@
     <script src="https://cdn.jsdelivr.net/npm/feather-icons/dist/feather.min.js"></script>
     <style>
         /*
-         * DEFINITIVE TARGETED FIX:
-         * Overrides the global .form-control rule (width: 100%; display: block;)
-         * specifically for the stock entry fields container. This allows the flexbox
-         * properties (flex-basis, flex-grow) to control the layout correctly,
-         * putting all fields on a single line as requested.
+         * FINAL ATTEMPT: Forceful CSS Override
+         * Using !important to ensure these styles take precedence over any conflicting
+         * rules from the main stylesheet or dynamically applied styles.
         */
         #entrada-fields-container .form-control {
-            width: auto;
-            display: inline-block; /* This is the key to override display:block from the main stylesheet */
+            display: inline-block !important;
+            width: auto !important; /* Allow flex properties to control width */
+            flex-shrink: 1 !important; /* Allow fields to shrink if needed */
+            min-width: 90px !important; /* Prevent fields from becoming too small */
+        }
+        #entrada-fields-container #mov-observacao-entrada {
+            min-width: 180px !important; /* Give observation field a larger minimum width */
+            flex-grow: 1 !important; /* Ensure it grows to fill space */
         }
     </style>
 </head>
