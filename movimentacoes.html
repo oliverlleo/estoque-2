@@ -6,6 +6,26 @@
     <title>Movimentações - Controle de Estoque</title>
     <link rel="stylesheet" href="css/style.css">
     <script src="https://cdn.jsdelivr.net/npm/feather-icons/dist/feather.min.js"></script>
+    <style>
+        .saida-fields-flex-container {
+            grid-column: 1 / -1;
+            display: flex;
+            gap: 10px;
+            align-items: center;
+            flex-wrap: nowrap; /* Impede que os itens quebrem para a próxima linha */
+        }
+        .saida-fields-flex-container > .form-control {
+            flex-shrink: 0; /* Impede que os itens encolham */
+        }
+        .saida-fields-flex-container > .flex-item-1 {
+            flex: 1 1 0;
+            min-width: 0; /* Permite que o item encolha se necessário, evitando overflow */
+        }
+        .saida-fields-flex-container > .flex-item-2 {
+            flex: 2 1 0; /* Faz este item ser duas vezes maior que os outros */
+            min-width: 0;
+        }
+    </style>
 </head>
 <body>
     <aside class="sidebar">
@@ -70,11 +90,13 @@
                             <input type="number" id="mov-ipi" placeholder="IPI Total" step="0.01" class="form-control">
                             <input type="number" id="mov-frete" placeholder="Frete Total" step="0.01" class="form-control">
 
-                            <select id="mov-tipo-saida" class="form-control"><option value="">Tipo de Saída...</option></select>
-                            <input type="text" id="mov-requisitante" placeholder="Requisitante" class="form-control">
-                            <select id="mov-obra" class="form-control"><option value="">Selecione a Obra...</option></select>
-                            <p class="auto-filled-field" id="mov-estoque-display-wrapper"><strong>Estoque Atual:</strong> <span id="mov-estoque-display">-</span></p>
-                            <input type="text" id="mov-observacao" placeholder="Observação" class="form-control" style="grid-column: 1 / 3;">
+                            <div id="saida-fields-container" class="saida-fields-flex-container">
+                                <select id="mov-tipo-saida" class="form-control flex-item-1"><option value="">Tipo de Saída...</option></select>
+                                <input type="text" id="mov-requisitante" placeholder="Requisitante" class="form-control flex-item-1">
+                                <select id="mov-obra" class="form-control flex-item-1"><option value="">Selecione a Obra...</option></select>
+                                <input type="text" id="mov-observacao" placeholder="Observação" class="form-control flex-item-2">
+                                <p class="auto-filled-field" id="mov-estoque-display-wrapper" style="display: none;"><strong>Estoque Atual:</strong> <span id="mov-estoque-display">-</span></p>
+                            </div>
                         </div>
                         <button type="submit" id="btn-movimentacao" class="btn" style="width: 100%; margin-top: 20px;">Confirmar</button>
                     </form>
