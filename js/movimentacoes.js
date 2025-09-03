@@ -65,10 +65,13 @@ document.addEventListener('DOMContentLoaded', async function() {
     const entradaFields = [
         document.getElementById('mov-tipo-entrada'), document.getElementById('mov-nf'),
         document.getElementById('mov-valor-unitario'), document.getElementById('mov-icms'),
-        document.getElementById('mov-ipi'), document.getElementById('mov-frete')
+        document.getElementById('mov-ipi'), document.getElementById('mov-frete'),
+        document.getElementById('mov-observacao')
     ];
     const saidaFields = [
         document.getElementById('mov-tipo-saida'), document.getElementById('mov-requisitante'),
+        document.getElementById('mov-obra'),
+        document.getElementById('mov-observacao'),
         document.getElementById('mov-estoque-display-wrapper')
     ];
 
