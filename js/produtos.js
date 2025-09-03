@@ -1,5 +1,5 @@
 import { db } from './firebase-config.js';
-import { collection, getDocs, addDoc, onSnapshot, doc, setDoc, deleteDoc, query, where, runTransaction, serverTimestamp, getDoc, writeBatch, deleteField } from "https://www.gstatic.com/firebasejs/9.6.1/firebase-firestore.js";
+import { collection, getDocs, addDoc, onSnapshot, doc, setDoc, deleteDoc, query, where, runTransaction, serverTimestamp, getDoc } from "https://www.gstatic.com/firebasejs/9.6.1/firebase-firestore.js";
 
 document.addEventListener('DOMContentLoaded', async function() {
     console.log("Página de Produtos carregada.");
@@ -564,69 +564,6 @@ document.addEventListener('DOMContentLoaded', async function() {
             tableBody.appendChild(row);
         });
     };
-
-    async function runMigrationV2() {
-        if (localStorage.getItem('migration_locacoes_v2_done') === 'true') {
-            console.log('Migração de locações já foi executada.');
-            return;
-        }
-
-        console.log('Iniciando migração de dados de produtos para nova estrutura de locações...');
-        alert('Iniciando migração de dados de produtos. Isso pode levar alguns momentos. Não feche a página.');
-
-        try {
-            const productsRef = collection(db, 'produtos');
-            const snapshot = await getDocs(productsRef);
-            const batch = writeBatch(db);
-            let migratedCount = 0;
-
-            snapshot.docs.forEach(document => {
-                const product = document.data();
-                const productId = document.id;
-
-                // Migra apenas documentos que não têm o campo 'locacoes'
-                if (product.locacoes === undefined) {
-                    const newLocacoes = [];
-                    // Se os campos antigos existem e têm valor, cria a locação a partir deles
-                    if (product.locacao && product.localId) {
-                        newLocacoes.push({
-                            locacao: product.locacao,
-                            localId: product.localId,
-                            estoque: product.estoque || 0
-                        });
-                    }
-
-                    const updateData = {
-                        locacoes: newLocacoes,
-                        locacao: deleteField(),
-                        localId: deleteField(),
-                        estoque: deleteField()
-                    };
-
-                    batch.update(doc(db, 'produtos', productId), updateData);
-                    migratedCount++;
-                }
-            });
-
-            if (migratedCount > 0) {
-                await batch.commit();
-                alert(`Migração concluída! ${migratedCount} produtos foram atualizados para a nova estrutura de locações.`);
-                console.log(`Migração concluída! ${migratedCount} produtos foram atualizados.`);
-            } else {
-                alert('Nenhum produto precisou ser migrado. A estrutura de dados já está atualizada.');
-                console.log('Nenhum produto para migrar.');
-            }
-
-            localStorage.setItem('migration_locacoes_v2_done', 'true');
-        } catch (error) {
-            console.error('Erro durante a migração:', error);
-            alert(`Ocorreu um erro durante a migração: ${error.message}`);
-        }
-    }
-
-    // Roda a migração uma vez
-    runMigrationV2();
-
 
     // 4. Listen for real-time updates
     const q = query(collection(db, 'produtos'), where("arquivado", "!=", true));
