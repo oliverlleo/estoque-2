@@ -7,23 +7,11 @@
     <link rel="stylesheet" href="css/style.css">
     <script src="https://cdn.jsdelivr.net/npm/feather-icons/dist/feather.min.js"></script>
     <style>
-        .saida-fields-flex-container {
+        .fields-flex-container {
             grid-column: 1 / -1;
             display: flex;
             gap: 10px;
             align-items: center;
-            flex-wrap: nowrap; /* Impede que os itens quebrem para a próxima linha */
-        }
-        .saida-fields-flex-container > .form-control {
-            flex-shrink: 0; /* Impede que os itens encolham */
-        }
-        .saida-fields-flex-container > .flex-item-1 {
-            flex: 1 1 0;
-            min-width: 0; /* Permite que o item encolha se necessário, evitando overflow */
-        }
-        .saida-fields-flex-container > .flex-item-2 {
-            flex: 2 1 0; /* Faz este item ser duas vezes maior que os outros */
-            min-width: 0;
         }
     </style>
 </head>
@@ -85,25 +73,25 @@
 
                             <!-- Container para Campos de ENTRADA -->
                             <div id="entrada-fields-container" style="grid-column: 1 / -1; display: flex; flex-direction: column; gap: 10px;">
-                                <div class="saida-fields-flex-container"> <!-- Reutilizando a classe de CSS para o layout flex -->
-                                    <select id="mov-tipo-entrada" class="form-control flex-item-1"><option value="">Tipo de Entrada...</option></select>
-                                    <input type="text" id="mov-nf" placeholder="Nº Nota Fiscal" class="form-control flex-item-1">
-                                    <input type="number" id="mov-valor-unitario" placeholder="Valor Unitário" step="0.01" class="form-control flex-item-1">
+                                <div class="fields-flex-container">
+                                    <select id="mov-tipo-entrada" class="form-control"><option value="">Tipo de Entrada...</option></select>
+                                    <input type="text" id="mov-nf" placeholder="Nº Nota Fiscal" class="form-control">
+                                    <input type="number" id="mov-valor-unitario" placeholder="Valor Unitário" step="0.01" class="form-control">
                                 </div>
-                                <div class="saida-fields-flex-container"> <!-- Reutilizando a classe de CSS para o layout flex -->
-                                    <input type="number" id="mov-icms" placeholder="ICMS Total" step="0.01" class="form-control flex-item-1">
-                                    <input type="number" id="mov-ipi" placeholder="IPI Total" step="0.01" class="form-control flex-item-1">
-                                    <input type="number" id="mov-frete" placeholder="Frete Total" step="0.01" class="form-control flex-item-1">
-                                    <input type="text" id="mov-observacao-entrada" placeholder="Observação" class="form-control flex-item-2">
+                                <div class="fields-flex-container">
+                                    <input type="number" id="mov-icms" placeholder="ICMS Total" step="0.01" class="form-control">
+                                    <input type="number" id="mov-ipi" placeholder="IPI Total" step="0.01" class="form-control">
+                                    <input type="number" id="mov-frete" placeholder="Frete Total" step="0.01" class="form-control">
+                                    <input type="text" id="mov-observacao-entrada" placeholder="Observação" class="form-control">
                                 </div>
                             </div>
 
                             <!-- Container para Campos de SAÍDA -->
-                            <div id="saida-fields-container" class="saida-fields-flex-container" style="display: none;">
-                                <select id="mov-tipo-saida" class="form-control flex-item-1"><option value="">Tipo de Saída...</option></select>
-                                <input type="text" id="mov-requisitante" placeholder="Requisitante" class="form-control flex-item-1">
-                                <select id="mov-obra" class="form-control flex-item-1"><option value="">Selecione a Obra...</option></select>
-                                <input type="text" id="mov-observacao-saida" placeholder="Observação" class="form-control flex-item-2">
+                            <div id="saida-fields-container" class="fields-flex-container" style="display: none;">
+                                <select id="mov-tipo-saida" class="form-control"><option value="">Tipo de Saída...</option></select>
+                                <input type="text" id="mov-requisitante" placeholder="Requisitante" class="form-control">
+                                <select id="mov-obra" class="form-control"><option value="">Selecione a Obra...</option></select>
+                                <input type="text" id="mov-observacao-saida" placeholder="Observação" class="form-control">
                                 <p class="auto-filled-field" id="mov-estoque-display-wrapper" style="display: none;"><strong>Estoque Atual:</strong> <span id="mov-estoque-display">-</span></p>
                             </div>
                         </div>
