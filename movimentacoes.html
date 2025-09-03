@@ -6,14 +6,6 @@
     <title>Movimentações - Controle de Estoque</title>
     <link rel="stylesheet" href="css/style.css">
     <script src="https://cdn.jsdelivr.net/npm/feather-icons/dist/feather.min.js"></script>
-    <style>
-        .fields-flex-container {
-            grid-column: 1 / -1;
-            display: flex;
-            gap: 10px;
-            align-items: center;
-        }
-    </style>
 </head>
 <body>
     <aside class="sidebar">
@@ -73,25 +65,25 @@
 
                             <!-- Container para Campos de ENTRADA -->
                             <div id="entrada-fields-container" style="grid-column: 1 / -1; display: flex; flex-direction: column; gap: 10px;">
-                                <div class="fields-flex-container">
+                                <div style="display: flex; gap: 10px;">
                                     <select id="mov-tipo-entrada" class="form-control"><option value="">Tipo de Entrada...</option></select>
                                     <input type="text" id="mov-nf" placeholder="Nº Nota Fiscal" class="form-control">
                                     <input type="number" id="mov-valor-unitario" placeholder="Valor Unitário" step="0.01" class="form-control">
                                 </div>
-                                <div class="fields-flex-container">
+                                <div style="display: flex; gap: 10px;">
                                     <input type="number" id="mov-icms" placeholder="ICMS Total" step="0.01" class="form-control">
                                     <input type="number" id="mov-ipi" placeholder="IPI Total" step="0.01" class="form-control">
                                     <input type="number" id="mov-frete" placeholder="Frete Total" step="0.01" class="form-control">
-                                    <input type="text" id="mov-observacao-entrada" placeholder="Observação" class="form-control">
+                                    <input type="text" id="mov-observacao-entrada" placeholder="Observação" class="form-control" style="flex-grow: 1;">
                                 </div>
                             </div>
 
                             <!-- Container para Campos de SAÍDA -->
-                            <div id="saida-fields-container" class="fields-flex-container" style="display: none;">
+                            <div id="saida-fields-container" style="grid-column: 1 / -1; display: none; gap: 10px;">
                                 <select id="mov-tipo-saida" class="form-control"><option value="">Tipo de Saída...</option></select>
                                 <input type="text" id="mov-requisitante" placeholder="Requisitante" class="form-control">
                                 <select id="mov-obra" class="form-control"><option value="">Selecione a Obra...</option></select>
-                                <input type="text" id="mov-observacao-saida" placeholder="Observação" class="form-control">
+                                <input type="text" id="mov-observacao-saida" placeholder="Observação" class="form-control" style="flex-grow: 1;">
                                 <p class="auto-filled-field" id="mov-estoque-display-wrapper" style="display: none;"><strong>Estoque Atual:</strong> <span id="mov-estoque-display">-</span></p>
                             </div>
                         </div>
