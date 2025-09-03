@@ -79,11 +79,13 @@
                             </div>
 
                             <!-- Container para Campos de SAÍDA -->
-                            <div id="saida-fields-container" style="grid-column: 1 / -1; display: none; gap: 10px;">
-                                <select id="mov-tipo-saida" class="form-control"><option value="">Tipo de Saída...</option></select>
-                                <input type="text" id="mov-requisitante" placeholder="Requisitante" class="form-control">
-                                <select id="mov-obra" class="form-control"><option value="">Selecione a Obra...</option></select>
-                                <input type="text" id="mov-observacao-saida" placeholder="Observação" class="form-control" style="flex-grow: 1;">
+                            <div id="saida-fields-container" style="grid-column: 1 / -1; display: none; flex-direction: column; gap: 10px;">
+                                <div style="display: flex; gap: 10px;">
+                                    <select id="mov-tipo-saida" class="form-control"><option value="">Tipo de Saída...</option></select>
+                                    <input type="text" id="mov-requisitante" placeholder="Requisitante" class="form-control">
+                                    <select id="mov-obra" class="form-control"><option value="">Selecione a Obra...</option></select>
+                                    <input type="text" id="mov-observacao-saida" placeholder="Observação" class="form-control" style="flex-grow: 1;">
+                                </div>
                                 <p class="auto-filled-field" id="mov-estoque-display-wrapper" style="display: none;"><strong>Estoque Atual:</strong> <span id="mov-estoque-display">-</span></p>
                             </div>
                         </div>
