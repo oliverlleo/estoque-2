@@ -6,6 +6,18 @@
     <title>Movimentações - Controle de Estoque</title>
     <link rel="stylesheet" href="css/style.css">
     <script src="https://cdn.jsdelivr.net/npm/feather-icons/dist/feather.min.js"></script>
+    <style>
+        /*
+         * TARGETED FIX:
+         * Override the global .form-control rule (width: 100%; display: block;)
+         * specifically for the stock entry fields container. This allows the flexbox
+         * properties (flex-basis, flex-grow) to control the layout correctly,
+         * putting all fields on a single line as requested.
+        */
+        #entrada-fields-container .form-control {
+            width: auto;
+        }
+    </style>
 </head>
 <body>
     <aside class="sidebar">
