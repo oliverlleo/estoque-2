@@ -63,14 +63,10 @@ document.addEventListener('DOMContentLoaded', async function() {
 
     // --- Campos do Formulário ---
     const entradaFields = [
-        document.getElementById('mov-tipo-entrada'), document.getElementById('mov-nf'),
-        document.getElementById('mov-valor-unitario'), document.getElementById('mov-icms'),
-        document.getElementById('mov-ipi'), document.getElementById('mov-frete')
+        document.getElementById('entrada-fields-container')
     ];
     const saidaFields = [
-        document.getElementById('mov-tipo-saida'), document.getElementById('mov-requisitante'),
-        document.getElementById('mov-obra'),
-        document.getElementById('mov-estoque-display-wrapper')
+        document.getElementById('saida-fields-container')
     ];
 
     // --- Data Stores ---
@@ -399,7 +395,7 @@ document.addEventListener('DOMContentLoaded', async function() {
                         icms: icms,
                         ipi: ipi,
                         frete: frete,
-                        observacao: document.getElementById('mov-observacao').value,
+                        observacao: document.getElementById('mov-observacao-entrada').value,
                         quantidade: quantidadeParaEstoque,
                         quantidade_compra: quantidade,
                         custo_total_entrada: custoTotalEntrada
@@ -443,7 +439,7 @@ document.addEventListener('DOMContentLoaded', async function() {
                         tipo_saidaId: tipoSaidaId,
                         requisitante: document.getElementById('mov-requisitante').value,
                         obraId: document.getElementById('mov-obra').value,
-                        observacao: document.getElementById('mov-observacao').value,
+                        observacao: document.getElementById('mov-observacao-saida').value,
                     });
                     alert('Reserva registrada com sucesso!');
                     formMovimentacao.reset();
@@ -496,7 +492,7 @@ document.addEventListener('DOMContentLoaded', async function() {
                             tipo_saidaId: tipoSaidaId,
                             requisitante: document.getElementById('mov-requisitante').value,
                             obraId: document.getElementById('mov-obra').value,
-                            observacao: document.getElementById('mov-observacao').value,
+                            observacao: document.getElementById('mov-observacao-saida').value,
                             valorMedioHistorico: pData.valorMedio || 0
                         });
                     });
