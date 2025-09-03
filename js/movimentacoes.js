@@ -63,13 +63,10 @@ document.addEventListener('DOMContentLoaded', async function() {
 
     // --- Campos do Formulário ---
     const entradaFields = [
-        document.getElementById('mov-tipo-entrada'), document.getElementById('mov-nf'),
-        document.getElementById('mov-valor-unitario'), document.getElementById('mov-icms'),
-        document.getElementById('mov-ipi'), document.getElementById('mov-frete')
+        document.getElementById('entrada-fields-container')
     ];
     const saidaFields = [
-        document.getElementById('mov-tipo-saida'), document.getElementById('mov-requisitante'),
-        document.getElementById('mov-estoque-display-wrapper')
+        document.getElementById('saida-fields-container')
     ];
 
     // --- Data Stores ---
@@ -126,7 +123,7 @@ document.addEventListener('DOMContentLoaded', async function() {
     }
 
     function updateProductInfo() {
-        const productId = document.getElementById('mov-produto').value;
+        const productId = document.getElementById('mov-produto-id').value;
         const product = productsMap[productId];
         const locacaoSelect = document.getElementById('mov-locacao');
         const isEntrada = document.getElementById('movement-toggle').checked;
@@ -329,7 +326,7 @@ document.addEventListener('DOMContentLoaded', async function() {
     formMovimentacao.addEventListener('submit', async (e) => {
         e.preventDefault();
         const isEntrada = toggle.checked;
-        const productId = document.getElementById('mov-produto').value;
+        const productId = document.getElementById('mov-produto-id').value;
         const locacaoSelecionada = document.getElementById('mov-locacao').value;
         const quantidade = parseFloat(document.getElementById('mov-quantidade').value);
 
@@ -398,7 +395,7 @@ document.addEventListener('DOMContentLoaded', async function() {
                         icms: icms,
                         ipi: ipi,
                         frete: frete,
-                        observacao: document.getElementById('mov-observacao').value,
+                        observacao: document.getElementById('mov-observacao-entrada').value,
                         quantidade: quantidadeParaEstoque,
                         quantidade_compra: quantidade,
                         custo_total_entrada: custoTotalEntrada
@@ -442,7 +439,7 @@ document.addEventListener('DOMContentLoaded', async function() {
                         tipo_saidaId: tipoSaidaId,
                         requisitante: document.getElementById('mov-requisitante').value,
                         obraId: document.getElementById('mov-obra').value,
-                        observacao: document.getElementById('mov-observacao').value,
+                        observacao: document.getElementById('mov-observacao-saida').value,
                     });
                     alert('Reserva registrada com sucesso!');
                     formMovimentacao.reset();
@@ -495,19 +492,18 @@ document.addEventListener('DOMContentLoaded', async function() {
                             tipo_saidaId: tipoSaidaId,
                             requisitante: document.getElementById('mov-requisitante').value,
                             obraId: document.getElementById('mov-obra').value,
-                            observacao: document.getElementById('mov-observacao').value,
+                            observacao: document.getElementById('mov-observacao-saida').value,
                             valorMedioHistorico: pData.valorMedio || 0
                         });
                     });
                     alert('Saída registrada com sucesso!');
 
-                    // ATUALIZA O MAPA DE PRODUTOS LOCAL
-                    const productData = productsMap[productId];
-                    if (productData && productData.locacoes) {
-                        const locacaoIndex = productData.locacoes.findIndex(l => l.locacao === locacaoSelecionada);
-                        if (locacaoIndex !== -1) {
-                            productsMap[productId].locacoes[locacaoIndex].estoque -= quantidade;
-                        }
+                    // ATUALIZA O MAPA DE PRODUTOS LOCAL (FORMA ROBUSTA)
+                    // Recarrega os dados do produto do banco de dados para garantir consistência.
+                    const productRef = doc(db, 'produtos', productId);
+                    const updatedDoc = await getDoc(productRef);
+                    if (updatedDoc.exists()) {
+                        productsMap[productId] = { id: productId, ...updatedDoc.data() };
                     }
                     formMovimentacao.reset();
                     handleToggleChange();
@@ -687,11 +683,12 @@ document.addEventListener('DOMContentLoaded', async function() {
 
             alert('Transferência realizada com sucesso!');
 
-            // Atualiza o mapa local para refletir a mudança
-            const locOrigem = productsMap[productId].locacoes.find(l => l.locacao === origem);
-            const locDestino = productsMap[productId].locacoes.find(l => l.locacao === destino);
-            if (locOrigem) locOrigem.estoque -= quantidade;
-            if (locDestino) locDestino.estoque += quantidade;
+            // Atualiza o mapa local para refletir a mudança (FORMA ROBUSTA)
+            const productRef = doc(db, 'produtos', productId);
+            const updatedDoc = await getDoc(productRef);
+            if (updatedDoc.exists()) {
+                productsMap[productId] = { id: productId, ...updatedDoc.data() };
+            }
 
             formTransferencia.reset();
             transferenciaModal.style.display = 'none';
@@ -925,7 +922,6 @@ document.addEventListener('DOMContentLoaded', async function() {
     });
 
     async function loadInitialData() {
-        const productSelect = document.getElementById('mov-produto');
         const tipoEntradaSelect = document.getElementById('mov-tipo-entrada');
         const tipoSaidaSelect = document.getElementById('mov-tipo-saida');
         const obraSelect = document.getElementById('mov-obra');
@@ -933,12 +929,9 @@ document.addEventListener('DOMContentLoaded', async function() {
         const q = query(collection(db, 'produtos'), where("arquivado", "!=", true));
         const productsSnapshot = await getDocs(q);
         productsMap = {};
-        productSelect.innerHTML = '<option value="">Selecione o Produto...</option>';
         productsSnapshot.forEach(doc => {
              const product = doc.data();
              productsMap[doc.id] = { id: doc.id, ...product };
-             const optionText = `${product.codigo || 'S/C'} - ${product.descricao || 'N/A'}`.trim();
-             productSelect.innerHTML += `<option value="${doc.id}">${optionText}</option>`;
         });
 
         configData.tipos_entrada = await loadConfigToSelect(tipoEntradaSelect, 'tipos_entrada', 'nome');
@@ -991,8 +984,60 @@ document.addEventListener('DOMContentLoaded', async function() {
     }
 
 
-    document.getElementById('mov-produto').addEventListener('change', updateProductInfo);
+    // --- LÓGICA DO CAMPO DE BUSCA DE PRODUTO ---
+    const productSearchInput = document.getElementById('mov-produto-search');
+    const productSearchIdInput = document.getElementById('mov-produto-id');
+    const productResultsDiv = document.getElementById('mov-produto-results');
 
+    productSearchInput.addEventListener('input', () => {
+        const searchTerm = productSearchInput.value.toLowerCase();
+        productResultsDiv.innerHTML = '';
+        productResultsDiv.style.display = 'none';
+
+        if (searchTerm.length < 2) {
+            return;
+        }
+
+        const filteredProducts = Object.values(productsMap).filter(p =>
+            p.codigo.toLowerCase().includes(searchTerm) ||
+            p.descricao.toLowerCase().includes(searchTerm)
+        );
+
+        if (filteredProducts.length > 0) {
+            productResultsDiv.style.display = 'block';
+            filteredProducts.slice(0, 10).forEach(p => { // Limita a 10 resultados
+                const div = document.createElement('div');
+                div.className = 'search-result-item';
+                div.textContent = `${p.codigo} - ${p.descricao}`;
+                div.dataset.id = p.id;
+                productResultsDiv.appendChild(div);
+            });
+        }
+    });
+
+    productResultsDiv.addEventListener('click', (e) => {
+        if (e.target.classList.contains('search-result-item')) {
+            const productId = e.target.dataset.id;
+            const product = productsMap[productId];
+
+            productSearchInput.value = `${product.codigo} - ${product.descricao}`;
+            productSearchIdInput.value = productId;
+
+            productResultsDiv.innerHTML = '';
+            productResultsDiv.style.display = 'none';
+
+            updateProductInfo(); // Chama a função para atualizar o resto do formulário
+        }
+    });
+
+    // Esconde os resultados se clicar fora
+    document.addEventListener('click', (e) => {
+        if (!e.target.closest('.search-container')) {
+            productResultsDiv.style.display = 'none';
+        }
+    });
+
+    // --- FIM DA LÓGICA DE BUSCA ---
 
     document.getElementById('headers-row').addEventListener('click', e => {
         // ... (lógica de ordenação da tabela mantida)

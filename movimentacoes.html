@@ -6,6 +6,23 @@
     <title>Movimentações - Controle de Estoque</title>
     <link rel="stylesheet" href="css/style.css">
     <script src="https://cdn.jsdelivr.net/npm/feather-icons/dist/feather.min.js"></script>
+    <style>
+        /*
+         * FINAL ATTEMPT: Forceful CSS Override
+         * Using !important to ensure these styles take precedence over any conflicting
+         * rules from the main stylesheet or dynamically applied styles.
+        */
+        #entrada-fields-container .form-control {
+            display: inline-block !important;
+            width: auto !important; /* Allow flex properties to control width */
+            flex-shrink: 1 !important; /* Allow fields to shrink if needed */
+            min-width: 90px !important; /* Prevent fields from becoming too small */
+        }
+        #entrada-fields-container #mov-observacao-entrada {
+            min-width: 180px !important; /* Give observation field a larger minimum width */
+            flex-grow: 1 !important; /* Ensure it grows to fill space */
+        }
+    </style>
 </head>
 <body>
     <aside class="sidebar">
@@ -50,28 +67,40 @@
                 <div class="card-body">
                     <form id="form-movimentacao">
                         <div class="form-grid-4-col">
-                            <select id="mov-produto" required class="form-control" style="grid-column: 1 / 2;"><option value="">Selecione o Produto...</option></select>
-                            <select id="mov-locacao" required class="form-control" style="grid-column: 2 / -1;" disabled><option value="">Selecione a Locação...</option></select>
+                            <div class="search-container" style="grid-column: 1 / 4; position: relative;">
+                                <input type="text" id="mov-produto-search" placeholder="Buscar produto por código ou descrição..." class="form-control" autocomplete="off">
+                                <input type="hidden" id="mov-produto-id">
+                                <div id="mov-produto-results" class="search-results" style="position: absolute; background-color: white; border: 1px solid #ccc; width: 100%; z-index: 100; max-height: 200px; overflow-y: auto;"></div>
+                            </div>
+                            <select id="mov-locacao" required class="form-control" style="grid-column: 4 / 5;" disabled><option value="">Locação...</option></select>
 
                             <p class="auto-filled-field"><strong>Código:</strong> <span id="mov-codigo-display">-</span></p>
                             <p class="auto-filled-field"><strong>Descrição:</strong> <span id="mov-descricao-display">-</span></p>
                             <p class="auto-filled-field" id="mov-un-display-wrapper"><strong>UN:</strong> <span id="mov-un-display">-</span></p>
+                            <p class="auto-filled-field" id="mov-estoque-display-wrapper" style="display: none;"><strong>Estoque Atual:</strong> <span id="mov-estoque-display">-</span></p>
 
                             <input type="number" id="mov-quantidade" placeholder="Quantidade" required step="any" class="form-control">
 
-                            <select id="mov-tipo-entrada" class="form-control"><option value="">Tipo de Entrada...</option></select>
-                            <input type="text" id="mov-nf" placeholder="Nº Nota Fiscal" class="form-control">
-                            <input type="number" id="mov-valor-unitario" placeholder="Valor Unitário" step="0.01" class="form-control">
-                            <input type="number" id="mov-icms" placeholder="ICMS Total" step="0.01" class="form-control">
-                            <input type="number" id="mov-ipi" placeholder="IPI Total" step="0.01" class="form-control">
-                            <input type="number" id="mov-frete" placeholder="Frete Total" step="0.01" class="form-control">
+                            <!-- Container para Campos de ENTRADA -->
+                            <div id="entrada-fields-container" style="grid-column: 1 / -1; display: flex; gap: 10px; align-items: flex-end;">
+                                <select id="mov-tipo-entrada" class="form-control" style="flex-basis: 160px;"><option value="">Tipo de Entrada...</option></select>
+                                <input type="text" id="mov-nf" placeholder="Nº Nota Fiscal" class="form-control" style="flex-basis: 120px;">
+                                <input type="number" id="mov-valor-unitario" placeholder="Valor Unitário" step="0.01" class="form-control" style="flex-basis: 120px;">
+                                <input type="number" id="mov-icms" placeholder="ICMS Total" step="0.01" class="form-control" style="flex-basis: 100px;">
+                                <input type="number" id="mov-ipi" placeholder="IPI Total" step="0.01" class="form-control" style="flex-basis: 100px;">
+                                <input type="number" id="mov-frete" placeholder="Frete Total" step="0.01" class="form-control" style="flex-basis: 100px;">
+                                <input type="text" id="mov-observacao-entrada" placeholder="Observação" class="form-control" style="flex-grow: 1;">
+                            </div>
 
-                            <select id="mov-tipo-saida" class="form-control"><option value="">Tipo de Saída...</option></select>
-                            <input type="text" id="mov-requisitante" placeholder="Requisitante" class="form-control">
-                            <select id="mov-obra" class="form-control"><option value="">Selecione a Obra...</option></select>
-                            <p class="auto-filled-field" id="mov-estoque-display-wrapper"><strong>Estoque Atual:</strong> <span id="mov-estoque-display">-</span></p>
-
-                            <input type="text" id="mov-observacao" placeholder="Observação" class="form-control" style="grid-column: 1 / -1;">
+                            <!-- Container para Campos de SAÍDA -->
+                            <div id="saida-fields-container" style="grid-column: 1 / -1; display: none; flex-direction: column; gap: 10px;">
+                                <div style="display: flex; gap: 10px;">
+                                    <select id="mov-tipo-saida" class="form-control"><option value="">Tipo de Saída...</option></select>
+                                    <input type="text" id="mov-requisitante" placeholder="Requisitante" class="form-control">
+                                    <select id="mov-obra" class="form-control"><option value="">Selecione a Obra...</option></select>
+                                    <input type="text" id="mov-observacao-saida" placeholder="Observação" class="form-control" style="flex-grow: 1;">
+                                </div>
+                            </div>
                         </div>
                         <button type="submit" id="btn-movimentacao" class="btn" style="width: 100%; margin-top: 20px;">Confirmar</button>
                     </form>
@@ -82,14 +111,7 @@
                 <div class="card-header"><h3>Histórico de Movimentações</h3></div>
                 <div class="card-body">
                     <div id="history-filters-container" class="filters-container">
-                        <input type="text" class="form-control filter-input" data-column="data" placeholder="Filtrar por Data...">
-                        <input type="text" class="form-control filter-input" data-column="tipo" placeholder="Filtrar por Tipo...">
-                        <input type="text" class="form-control filter-input" data-column="codigo" placeholder="Filtrar por Código...">
-                        <input type="text" class="form-control filter-input" data-column="descricao" placeholder="Filtrar por Descrição...">
-                        <input type="text" class="form-control filter-input" data-column="quantidade" placeholder="Filtrar por Qtde...">
-                        <input type="text" class="form-control filter-input" data-column="nf" placeholder="Filtrar por NF...">
-                        <input type="text" class="form-control filter-input" data-column="requisitante" placeholder="Filtrar por Requisitante...">
-                        <input type="text" class="form-control filter-input" data-column="obraId" placeholder="Filtrar por Obra...">
+                        <!-- Filters will be populated by JS or can be added here if static -->
                     </div>
                     <div class="table-wrapper">
                         <table id="table-movimentacoes" class="table">
@@ -135,24 +157,19 @@
                                 <option value="">Selecione...</option>
                             </select>
                         </div>
-
                         <p class="auto-filled-field"><strong>Código:</strong> <span id="transf-codigo-display">-</span></p>
                         <p class="auto-filled-field"><strong>Descrição:</strong> <span id="transf-descricao-display">-</span></p>
-
                         <div>
                             <label for="transf-locacao-origem">Locação de Origem</label>
                             <select id="transf-locacao-origem" required class="form-control" disabled>
                                 <option value="">Selecione a origem...</option>
                             </select>
                         </div>
-
                         <p class="auto-filled-field"><strong>Estoque na Origem:</strong> <span id="transf-estoque-origem-display">0</span></p>
-
                         <div>
                             <label for="transf-quantidade">Quantidade a Transferir</label>
                             <input type="number" id="transf-quantidade" placeholder="0" required step="any" class="form-control">
                         </div>
-
                         <div>
                             <label for="transf-locacao-destino">Locação de Destino</label>
                             <select id="transf-locacao-destino" required class="form-control" disabled>
@@ -203,8 +220,7 @@
                                 <th data-column="acao">Ação</th>
                             </tr>
                         </thead>
-                        <tbody>
-                            </tbody>
+                        <tbody></tbody>
                     </table>
                 </div>
                 <button id="btn-confirmar-xml-import" class="btn btn-success" style="width: 100%; margin-top: 20px;">Confirmar Entradas</button>
