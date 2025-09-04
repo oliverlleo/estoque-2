@@ -6,27 +6,35 @@ function showInfoModal(message) {
 import { db } from './firebase-config.js';
 import { collection, addDoc, getDocs, onSnapshot, runTransaction, doc, serverTimestamp, query, where, getDoc, setDoc } from "https://www.gstatic.com/firebasejs/9.6.1/firebase-firestore.js";
 
-// Adicione esta função em js/movimentacoes.js
-async function calcularCustoMedioProduto(produtoId) {
-    const q = query(collection(db, 'movimentacoes'), where("productId", "==", produtoId));
-    const movementsSnapshot = await getDocs(q);
-    const productMovements = [];
-    movementsSnapshot.forEach(doc => {
-        productMovements.push(doc.data());
-    });
+async function atualizarCustoMedioProduto(produtoId) {
+    if (!produtoId) return;
 
-    const entryMovements = productMovements.filter(m => m.tipo === 'entrada' && (m.custo_total_entrada || 0) > 0);
+    const q = query(
+        collection(db, 'movimentacoes'),
+        where("productId", "==", produtoId),
+        where("tipo", "==", "entrada")
+    );
+    const movementsSnapshot = await getDocs(q);
+
     let totalCost = 0;
     let totalQuantityForAvg = 0;
 
-    entryMovements.forEach(m => {
-        totalCost += m.custo_total_entrada;
-        totalQuantityForAvg += m.quantidade;
+    movementsSnapshot.forEach(doc => {
+        const mov = doc.data();
+        if (mov.custo_total_entrada && mov.custo_total_entrada > 0) {
+            if (mov.quantidade > 0) {
+                totalCost += mov.custo_total_entrada;
+                totalQuantityForAvg += mov.quantidade;
+            }
+        }
     });
 
-    return totalQuantityForAvg > 0 ? totalCost / totalQuantityForAvg : 0;
-}
+    const novoCustoMedio = totalQuantityForAvg > 0 ? totalCost / totalQuantityForAvg : 0;
+    const productRef = doc(db, 'produtos', produtoId);
+    await setDoc(productRef, { valorMedio: novoCustoMedio }, { merge: true });
 
+    console.log(`Custo médio do produto ${produtoId} atualizado para ${novoCustoMedio.toFixed(2)}`);
+}
 
 document.addEventListener('DOMContentLoaded', async function() {
     // Lógica para fechar o modal de informação
@@ -1060,36 +1068,3 @@ document.addEventListener('DOMContentLoaded', async function() {
         document.getElementById('movement-wrapper').style.display = 'block';
     });
 });
-
-// Substitua a função inteira em js/movimentacoes.js por esta versão CORRIGIDA:
-async function atualizarCustoMedioProduto(produtoId) {
-    if (!produtoId) return;
-
-    // A busca aqui foi corrigida para usar 'produtoId', a variável que a função recebe.
-    // Este era o ponto do erro.
-    const q = query(
-        collection(db, 'movimentacoes'),
-        where("productId", "==", produtoId), // <-- CORRIGIDO AQUI
-        where("tipo", "==", "entrada")
-    );
-    const movementsSnapshot = await getDocs(q);
-
-    let totalCost = 0;
-    let totalQuantityForAvg = 0;
-
-    movementsSnapshot.forEach(doc => {
-        const mov = doc.data();
-        if (mov.custo_total_entrada && mov.custo_total_entrada > 0) {
-            if (mov.quantidade > 0) {
-                totalCost += mov.custo_total_entrada;
-                totalQuantityForAvg += mov.quantidade;
-            }
-        }
-    });
-
-    const novoCustoMedio = totalQuantityForAvg > 0 ? totalCost / totalQuantityForAvg : 0;
-    const productRef = doc(db, 'produtos', produtoId);
-    await setDoc(productRef, { valorMedio: novoCustoMedio }, { merge: true });
-
-    console.log(`Custo médio do produto ${produtoId} atualizado para ${novoCustoMedio.toFixed(2)}`);
-}
