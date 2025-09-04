@@ -145,8 +145,8 @@ document.addEventListener('DOMContentLoaded', () => {
             'Aplicações': item.aplicacoes,
             'Qtde': item.qtde,
             'Observação': item.observacao,
-            'Valor Médio': item.valorMedio,
-            'Valor Total': item.valorTotal
+            'Custo Un. Médio': item.valorMedio,
+            'Custo Total': item.valorTotal
         }));
 
         const worksheet = XLSX.utils.json_to_sheet([]);
@@ -172,8 +172,8 @@ document.addEventListener('DOMContentLoaded', () => {
             { wch: 30 }, // Aplicações
             { wch: 10 }, // Qtde
             { wch: 40 }, // Observação
-            { wch: 15 }, // Valor Médio
-            { wch: 15 }  // Valor Total
+            { wch: 15 }, // Custo Un. Médio
+            { wch: 15 }  // Custo Total
         ];
 
         // Gera e baixa o arquivo

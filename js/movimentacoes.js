@@ -192,20 +192,19 @@ document.addEventListener('DOMContentLoaded', async function() {
             let custoUnitario = 0;
             if (mov.tipo === 'entrada' && mov.quantidade > 0) {
                 let valorTotal;
-                // Prioriza o novo campo 'custo_total_entrada' se ele existir
                 if (mov.custo_total_entrada !== undefined) {
                     valorTotal = mov.custo_total_entrada;
                 } else {
-                    // Fallback para registros antigos: calcula da forma antiga
                     valorTotal = (mov.quantidade_compra * (mov.valor_unitario || 0)) + (mov.icms || 0) + (mov.ipi || 0) + (mov.frete || 0);
                 }
-                // O custo unitário é o custo total dividido pela quantidade que efetivamente entrou no estoque
                 custoUnitario = valorTotal / mov.quantidade;
+            } else if (mov.tipo === 'saida') {
+                custoUnitario = mov.valorMedioHistorico || 0;
             }
 
             const processedMov = {
                 ...mov,
-                custoUnitario: custoUnitario, // Adiciona o custo unitário calculado ao objeto principal
+                custoUnitario: custoUnitario,
                 _search_data: {
                     data: mov.data ? new Date(mov.data.seconds * 1000).toLocaleString('pt-BR') : '',
                     tipo: mov.tipo || '',
@@ -403,20 +402,15 @@ document.addEventListener('DOMContentLoaded', async function() {
                     transaction.set(movementRef, movementData);
                 });
                 alert('Entrada registrada com sucesso!');
-                // ATUALIZA O MAPA DE PRODUTOS LOCAL
-                const productData = productsMap[productId];
-                if (productData && productData.locacoes) {
-                    const locacaoIndex = productData.locacoes.findIndex(l => l.locacao === locacaoSelecionada);
-                    if (locacaoIndex !== -1) {
-                        // Esta é uma aproximação. A quantidade real adicionada ao estoque é `quantidadeParaEstoque`.
-                        // A lógica de conversão precisaria ser replicada aqui para uma atualização 100% precisa.
-                        // Por simplicidade, vamos assumir 1-para-1 por enquanto, ou buscar o doc novamente.
-                        // A forma mais segura é recarregar os dados do produto.
-                        const productRef = doc(db, 'produtos', productId);
-                        const updatedDoc = await getDoc(productRef);
-                        productsMap[productId] = { id: productId, ...updatedDoc.data() };
-                    }
+                await atualizarCustoMedioProduto(productId); // Garante que o custo médio seja recalculado
+
+                // ATUALIZA O MAPA DE PRODUTOS LOCAL (FORMA ROBUSTA)
+                const productRef = doc(db, 'produtos', productId);
+                const updatedDoc = await getDoc(productRef);
+                if (updatedDoc.exists()) {
+                    productsMap[productId] = { id: productId, ...updatedDoc.data() };
                 }
+
                 formMovimentacao.reset();
                 handleToggleChange();
             } catch (error) {
