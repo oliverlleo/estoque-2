@@ -989,14 +989,10 @@ document.addEventListener('DOMContentLoaded', async function() {
     const productSearchIdInput = document.getElementById('mov-produto-id');
     const productResultsDiv = document.getElementById('mov-produto-results');
 
-    productSearchInput.addEventListener('input', () => {
+    const showAndFilterProducts = () => {
         const searchTerm = productSearchInput.value.toLowerCase();
         productResultsDiv.innerHTML = '';
         productResultsDiv.style.display = 'none';
-
-        if (searchTerm.length < 2) {
-            return;
-        }
 
         const filteredProducts = Object.values(productsMap).filter(p =>
             p.codigo.toLowerCase().includes(searchTerm) ||
@@ -1005,7 +1001,7 @@ document.addEventListener('DOMContentLoaded', async function() {
 
         if (filteredProducts.length > 0) {
             productResultsDiv.style.display = 'block';
-            filteredProducts.slice(0, 10).forEach(p => { // Limita a 10 resultados
+            filteredProducts.forEach(p => { // Removido o slice para mostrar todos os resultados
                 const div = document.createElement('div');
                 div.className = 'search-result-item';
                 div.textContent = `${p.codigo} - ${p.descricao}`;
@@ -1013,7 +1009,10 @@ document.addEventListener('DOMContentLoaded', async function() {
                 productResultsDiv.appendChild(div);
             });
         }
-    });
+    };
+
+    productSearchInput.addEventListener('click', showAndFilterProducts);
+    productSearchInput.addEventListener('input', showAndFilterProducts);
 
     productResultsDiv.addEventListener('click', (e) => {
         if (e.target.classList.contains('search-result-item')) {
