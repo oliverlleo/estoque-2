@@ -1011,7 +1011,7 @@ document.addEventListener('DOMContentLoaded', async function() {
         }
     };
 
-    productSearchInput.addEventListener('click', showAndFilterProducts);
+    productSearchInput.addEventListener('focus', showAndFilterProducts);
     productSearchInput.addEventListener('input', showAndFilterProducts);
 
     productResultsDiv.addEventListener('click', (e) => {
