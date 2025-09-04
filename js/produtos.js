@@ -488,6 +488,7 @@ document.addEventListener('DOMContentLoaded', async function() {
             descricao: document.getElementById('produto-descricao').value,
             un: document.getElementById('produto-un').value,
             cor: document.getElementById('produto-cor').value,
+            quantidadeMinima: parseFloat(document.getElementById('produto-quantidade-minima').value) || 0,
             fornecedorId: document.getElementById('produto-fornecedor').value,
             grupoId: document.getElementById('produto-grupo').value,
             aplicacaoIds: aplicacaoSelect.getSelectedIds(),
@@ -657,6 +658,7 @@ document.addEventListener('DOMContentLoaded', async function() {
             document.getElementById('produto-descricao').value = product.data.descricao;
             document.getElementById('produto-un').value = product.data.un;
             document.getElementById('produto-cor').value = product.data.cor;
+            document.getElementById('produto-quantidade-minima').value = product.data.quantidadeMinima || '';
             document.getElementById('produto-fornecedor').value = product.data.fornecedorId;
             document.getElementById('produto-grupo').value = product.data.grupoId;
             document.getElementById('produto-conversao').value = product.data.conversaoId || "";
