@@ -403,20 +403,21 @@ document.addEventListener('DOMContentLoaded', async function() {
                     transaction.set(movementRef, movementData);
                 });
                 alert('Entrada registrada com sucesso!');
-                // ATUALIZA O MAPA DE PRODUTOS LOCAL
-                const productData = productsMap[productId];
-                if (productData && productData.locacoes) {
-                    const locacaoIndex = productData.locacoes.findIndex(l => l.locacao === locacaoSelecionada);
-                    if (locacaoIndex !== -1) {
-                        // Esta é uma aproximação. A quantidade real adicionada ao estoque é `quantidadeParaEstoque`.
-                        // A lógica de conversão precisaria ser replicada aqui para uma atualização 100% precisa.
-                        // Por simplicidade, vamos assumir 1-para-1 por enquanto, ou buscar o doc novamente.
-                        // A forma mais segura é recarregar os dados do produto.
-                        const productRef = doc(db, 'produtos', productId);
-                        const updatedDoc = await getDoc(productRef);
-                        productsMap[productId] = { id: productId, ...updatedDoc.data() };
-                    }
+
+                // Após a transação, verifica se precisa atualizar o custo médio
+                const tipoEntradaId = document.getElementById('mov-tipo-entrada').value;
+                const tipoEntradaConfig = configData.tipos_entrada[tipoEntradaId];
+                if (tipoEntradaConfig && tipoEntradaConfig.recalcula_custo_medio) {
+                    await atualizarCustoMedioProduto(productId);
                 }
+
+                // ATUALIZA O MAPA DE PRODUTOS LOCAL (FORMA ROBUSTA)
+                const productRef = doc(db, 'produtos', productId);
+                const updatedDoc = await getDoc(productRef);
+                if (updatedDoc.exists()) {
+                    productsMap[productId] = { id: productId, ...updatedDoc.data() };
+                }
+
                 formMovimentacao.reset();
                 handleToggleChange();
             } catch (error) {
