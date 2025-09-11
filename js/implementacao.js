@@ -1,5 +1,5 @@
 import { db } from './firebase-config.js';
-import { collection, getDocs, query, where, writeBatch, doc, serverTimestamp } from "https://www.gstatic.com/firebasejs/9.6.1/firebase-firestore.js";
+import { collection, getDocs, query, where, doc, serverTimestamp, runTransaction } from "https://www.gstatic.com/firebasejs/9.6.1/firebase-firestore.js";
 
 document.addEventListener('DOMContentLoaded', async function() {
     console.log("Página de Implementação carregada.");
@@ -20,6 +20,7 @@ document.addEventListener('DOMContentLoaded', async function() {
 
     async function fetchAllData() {
         btnListItems.disabled = true;
+        btnConfirmMovement.disabled = true;
         btnListItems.textContent = 'Carregando...';
         try {
             // Fetch all products
@@ -30,11 +31,13 @@ document.addEventListener('DOMContentLoaded', async function() {
             // Fetch all existing 'implementacao' movements
             const q = query(collection(db, 'movimentacoes'), where("tipo", "==", "implementacao"));
             const movementsSnapshot = await getDocs(q);
+            implementationMovements = {}; // Reset map before fetching
             movementsSnapshot.docs.forEach(doc => {
                 const mov = doc.data();
-                // Create a unique key for each product-location pair
-                const key = `${mov.productId}-${mov.locacao}`;
-                implementationMovements[key] = { id: doc.id, ...mov };
+                if (mov.productId && mov.locacao) {
+                    const key = `${mov.productId}-${mov.locacao}`;
+                    implementationMovements[key] = { id: doc.id, ...mov };
+                }
             });
             console.log(`Carregados ${Object.keys(implementationMovements).length} movimentos de implementação.`);
 
@@ -43,6 +46,7 @@ document.addEventListener('DOMContentLoaded', async function() {
             alert("Falha ao carregar dados iniciais. Verifique o console.");
         } finally {
             btnListItems.disabled = false;
+            btnConfirmMovement.disabled = false;
             btnListItems.textContent = 'Listar Itens';
         }
     }
@@ -72,8 +76,8 @@ document.addEventListener('DOMContentLoaded', async function() {
 
                     if (existingMovement) {
                         // Item JÁ IMPLEMENTADO
-                        row.dataset.movementId = existingMovement.id; // Store existing movement ID
-                        row.classList.add('implemented'); // Add a class for styling
+                        row.dataset.movementId = existingMovement.id;
+                        row.classList.add('implemented');
 
                         quantityInputHtml = `<input type="number" class="form-control quantity-input" value="${existingMovement.quantidade}" disabled title="Quantidade já implementada.">`;
                         valueInputHtml = `<input type="number" class="form-control value-input" value="${existingMovement.valor_unitario || ''}" min="0" step="0.01">`;
@@ -112,12 +116,11 @@ document.addEventListener('DOMContentLoaded', async function() {
         const noValueChecked = filterNoValue.checked;
 
         document.querySelectorAll('#table-implementacao tbody tr').forEach(row => {
-            if (!row.dataset.productId) return; // Ignore empty rows
+            if (!row.dataset.productId) return;
 
             const quantityInput = row.querySelector('.quantity-input');
             const valueInput = row.querySelector('.value-input');
 
-            // Check if quantity exists (for new items) or is pre-filled (for implemented items)
             const hasQuantity = quantityInput.value && parseFloat(quantityInput.value) > 0;
             const hasValue = valueInput.value && parseFloat(valueInput.value) > 0;
 
@@ -150,7 +153,7 @@ document.addEventListener('DOMContentLoaded', async function() {
                 return { ...p, locacoes: validLocacoes };
             }
             return null;
-        }).filter(p => p !== null); // Remove nulls
+        }).filter(p => p !== null);
 
         renderTable(filteredProducts);
         applyFilters();
@@ -168,74 +171,105 @@ document.addEventListener('DOMContentLoaded', async function() {
             return;
         }
 
-        const batch = writeBatch(db);
-        let newMovementsCount = 0;
-        let updatedMovementsCount = 0;
-
-        rowsToProcess.forEach(row => {
-            const quantityInput = row.querySelector('.quantity-input');
-            const quantity = parseFloat(quantityInput.value);
-            const isAlreadyImplemented = quantityInput.disabled;
-
-            const value = parseFloat(row.querySelector('.value-input').value) || 0;
-            const icms = parseFloat(row.querySelector('.icms-input').value) || 0;
-            const ipi = parseFloat(row.querySelector('.ipi-input').value) || 0;
-            const frete = parseFloat(row.querySelector('.frete-input').value) || 0;
-
-            if (isAlreadyImplemented) {
-                // UPDATE existing movement with new financial data
-                const movementId = row.dataset.movementId;
-                if (movementId) {
-                    const movementRef = doc(db, 'movimentacoes', movementId);
-                    const custoTotal = (quantity * value) + icms + ipi + frete;
-                    batch.update(movementRef, {
-                        valor_unitario: value,
-                        icms: icms,
-                        ipi: ipi,
-                        frete: frete,
-                        custo_total_entrada: custoTotal,
-                        data_atualizacao: serverTimestamp() // Add update timestamp
-                    });
-                    updatedMovementsCount++;
-                }
-            } else if (quantity && quantity > 0) {
-                // CREATE new 'implementacao' movement
-                const productId = row.dataset.productId;
-                const custoTotal = (quantity * value) + icms + ipi + frete;
-
-                const movementData = {
-                    productId: productId,
-                    tipo: 'implementacao',
-                    quantidade: quantity,
-                    locacao: row.dataset.locacao, // Storing locacao on the movement
-                    data: serverTimestamp(),
-                    observacao: `Implementação via tela de implementação.`,
-                    valor_unitario: value,
-                    icms: icms,
-                    ipi: ipi,
-                    frete: frete,
-                    custo_total_entrada: custoTotal
-                };
-                const newMovementRef = doc(collection(db, 'movimentacoes'));
-                batch.set(newMovementRef, movementData);
-                newMovementsCount++;
-            }
-        });
-
-        if (newMovementsCount === 0 && updatedMovementsCount === 0) {
-            alert("Nenhuma alteração ou nova quantidade foi preenchida para salvar.");
-            return;
-        }
+        btnConfirmMovement.disabled = true;
+        btnConfirmMovement.textContent = 'Processando...';
 
         try {
-            await batch.commit();
-            alert(`${newMovementsCount} nova(s) movimentação(ões) criada(s) e ${updatedMovementsCount} movimentação(ões) atualizada(s) com sucesso!`);
-            // Refetch all data to get the latest state and re-render
-            await fetchAllData();
+            await runTransaction(db, async (transaction) => {
+                const productsToUpdate = new Map();
+
+                // First pass: Read all necessary product documents for stock updates
+                for (const row of rowsToProcess) {
+                    const quantityInput = row.querySelector('.quantity-input');
+                    const isNewImplementation = !quantityInput.disabled && parseFloat(quantityInput.value) > 0;
+
+                    if (isNewImplementation) {
+                        const productId = row.dataset.productId;
+                        if (!productsToUpdate.has(productId)) {
+                            const productRef = doc(db, 'produtos', productId);
+                            const productDoc = await transaction.get(productRef);
+                            if (!productDoc.exists()) throw new Error(`Produto com ID ${productId} não encontrado.`);
+                            // Deep copy of locacoes to avoid mutation issues
+                            productsToUpdate.set(productId, { ...productDoc.data(), locacoes: JSON.parse(JSON.stringify(productDoc.data().locacoes)) });
+                        }
+                    }
+                }
+
+                // Second pass: Perform all writes (updates and creations)
+                for (const row of rowsToProcess) {
+                    const quantityInput = row.querySelector('.quantity-input');
+                    const quantity = parseFloat(quantityInput.value) || 0;
+                    const isAlreadyImplemented = quantityInput.disabled;
+
+                    const value = parseFloat(row.querySelector('.value-input').value) || 0;
+                    const icms = parseFloat(row.querySelector('.icms-input').value) || 0;
+                    const ipi = parseFloat(row.querySelector('.ipi-input').value) || 0;
+                    const frete = parseFloat(row.querySelector('.frete-input').value) || 0;
+
+                    if (isAlreadyImplemented) {
+                        // UPDATE existing movement
+                        const movementId = row.dataset.movementId;
+                        if (movementId) {
+                            const movementRef = doc(db, 'movimentacoes', movementId);
+                            const custoTotal = (quantity * value) + icms + ipi + frete;
+                            transaction.update(movementRef, {
+                                valor_unitario: value,
+                                icms: icms,
+                                ipi: ipi,
+                                frete: frete,
+                                custo_total_entrada: custoTotal,
+                                data_atualizacao: serverTimestamp()
+                            });
+                        }
+                    } else if (quantity > 0) {
+                        // CREATE new movement AND UPDATE product stock
+                        const productId = row.dataset.productId;
+                        const locacaoStr = row.dataset.locacao;
+
+                        // Update product stock in our temporary map
+                        const productData = productsToUpdate.get(productId);
+                        const locacaoIndex = productData.locacoes.findIndex(l => l.locacao === locacaoStr);
+                        if (locacaoIndex === -1) throw new Error(`Locação ${locacaoStr} não encontrada no produto ${productData.codigo}.`);
+
+                        productData.locacoes[locacaoIndex].estoque = (productData.locacoes[locacaoIndex].estoque || 0) + quantity;
+
+                        // Create movement document
+                        const newMovementRef = doc(collection(db, 'movimentacoes'));
+                        const custoTotal = (quantity * value) + icms + ipi + frete;
+                        const movementData = {
+                            productId: productId,
+                            tipo: 'implementacao',
+                            quantidade: quantity,
+                            locacao: locacaoStr,
+                            data: serverTimestamp(),
+                            observacao: `Implementação via tela de implementação.`,
+                            valor_unitario: value,
+                            icms: icms,
+                            ipi: ipi,
+                            frete: frete,
+                            custo_total_entrada: custoTotal
+                        };
+                        transaction.set(newMovementRef, movementData);
+                    }
+                }
+
+                // Final writes for all updated product documents
+                for (const [productId, productData] of productsToUpdate.entries()) {
+                    const productRef = doc(db, 'produtos', productId);
+                    transaction.update(productRef, { locacoes: productData.locacoes });
+                }
+            });
+
+            alert("Operação concluída com sucesso! Os dados serão atualizados.");
+            await fetchAllData(); // Refetch all data to get the latest state
             btnListItems.click(); // Re-list the items to show the updated state
+
         } catch (error) {
             console.error("Erro ao confirmar movimentações:", error);
-            alert("Ocorreu um erro ao salvar as alterações. Verifique o console.");
+            alert("Ocorreu um erro ao salvar as alterações: " + error.message);
+        } finally {
+            btnConfirmMovement.disabled = false;
+            btnConfirmMovement.textContent = 'Confirmar Movimentação';
         }
     });
 
