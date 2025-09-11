@@ -75,18 +75,18 @@ document.addEventListener('DOMContentLoaded', async function() {
                         row.dataset.movementId = existingMovement.id; // Store existing movement ID
                         row.classList.add('implemented'); // Add a class for styling
 
-                        quantityInputHtml = `<input type="number" class="form-control-sm quantity-input" value="${existingMovement.quantidade}" disabled title="Quantidade já implementada.">`;
-                        valueInputHtml = `<input type="number" class="form-control-sm value-input" value="${existingMovement.valor_unitario || ''}" min="0" step="0.01">`;
-                        icmsInputHtml = `<input type="number" class="form-control-sm icms-input" value="${existingMovement.icms || ''}" min="0" step="0.01">`;
-                        ipiInputHtml = `<input type="number" class="form-control-sm ipi-input" value="${existingMovement.ipi || ''}" min="0" step="0.01">`;
-                        freteInputHtml = `<input type="number" class="form-control-sm frete-input" value="${existingMovement.frete || ''}" min="0" step="0.01">`;
+                        quantityInputHtml = `<input type="number" class="form-control quantity-input" value="${existingMovement.quantidade}" disabled title="Quantidade já implementada.">`;
+                        valueInputHtml = `<input type="number" class="form-control value-input" value="${existingMovement.valor_unitario || ''}" min="0" step="0.01">`;
+                        icmsInputHtml = `<input type="number" class="form-control icms-input" value="${existingMovement.icms || ''}" min="0" step="0.01">`;
+                        ipiInputHtml = `<input type="number" class="form-control ipi-input" value="${existingMovement.ipi || ''}" min="0" step="0.01">`;
+                        freteInputHtml = `<input type="number" class="form-control frete-input" value="${existingMovement.frete || ''}" min="0" step="0.01">`;
                     } else {
                         // Item NÃO IMPLEMENTADO
-                        quantityInputHtml = `<input type="number" class="form-control-sm quantity-input" min="0" step="any">`;
-                        valueInputHtml = `<input type="number" class="form-control-sm value-input" min="0" step="0.01">`;
-                        icmsInputHtml = `<input type="number" class="form-control-sm icms-input" min="0" step="0.01">`;
-                        ipiInputHtml = `<input type="number" class="form-control-sm ipi-input" min="0" step="0.01">`;
-                        freteInputHtml = `<input type="number" class="form-control-sm frete-input" min="0" step="0.01">`;
+                        quantityInputHtml = `<input type="number" class="form-control quantity-input" min="0" step="any">`;
+                        valueInputHtml = `<input type="number" class="form-control value-input" min="0" step="0.01">`;
+                        icmsInputHtml = `<input type="number" class="form-control icms-input" min="0" step="0.01">`;
+                        ipiInputHtml = `<input type="number" class="form-control ipi-input" min="0" step="0.01">`;
+                        freteInputHtml = `<input type="number" class="form-control frete-input" min="0" step="0.01">`;
                     }
 
                     row.innerHTML = `
