@@ -203,12 +203,20 @@ document.addEventListener('DOMContentLoaded', async function() {
                 custoUnitario = valorTotal / mov.quantidade;
             }
 
+            let subTipo = '-';
+            if (mov.tipo === 'entrada' && mov.tipo_entradaId) {
+                subTipo = configData.tipos_entrada?.[mov.tipo_entradaId]?.nome || 'N/A';
+            } else if (mov.tipo === 'saida' && mov.tipo_saidaId) {
+                subTipo = configData.tipos_saida?.[mov.tipo_saidaId]?.nome || 'N/A';
+            }
+
             const processedMov = {
                 ...mov,
                 custoUnitario: custoUnitario, // Adiciona o custo unitário calculado ao objeto principal
                 _search_data: {
                     data: mov.data ? new Date(mov.data.seconds * 1000).toLocaleString('pt-BR') : '',
                     tipo: mov.tipo || '',
+                    subTipo: subTipo,
                     codigo: product.codigo || '',
                     descricao: product.descricao || '',
                     un: product.un || '',
@@ -273,6 +281,7 @@ document.addEventListener('DOMContentLoaded', async function() {
             row.innerHTML = `
                 <td>${searchData.data}</td>
                 <td class="${searchData.tipo}">${searchData.tipo === 'reserva_cancelada' ? 'RESERVA CANCELADA' : searchData.tipo.toUpperCase()}</td>
+                <td>${searchData.subTipo}</td>
                 <td>${searchData.codigo || 'N/A'}</td>
                 <td>${searchData.descricao || 'Produto não encontrado'}</td>
                 <td>${searchData.un || 'N/A'}</td>
