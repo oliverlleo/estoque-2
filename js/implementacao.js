@@ -297,7 +297,7 @@ document.addEventListener('DOMContentLoaded', async function() {
                             const fator_qtd_compra = parseFloat(String(regra.qtd_compra).replace(',', '.'));
                             const fator_qtd_padrao = parseFloat(String(regra.qtd_padrao).replace(',', '.'));
                             if (fator_qtd_compra > 0) {
-                                quantidadeParaEstoque = (quantidade / fator_qtd_compra) * fator_qtd_padrao;
+                                quantidadeParaEstoque = (quantity / fator_qtd_compra) * fator_qtd_padrao;
                             }
                         }
 
