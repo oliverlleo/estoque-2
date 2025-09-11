@@ -904,14 +904,16 @@ input:checked + .slider:before {
 #table-produtos tr,
 #table-movimentacoes tr,
 #table-consultas tr,
-#table-reservas tr {
+#table-reservas tr,
+#table-implementacao tr {
     display: table-row; /* Força o elemento a se comportar como uma linha de tabela */
 }
 
 #table-produtos th, #table-produtos td,
 #table-movimentacoes th, #table-movimentacoes td,
 #table-consultas th, #table-consultas td,
-#table-reservas th, #table-reservas td {
+#table-reservas th, #table-reservas td,
+#table-implementacao th, #table-implementacao td {
     display: table-cell; /* Força o elemento a se comportar como uma célula de tabela */
 }
 
