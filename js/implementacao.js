@@ -1,5 +1,39 @@
 import { db } from './firebase-config.js';
-import { collection, getDocs, query, where, doc, serverTimestamp, runTransaction } from "https://www.gstatic.com/firebasejs/9.6.1/firebase-firestore.js";
+import { collection, getDocs, query, where, doc, serverTimestamp, runTransaction, setDoc } from "https://www.gstatic.com/firebasejs/9.6.1/firebase-firestore.js";
+
+// --- Custo Médio ---
+// Função copiada de 'movimentacoes.js' para manter a consistência da regra de negócio.
+async function atualizarCustoMedioProduto(produtoId) {
+    if (!produtoId) return;
+
+    const q = query(
+        collection(db, 'movimentacoes'),
+        where("productId", "==", produtoId),
+        where("tipo", "==", "entrada")
+    );
+    const movementsSnapshot = await getDocs(q);
+
+    let totalCost = 0;
+    let totalQuantityForAvg = 0;
+
+    movementsSnapshot.forEach(doc => {
+        const mov = doc.data();
+        // Apenas movimentações com custo e quantidade válidos entram no cálculo.
+        if (mov.custo_total_entrada && mov.custo_total_entrada > 0 && mov.quantidade > 0) {
+            totalCost += mov.custo_total_entrada;
+            totalQuantityForAvg += mov.quantidade;
+        }
+    });
+
+    const novoCustoMedio = totalQuantityForAvg > 0 ? totalCost / totalQuantityForAvg : 0;
+    const productRef = doc(db, 'produtos', produtoId);
+
+    // Usando set com merge:true para criar ou atualizar o campo 'valorMedio'.
+    await setDoc(productRef, { valorMedio: novoCustoMedio }, { merge: true });
+
+    console.log(`Custo médio do produto ${produtoId} atualizado para ${novoCustoMedio.toFixed(2)}`);
+}
+
 
 document.addEventListener('DOMContentLoaded', async function() {
     console.log("Página de Implementação carregada.");
@@ -14,7 +48,8 @@ document.addEventListener('DOMContentLoaded', async function() {
     const btnConfirmMovement = document.getElementById('btn-confirm-movement');
 
     let allProducts = [];
-    let implementationMovements = {}; // Map to store existing implementation data
+    let implementationMovements = {};
+    let tiposEntradaMap = {}; // Armazena as configurações dos tipos de entrada
 
     // --- DATA FETCHING ---
 
@@ -29,9 +64,9 @@ document.addEventListener('DOMContentLoaded', async function() {
             console.log(`Carregados ${allProducts.length} produtos.`);
 
             // Fetch all existing 'implementacao' movements
-            const q = query(collection(db, 'movimentacoes'), where("tipo", "==", "implementacao"));
-            const movementsSnapshot = await getDocs(q);
-            implementationMovements = {}; // Reset map before fetching
+            const movQuery = query(collection(db, 'movimentacoes'), where("tipo", "==", "implementacao"));
+            const movementsSnapshot = await getDocs(movQuery);
+            implementationMovements = {};
             movementsSnapshot.docs.forEach(doc => {
                 const mov = doc.data();
                 if (mov.productId && mov.locacao) {
@@ -40,6 +75,14 @@ document.addEventListener('DOMContentLoaded', async function() {
                 }
             });
             console.log(`Carregados ${Object.keys(implementationMovements).length} movimentos de implementação.`);
+
+            // Fetch 'Tipos de Entrada' configuration
+            const tiposEntradaSnapshot = await getDocs(collection(db, 'tipos_entrada'));
+            tiposEntradaMap = {};
+            tiposEntradaSnapshot.forEach(doc => {
+                tiposEntradaMap[doc.id] = { id: doc.id, ...doc.data() };
+            });
+            console.log(`Carregados ${Object.keys(tiposEntradaMap).length} tipos de entrada.`);
 
         } catch (error) {
             console.error("Erro ao buscar dados:", error);
@@ -51,8 +94,7 @@ document.addEventListener('DOMContentLoaded', async function() {
         }
     }
 
-    // --- RENDERING ---
-
+    // --- RENDERING (sem alterações) ---
     function renderTable(products) {
         tableBody.innerHTML = '';
 
@@ -75,17 +117,14 @@ document.addEventListener('DOMContentLoaded', async function() {
                     let quantityInputHtml, valueInputHtml, icmsInputHtml, ipiInputHtml, freteInputHtml;
 
                     if (existingMovement) {
-                        // Item JÁ IMPLEMENTADO
                         row.dataset.movementId = existingMovement.id;
                         row.classList.add('implemented');
-
                         quantityInputHtml = `<input type="number" class="form-control quantity-input" value="${existingMovement.quantidade}" disabled title="Quantidade já implementada.">`;
                         valueInputHtml = `<input type="number" class="form-control value-input" value="${existingMovement.valor_unitario || ''}" min="0" step="0.01">`;
                         icmsInputHtml = `<input type="number" class="form-control icms-input" value="${existingMovement.icms || ''}" min="0" step="0.01">`;
                         ipiInputHtml = `<input type="number" class="form-control ipi-input" value="${existingMovement.ipi || ''}" min="0" step="0.01">`;
                         freteInputHtml = `<input type="number" class="form-control frete-input" value="${existingMovement.frete || ''}" min="0" step="0.01">`;
                     } else {
-                        // Item NÃO IMPLEMENTADO
                         quantityInputHtml = `<input type="number" class="form-control quantity-input" min="0" step="any">`;
                         valueInputHtml = `<input type="number" class="form-control value-input" min="0" step="0.01">`;
                         icmsInputHtml = `<input type="number" class="form-control icms-input" min="0" step="0.01">`;
@@ -109,8 +148,8 @@ document.addEventListener('DOMContentLoaded', async function() {
         });
     }
 
-    // --- EVENT LISTENERS & FILTERS ---
 
+    // --- EVENT LISTENERS & FILTERS (sem alterações) ---
     function applyFilters() {
         const noQuantityChecked = filterNoQuantity.checked;
         const noValueChecked = filterNoValue.checked;
@@ -159,11 +198,22 @@ document.addEventListener('DOMContentLoaded', async function() {
         applyFilters();
     });
 
+    // --- CONFIRM MOVEMENT LOGIC (REBUILT) ---
     btnConfirmMovement.addEventListener('click', async () => {
         const rowsToProcess = Array.from(tableBody.querySelectorAll('tr:not([style*="display: none"])'));
 
         if (rowsToProcess.length === 0 || !rowsToProcess[0].dataset.productId) {
             alert("Nenhum item visível para processar.");
+            return;
+        }
+
+        // 1. Encontrar o tipo de entrada "Implementação"
+        const implementacaoEntryType = Object.values(tiposEntradaMap).find(
+            type => type.nome.toLowerCase() === 'implementação'
+        );
+
+        if (!implementacaoEntryType) {
+            alert('Erro Crítico: O tipo de entrada "Implementação" não foi encontrado nas configurações. Por favor, vá em "Configurações -> Tipos de Entrada" e crie um com o nome exato "Implementação".');
             return;
         }
 
@@ -174,44 +224,46 @@ document.addEventListener('DOMContentLoaded', async function() {
         btnConfirmMovement.disabled = true;
         btnConfirmMovement.textContent = 'Processando...';
 
+        const productsToUpdateCost = new Set();
+
         try {
             await runTransaction(db, async (transaction) => {
-                const productsToUpdate = new Map();
+                const productsToUpdateStock = new Map();
 
-                // First pass: Read all necessary product documents for stock updates
+                // Pass 1: Read all products needed for stock updates
                 for (const row of rowsToProcess) {
                     const quantityInput = row.querySelector('.quantity-input');
                     const isNewImplementation = !quantityInput.disabled && parseFloat(quantityInput.value) > 0;
 
                     if (isNewImplementation) {
                         const productId = row.dataset.productId;
-                        if (!productsToUpdate.has(productId)) {
+                        if (!productsToUpdateStock.has(productId)) {
                             const productRef = doc(db, 'produtos', productId);
                             const productDoc = await transaction.get(productRef);
                             if (!productDoc.exists()) throw new Error(`Produto com ID ${productId} não encontrado.`);
-                            // Deep copy of locacoes to avoid mutation issues
-                            productsToUpdate.set(productId, { ...productDoc.data(), locacoes: JSON.parse(JSON.stringify(productDoc.data().locacoes)) });
+                            productsToUpdateStock.set(productId, { ...productDoc.data(), locacoes: JSON.parse(JSON.stringify(productDoc.data().locacoes)) });
                         }
                     }
                 }
 
-                // Second pass: Perform all writes (updates and creations)
+                // Pass 2: Perform all writes
                 for (const row of rowsToProcess) {
                     const quantityInput = row.querySelector('.quantity-input');
                     const quantity = parseFloat(quantityInput.value) || 0;
                     const isAlreadyImplemented = quantityInput.disabled;
+                    const productId = row.dataset.productId;
 
                     const value = parseFloat(row.querySelector('.value-input').value) || 0;
                     const icms = parseFloat(row.querySelector('.icms-input').value) || 0;
                     const ipi = parseFloat(row.querySelector('.ipi-input').value) || 0;
                     const frete = parseFloat(row.querySelector('.frete-input').value) || 0;
+                    const custoTotal = (quantity * value) + icms + ipi + frete;
 
                     if (isAlreadyImplemented) {
                         // UPDATE existing movement
                         const movementId = row.dataset.movementId;
                         if (movementId) {
                             const movementRef = doc(db, 'movimentacoes', movementId);
-                            const custoTotal = (quantity * value) + icms + ipi + frete;
                             transaction.update(movementRef, {
                                 valor_unitario: value,
                                 icms: icms,
@@ -220,25 +272,27 @@ document.addEventListener('DOMContentLoaded', async function() {
                                 custo_total_entrada: custoTotal,
                                 data_atualizacao: serverTimestamp()
                             });
+                            productsToUpdateCost.add(productId); // Also update cost on financial update
                         }
                     } else if (quantity > 0) {
                         // CREATE new movement AND UPDATE product stock
-                        const productId = row.dataset.productId;
                         const locacaoStr = row.dataset.locacao;
 
-                        // Update product stock in our temporary map
-                        const productData = productsToUpdate.get(productId);
+                        // Update stock from our temporary map
+                        const productData = productsToUpdateStock.get(productId);
                         const locacaoIndex = productData.locacoes.findIndex(l => l.locacao === locacaoStr);
                         if (locacaoIndex === -1) throw new Error(`Locação ${locacaoStr} não encontrada no produto ${productData.codigo}.`);
 
-                        productData.locacoes[locacaoIndex].estoque = (productData.locacoes[locacaoIndex].estoque || 0) + quantity;
+                        if (implementacaoEntryType.movimenta_estoque) {
+                            productData.locacoes[locacaoIndex].estoque = (productData.locacoes[locacaoIndex].estoque || 0) + quantity;
+                        }
 
                         // Create movement document
                         const newMovementRef = doc(collection(db, 'movimentacoes'));
-                        const custoTotal = (quantity * value) + icms + ipi + frete;
                         const movementData = {
                             productId: productId,
-                            tipo: 'implementacao',
+                            tipo: 'entrada', // AGORA É UM TIPO 'entrada' GENÉRICO
+                            tipo_entradaId: implementacaoEntryType.id, // REFERENCIA A CONFIGURAÇÃO
                             quantidade: quantity,
                             locacao: locacaoStr,
                             data: serverTimestamp(),
@@ -250,19 +304,27 @@ document.addEventListener('DOMContentLoaded', async function() {
                             custo_total_entrada: custoTotal
                         };
                         transaction.set(newMovementRef, movementData);
+                        productsToUpdateCost.add(productId);
                     }
                 }
 
                 // Final writes for all updated product documents
-                for (const [productId, productData] of productsToUpdate.entries()) {
+                for (const [productId, productData] of productsToUpdateStock.entries()) {
                     const productRef = doc(db, 'produtos', productId);
                     transaction.update(productRef, { locacoes: productData.locacoes });
                 }
             });
 
+            // After transaction, update average costs if needed
+            if (implementacaoEntryType.recalcula_custo_medio) {
+                console.log("Recalculando custo médio para produtos afetados...");
+                const costUpdatePromises = Array.from(productsToUpdateCost).map(id => atualizarCustoMedioProduto(id));
+                await Promise.all(costUpdatePromises);
+            }
+
             alert("Operação concluída com sucesso! Os dados serão atualizados.");
-            await fetchAllData(); // Refetch all data to get the latest state
-            btnListItems.click(); // Re-list the items to show the updated state
+            await fetchAllData();
+            btnListItems.click();
 
         } catch (error) {
             console.error("Erro ao confirmar movimentações:", error);
@@ -276,6 +338,5 @@ document.addEventListener('DOMContentLoaded', async function() {
     filterNoQuantity.addEventListener('change', applyFilters);
     filterNoValue.addEventListener('change', applyFilters);
 
-    // Initial fetch of all data
     fetchAllData();
 });
