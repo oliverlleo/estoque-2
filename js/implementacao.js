@@ -126,6 +126,7 @@ document.addEventListener('DOMContentLoaded', async function() {
                     let quantityInputHtml, valueInputHtml, icmsInputHtml, ipiInputHtml, freteInputHtml;
 
                     if (existingMovement) {
+                        // Item JÁ IMPLEMENTADO nesta locação específica
                         row.dataset.movementId = existingMovement.id;
                         row.classList.add('implemented');
                         quantityInputHtml = `<input type="number" class="form-control quantity-input" value="${existingMovement.quantidade}" disabled title="Quantidade já implementada.">`;
@@ -134,11 +135,21 @@ document.addEventListener('DOMContentLoaded', async function() {
                         ipiInputHtml = `<input type="number" class="form-control ipi-input" value="${existingMovement.ipi || ''}" min="0" step="0.01">`;
                         freteInputHtml = `<input type="number" class="form-control frete-input" value="${existingMovement.frete || ''}" min="0" step="0.01">`;
                     } else {
+                        // Item NÃO IMPLEMENTADO - busca por dados de custo de outras implementações do mesmo produto
+                        const allMovementsForThisProduct = Object.values(implementationMovements)
+                            .filter(m => m.productId === product.id && m.data)
+                            .sort((a, b) => b.data.toMillis() - a.data.toMillis());
+
+                        let suggestedData = { valor_unitario: '', icms: '', ipi: '', frete: '' };
+                        if (allMovementsForThisProduct.length > 0) {
+                            suggestedData = allMovementsForThisProduct[0];
+                        }
+
                         quantityInputHtml = `<input type="number" class="form-control quantity-input" min="0" step="any">`;
-                        valueInputHtml = `<input type="number" class="form-control value-input" min="0" step="0.01">`;
-                        icmsInputHtml = `<input type="number" class="form-control icms-input" min="0" step="0.01">`;
-                        ipiInputHtml = `<input type="number" class="form-control ipi-input" min="0" step="0.01">`;
-                        freteInputHtml = `<input type="number" class="form-control frete-input" min="0" step="0.01">`;
+                        valueInputHtml = `<input type="number" class="form-control value-input" value="${suggestedData.valor_unitario || ''}" min="0" step="0.01" title="Valor sugerido da última implementação deste produto">`;
+                        icmsInputHtml = `<input type="number" class="form-control icms-input" value="${suggestedData.icms || ''}" min="0" step="0.01" title="ICMS sugerido da última implementação deste produto">`;
+                        ipiInputHtml = `<input type="number" class="form-control ipi-input" value="${suggestedData.ipi || ''}" min="0" step="0.01" title="IPI sugerido da última implementação deste produto">`;
+                        freteInputHtml = `<input type="number" class="form-control frete-input" value="${suggestedData.frete || ''}" min="0" step="0.01" title="Frete sugerido da última implementação deste produto">`;
                     }
 
                     row.innerHTML = `
