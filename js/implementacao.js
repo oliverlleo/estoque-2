@@ -236,10 +236,14 @@ document.addEventListener('DOMContentLoaded', async function() {
         const productsToUpdateCost = new Set();
 
         try {
+            // Pré-busca de todas as regras de conversão para evitar leituras dentro do loop da transação
+            const conversoesSnapshot = await getDocs(collection(db, 'conversoes'));
+            const conversoesMap = new Map();
+            conversoesSnapshot.forEach(doc => conversoesMap.set(doc.id, doc.data()));
+
             await runTransaction(db, async (transaction) => {
                 const productsToUpdateStock = new Map();
 
-                // Pass 1: Read all products needed for stock updates
                 for (const row of rowsToProcess) {
                     const quantityInput = row.querySelector('.quantity-input');
                     const isNewImplementation = !quantityInput.disabled && parseFloat(quantityInput.value) > 0;
@@ -255,7 +259,6 @@ document.addEventListener('DOMContentLoaded', async function() {
                     }
                 }
 
-                // Pass 2: Perform all writes
                 for (const row of rowsToProcess) {
                     const quantityInput = row.querySelector('.quantity-input');
                     const quantity = parseFloat(quantityInput.value) || 0;
@@ -266,13 +269,12 @@ document.addEventListener('DOMContentLoaded', async function() {
                     const icms = parseFloat(row.querySelector('.icms-input').value) || 0;
                     const ipi = parseFloat(row.querySelector('.ipi-input').value) || 0;
                     const frete = parseFloat(row.querySelector('.frete-input').value) || 0;
-                    const custoTotal = (quantity * value) + icms + ipi + frete;
 
                     if (isAlreadyImplemented) {
-                        // UPDATE existing movement
                         const movementId = row.dataset.movementId;
                         if (movementId) {
                             const movementRef = doc(db, 'movimentacoes', movementId);
+                            const custoTotal = (quantity * value) + icms + ipi + frete;
                             transaction.update(movementRef, {
                                 valor_unitario: value,
                                 icms: icms,
@@ -281,28 +283,40 @@ document.addEventListener('DOMContentLoaded', async function() {
                                 custo_total_entrada: custoTotal,
                                 data_atualizacao: serverTimestamp()
                             });
-                            productsToUpdateCost.add(productId); // Also update cost on financial update
+                            productsToUpdateCost.add(productId);
                         }
                     } else if (quantity > 0) {
-                        // CREATE new movement AND UPDATE product stock
                         const locacaoStr = row.dataset.locacao;
-
-                        // Update stock from our temporary map
                         const productData = productsToUpdateStock.get(productId);
+
+                        let quantidadeParaEstoque = quantity;
+                        let quantidadeCompra = quantity;
+
+                        if (productData.conversaoId && conversoesMap.has(productData.conversaoId)) {
+                            const regra = conversoesMap.get(productData.conversaoId);
+                            const fator_qtd_compra = parseFloat(String(regra.qtd_compra).replace(',', '.'));
+                            const fator_qtd_padrao = parseFloat(String(regra.qtd_padrao).replace(',', '.'));
+                            if (fator_qtd_compra > 0) {
+                                quantidadeParaEstoque = (quantidade / fator_qtd_compra) * fator_qtd_padrao;
+                            }
+                        }
+
+                        const custoTotal = (quantidadeCompra * value) + icms + ipi + frete;
+
                         const locacaoIndex = productData.locacoes.findIndex(l => l.locacao === locacaoStr);
                         if (locacaoIndex === -1) throw new Error(`Locação ${locacaoStr} não encontrada no produto ${productData.codigo}.`);
 
                         if (implementacaoEntryType.movimenta_estoque) {
-                            productData.locacoes[locacaoIndex].estoque = (productData.locacoes[locacaoIndex].estoque || 0) + quantity;
+                            productData.locacoes[locacaoIndex].estoque = (productData.locacoes[locacaoIndex].estoque || 0) + quantidadeParaEstoque;
                         }
 
-                        // Create movement document
                         const newMovementRef = doc(collection(db, 'movimentacoes'));
                         const movementData = {
                             productId: productId,
-                            tipo: 'entrada', // AGORA É UM TIPO 'entrada' GENÉRICO
-                            tipo_entradaId: implementacaoEntryType.id, // REFERENCIA A CONFIGURAÇÃO
-                            quantidade: quantity,
+                            tipo: 'entrada',
+                            tipo_entradaId: implementacaoEntryType.id,
+                            quantidade: quantidadeParaEstoque,
+                            quantidade_compra: quantidadeCompra,
                             locacao: locacaoStr,
                             data: serverTimestamp(),
                             observacao: `Implementação via tela de implementação.`,
@@ -317,14 +331,12 @@ document.addEventListener('DOMContentLoaded', async function() {
                     }
                 }
 
-                // Final writes for all updated product documents
                 for (const [productId, productData] of productsToUpdateStock.entries()) {
                     const productRef = doc(db, 'produtos', productId);
                     transaction.update(productRef, { locacoes: productData.locacoes });
                 }
             });
 
-            // After transaction, update average costs if needed
             if (implementacaoEntryType.recalcula_custo_medio) {
                 console.log("Recalculando custo médio para produtos afetados...");
                 const costUpdatePromises = Array.from(productsToUpdateCost).map(id => atualizarCustoMedioProduto(id));
