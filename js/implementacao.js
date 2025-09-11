@@ -63,26 +63,35 @@ document.addEventListener('DOMContentLoaded', async function() {
             allProducts = productsSnapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
             console.log(`Carregados ${allProducts.length} produtos.`);
 
-            // Fetch all existing 'implementacao' movements
-            const movQuery = query(collection(db, 'movimentacoes'), where("tipo", "==", "implementacao"));
-            const movementsSnapshot = await getDocs(movQuery);
-            implementationMovements = {};
-            movementsSnapshot.docs.forEach(doc => {
-                const mov = doc.data();
-                if (mov.productId && mov.locacao) {
-                    const key = `${mov.productId}-${mov.locacao}`;
-                    implementationMovements[key] = { id: doc.id, ...mov };
-                }
-            });
-            console.log(`Carregados ${Object.keys(implementationMovements).length} movimentos de implementação.`);
-
-            // Fetch 'Tipos de Entrada' configuration
+            // Fetch 'Tipos de Entrada' configuration first
             const tiposEntradaSnapshot = await getDocs(collection(db, 'tipos_entrada'));
             tiposEntradaMap = {};
             tiposEntradaSnapshot.forEach(doc => {
                 tiposEntradaMap[doc.id] = { id: doc.id, ...doc.data() };
             });
             console.log(`Carregados ${Object.keys(tiposEntradaMap).length} tipos de entrada.`);
+
+            // Now, find the 'Implementação' type ID to query movements
+            const implementacaoEntryType = Object.values(tiposEntradaMap).find(
+                type => type.nome.toLowerCase() === 'implementação'
+            );
+
+            implementationMovements = {};
+            if (implementacaoEntryType) {
+                const movQuery = query(collection(db, 'movimentacoes'), where("tipo_entradaId", "==", implementacaoEntryType.id));
+                const movementsSnapshot = await getDocs(movQuery);
+
+                movementsSnapshot.docs.forEach(doc => {
+                    const mov = doc.data();
+                    if (mov.productId && mov.locacao) {
+                        const key = `${mov.productId}-${mov.locacao}`;
+                        implementationMovements[key] = { id: doc.id, ...mov };
+                    }
+                });
+                console.log(`Carregados ${Object.keys(implementationMovements).length} movimentos de implementação.`);
+            } else {
+                console.warn('O tipo de entrada "Implementação" não foi encontrado. A tela pode não funcionar como esperado.');
+            }
 
         } catch (error) {
             console.error("Erro ao buscar dados:", error);
