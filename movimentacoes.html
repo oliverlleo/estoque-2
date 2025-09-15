@@ -108,12 +108,68 @@
                 </div>
             </div>
 
+            <div class="card" id="filtros-card">
+                <div class="card-header">
+                    <h3>Filtros</h3>
+                </div>
+                <div class="card-body">
+                    <div id="history-filters-container" class="filters-container" style="display: grid; grid-template-columns: repeat(auto-fill, minmax(200px, 1fr)); gap: 15px;">
+                        <div>
+                            <label for="filtro-data-inicio">Data Início</label>
+                            <input type="date" id="filtro-data-inicio" class="form-control" data-column="data-inicio">
+                        </div>
+                        <div>
+                            <label for="filtro-data-fim">Data Fim</label>
+                            <input type="date" id="filtro-data-fim" class="form-control" data-column="data-fim">
+                        </div>
+                        <div>
+                            <label for="filtro-tipo">Tipo</label>
+                            <select id="filtro-tipo" class="form-control" data-column="tipo">
+                                <option value="">Todos</option>
+                                <option value="entrada">Entrada</option>
+                                <option value="saida">Saída</option>
+                                <option value="transferencia">Transferência</option>
+                                <option value="reserva">Reserva</option>
+                                <option value="reserva_cancelada">Reserva Cancelada</option>
+                            </select>
+                        </div>
+                        <div>
+                            <label for="filtro-subtipo">Sub-Tipo</label>
+                            <select id="filtro-subtipo" class="form-control" data-column="subTipo">
+                                <option value="">Todos</option>
+                                <!-- Options will be populated by JS -->
+                            </select>
+                        </div>
+                        <div>
+                            <label for="filtro-codigo">Código</label>
+                            <input type="text" id="filtro-codigo" placeholder="Filtrar por Código..." class="form-control" data-column="codigo">
+                        </div>
+                        <div>
+                            <label for="filtro-descricao">Descrição</label>
+                            <input type="text" id="filtro-descricao" placeholder="Filtrar por Descrição..." class="form-control" data-column="descricao">
+                        </div>
+                        <div>
+                            <label for="filtro-requisitante">Requisitante</label>
+                            <input type="text" id="filtro-requisitante" placeholder="Filtrar por Requisitante..." class="form-control" data-column="requisitante">
+                        </div>
+                        <div>
+                            <label for="filtro-obra">Obra</label>
+                            <select id="filtro-obra" class="form-control" data-column="obraId">
+                                <option value="">Todas</option>
+                                <!-- Options will be populated by JS -->
+                            </select>
+                        </div>
+                        <div>
+                            <label for="filtro-obs">Observação</label>
+                            <input type="text" id="filtro-obs" placeholder="Filtrar por Obs...." class="form-control" data-column="observacao">
+                        </div>
+                    </div>
+                </div>
+            </div>
+
             <div class="card">
                 <div class="card-header"><h3>Histórico de Movimentações</h3></div>
                 <div class="card-body">
-                    <div id="history-filters-container" class="filters-container">
-                        <!-- Filters will be populated by JS or can be added here if static -->
-                    </div>
                     <div class="table-wrapper">
                         <table id="table-movimentacoes" class="table">
                             <thead>

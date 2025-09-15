@@ -4,7 +4,7 @@ function showInfoModal(message) {
 }
 
 import { db } from './firebase-config.js';
-import { collection, addDoc, getDocs, onSnapshot, runTransaction, doc, serverTimestamp, query, where, getDoc, setDoc } from "https://www.gstatic.com/firebasejs/9.6.1/firebase-firestore.js";
+import { collection, addDoc, getDocs, onSnapshot, runTransaction, doc, serverTimestamp, query, where, getDoc, setDoc, orderBy } from "https://www.gstatic.com/firebasejs/9.6.1/firebase-firestore.js";
 
 // Adicione esta função em js/movimentacoes.js
 async function calcularCustoMedioProduto(produtoId) {
@@ -198,6 +198,8 @@ document.addEventListener('DOMContentLoaded', async function() {
                     valorTotal = (mov.quantidade_compra * (mov.valor_unitario || 0)) + (mov.icms || 0) + (mov.ipi || 0) + (mov.frete || 0);
                 }
                 custoUnitario = valorTotal / mov.quantidade;
+            } else if (mov.tipo === 'saida') {
+                custoUnitario = mov.valorMedioHistorico || 0;
             }
 
             const isXmlImport = mov.observacao && mov.observacao.includes('Importado via XML');
@@ -249,9 +251,35 @@ document.addEventListener('DOMContentLoaded', async function() {
         });
 
         let filteredMovements = processedMovements.filter(mov => {
+            // Lógica de filtro de data (CORRIGIDA)
+            const startDateString = filterState['data-inicio'];
+            const endDateString = filterState['data-fim'];
+            const moveDate = mov.data ? mov.data.toDate() : null;
+
+            if (startDateString || endDateString) {
+                if (!moveDate) return false; // Se há filtro de data, mas o movimento não tem data, ele é filtrado.
+
+                const moveDateOnly = new Date(moveDate.getFullYear(), moveDate.getMonth(), moveDate.getDate());
+
+                if (startDateString) {
+                    const [year, month, day] = startDateString.split('-').map(Number);
+                    const startDate = new Date(year, month - 1, day);
+                    if (moveDateOnly < startDate) return false;
+                }
+                if (endDateString) {
+                    const [year, month, day] = endDateString.split('-').map(Number);
+                    const endDate = new Date(year, month - 1, day);
+                    if (moveDateOnly > endDate) return false;
+                }
+            }
+            // Lógica para outros filtros
             for (const column in filterState) {
+                // Pula as chaves de data que já foram tratadas
+                if (column === 'data-inicio' || column === 'data-fim') continue;
+
                 const filterValue = filterState[column]?.toLowerCase();
                 if (!filterValue) continue;
+
                 const cellValue = mov._search_data[column]?.toLowerCase();
                 if (cellValue === undefined || !cellValue.includes(filterValue)) {
                     return false;
@@ -1102,10 +1130,37 @@ document.addEventListener('DOMContentLoaded', async function() {
     });
 
     document.getElementById('history-filters-container').addEventListener('input', e => {
-        // ... (lógica de filtro da tabela mantida)
+        const target = e.target;
+        const column = target.dataset.column;
+        if (column) {
+            filterState[column] = target.value;
+            updateTable();
+        }
     });
 
-    onSnapshot(collection(db, 'movimentacoes'), (snapshot) => {
+    function popularFiltros() {
+        const filtroSubtipo = document.getElementById('filtro-subtipo');
+        const filtroObra = document.getElementById('filtro-obra');
+
+        // Popula Sub-Tipos
+        const subTipos = new Set();
+        Object.values(configData.tipos_entrada || {}).forEach(tipo => subTipos.add(tipo.nome));
+        Object.values(configData.tipos_saida || {}).forEach(tipo => subTipos.add(tipo.nome));
+        subTipos.add('Importação NF'); // Adicionado manualmente
+
+        filtroSubtipo.innerHTML = '<option value="">Todos</option>';
+        subTipos.forEach(subTipo => {
+            filtroSubtipo.innerHTML += `<option value="${subTipo}">${subTipo}</option>`;
+        });
+
+        // Popula Obras
+        filtroObra.innerHTML = '<option value="">Todas</option>';
+        Object.values(configData.obras || {}).forEach(obra => {
+            filtroObra.innerHTML += `<option value="${obra.nome}">${obra.nome}</option>`;
+        });
+    }
+
+    onSnapshot(query(collection(db, 'movimentacoes'), orderBy('data', 'desc')), (snapshot) => {
         allMovements = snapshot.docs.map(doc => {
             const data = doc.data();
             return { id: doc.id, ...data };
@@ -1120,6 +1175,7 @@ document.addEventListener('DOMContentLoaded', async function() {
         initialDataLoaded = true;
         updateTable();
         popularDropdownsCadastroModal();
+        popularFiltros(); // Popula os filtros
         // Exibe o formulário que estava oculto por padrão
         document.getElementById('movement-wrapper').style.display = 'block';
     });
