@@ -22,6 +22,12 @@
             min-width: 180px !important; /* Give observation field a larger minimum width */
             flex-grow: 1 !important; /* Ensure it grows to fill space */
         }
+
+        /* Prevent table row from wrapping in XML import modal */
+        #xml-products-table th,
+        #xml-products-table td {
+            white-space: nowrap;
+        }
     </style>
 </head>
 <body>
