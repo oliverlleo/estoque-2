@@ -251,9 +251,33 @@ document.addEventListener('DOMContentLoaded', async function() {
         });
 
         let filteredMovements = processedMovements.filter(mov => {
+            // Lógica de filtro de data
+            const startDate = filterState['data-inicio'] ? new Date(filterState['data-inicio']) : null;
+            const endDate = filterState['data-fim'] ? new Date(filterState['data-fim']) : null;
+            const moveDate = mov.data ? mov.data.toDate() : null;
+
+            if (moveDate) {
+                // Ajusta as datas para ignorar a parte do tempo
+                if(startDate) startDate.setHours(0, 0, 0, 0);
+                if(endDate) endDate.setHours(23, 59, 59, 999);
+                moveDate.setHours(0, 0, 0, 0);
+
+                if (startDate && moveDate < startDate) return false;
+                if (endDate && moveDate > endDate) return false;
+            } else if (startDate || endDate) {
+                // Se um filtro de data está ativo mas a movimentação não tem data, ela é filtrada
+                return false;
+            }
+
+
+            // Lógica para outros filtros
             for (const column in filterState) {
+                // Pula as chaves de data que já foram tratadas
+                if (column === 'data-inicio' || column === 'data-fim') continue;
+
                 const filterValue = filterState[column]?.toLowerCase();
                 if (!filterValue) continue;
+
                 const cellValue = mov._search_data[column]?.toLowerCase();
                 if (cellValue === undefined || !cellValue.includes(filterValue)) {
                     return false;
@@ -1104,10 +1128,37 @@ document.addEventListener('DOMContentLoaded', async function() {
     });
 
     document.getElementById('history-filters-container').addEventListener('input', e => {
-        // ... (lógica de filtro da tabela mantida)
+        const target = e.target;
+        const column = target.dataset.column;
+        if (column) {
+            filterState[column] = target.value;
+            updateTable();
+        }
     });
 
-    onSnapshot(collection(db, 'movimentacoes'), (snapshot) => {
+    function popularFiltros() {
+        const filtroSubtipo = document.getElementById('filtro-subtipo');
+        const filtroObra = document.getElementById('filtro-obra');
+
+        // Popula Sub-Tipos
+        const subTipos = new Set();
+        Object.values(configData.tipos_entrada || {}).forEach(tipo => subTipos.add(tipo.nome));
+        Object.values(configData.tipos_saida || {}).forEach(tipo => subTipos.add(tipo.nome));
+        subTipos.add('Importação NF'); // Adicionado manualmente
+
+        filtroSubtipo.innerHTML = '<option value="">Todos</option>';
+        subTipos.forEach(subTipo => {
+            filtroSubtipo.innerHTML += `<option value="${subTipo}">${subTipo}</option>`;
+        });
+
+        // Popula Obras
+        filtroObra.innerHTML = '<option value="">Todas</option>';
+        Object.values(configData.obras || {}).forEach(obra => {
+            filtroObra.innerHTML += `<option value="${obra.nome}">${obra.nome}</option>`;
+        });
+    }
+
+    onSnapshot(query(collection(db, 'movimentacoes'), orderBy('data', 'desc')), (snapshot) => {
         allMovements = snapshot.docs.map(doc => {
             const data = doc.data();
             return { id: doc.id, ...data };
@@ -1122,6 +1173,7 @@ document.addEventListener('DOMContentLoaded', async function() {
         initialDataLoaded = true;
         updateTable();
         popularDropdownsCadastroModal();
+        popularFiltros(); // Popula os filtros
         // Exibe o formulário que estava oculto por padrão
         document.getElementById('movement-wrapper').style.display = 'block';
     });
