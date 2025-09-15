@@ -22,12 +22,6 @@
             min-width: 180px !important; /* Give observation field a larger minimum width */
             flex-grow: 1 !important; /* Ensure it grows to fill space */
         }
-
-        /* Prevent table row from wrapping in XML import modal */
-        #xml-products-table th,
-        #xml-products-table td {
-            white-space: nowrap;
-        }
     </style>
 </head>
 <body>
@@ -133,9 +127,9 @@
                                     <th data-column="quantidade">Qtde</th>
                                     <th data-column="nf">Nº NF</th>
                                     <th data-column="valor_unitario">Valor Unit.</th>
-                                    <th data-column="icms">ICMS Total</th>
-                                    <th data-column="ipi">IPI Total</th>
-                                    <th data-column="frete">Frete total</th>
+                                    <th data-column="icms">ICMS</th>
+                                    <th data-column="ipi">IPI</th>
+                                    <th data-column="frete">Frete</th>
                                     <th data-column="custoUnitario">Custo Unit.</th>
                                     <th data-column="requisitante">Requisitante</th>
                                     <th data-column="obraId">Obra</th>
@@ -203,7 +197,7 @@
         </div>
     </div>
     <div id="xml-import-modal" class="modal">
-        <div class="modal-content" style="max-width: 1400px;">
+        <div class="modal-content" style="max-width: 1600px;">
             <div class="modal-header">
                 <h3>Importar Produtos da NF-e (XML)</h3>
                 <span class="close-button" id="xml-modal-close">&times;</span>
@@ -225,7 +219,6 @@
                                 <th>ICMS</th>
                                 <th>IPI</th>
                                 <th>Frete (Rateado)</th>
-                                <th>Locação</th>
                                 <th data-column="acao">Ação</th>
                             </tr>
                         </thead>
