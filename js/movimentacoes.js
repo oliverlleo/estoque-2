@@ -796,8 +796,7 @@ document.addEventListener('DOMContentLoaded', async function() {
                 <td><input type="number" step="any" class="form-control" value="${parseFloat(item.querySelector('vICMS')?.textContent || 0)}"></td>
                 <td><input type="number" step="any" class="form-control" value="${parseFloat(item.querySelector('vIPI')?.textContent || 0)}"></td>
                 <td><input type="number" step="any" class="form-control" value="${freteRateado.toFixed(2)}"></td>
-                <td>${locacaoDropdownHtml}</td>
-                <td>${acaoHtml}</td>
+                <td>${locacaoDropdownHtml}${acaoHtml}</td>
             `;
         });
     }
