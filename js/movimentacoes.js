@@ -198,6 +198,8 @@ document.addEventListener('DOMContentLoaded', async function() {
                     valorTotal = (mov.quantidade_compra * (mov.valor_unitario || 0)) + (mov.icms || 0) + (mov.ipi || 0) + (mov.frete || 0);
                 }
                 custoUnitario = valorTotal / mov.quantidade;
+            } else if (mov.tipo === 'saida') {
+                custoUnitario = mov.valorMedioHistorico || 0;
             }
 
             const isXmlImport = mov.observacao && mov.observacao.includes('Importado via XML');
