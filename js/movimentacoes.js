@@ -203,24 +203,39 @@ document.addEventListener('DOMContentLoaded', async function() {
                 custoUnitario = valorTotal / mov.quantidade;
             }
 
+            const isXmlImport = mov.observacao && mov.observacao.includes('Importado via XML');
             let subTipo = '-';
-            if (mov.tipo === 'entrada' && mov.tipo_entradaId) {
+            if (isXmlImport) {
+                subTipo = 'Importação NF';
+            } else if (mov.tipo === 'entrada' && mov.tipo_entradaId) {
                 subTipo = configData.tipos_entrada?.[mov.tipo_entradaId]?.nome || 'N/A';
             } else if (mov.tipo === 'saida' && mov.tipo_saidaId) {
                 subTipo = configData.tipos_saida?.[mov.tipo_saidaId]?.nome || 'N/A';
             }
 
+            let icmsUnit = 0, ipiUnit = 0, freteUnit = 0;
+            if (isXmlImport && mov.quantidade_compra > 0) {
+                icmsUnit = (mov.icms || 0) / mov.quantidade_compra;
+                ipiUnit = (mov.ipi || 0) / mov.quantidade_compra;
+                freteUnit = (mov.frete || 0) / mov.quantidade_compra;
+            }
+
+            const quantidadeDisplay = isXmlImport ? mov.quantidade_compra : mov.quantidade;
+
             const processedMov = {
                 ...mov,
-                custoUnitario: custoUnitario, // Adiciona o custo unitário calculado ao objeto principal
+                custoUnitario: custoUnitario,
+                icmsUnit: icmsUnit,
+                ipiUnit: ipiUnit,
+                freteUnit: freteUnit,
                 _search_data: {
                     data: mov.data ? new Date(mov.data.seconds * 1000).toLocaleString('pt-BR') : '',
                     tipo: mov.tipo || '',
                     subTipo: subTipo,
                     codigo: product.codigo || '',
                     descricao: product.descricao || '',
-                    un: product.un || '',
-                    quantidade: mov.quantidade?.toString() || '',
+                    un: isXmlImport ? (product.un_compra || product.un) : (product.un || ''),
+                    quantidade: quantidadeDisplay?.toString() || '',
                     nf: mov.nf || '',
                     valor_unitario: (mov.valor_unitario || 0).toString(),
                     icms: (mov.icms || 0).toString(),
@@ -272,11 +287,15 @@ document.addEventListener('DOMContentLoaded', async function() {
         data.forEach(mov => {
             const row = document.createElement('tr');
             const searchData = mov._search_data;
-            const valorUnitarioFmt = mov.valor_unitario ? mov.valor_unitario.toFixed(2) : '-';
-            const icmsFmt = mov.icms ? mov.icms.toFixed(2) : '-';
-            const ipiFmt = mov.ipi ? mov.ipi.toFixed(2) : '-';
-            const freteFmt = mov.frete ? mov.frete.toFixed(2) : '-';
+            const valorUnitarioFmt = mov.valor_unitario ? parseFloat(mov.valor_unitario).toFixed(2) : '-';
+            const icmsFmt = mov.icms ? parseFloat(mov.icms).toFixed(2) : '-';
+            const ipiFmt = mov.ipi ? parseFloat(mov.ipi).toFixed(2) : '-';
+            const freteFmt = mov.frete ? parseFloat(mov.frete).toFixed(2) : '-';
             const custoUnitarioFmt = mov.custoUnitario > 0 ? mov.custoUnitario.toFixed(2) : '-';
+
+            const icmsTitle = mov.icmsUnit > 0 ? `Valor Unit.: ${mov.icmsUnit.toFixed(2)}` : '';
+            const ipiTitle = mov.ipiUnit > 0 ? `Valor Unit.: ${mov.ipiUnit.toFixed(2)}` : '';
+            const freteTitle = mov.freteUnit > 0 ? `Valor Unit.: ${mov.freteUnit.toFixed(2)}` : '';
 
             row.innerHTML = `
                 <td>${searchData.data}</td>
@@ -288,9 +307,9 @@ document.addEventListener('DOMContentLoaded', async function() {
                 <td>${searchData.quantidade}</td>
                 <td>${searchData.nf || '-'}</td>
                 <td>${valorUnitarioFmt}</td>
-                <td>${icmsFmt}</td>
-                <td>${ipiFmt}</td>
-                <td>${freteFmt}</td>
+                <td title="${icmsTitle}">${icmsFmt}</td>
+                <td title="${ipiTitle}">${ipiFmt}</td>
+                <td title="${freteTitle}">${freteFmt}</td>
                 <td>${custoUnitarioFmt}</td>
                 <td>${searchData.requisitante || '-'}</td>
                 <td>${searchData.obraId || '-'}</td>
