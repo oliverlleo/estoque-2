@@ -974,18 +974,31 @@ document.addEventListener('DOMContentLoaded', async function() {
 
     formNovoProdutoModal.addEventListener('submit', async (e) => {
         e.preventDefault();
+
+        const locacao = document.getElementById('modal-produto-locacao').value;
+        const localId = document.getElementById('modal-produto-local').value;
+        const locacoes = [];
+
+        // Apenas adiciona a locação se ambos os campos estiverem preenchidos
+        if (locacao && localId) {
+            locacoes.push({
+                locacao: locacao,
+                localId: localId,
+                estoque: 0 // Estoque inicial para uma nova locação é sempre 0
+            });
+        }
+
         const novoProduto = {
             codigo: document.getElementById('modal-produto-codigo').value,
             descricao: document.getElementById('modal-produto-descricao').value,
             un: document.getElementById('modal-produto-un').value,
             cor: document.getElementById('modal-produto-cor').value,
-            localId: document.getElementById('modal-produto-local').value,
-            locacao: document.getElementById('modal-produto-locacao').value,
             conversaoId: document.getElementById('modal-produto-conversao').value,
             fornecedorId: document.getElementById('modal-produto-fornecedor').value,
             grupoId: document.getElementById('modal-produto-grupo').value,
-            arquivado: false,
-            estoque: 0
+            locacoes: locacoes, // Salva o array de locações, que pode estar vazio
+            arquivado: false
+            // O campo 'estoque' não é mais um campo de nível superior
         };
 
         try {
@@ -996,7 +1009,30 @@ document.addEventListener('DOMContentLoaded', async function() {
                 linhaAtualParaAtualizar.dataset.productId = docRef.id;
                 linhaAtualParaAtualizar.style.backgroundColor = '#d4edda';
                 linhaAtualParaAtualizar.cells[1].querySelector('input').value = novoProduto.descricao;
-                linhaAtualParaAtualizar.cells[8].innerHTML = 'Cadastrado!';
+
+                // Célula de Ação (10ª célula, index 9)
+                const acaoCell = linhaAtualParaAtualizar.cells[9];
+                acaoCell.innerHTML = '<span class="text-success">Cadastrado!</span>';
+
+                // Célula de Locação (9ª célula, index 8)
+                const locacaoCell = linhaAtualParaAtualizar.cells[8];
+                const newLocacaoSelect = document.createElement('select');
+                newLocacaoSelect.className = 'form-control';
+                newLocacaoSelect.required = true;
+
+                let optionsHtml = '<option value="">Selecione...</option>';
+                if (novoProduto.locacoes && novoProduto.locacoes.length > 0) {
+                    novoProduto.locacoes.forEach(loc => {
+                        optionsHtml += `<option value="${loc.locacao}">${loc.locacao}</option>`;
+                    });
+                } else {
+                    optionsHtml = '<option value="">Nenhuma</option>';
+                    newLocacaoSelect.disabled = true;
+                }
+                newLocacaoSelect.innerHTML = optionsHtml;
+
+                locacaoCell.innerHTML = ''; // Limpa a célula
+                locacaoCell.appendChild(newLocacaoSelect); // Adiciona o novo select
             }
 
             productsMap[docRef.id] = { id: docRef.id, ...novoProduto };
