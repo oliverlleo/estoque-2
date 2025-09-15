@@ -4,7 +4,7 @@ function showInfoModal(message) {
 }
 
 import { db } from './firebase-config.js';
-import { collection, addDoc, getDocs, onSnapshot, runTransaction, doc, serverTimestamp, query, where, getDoc, setDoc } from "https://www.gstatic.com/firebasejs/9.6.1/firebase-firestore.js";
+import { collection, addDoc, getDocs, onSnapshot, runTransaction, doc, serverTimestamp, query, where, getDoc, setDoc, orderBy } from "https://www.gstatic.com/firebasejs/9.6.1/firebase-firestore.js";
 
 // Adicione esta função em js/movimentacoes.js
 async function calcularCustoMedioProduto(produtoId) {
@@ -1160,7 +1160,7 @@ document.addEventListener('DOMContentLoaded', async function() {
         });
     }
 
-    onSnapshot(collection(db, 'movimentacoes'), (snapshot) => {
+    onSnapshot(query(collection(db, 'movimentacoes'), orderBy('data', 'desc')), (snapshot) => {
         allMovements = snapshot.docs.map(doc => {
             const data = doc.data();
             return { id: doc.id, ...data };
