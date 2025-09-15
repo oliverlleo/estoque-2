@@ -1009,7 +1009,30 @@ document.addEventListener('DOMContentLoaded', async function() {
                 linhaAtualParaAtualizar.dataset.productId = docRef.id;
                 linhaAtualParaAtualizar.style.backgroundColor = '#d4edda';
                 linhaAtualParaAtualizar.cells[1].querySelector('input').value = novoProduto.descricao;
-                linhaAtualParaAtualizar.cells[8].innerHTML = 'Cadastrado!';
+
+                // Célula de Ação (10ª célula, index 9)
+                const acaoCell = linhaAtualParaAtualizar.cells[9];
+                acaoCell.innerHTML = '<span class="text-success">Cadastrado!</span>';
+
+                // Célula de Locação (9ª célula, index 8)
+                const locacaoCell = linhaAtualParaAtualizar.cells[8];
+                const newLocacaoSelect = document.createElement('select');
+                newLocacaoSelect.className = 'form-control';
+                newLocacaoSelect.required = true;
+
+                let optionsHtml = '<option value="">Selecione...</option>';
+                if (novoProduto.locacoes && novoProduto.locacoes.length > 0) {
+                    novoProduto.locacoes.forEach(loc => {
+                        optionsHtml += `<option value="${loc.locacao}">${loc.locacao}</option>`;
+                    });
+                } else {
+                    optionsHtml = '<option value="">Nenhuma</option>';
+                    newLocacaoSelect.disabled = true;
+                }
+                newLocacaoSelect.innerHTML = optionsHtml;
+
+                locacaoCell.innerHTML = ''; // Limpa a célula
+                locacaoCell.appendChild(newLocacaoSelect); // Adiciona o novo select
             }
 
             productsMap[docRef.id] = { id: docRef.id, ...novoProduto };
