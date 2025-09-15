@@ -904,14 +904,16 @@ input:checked + .slider:before {
 #table-produtos tr,
 #table-movimentacoes tr,
 #table-consultas tr,
-#table-reservas tr {
+#table-reservas tr,
+#table-implementacao tr {
     display: table-row; /* Força o elemento a se comportar como uma linha de tabela */
 }
 
 #table-produtos th, #table-produtos td,
 #table-movimentacoes th, #table-movimentacoes td,
 #table-consultas th, #table-consultas td,
-#table-reservas th, #table-reservas td {
+#table-reservas th, #table-reservas td,
+#table-implementacao th, #table-implementacao td {
     display: table-cell; /* Força o elemento a se comportar como uma célula de tabela */
 }
 
@@ -968,8 +970,8 @@ input:checked + .slider:before {
 /* 2. Aplica um layout de Grid para a tabela de produtos da NF-e */
 #xml-products-table tr {
     display: grid;
-    /* Definição das 9 colunas: Descrição (2.5fr) ocupa o maior espaço. */
-    grid-template-columns: 150px 2.5fr 100px 80px 120px 100px 100px 120px 120px;
+    /* Definição das 10 colunas: Descrição (1.8fr) ocupa o maior espaço. */
+    grid-template-columns: 150px 1.8fr 80px 80px 100px 100px 100px 120px 150px 120px;
     gap: 10px;
     align-items: center;
     border-bottom: 1px solid #dee2e6;
