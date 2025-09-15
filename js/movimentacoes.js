@@ -974,18 +974,31 @@ document.addEventListener('DOMContentLoaded', async function() {
 
     formNovoProdutoModal.addEventListener('submit', async (e) => {
         e.preventDefault();
+
+        const locacao = document.getElementById('modal-produto-locacao').value;
+        const localId = document.getElementById('modal-produto-local').value;
+        const locacoes = [];
+
+        // Apenas adiciona a locação se ambos os campos estiverem preenchidos
+        if (locacao && localId) {
+            locacoes.push({
+                locacao: locacao,
+                localId: localId,
+                estoque: 0 // Estoque inicial para uma nova locação é sempre 0
+            });
+        }
+
         const novoProduto = {
             codigo: document.getElementById('modal-produto-codigo').value,
             descricao: document.getElementById('modal-produto-descricao').value,
             un: document.getElementById('modal-produto-un').value,
             cor: document.getElementById('modal-produto-cor').value,
-            localId: document.getElementById('modal-produto-local').value,
-            locacao: document.getElementById('modal-produto-locacao').value,
             conversaoId: document.getElementById('modal-produto-conversao').value,
             fornecedorId: document.getElementById('modal-produto-fornecedor').value,
             grupoId: document.getElementById('modal-produto-grupo').value,
-            arquivado: false,
-            estoque: 0
+            locacoes: locacoes, // Salva o array de locações, que pode estar vazio
+            arquivado: false
+            // O campo 'estoque' não é mais um campo de nível superior
         };
 
         try {
