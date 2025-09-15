@@ -251,25 +251,27 @@ document.addEventListener('DOMContentLoaded', async function() {
         });
 
         let filteredMovements = processedMovements.filter(mov => {
-            // Lógica de filtro de data
-            const startDate = filterState['data-inicio'] ? new Date(filterState['data-inicio']) : null;
-            const endDate = filterState['data-fim'] ? new Date(filterState['data-fim']) : null;
+            // Lógica de filtro de data (CORRIGIDA)
+            const startDateString = filterState['data-inicio'];
+            const endDateString = filterState['data-fim'];
             const moveDate = mov.data ? mov.data.toDate() : null;
 
-            if (moveDate) {
-                // Ajusta as datas para ignorar a parte do tempo
-                if(startDate) startDate.setHours(0, 0, 0, 0);
-                if(endDate) endDate.setHours(23, 59, 59, 999);
-                moveDate.setHours(0, 0, 0, 0);
+            if (startDateString || endDateString) {
+                if (!moveDate) return false; // Se há filtro de data, mas o movimento não tem data, ele é filtrado.
 
-                if (startDate && moveDate < startDate) return false;
-                if (endDate && moveDate > endDate) return false;
-            } else if (startDate || endDate) {
-                // Se um filtro de data está ativo mas a movimentação não tem data, ela é filtrada
-                return false;
+                const moveDateOnly = new Date(moveDate.getFullYear(), moveDate.getMonth(), moveDate.getDate());
+
+                if (startDateString) {
+                    const [year, month, day] = startDateString.split('-').map(Number);
+                    const startDate = new Date(year, month - 1, day);
+                    if (moveDateOnly < startDate) return false;
+                }
+                if (endDateString) {
+                    const [year, month, day] = endDateString.split('-').map(Number);
+                    const endDate = new Date(year, month - 1, day);
+                    if (moveDateOnly > endDate) return false;
+                }
             }
-
-
             // Lógica para outros filtros
             for (const column in filterState) {
                 // Pula as chaves de data que já foram tratadas
@@ -1158,7 +1160,7 @@ document.addEventListener('DOMContentLoaded', async function() {
         });
     }
 
-    onSnapshot(query(collection(db, 'movimentacoes'), orderBy('data', 'desc')), (snapshot) => {
+    onSnapshot(collection(db, 'movimentacoes'), (snapshot) => {
         allMovements = snapshot.docs.map(doc => {
             const data = doc.data();
             return { id: doc.id, ...data };
