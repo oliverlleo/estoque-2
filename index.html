@@ -5,36 +5,162 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Dashboard - Controle de Estoque</title>
     <link rel="stylesheet" href="css/style.css">
+    <link rel="stylesheet" href="css/dashboard.css">
     <script src="https://cdn.jsdelivr.net/npm/feather-icons/dist/feather.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <link href="https://cdnjs.cloudflare.com/ajax/libs/tailwindcss/2.2.19/tailwind.min.css" rel="stylesheet">
+    <link href="https://fonts.googleapis.com/icon?family=Material+Icons" rel="stylesheet">
 </head>
-<body>
-    <aside class="sidebar">
-        <div class="sidebar-header">
-            <h2><i data-feather="archive"></i> Estoque</h2>
+<body class="flex h-screen">
+    <aside class="w-64 bg-gray-800 text-white flex flex-col">
+        <div class="p-6 text-2xl font-bold border-b border-gray-700">
+            Estoque
         </div>
-        <nav>
-            <ul>
-                <li><a href="index.html" class="active"><i data-feather="home"></i>Dashboard</a></li>
-                <li><a href="configuracoes.html"><i data-feather="settings"></i>Configurações</a></li>
-                <li><a href="produtos.html"><i data-feather="box"></i>Produtos</a></li>
-                <li><a href="movimentacoes.html"><i data-feather="git-commit"></i>Movimentações</a></li>
-                <li><a href="obras.html"><i data-feather="briefcase"></i>Obras</a></li>
-                <li><a href="consultas.html"><i data-feather="search"></i>Consultas</a></li>
-                <li><a href="reservas.html"><i data-feather="clipboard"></i>Reservas</a></li>
-                <li><a href="implementacao.html"><i data-feather="chevrons-down"></i>Implementação</a></li>
-            </ul>
+        <nav class="flex-1 p-4 space-y-2">
+            <a href="index.html" class="flex items-center px-4 py-2 text-white bg-blue-500 rounded-md">
+                <span class="material-icons mr-3">dashboard</span>
+                Dashboard
+            </a>
+            <a href="configuracoes.html" class="flex items-center px-4 py-2 text-gray-300 hover:bg-gray-700 rounded-md">
+                <span class="material-icons mr-3">settings</span>
+                Configurações
+            </a>
+            <a href="produtos.html" class="flex items-center px-4 py-2 text-gray-300 hover:bg-gray-700 rounded-md">
+                <span class="material-icons mr-3">inventory_2</span>
+                Produtos
+            </a>
+            <a href="movimentacoes.html" class="flex items-center px-4 py-2 text-gray-300 hover:bg-gray-700 rounded-md">
+                <span class="material-icons mr-3">sync_alt</span>
+                Movimentações
+            </a>
+            <a href="obras.html" class="flex items-center px-4 py-2 text-gray-300 hover:bg-gray-700 rounded-md">
+                <span class="material-icons mr-3">construction</span>
+                Obras
+            </a>
+            <a href="consultas.html" class="flex items-center px-4 py-2 text-gray-300 hover:bg-gray-700 rounded-md">
+                <span class="material-icons mr-3">search</span>
+                Consultas
+            </a>
+            <a href="reservas.html" class="flex items-center px-4 py-2 text-gray-300 hover:bg-gray-700 rounded-md">
+                <span class="material-icons mr-3">book_online</span>
+                Reservas
+            </a>
+            <a href="implementacao.html" class="flex items-center px-4 py-2 text-gray-300 hover:bg-gray-700 rounded-md">
+                <span class="material-icons mr-3">build</span>
+                Implementação
+            </a>
         </nav>
     </aside>
-    <main class="main-content">
+    <main class="main-content flex-1 overflow-y-auto">
         <header>
             <h1>Dashboard</h1>
+            <p class="subtitle">Bem-vindo ao seu sistema de controle de estoque.</p>
+            <div class="dashboard-controls">
+                <div class="control-group">
+                    <label for="filtro-obra-global"><i data-feather="filter"></i> Filtrar por Obra</label>
+                    <select id="filtro-obra-global" class="form-control">
+                        <option value="todos">Todas as Obras</option>
+                        <!-- Obras carregadas via JS -->
+                    </select>
+                </div>
+                <div class="actions-group">
+                    <a href="movimentacoes.html" class="btn btn-action"><i data-feather="plus-circle"></i> Nova Entrada</a>
+                    <a href="movimentacoes.html" class="btn btn-action btn-saida"><i data-feather="minus-circle"></i> Nova Saída</a>
+                    <a href="reservas.html" class="btn btn-action"><i data-feather="clipboard"></i> Criar Reserva</a>
+                    <a href="produtos.html" class="btn btn-action"><i data-feather="box"></i> Cadastrar Produto</a>
+                </div>
+            </div>
         </header>
         <section class="content">
-            <p>Bem-vindo ao sistema de controle de estoque.</p>
-            <!-- O conteúdo principal de cada página será carregado aqui -->
+            <!-- Seção de KPIs -->
+            <div class="kpi-grid">
+                <div class="card kpi-card">
+                    <div class="card-icon-wrapper" style="background-color: #e6f3ff;">
+                        <i data-feather="dollar-sign" style="color: #006ce0;"></i>
+                    </div>
+                    <div class="kpi-info">
+                        <span class="kpi-title">Valor Total em Estoque</span>
+                        <span class="kpi-value" id="kpi-valor-total">R$ 0,00</span>
+                    </div>
+                </div>
+                <div class="card kpi-card">
+                    <div class="card-icon-wrapper" style="background-color: #fff8e1;">
+                        <i data-feather="alert-triangle" style="color: #f5a623;"></i>
+                    </div>
+                    <div class="kpi-info">
+                        <span class="kpi-title">Itens Abaixo do Mínimo</span>
+                        <span class="kpi-value" id="kpi-itens-minimo">0</span>
+                    </div>
+                </div>
+                <div class="card kpi-card">
+                    <div class="card-icon-wrapper" style="background-color: #eef9f3;">
+                        <i data-feather="clipboard" style="color: #2e7d32;"></i>
+                    </div>
+                    <div class="kpi-info">
+                        <span class="kpi-title">Reservas Pendentes</span>
+                        <span class="kpi-value" id="kpi-reservas">0</span>
+                    </div>
+                </div>
+                <div class="card kpi-card">
+                    <div class="card-icon-wrapper" style="background-color: #fdeaea;">
+                        <i data-feather="tool" style="color: #c62828;"></i>
+                    </div>
+                    <div class="kpi-info">
+                        <span class="kpi-title">Custo Total nas Obras</span>
+                        <span class="kpi-value" id="kpi-custo-obras">R$ 0,00</span>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Seção de Gráficos Principais -->
+            <div class="charts-grid">
+                <div class="card chart-container">
+                    <h3>Valor por Grupo de Produto</h3>
+                    <canvas id="chart-valor-grupo"></canvas>
+                </div>
+                <div class="card chart-container">
+                    <h3>Top 5 Obras com Maior Custo</h3>
+                    <canvas id="chart-top-obras"></canvas>
+                </div>
+            </div>
+
+            <!-- Seção de Gráfico de Linha -->
+            <div class="card chart-container-full">
+                <h3>Entradas vs. Saídas (Últimos 30 dias)</h3>
+                <canvas id="chart-entradas-saidas"></canvas>
+            </div>
+
+            <!-- Seção de Listas de Ação Rápida -->
+            <div class="lists-grid">
+                <div class="card list-container">
+                    <h3>Feed de Atividades Recentes</h3>
+                    <div id="feed-atividades-container" class="feed-container">
+                        <!-- Feed items are inserted here by JS -->
+                    </div>
+                </div>
+                <div class="card list-container">
+                    <h3>Alertas de Estoque Crítico</h3>
+                    <table class="dashboard-table">
+                        <thead>
+                            <tr>
+                                <th>Produto</th>
+                                <th>Qtd. Atual</th>
+                                <th>Qtd. Mínima</th>
+                                <th>Ação</th>
+                            </tr>
+                        </thead>
+                        <tbody id="table-alertas-estoque">
+                           <!-- Linhas inseridas via JS -->
+                        </tbody>
+                    </table>
+                </div>
+            </div>
         </section>
     </main>
     <script type="module" src="js/main.js"></script>
-    <script> feather.replace() </script>
+    <script type="module" src="js/dashboard.js"></script>
+    <script>
+        feather.replace()
+    </script>
 </body>
 </html>
