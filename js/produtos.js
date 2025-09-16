@@ -82,7 +82,17 @@ document.addEventListener('DOMContentLoaded', async function() {
             labelSobra.style.color = '#0d6efd';
             labelProduto.style.fontWeight = 'normal';
             labelProduto.style.color = '#6c757d';
-            // A chamada foi removida daqui
+
+            // Popula o dropdown de locais da sobra, se ainda não estiver populado
+            const sobraLocalSelect = document.getElementById('sobra-local');
+            if (sobraLocalSelect.options.length <= 1) { // <= 1 para contar a opção "Selecione..."
+                for (const [id, data] of Object.entries(configData.locais)) {
+                    const option = document.createElement('option');
+                    option.value = id;
+                    option.textContent = data.nome;
+                    sobraLocalSelect.appendChild(option);
+                }
+            }
         }
     });
 
@@ -125,14 +135,6 @@ document.addEventListener('DOMContentLoaded', async function() {
         configData['locais'][doc.id] = doc.data();
     });
 
-    // Popula o select de local da sobra
-    const sobraLocalSelect = document.getElementById('sobra-local');
-    for (const [id, data] of Object.entries(configData.locais)) {
-        const option = document.createElement('option');
-        option.value = id;
-        option.textContent = data.nome;
-        sobraLocalSelect.appendChild(option);
-    }
 
     // Populate Conversions Select
     const conversaoSelect = document.getElementById('produto-conversao');
