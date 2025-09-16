@@ -309,7 +309,7 @@ document.addEventListener('DOMContentLoaded', function() {
                     if (item.data.contatos && item.data.contatos.length > 0) {
                         tdContatos.innerHTML = item.data.contatos.map(c => {
                             const telefonePuro = String(c.telefone || '').replace(/\D/g, '');
-                            return `<div class="contato-item">${c.nome}: ${formatarTelefone(c.telefone)} <a href="https://wa.me/55${telefonePuro}" target="_blank" title="Abrir no WhatsApp" class="whatsapp-link"><i data-feather="message-circle"></i></a></div>`;
+                            return `<div class="contato-item">${c.nome}: ${formatarTelefone(c.telefone)} <a href="https://wa.me/55${telefonePuro}" target="_blank" title="Abrir no WhatsApp" class="whatsapp-link"><i class="fab fa-whatsapp"></i></a></div>`;
                         }).join('');
                     } else {
                         tdContatos.textContent = 'Nenhum contato';
@@ -455,7 +455,7 @@ document.addEventListener('DOMContentLoaded', function() {
                 if (item.data.contatos && item.data.contatos.length > 0) {
                     tdContatos.innerHTML = item.data.contatos.map(c => {
                         const telefonePuro = String(c.telefone || '').replace(/\D/g, '');
-                        return `<span class="contato-item">${c.nome}: ${formatarTelefone(c.telefone)} <a href="https://wa.me/${telefonePuro}" target="_blank" title="Abrir no WhatsApp" class="whatsapp-link"><i data-feather="message-circle"></i></a></span>`;
+                        return `<span class="contato-item">${c.nome}: ${formatarTelefone(c.telefone)} <a href="https://wa.me/55${telefonePuro}" target="_blank" title="Abrir no WhatsApp" class="whatsapp-link"><i class="fab fa-whatsapp"></i></a></span>`;
                     }).join('<br>');
                 } else {
                     tdContatos.textContent = 'Nenhum contato';
