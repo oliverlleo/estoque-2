@@ -125,6 +125,15 @@ document.addEventListener('DOMContentLoaded', async function() {
         configData['locais'][doc.id] = doc.data();
     });
 
+    // Popula o select de local da sobra
+    const sobraLocalSelect = document.getElementById('sobra-local');
+    for (const [id, data] of Object.entries(configData.locais)) {
+        const option = document.createElement('option');
+        option.value = id;
+        option.textContent = data.nome;
+        sobraLocalSelect.appendChild(option);
+    }
+
     // Populate Conversions Select
     const conversaoSelect = document.getElementById('produto-conversao');
     const conversoesSnapshot = await getDocs(collection(db, 'conversoes'));
@@ -272,6 +281,9 @@ document.addEventListener('DOMContentLoaded', async function() {
         }
     });
 
+    // Formata o input de locação da sobra em tempo real
+    document.getElementById('sobra-locacao').addEventListener('input', formatLocacaoInput);
+
     btnAddLocacao.addEventListener('click', () => {
         addLocacaoRow();
     });
@@ -331,9 +343,18 @@ document.addEventListener('DOMContentLoaded', async function() {
         e.preventDefault();
         const originalProductId = selectSobraOriginal.value;
         const medidaSobraStr = document.getElementById('sobra-medida').value;
+        const sobraLocacao = document.getElementById('sobra-locacao').value.toUpperCase();
+        const sobraLocalId = document.getElementById('sobra-local').value;
 
-        if (!originalProductId || !medidaSobraStr) {
-            alert('Por favor, selecione um produto original e informe a medida da sobra.');
+        // Validação dos novos campos
+        if (!originalProductId || !medidaSobraStr || !sobraLocacao || !sobraLocalId) {
+            alert('Por favor, preencha todos os campos: produto original, medida e a nova locação da sobra.');
+            return;
+        }
+
+        const locacaoPattern = /^[0-9]{2}-[A-Z]{1}-[0-9]{2}-[A-Z]{1}$/;
+        if (!locacaoPattern.test(sobraLocacao)) {
+            alert(`O formato da locação "${sobraLocacao}" é inválido. Use o formato NN-L-NN-L (ex: 10-B-15-C).`);
             return;
         }
 
@@ -385,7 +406,6 @@ document.addEventListener('DOMContentLoaded', async function() {
             } else if (medidaCompra === 'cm') {
                 dimensaoPadraoNaUnidadeSobra *= 10; // cm para mm
             }
-            // Adicionar outras conversões se necessário
 
             if (dimensaoPadraoNaUnidadeSobra <= 0) {
                 throw new Error('A dimensão padrão na regra de conversão é inválida.');
@@ -393,24 +413,29 @@ document.addEventListener('DOMContentLoaded', async function() {
 
             const custoProporcionalDaSobra = (medidaSobra / dimensaoPadraoNaUnidadeSobra) * custoMedioDaPecaOriginal;
 
+            // Cria o novo array de locações para a sobra
+            const newLocacoes = [{
+                locacao: sobraLocacao,
+                localId: sobraLocalId,
+                estoque: 0 // Estoque inicial na locação é sempre 0
+            }];
+
             // --- ETAPA 4: Executar a Criação em uma Transação ---
             await runTransaction(db, async (transaction) => {
                 const newSobraProductData = {
                     ...originalProductData,
                     codigo: `${originalProductData.codigo}-S${medidaSobraStr}`,
                     medida_sobra: medidaSobraStr,
-                    estoque: 0, // Estoque inicial de sobra é zero
-                    isSobra: true, // Flag para identificar o produto como sobra
-                    valorMedio: custoProporcionalDaSobra, // Custo da sobra vira o valor médio inicial
-                    conversaoId: null // Sobra não tem regra de conversão
+                    estoque: 0,
+                    isSobra: true,
+                    valorMedio: custoProporcionalDaSobra,
+                    conversaoId: null,
+                    locacoes: newLocacoes // Sobrescreve com a nova locação
                 };
                 delete newSobraProductData.id;
 
                 const newProductRef = doc(collection(db, 'produtos'));
                 transaction.set(newProductRef, newSobraProductData);
-
-                // A criação automática de movimentação foi removida.
-                // A entrada agora deve ser feita manualmente na tela de movimentações.
             });
 
             alert(`Sobra cadastrada com sucesso! Custo proporcional calculado: R$ ${custoProporcionalDaSobra.toFixed(2)}`);

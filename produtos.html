@@ -106,6 +106,18 @@
                                 <input type="number" id="sobra-medida" placeholder="Medida em mm, cm, etc." required class="form-control">
                             </div>
 
+                            <!-- Novos campos para Locação da Sobra -->
+                            <div style="grid-column: 1 / 2;">
+                                <label for="sobra-locacao">Locação da Sobra</label>
+                                <input type="text" id="sobra-locacao" placeholder="Locação (ex: 10-B-15-C)" required class="form-control">
+                            </div>
+                            <div style="grid-column: 2 / 3;">
+                                <label for="sobra-local">Local da Sobra</label>
+                                <select id="sobra-local" required class="form-control">
+                                    <option value="">Selecione o Local...</option>
+                                </select>
+                            </div>
+
                             <button type="submit" class="btn btn-success" style="grid-column: 1 / -1;">Salvar Sobra como Novo Produto</button>
                         </form>
                     </div>
