@@ -8,50 +8,27 @@
     <link rel="stylesheet" href="css/dashboard.css">
     <script src="https://cdn.jsdelivr.net/npm/feather-icons/dist/feather.min.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
-    <link href="https://cdnjs.cloudflare.com/ajax/libs/tailwindcss/2.2.19/tailwind.min.css" rel="stylesheet">
     <link href="https://fonts.googleapis.com/icon?family=Material+Icons" rel="stylesheet">
 </head>
-<body class="flex h-screen">
-    <aside class="w-64 bg-gray-800 text-white flex flex-col">
-        <div class="p-6 text-2xl font-bold border-b border-gray-700">
-            Estoque
+<body>
+    <aside class="sidebar">
+        <div class="sidebar-header">
+            <h2><i data-feather="archive"></i> Estoque</h2>
         </div>
-        <nav class="flex-1 p-4 space-y-2">
-            <a href="index.html" class="flex items-center px-4 py-2 text-white bg-blue-500 rounded-md">
-                <span class="material-icons mr-3">dashboard</span>
-                Dashboard
-            </a>
-            <a href="configuracoes.html" class="flex items-center px-4 py-2 text-gray-300 hover:bg-gray-700 rounded-md">
-                <span class="material-icons mr-3">settings</span>
-                Configurações
-            </a>
-            <a href="produtos.html" class="flex items-center px-4 py-2 text-gray-300 hover:bg-gray-700 rounded-md">
-                <span class="material-icons mr-3">inventory_2</span>
-                Produtos
-            </a>
-            <a href="movimentacoes.html" class="flex items-center px-4 py-2 text-gray-300 hover:bg-gray-700 rounded-md">
-                <span class="material-icons mr-3">sync_alt</span>
-                Movimentações
-            </a>
-            <a href="obras.html" class="flex items-center px-4 py-2 text-gray-300 hover:bg-gray-700 rounded-md">
-                <span class="material-icons mr-3">construction</span>
-                Obras
-            </a>
-            <a href="consultas.html" class="flex items-center px-4 py-2 text-gray-300 hover:bg-gray-700 rounded-md">
-                <span class="material-icons mr-3">search</span>
-                Consultas
-            </a>
-            <a href="reservas.html" class="flex items-center px-4 py-2 text-gray-300 hover:bg-gray-700 rounded-md">
-                <span class="material-icons mr-3">book_online</span>
-                Reservas
-            </a>
-            <a href="implementacao.html" class="flex items-center px-4 py-2 text-gray-300 hover:bg-gray-700 rounded-md">
-                <span class="material-icons mr-3">build</span>
-                Implementação
-            </a>
+        <nav>
+            <ul>
+                <li><a href="index.html" class="active"><span class="material-icons">dashboard</span>Dashboard</a></li>
+                <li><a href="configuracoes.html"><span class="material-icons">settings</span>Configurações</a></li>
+                <li><a href="produtos.html"><span class="material-icons">inventory_2</span>Produtos</a></li>
+                <li><a href="movimentacoes.html"><span class="material-icons">sync_alt</span>Movimentações</a></li>
+                <li><a href="obras.html"><span class="material-icons">construction</span>Obras</a></li>
+                <li><a href="consultas.html"><span class="material-icons">search</span>Consultas</a></li>
+                <li><a href="reservas.html"><span class="material-icons">book_online</span>Reservas</a></li>
+                <li><a href="implementacao.html"><span class="material-icons">build</span>Implementação</a></li>
+            </ul>
         </nav>
     </aside>
-    <main class="main-content flex-1 overflow-y-auto">
+    <main class="main-content">
         <header>
             <h1>Dashboard</h1>
             <p class="subtitle">Bem-vindo ao seu sistema de controle de estoque.</p>
