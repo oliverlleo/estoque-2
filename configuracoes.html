@@ -58,13 +58,19 @@
         <div id="config-buttons-container" class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6">
         </div>
 
-        <div id="config-modal" class="modal">
-            <div class="modal-content">
-                <div class="modal-header">
-                    <h3 id="modal-title">Título do Modal</h3>
-                    <span class="close-button">&times;</span>
+        <!-- Modal Principal -->
+        <div id="config-modal" class="fixed inset-0 bg-gray-900 bg-opacity-60 hidden items-center justify-center z-50">
+            <div id="modal-content-container" class="bg-white rounded-lg shadow-2xl overflow-hidden w-full max-w-5xl max-h-[90vh] flex flex-col">
+                <!-- Modal Header -->
+                <div class="px-6 py-4 bg-gray-50 border-b border-gray-200 flex justify-between items-center flex-shrink-0">
+                    <h2 id="modal-title" class="text-xl font-semibold text-gray-800"></h2>
+                    <button class="close-button text-gray-500 hover:text-gray-800">
+                        <span class="material-icons">close</span>
+                    </button>
                 </div>
-                <div id="modal-body" class="modal-body">
+                <!-- Modal Body -->
+                <div id="modal-body" class="p-0 overflow-y-auto">
+                    <!-- Conteúdo dinâmico do modal será injetado aqui -->
                 </div>
             </div>
         </div>
