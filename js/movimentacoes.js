@@ -161,24 +161,32 @@ document.addEventListener('DOMContentLoaded', async function() {
             document.getElementById('mov-un-display').textContent = '-';
         }
 
-        const isSobra = product && product.e_sobra === true;
+        const isSobra = product && product.isSobra === true;
         const costFields = ['mov-valor-unitario', 'mov-icms', 'mov-ipi', 'mov-frete'];
         const quantField = document.getElementById('mov-quantidade');
+        const valorUnitarioInput = document.getElementById('mov-valor-unitario');
 
         if (isEntrada) {
+            // Desabilita/habilita todos os campos de custo com base em isSobra
             costFields.forEach(fieldId => {
                 const field = document.getElementById(fieldId);
                 field.disabled = isSobra;
-                if (isSobra) field.value = '';
+                field.value = ''; // Limpa todos para começar
             });
+
             quantField.disabled = isSobra;
+
             if (isSobra) {
+                // Se for sobra, preenche o valor unitário com o valor médio e fixa a quantidade em 1
+                valorUnitarioInput.value = product.valorMedio ? product.valorMedio.toFixed(2) : '0.00';
                 quantField.value = 1;
                 quantField.placeholder = "Entrada de sobra é sempre 1 Unidade";
             } else {
+                // Se não for sobra, reabilita os campos e reseta o placeholder de quantidade
                 quantField.placeholder = "Quantidade";
             }
         } else {
+            // Se for SAÍDA, todos os campos de custo e quantidade são habilitados
             costFields.forEach(fieldId => document.getElementById(fieldId).disabled = false);
             quantField.disabled = false;
             quantField.placeholder = "Quantidade";
@@ -1049,13 +1057,6 @@ document.addEventListener('DOMContentLoaded', async function() {
         const tipoSaidaSelect = document.getElementById('mov-tipo-saida');
         const obraSelect = document.getElementById('mov-obra');
 
-        const q = query(collection(db, 'produtos'), where("arquivado", "!=", true));
-        const productsSnapshot = await getDocs(q);
-        productsMap = {};
-        productsSnapshot.forEach(doc => {
-             const product = doc.data();
-             productsMap[doc.id] = { id: doc.id, ...product };
-        });
 
         configData.tipos_entrada = await loadConfigToSelect(tipoEntradaSelect, 'tipos_entrada', 'nome');
         configData.tipos_saida = await loadConfigToSelect(tipoSaidaSelect, 'tipos_saida', 'nome');
@@ -1195,6 +1196,17 @@ document.addEventListener('DOMContentLoaded', async function() {
             filtroObra.innerHTML += `<option value="${obra.nome}">${obra.nome}</option>`;
         });
     }
+
+    // Listener para produtos em tempo real
+    onSnapshot(query(collection(db, 'produtos'), where("arquivado", "!=", true)), (snapshot) => {
+        const tempMap = {};
+        snapshot.forEach(doc => {
+            tempMap[doc.id] = { id: doc.id, ...doc.data() };
+        });
+        productsMap = tempMap;
+        // Opcional: log para confirmar a atualização em tempo real
+        // console.log('Products map updated in real-time.', Object.keys(productsMap).length, 'products loaded.');
+    });
 
     onSnapshot(query(collection(db, 'movimentacoes'), orderBy('data', 'desc')), (snapshot) => {
         allMovements = snapshot.docs.map(doc => {
