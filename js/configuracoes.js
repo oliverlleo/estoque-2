@@ -88,20 +88,24 @@ document.addEventListener('DOMContentLoaded', function() {
         }
     ];
 
-    const buttonsContainer = document.getElementById('config-buttons-container');
+    const configGrid = document.getElementById('config-grid');
     const modal = document.getElementById('config-modal');
     const modalTitle = document.getElementById('modal-title');
     const modalBody = document.getElementById('modal-body');
     const closeButton = document.querySelector('.close-button');
 
-    configs.forEach(config => {
-        const button = document.createElement('button');
-        button.className = 'btn';
-        button.style.backgroundColor = '#495057';
-        button.textContent = config.name;
-        button.addEventListener('click', () => openConfigModal(config));
-        buttonsContainer.appendChild(button);
-    });
+    if (configGrid) {
+        configGrid.addEventListener('click', (event) => {
+            const card = event.target.closest('.config-card');
+            if (card) {
+                const configId = card.dataset.configId;
+                const config = configs.find(c => c.id === configId);
+                if (config) {
+                    openConfigModal(config);
+                }
+            }
+        });
+    }
 
     function openConfigModal(config) {
         modalTitle.textContent = `Cadastro de ${config.name}`;
