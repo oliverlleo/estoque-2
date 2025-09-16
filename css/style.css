@@ -1034,3 +1034,47 @@ input:checked + .slider:before {
     font-weight: 600;
     color: #34495e;
 }
+
+/* ======================================================= */
+/*             NOVO LAYOUT DE CONFIGURAÇÕES                */
+/* ======================================================= */
+
+.config-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(220px, 1fr));
+    gap: 1.5rem;
+}
+
+.config-card {
+    background-color: #fff;
+    border: 1px solid #dee2e6;
+    border-radius: 8px;
+    padding: 1.5rem;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    text-align: center;
+    cursor: pointer;
+    transition: all 0.2s ease-in-out;
+    box-shadow: 0 2px 4px rgba(0,0,0,0.05);
+}
+
+.config-card:hover {
+    transform: translateY(-5px);
+    box-shadow: 0 5px 15px rgba(0,0,0,0.1);
+    border-color: #0d6efd;
+}
+
+.config-card i {
+    width: 48px;
+    height: 48px;
+    color: #0d6efd;
+    margin-bottom: 1rem;
+}
+
+.config-card span {
+    font-size: 1rem;
+    font-weight: 600;
+    color: #34495e;
+}

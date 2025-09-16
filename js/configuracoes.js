@@ -33,7 +33,6 @@ document.addEventListener('DOMContentLoaded', function() {
         { name: "Aplicações", id: "aplicacao", collectionName: "aplicacoes", fields: { nome: { label: "Nome da Aplicação" } }, render: (d) => `<td>${d.nome || ''}</td>`, tableHeaders: "<th>Nome</th><th>Ações</th>" },
         { name: "Conjuntos", id: "conjunto", collectionName: "conjuntos", fields: { nome: { label: "Nome do Conjunto" } }, render: (d) => `<td>${d.nome || ''}</td>`, tableHeaders: "<th>Nome</th><th>Ações</th>" },
         { name: "Locação", id: "local", collectionName: "locais", fields: { nome: { label: "Nome do Local" } }, render: (d) => `<td>${d.nome || ''}</td>`, tableHeaders: "<th>Nome</th><th>Ações</th>" },
-        { name: "Tipos de Movimentação", id: "movimentacao" }, // Dummy config
         {
             name: "Tipos de Entrada",
             id: "tipo-entrada",
@@ -398,7 +397,7 @@ document.addEventListener('DOMContentLoaded', function() {
                             removeBtn.innerHTML = '&times;';
                             removeBtn.onclick = () => tagSpan.remove();
                             tagSpan.appendChild(removeBtn);
-                            modal.querySelector('#lista-marcas-tags').appendChild(tagSpan);
+                            marcasTagsContainer.appendChild(tagSpan);
                         });
                     }
                     form.scrollIntoView({ behavior: 'smooth' });
