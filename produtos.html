@@ -5,24 +5,50 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Produtos - Controle de Estoque</title>
     <link rel="stylesheet" href="css/style.css">
-    <script src="https://cdn.jsdelivr.net/npm/feather-icons/dist/feather.min.js"></script>
+    <link href="https://fonts.googleapis.com/icon?family=Material+Icons" rel="stylesheet">
 </head>
 <body>
     <aside class="sidebar">
         <div class="sidebar-header">
-            <h2><i data-feather="archive"></i> Estoque</h2>
+            <h2>Estoque</h2>
         </div>
-        <nav>
-            <ul>
-                <li><a href="index.html"><i data-feather="home"></i>Dashboard</a></li>
-                <li><a href="configuracoes.html"><i data-feather="settings"></i>Configurações</a></li>
-                <li><a href="produtos.html" class="active"><i data-feather="box"></i>Produtos</a></li>
-                <li><a href="movimentacoes.html"><i data-feather="git-commit"></i>Movimentações</a></li>
-                <li><a href="obras.html"><i data-feather="briefcase"></i>Obras</a></li>
-                <li><a href="consultas.html"><i data-feather="search"></i>Consultas</a></li>
-                <li><a href="reservas.html"><i data-feather="clipboard"></i>Reservas</a></li>
-                <li><a href="implementacao.html"><i data-feather="chevrons-down"></i>Implementação</a></li>
-            </ul>
+        <nav class="flex-1 p-4 space-y-2">
+            <a class="flex items-center px-4 py-2 text-sm font-medium text-gray-300 hover:bg-gray-700 rounded-md" href="index.html">
+                <span class="material-icons mr-3">dashboard</span>
+                Dashboard
+            </a>
+            <a class="flex items-center px-4 py-2 text-sm font-medium text-white bg-blue-600 rounded-md" href="produtos.html">
+                <span class="material-icons mr-3">inventory_2</span>
+                Produtos
+            </a>
+            <a class="flex items-center px-4 py-2 text-sm font-medium text-gray-300 hover:bg-gray-700 rounded-md" href="movimentacoes.html">
+                <span class="material-icons mr-3">sync_alt</span>
+                Movimentações
+            </a>
+            <a class="flex items-center px-4 py-2 text-sm font-medium text-gray-300 hover:bg-gray-700 rounded-md" href="obras.html">
+                <span class="material-icons mr-3">construction</span>
+                Obras
+            </a>
+            <a class="flex items-center px-4 py-2 text-sm font-medium text-gray-300 hover:bg-gray-700 rounded-md" href="reservas.html">
+                <span class="material-icons mr-3">book_online</span>
+                Reservas
+            </a>
+            <a class="flex items-center px-4 py-2 text-sm font-medium text-gray-300 hover:bg-gray-700 rounded-md" href="consultas.html">
+                <span class="material-icons mr-3">search</span>
+                Consultas
+            </a>
+            <a class="flex items-center px-4 py-2 text-sm font-medium text-gray-300 hover:bg-gray-700 rounded-md" href="#">
+                <span class="material-icons mr-3">assessment</span>
+                Relatórios
+            </a>
+            <a class="flex items-center px-4 py-2 text-sm font-medium text-gray-300 hover:bg-gray-700 rounded-md" href="configuracoes.html">
+                <span class="material-icons mr-3">settings</span>
+                Configurações
+            </a>
+            <a class="flex items-center px-4 py-2 text-sm font-medium text-gray-300 hover:bg-gray-700 rounded-md" href="implementacao.html">
+                <span class="material-icons mr-3">help_outline</span>
+                Ajuda/Implantação
+            </a>
         </nav>
     </aside>
     <main class="main-content">
@@ -186,6 +212,5 @@
     <script type="module" src="js/main.js"></script>
     <script type="module" src="js/produtos.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/qrcodejs@1.0.0/qrcode.min.js"></script>
-    <script> feather.replace() </script>
 </body>
 </html>

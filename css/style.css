@@ -16,53 +16,65 @@ body {
 
 /* Sidebar */
 .sidebar {
-    width: 250px;
-    background-color: #212529;
-    color: #ecf0f1;
+    width: 260px; /* Aumentado um pouco para acomodar padding */
+    background-color: #111827; /* Um cinza-azulado escuro, como na imagem */
+    color: #d1d5db; /* Texto cinza claro */
     display: flex;
     flex-direction: column;
     height: 100vh;
     position: fixed;
+    flex-shrink: 0;
 }
 
 .sidebar-header {
-    padding: 20px;
-    text-align: center;
-    background-color: #34495e;
+    padding: 24px;
+    text-align: left;
 }
 
 .sidebar-header h2 {
     font-size: 1.5rem;
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    gap: 0.75rem; /* Cria um espaço entre o ícone e o texto */
-}
-
-.sidebar nav ul {
-    list-style: none;
-    padding: 20px 0;
-}
-
-.sidebar nav ul li a {
-    display: flex;
-    align-items: center;
-    gap: 0.75rem;
-    padding: 15px 20px;
-    color: #ecf0f1;
-    text-decoration: none;
-    transition: background-color 0.3s;
-}
-
-.sidebar nav ul li a:hover,
-.sidebar nav ul li a.active {
-    background-color: #0d6efd;
+    font-weight: 700;
     color: #fff;
+}
+
+/* Estilos para a nova estrutura de navegação */
+.sidebar nav {
+    flex: 1;
+    padding: 0 1rem; /* p-4 */
+    display: flex;
+    flex-direction: column;
+    gap: 0.5rem; /* space-y-2 */
+}
+
+.sidebar nav a {
+    display: flex;
+    align-items: center;
+    padding: 0.5rem 1rem; /* px-4 py-2 */
+    font-size: 0.875rem; /* text-sm */
+    font-weight: 500; /* font-medium */
+    border-radius: 0.375rem; /* rounded-md */
+    text-decoration: none;
+    color: #d1d5db; /* text-gray-300 */
+    transition: background-color 0.2s, color 0.2s;
+}
+
+.sidebar nav a:hover {
+    background-color: #374151; /* hover:bg-gray-700 */
+    color: #fff;
+}
+
+.sidebar nav a.bg-blue-600 {
+    background-color: #2563eb; /* bg-blue-600 */
+    color: #fff; /* text-white */
+}
+
+.sidebar .material-icons {
+    margin-right: 0.75rem; /* mr-3 */
 }
 
 /* Main Content */
 .main-content {
-    margin-left: 250px;
+    margin-left: 260px; /* Ajustado para a nova largura do sidebar */
     flex-grow: 1;
     padding: 30px;
     display: flex;
