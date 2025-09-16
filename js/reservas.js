@@ -112,7 +112,6 @@ document.addEventListener('DOMContentLoaded', () => {
             `;
             tableBody.appendChild(row);
         });
-        feather.replace();
     }
 
     // Event Delegation for action buttons

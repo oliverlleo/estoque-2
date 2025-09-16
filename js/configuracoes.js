@@ -342,7 +342,6 @@ document.addEventListener('DOMContentLoaded', function() {
                 tableBody.appendChild(row);
             });
 
-            feather.replace();
         });
 
         tableBody.addEventListener('click', async (e) => {
@@ -489,6 +488,5 @@ document.addEventListener('DOMContentLoaded', function() {
 
             tableBody.appendChild(row);
         });
-        feather.replace();
     };
 });

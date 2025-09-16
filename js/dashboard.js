@@ -262,7 +262,6 @@ document.addEventListener('DOMContentLoaded', () => {
         renderEntradasSaidasChart(allMovements, obraId);
         renderActivityFeed(allProductsMap, allObrasMap, obraId);
         renderAlertasEstoque(allProducts); // Não é afetado pelo filtro
-        feather.replace();
     }
 
     async function loadDashboard() {

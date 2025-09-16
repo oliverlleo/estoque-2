@@ -88,7 +88,6 @@ document.addEventListener('DOMContentLoaded', async function() {
             `;
             tableBody.appendChild(row);
         });
-        feather.replace();
     }
 
     function applyFilters() {
