@@ -207,7 +207,7 @@ function generateModalContent(config) {
 
 
     return `
-        <div class="p-6">
+        <div>
             <form id="form-${config.id}">
                 <input type="hidden" id="${config.id}-id">
                 <div class="mb-6">
@@ -227,7 +227,7 @@ function generateModalContent(config) {
             </form>
         </div>
 
-        <div class="p-6 bg-gray-50 border-t border-gray-200">
+        <div class="bg-gray-50 border-t border-gray-200 -mx-6 -mb-6 mt-6 px-6 pb-6 pt-6 rounded-b-lg">
             <h3 class="text-lg font-medium text-gray-700 mb-4">${config.name} Cadastrados</h3>
             <div class="mb-4">
                 <input type="text" id="filter-${config.id}" class="${inputBaseClasses}" placeholder="Filtrar...">
