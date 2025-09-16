@@ -44,6 +44,7 @@ document.addEventListener('DOMContentLoaded', () => {
                 },
                 options: {
                     responsive: true,
+                    maintainAspectRatio: false,
                     plugins: {
                         legend: { position: 'bottom' },
                         tooltip: {
@@ -81,6 +82,7 @@ document.addEventListener('DOMContentLoaded', () => {
                 options: {
                     indexAxis: 'y',
                     responsive: true,
+                    maintainAspectRatio: false,
                     plugins: {
                         legend: { display: false },
                         tooltip: {
