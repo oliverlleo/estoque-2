@@ -5,7 +5,9 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Dashboard - Controle de Estoque</title>
     <link rel="stylesheet" href="css/style.css">
+    <link rel="stylesheet" href="css/dashboard.css">
     <script src="https://cdn.jsdelivr.net/npm/feather-icons/dist/feather.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
 </head>
 <body>
     <aside class="sidebar">
@@ -28,13 +30,113 @@
     <main class="main-content">
         <header>
             <h1>Dashboard</h1>
+            <p class="subtitle">Bem-vindo ao seu sistema de controle de estoque.</p>
+            <div class="dashboard-controls">
+                <div class="control-group">
+                    <label for="filtro-obra-global"><i data-feather="filter"></i> Filtrar por Obra</label>
+                    <select id="filtro-obra-global" class="form-control">
+                        <option value="todos">Todas as Obras</option>
+                        <!-- Obras carregadas via JS -->
+                    </select>
+                </div>
+                <div class="actions-group">
+                    <a href="movimentacoes.html" class="btn btn-action"><i data-feather="plus-circle"></i> Nova Entrada</a>
+                    <a href="movimentacoes.html" class="btn btn-action btn-saida"><i data-feather="minus-circle"></i> Nova Saída</a>
+                    <a href="reservas.html" class="btn btn-action"><i data-feather="clipboard"></i> Criar Reserva</a>
+                    <a href="produtos.html" class="btn btn-action"><i data-feather="box"></i> Cadastrar Produto</a>
+                </div>
+            </div>
         </header>
         <section class="content">
-            <p>Bem-vindo ao sistema de controle de estoque.</p>
-            <!-- O conteúdo principal de cada página será carregado aqui -->
+            <!-- Seção de KPIs -->
+            <div class="kpi-grid">
+                <div class="card kpi-card">
+                    <div class="card-icon-wrapper" style="background-color: #e6f3ff;">
+                        <i data-feather="dollar-sign" style="color: #006ce0;"></i>
+                    </div>
+                    <div class="kpi-info">
+                        <span class="kpi-title">Valor Total em Estoque</span>
+                        <span class="kpi-value" id="kpi-valor-total">R$ 0,00</span>
+                    </div>
+                </div>
+                <div class="card kpi-card">
+                    <div class="card-icon-wrapper" style="background-color: #fff8e1;">
+                        <i data-feather="alert-triangle" style="color: #f5a623;"></i>
+                    </div>
+                    <div class="kpi-info">
+                        <span class="kpi-title">Itens Abaixo do Mínimo</span>
+                        <span class="kpi-value" id="kpi-itens-minimo">0</span>
+                    </div>
+                </div>
+                <div class="card kpi-card">
+                    <div class="card-icon-wrapper" style="background-color: #eef9f3;">
+                        <i data-feather="clipboard" style="color: #2e7d32;"></i>
+                    </div>
+                    <div class="kpi-info">
+                        <span class="kpi-title">Reservas Pendentes</span>
+                        <span class="kpi-value" id="kpi-reservas">0</span>
+                    </div>
+                </div>
+                <div class="card kpi-card">
+                    <div class="card-icon-wrapper" style="background-color: #fdeaea;">
+                        <i data-feather="tool" style="color: #c62828;"></i>
+                    </div>
+                    <div class="kpi-info">
+                        <span class="kpi-title">Custo Total nas Obras</span>
+                        <span class="kpi-value" id="kpi-custo-obras">R$ 0,00</span>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Seção de Gráficos Principais -->
+            <div class="charts-grid">
+                <div class="card chart-container">
+                    <h3>Valor por Grupo de Produto</h3>
+                    <canvas id="chart-valor-grupo"></canvas>
+                </div>
+                <div class="card chart-container">
+                    <h3>Top 5 Obras com Maior Custo</h3>
+                    <canvas id="chart-top-obras"></canvas>
+                </div>
+            </div>
+
+            <!-- Seção de Gráfico de Linha -->
+            <div class="card chart-container-full">
+                <h3>Entradas vs. Saídas (Últimos 30 dias)</h3>
+                <canvas id="chart-entradas-saidas"></canvas>
+            </div>
+
+            <!-- Seção de Listas de Ação Rápida -->
+            <div class="lists-grid">
+                <div class="card list-container">
+                    <h3>Feed de Atividades Recentes</h3>
+                    <div id="feed-atividades-container" class="feed-container">
+                        <!-- Feed items are inserted here by JS -->
+                    </div>
+                </div>
+                <div class="card list-container">
+                    <h3>Alertas de Estoque Crítico</h3>
+                    <table class="dashboard-table">
+                        <thead>
+                            <tr>
+                                <th>Produto</th>
+                                <th>Qtd. Atual</th>
+                                <th>Qtd. Mínima</th>
+                                <th>Ação</th>
+                            </tr>
+                        </thead>
+                        <tbody id="table-alertas-estoque">
+                           <!-- Linhas inseridas via JS -->
+                        </tbody>
+                    </table>
+                </div>
+            </div>
         </section>
     </main>
     <script type="module" src="js/main.js"></script>
-    <script> feather.replace() </script>
+    <script type="module" src="js/dashboard.js"></script>
+    <script>
+        feather.replace()
+    </script>
 </body>
 </html>
