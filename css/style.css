@@ -33,6 +33,10 @@ body {
 
 .sidebar-header h2 {
     font-size: 1.5rem;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 0.75rem; /* Cria um espaço entre o ícone e o texto */
 }
 
 .sidebar nav ul {
@@ -240,7 +244,7 @@ body {
     padding: 0;
     border: 1px solid #888;
     width: 80%;
-    max-width: 900px;
+    max-width: 1100px; /* ALTERADO DE 900px PARA 1100px */
     border-radius: 0.25rem;
     box-shadow: 0 4px 8px 0 rgba(0,0,0,0.2),0 6px 20px 0 rgba(0,0,0,0.19);
     animation-name: animatetop;
@@ -293,4 +297,696 @@ body {
     display: grid;
     grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
     gap: 1rem;
+}
+
+/* Estilos para filtros e ordenação da tabela */
+#filters-row .form-control {
+    padding: 0.25rem 0.5rem;
+    font-size: 0.8rem;
+}
+
+#headers-row th {
+    cursor: pointer;
+    position: relative;
+}
+
+#headers-row th:hover {
+    background-color: #e9ecef;
+}
+
+#headers-row th::after {
+    content: '';
+    position: absolute;
+    right: 8px;
+    top: 50%;
+    margin-top: -8px;
+    border: 4px solid transparent;
+}
+
+#headers-row th.sort-asc::after {
+    border-bottom-color: #212529;
+}
+
+#headers-row th.sort-desc::after {
+    border-top-color: #212529;
+}
+
+/* Estilo para container de filtros genérico */
+.filters-container {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
+    gap: 10px;
+    margin-bottom: 20px;
+}
+
+/* Layout do Formulário de Movimentação */
+.form-grid-4-col {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+    gap: 15px;
+}
+
+/* Estilos para o Interruptor (Toggle Switch) */
+.toggle-container {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    margin-bottom: 20px;
+}
+
+.toggle-switch {
+    position: relative;
+    display: inline-block;
+    width: 60px;
+    height: 34px;
+}
+
+.toggle-switch input {
+    opacity: 0;
+    width: 0;
+    height: 0;
+}
+
+.slider {
+    position: absolute;
+    cursor: pointer;
+    top: 0;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    background-color: #dc3545; /* Cor de Saída (vermelho) */
+    transition: .4s;
+    border-radius: 34px;
+}
+
+.slider:before {
+    position: absolute;
+    content: "";
+    height: 26px;
+    width: 26px;
+    left: 4px;
+    bottom: 4px;
+    background-color: white;
+    transition: .4s;
+    border-radius: 50%;
+}
+
+input:checked + .slider {
+    background-color: #198754; /* Cor de Entrada (verde) */
+}
+
+input:checked + .slider:before {
+    transform: translateX(26px);
+}
+
+/* Estilo para campos de formulário inválidos */
+.form-control.is-invalid {
+    border-color: #dc3545; /* Usa o mesmo vermelho do botão de perigo */
+    box-shadow: 0 0 0 0.2rem rgba(220, 53, 69, 0.25);
+}
+
+#info-modal-header {
+    background-color: #0d6efd; /* Azul informativo do Bootstrap */
+}
+
+/* Estilos para Célula de Tipo na Tabela de Movimentações (VERSÃO CORRIGIDA) */
+
+#table-movimentacoes td.entrada,
+#table-movimentacoes td.saida {
+    color: white;
+    text-align: center;
+    font-weight: 600;
+    border-radius: 4px;
+    border-bottom: 2px solid #fff;
+}
+
+#table-movimentacoes td.entrada {
+    background-color: #198754; /* Verde (btn-success) */
+}
+
+#table-movimentacoes td.saida {
+    background-color: #dc3545; /* Vermelho (btn-danger) */
+}
+
+/* Estilo para Reservas Pendentes na Tabela de Movimentações */
+#table-movimentacoes td.reserva {
+    background-color: #0d6efd; /* Azul informativo do Bootstrap */
+    color: white;
+    text-align: center;
+    font-weight: 600;
+    border-radius: 4px;
+    border-bottom: 2px solid #fff;
+}
+
+/* Mantém a cor da célula mesmo com o efeito hover da linha da tabela.
+  Esta regra é mais específica e por isso prevalece sobre a regra de hover genérica.
+*/
+#table-movimentacoes tr:hover td.entrada {
+    background-color: #198754;
+}
+
+#table-movimentacoes tr:hover td.saida {
+    background-color: #dc3545;
+}
+
+#table-movimentacoes tr:hover td.reserva {
+    background-color: #0b5ed7; /* Azul um pouco mais escuro no hover */
+}
+
+/* --- Estilos CORRIGIDOS para o Componente Dropdown --- */
+.dropdown {
+    position: relative;
+    display: inline-block;
+}
+
+/* O conteúdo do dropdown fica oculto por padrão */
+.dropdown-content {
+    display: none;
+    position: absolute;
+    right: 0;
+    background-color: #f9f9f9;
+    min-width: 180px;
+    box-shadow: 0px 8px 16px 0px rgba(0,0,0,0.2);
+    z-index: 10;
+    border-radius: 4px;
+    overflow: hidden; /* Garante que os cantos arredondados sejam aplicados nos links */
+}
+
+/* Mostra o conteúdo quando o dropdown tem a classe .active */
+.dropdown.active .dropdown-content {
+    display: block;
+}
+
+.dropdown-content a {
+    color: black;
+    padding: 12px 16px;
+    text-decoration: none;
+    display: block;
+    font-size: 0.9rem;
+}
+
+.dropdown-content a:hover {
+    background-color: #0d6efd;
+    color: white;
+}
+
+.dropdown .btn {
+  color: white;
+}
+
+/* --- Estilos para o Componente Multi-Select --- */
+.multiselect-container {
+    position: relative;
+}
+
+.multiselect-display-area {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    cursor: pointer;
+    height: calc(1.5em + 1rem + 2px); /* Altura igual ao .form-control */
+    user-select: none;
+}
+
+.multiselect-display-area .multiselect-placeholder,
+.multiselect-display-area .multiselect-selected-text {
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+}
+
+.multiselect-arrow {
+    border: solid #555;
+    border-width: 0 2px 2px 0;
+    display: inline-block;
+    padding: 3px;
+    transform: rotate(45deg);
+    -webkit-transform: rotate(45deg);
+    margin-left: 10px;
+}
+
+.multiselect-options {
+    display: none;
+    position: absolute;
+    background-color: #fff;
+    border: 1px solid #ced4da;
+    border-radius: 0.25rem;
+    width: 100%;
+    max-height: 200px;
+    overflow-y: auto;
+    z-index: 100;
+    margin-top: 4px;
+}
+
+.multiselect-options ul {
+    list-style: none;
+    margin: 0;
+    padding: 0;
+}
+
+.multiselect-options li {
+    padding: 8px 12px;
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+}
+
+.multiselect-options li:hover {
+    background-color: #f1f2f6;
+}
+
+.multiselect-options input[type="checkbox"] {
+    margin-right: 10px;
+}
+
+/* Ajusta a largura do campo de descrição no formulário de produtos */
+#form-produto #produto-descricao {
+    grid-column: span 2; /* Faz o campo ocupar duas colunas do grid */
+}
+
+/* Estilos para o Interruptor (Toggle Switch) */
+.toggle-container {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    margin-bottom: 20px;
+}
+
+.toggle-switch {
+    position: relative;
+    display: inline-block;
+    width: 60px;
+    height: 34px;
+}
+
+.toggle-switch input {
+    opacity: 0;
+    width: 0;
+    height: 0;
+}
+
+.slider {
+    position: absolute;
+    cursor: pointer;
+    top: 0;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    background-color: #6c757d; /* Cor padrão */
+    transition: .4s;
+    border-radius: 34px;
+}
+
+.slider:before {
+    position: absolute;
+    content: "";
+    height: 26px;
+    width: 26px;
+    left: 4px;
+    bottom: 4px;
+    background-color: white;
+    transition: .4s;
+    border-radius: 50%;
+}
+
+input:checked + .slider {
+    background-color: #0d6efd; /* Cor do Produto (azul) */
+}
+
+input:checked + .slider:before {
+    transform: translateX(26px);
+}
+
+.required-field-visual select.form-control {
+    border-left: 5px solid #E53E3E; /* Borda vermelha para indicar obrigatoriedade */
+}
+
+.required-field-visual-input {
+    border-left: 5px solid #E53E3E !important; /* Borda vermelha para indicar obrigatoriedade */
+}
+
+/* Styles for Reservations Page */
+.status-badge {
+    color: white;
+    padding: 5px 8px;
+    border-radius: 4px;
+    font-size: 0.8rem;
+    font-weight: 600;
+    text-transform: uppercase;
+}
+
+.status-reserva { background-color: #0d6efd; }
+.status-cancelada { background-color: #6c757d; }
+
+#table-reservas .btn-confirmar,
+#table-reservas .btn-cancelar {
+    padding: 3px 8px;
+    font-size: 0.8rem;
+    color: white;
+    border: none;
+    border-radius: 4px;
+    cursor: pointer;
+}
+
+#table-reservas .btn-confirmar {
+    background-color: #198754; /* Green */
+}
+
+#table-reservas .btn-cancelar {
+    background-color: #dc3545; /* Red */
+}
+
+/* Estilos para a Grade de Obras */
+.obras-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
+    gap: 20px;
+}
+
+/* Estilos para o Card da Obra */
+.obra-card {
+    background-color: #fff;
+    border: 1px solid #e0e0e0;
+    border-radius: 8px;
+    padding: 20px;
+    box-shadow: 0 2px 4px rgba(0, 0, 0, 0.05);
+    display: flex;
+    flex-direction: column;
+    transition: box-shadow 0.3s ease, transform 0.3s ease;
+}
+
+.obra-card:hover {
+    transform: translateY(-5px);
+    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
+}
+
+.obra-card h4 {
+    margin: 0 0 5px 0;
+    font-size: 1.25rem;
+    color: #2c3e50;
+}
+
+.obra-card p {
+    margin: 0 0 15px 0;
+    font-size: 0.9rem;
+    color: #7f8c8d;
+}
+
+.obra-card .obra-custo {
+    font-size: 1.75rem;
+    font-weight: 700;
+    color: #198754; /* Verde sucesso */
+    margin-bottom: 20px;
+}
+
+.obra-card .btn-ver-mais {
+    margin-top: auto; /* Empurra o botão para o final do card */
+    text-align: right;
+    font-weight: 600;
+    text-decoration: none;
+    color: #0d6efd; /* Azul primário */
+    transition: color 0.3s ease;
+}
+
+.obra-card .btn-ver-mais:hover {
+    color: #0b5ed7;
+}
+
+/* --- Estilos para a Tabela de Detalhes da Obra --- */
+#table-itens-obra th,
+#table-itens-obra td {
+    padding: 8px;
+    font-size: 0.9em;
+    border: 1px solid #ddd;
+}
+
+#table-itens-obra th {
+    text-align: left;
+    border-bottom: 2px solid #ccc;
+}
+
+/* Alinhamento para colunas numéricas (Qtde, Valor Médio, Valor Total) */
+/* Colunas: 8, 10, 11 */
+#table-itens-obra td:nth-child(8),
+#table-itens-obra td:nth-child(10),
+#table-itens-obra td:nth-child(11) {
+    text-align: right;
+    font-family: "SFMono-Regular", Menlo, Monaco, Consolas, "Liberation Mono", "Courier New", monospace;
+}
+
+/* Estilo para Reservas Canceladas na Tabela de Movimentações */
+#table-movimentacoes td.reserva_cancelada {
+    background-color: #6c757d; /* Cinza (btn-secondary do bootstrap) */
+    color: white;
+    text-align: center;
+    font-weight: 600;
+    border-radius: 4px;
+    border-bottom: 2px solid #fff;
+}
+
+/* Garante que a cor se mantenha no hover da linha */
+#table-movimentacoes tr:hover td.reserva_cancelada {
+    background-color: #5a6268; /* Cinza um pouco mais escuro no hover */
+}
+
+/* Estilos para a Tabela de Importação XML */
+#xml-products-table input[type="text"],
+#xml-products-table input[type="number"] {
+    width: 100%;
+    padding: 6px;
+    border: 1px solid #ccc;
+    border-radius: 4px;
+    box-sizing: border-box;
+}
+#xml-products-table tbody td {
+    background-color: #fff; /* Fundo branco para diferenciar dos inputs */
+}
+
+/* Estilos para a Barra de Progresso */
+.progress-bar-container {
+    width: 100%;
+    background-color: #e9ecef;
+    border-radius: 0.25rem;
+    overflow: hidden;
+    margin-top: 15px;
+}
+
+.progress-bar {
+    width: 0%;
+    height: 20px;
+    background-color: #0d6efd;
+    text-align: center;
+    line-height: 20px;
+    color: white;
+    transition: width 0.2s ease-in-out;
+}
+
+/* Garante que o modal de cadastro de produto sobreponha o de importação */
+#cadastro-produto-modal {
+    z-index: 1050; /* Um valor maior que o z-index do modal base */
+}
+
+/* Estilos para o formulário de contatos do fornecedor */
+.contato-field-group {
+    display: grid;
+    grid-template-columns: 1fr 1fr auto;
+    gap: 10px;
+    align-items: center;
+    margin-bottom: 10px;
+}
+
+.contato-field-group .btn-remove-contato {
+    padding: 0.5rem;
+    line-height: 1;
+}
+
+/* Estilos para o campo de input de Marcas */
+#marcas-input-wrapper {
+    display: flex;
+    gap: 10px;
+    margin-bottom: 15px;
+}
+
+#marcas-input-wrapper #input-add-marca {
+    flex-grow: 1;
+}
+
+#marcas-input-wrapper #btn-add-marca {
+    flex-shrink: 0;
+    background-color: #0d6efd;
+}
+
+/* Estilos para a lista de Tags de Marcas */
+#lista-marcas-tags, .table td {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 8px;
+}
+
+.marca-tag, .marca-tag-display {
+    background-color: #e9ecef;
+    color: #495057;
+    padding: 5px 10px;
+    border-radius: 15px;
+    font-size: 0.9em;
+    display: inline-flex;
+    align-items: center;
+    white-space: nowrap;
+}
+
+.marca-tag button {
+    background: none;
+    border: none;
+    color: #6c757d;
+    margin-left: 8px;
+    cursor: pointer;
+    font-size: 1.2em;
+    line-height: 1;
+    padding: 0;
+}
+
+/* Estilos para Itens de Contato */
+.contato-item {
+    /* A propriedade display: block; foi REMOVIDA. */
+    white-space: nowrap;
+}
+
+.whatsapp-link {
+   color: #25D366;
+   text-decoration: none;
+   margin-left: 5px;
+}
+
+.whatsapp-link i {
+   width: 16px;
+   height: 16px;
+   vertical-align: middle;
+}
+
+/* Arquitetura da Tabela de Fornecedores com CSS Grid */
+.table-fornecedores thead,
+.table-fornecedores tbody tr {
+    display: grid;
+    grid-template-columns: 2fr 3fr 2.5fr 1fr; /* Nome | Contatos | Marcas | Ações */
+    align-items: start;
+    border-bottom: 1px solid #dee2e6;
+}
+
+.table-fornecedores thead {
+    border-bottom: 2px solid #212529;
+}
+
+.table-fornecedores th,
+.table-fornecedores td {
+    padding: 12px;
+    text-align: left;
+    border-bottom: none; /* A borda agora está na linha (tr) */
+}
+
+.table-fornecedores td {
+    word-wrap: break-word; /* Garante que textos longos não quebrem o layout */
+}
+
+/* Garante que os contatos e marcas não ocupem espaço extra quando vazios */
+.table-fornecedores td .contato-item,
+.table-fornecedores td .marca-tag-display {
+    margin-bottom: 5px;
+}
+
+/* =============================================== */
+/* CORREÇÃO PARA FORMATAÇÃO DAS TABELAS PRINCIPAIS */
+/* =============================================== */
+/*
+ * Esta regra garante que as linhas (tr) e células (td) das tabelas de dados
+ * principais se comportem como elementos de tabela padrão, corrigindo a
+ * quebra de layout vertical.
+*/
+#table-produtos tr,
+#table-movimentacoes tr,
+#table-consultas tr,
+#table-reservas tr,
+#table-implementacao tr {
+    display: table-row; /* Força o elemento a se comportar como uma linha de tabela */
+}
+
+#table-produtos th, #table-produtos td,
+#table-movimentacoes th, #table-movimentacoes td,
+#table-consultas th, #table-consultas td,
+#table-reservas th, #table-reservas td,
+#table-implementacao th, #table-implementacao td {
+    display: table-cell; /* Força o elemento a se comportar como uma célula de tabela */
+}
+
+/* Estilos para o Form Checkbox no Modal de Configurações */
+.form-check {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    background-color: #f8f9fa;
+    padding: 10px;
+    border-radius: 0.25rem;
+    border: 1px solid #ced4da;
+}
+
+.form-check-input {
+    width: 1.25rem;
+    height: 1.25rem;
+    cursor: pointer;
+}
+
+.form-check-label {
+    margin: 0;
+    font-weight: 500;
+    color: #212529;
+    cursor: pointer;
+}
+
+/* ======================================================= */
+/* CORREÇÃO UNIFICADA PARA LAYOUT DE TABELAS DO SISTEMA    */
+/* ======================================================= */
+
+#config-modal .table:not(.table-fornecedores) tr,
+#table-itens-obra tr {
+    display: table-row;
+}
+
+#config-modal .table:not(.table-fornecedores) th,
+#config-modal .table:not(.table-fornecedores) td,
+#table-itens-obra th,
+#table-itens-obra td {
+    display: table-cell;
+    vertical-align: middle;
+}
+
+/* ======================================================= */
+/* LAYOUT PERSONALIZADO PARA MODAL DE IMPORTAÇÃO DE NF-e   */
+/* ======================================================= */
+
+/* 1. Aumenta a largura máxima do modal de importação */
+#xml-import-modal .modal-content {
+    max-width: 1400px;
+}
+
+/* 2. Aplica um layout de Grid para a tabela de produtos da NF-e */
+#xml-products-table tr {
+    display: grid;
+    /* Definição das 10 colunas: Descrição (1.8fr) ocupa o maior espaço. */
+    grid-template-columns: 150px 1.8fr 80px 80px 100px 100px 100px 120px 150px 120px;
+    gap: 10px;
+    align-items: center;
+    border-bottom: 1px solid #dee2e6;
+    padding: 5px 0;
+}
+
+#xml-products-table thead tr {
+    font-weight: 600;
+    border-bottom-width: 2px;
+}
+
+/* Reseta estilos de célula para o contexto do grid */
+#xml-products-table th,
+#xml-products-table td {
+    padding: 0;
+    border: none;
+    text-align: left;
 }

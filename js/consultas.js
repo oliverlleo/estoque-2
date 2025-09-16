@@ -1,5 +1,5 @@
 import { db } from './firebase-config.js';
-import { collection, getDocs } from "https://www.gstatic.com/firebasejs/9.6.1/firebase-firestore.js";
+import { collection, getDocs, doc, updateDoc, query, where } from "https://www.gstatic.com/firebasejs/9.6.1/firebase-firestore.js";
 
 document.addEventListener('DOMContentLoaded', async function() {
     console.log("Página de Consultas carregada.");
@@ -14,95 +14,83 @@ document.addEventListener('DOMContentLoaded', async function() {
     let consolidatedData = [];
 
     async function fetchDataAndCalculate() {
-        // 1. Fetch all necessary data
-        const [productsSnapshot, movementsSnapshot, locationsSnapshot] = await Promise.all([
-            getDocs(collection(db, 'produtos')),
-            getDocs(collection(db, 'movimentacoes')),
-            getDocs(collection(db, 'enderecamentos'))
+        // 1. Busca todas as fontes de dados necessárias em paralelo.
+        const [productsSnapshot, locaisSnapshot, movementsSnapshot] = await Promise.all([
+            getDocs(query(collection(db, 'produtos'), where("arquivado", "!=", true))),
+            getDocs(collection(db, 'locais')),
+            getDocs(query(collection(db, 'movimentacoes'), where("tipo", "==", "reserva")))
         ]);
 
-        const products = {};
-        productsSnapshot.forEach(doc => {
-            products[doc.id] = { id: doc.id, ...doc.data() };
+        const locais = {};
+        locaisSnapshot.forEach(doc => {
+            locais[doc.id] = doc.data();
         });
 
-        const locations = {};
-        locationsSnapshot.forEach(doc => {
-            locations[doc.id] = doc.data();
-        });
-
-        const movementsByProduct = {};
+        // 2. Calcula a quantidade total reservada para cada produto.
+        const reservasMap = {};
         movementsSnapshot.forEach(doc => {
             const mov = doc.data();
-            if (!movementsByProduct[mov.produtoId]) {
-                movementsByProduct[mov.produtoId] = [];
-            }
-            movementsByProduct[mov.produtoId].push(mov);
+            reservasMap[mov.productId] = (reservasMap[mov.productId] || 0) + mov.quantidade;
         });
 
-        // 2. Process and calculate for each product
-        consolidatedData = Object.values(products).map(product => {
-            const productMovements = movementsByProduct[product.id] || [];
-            const entryMovements = productMovements.filter(m => m.tipo === 'entrada' && m.valor_unitario > 0);
+        // 3. Mapeia os dados do produto e calcula os valores derivados.
+        consolidatedData = productsSnapshot.docs.map(productDoc => {
+            const product = productDoc.data();
+            const productId = productDoc.id;
 
-            let totalCost = 0;
-            let totalQuantity = 0;
-            entryMovements.forEach(m => {
-                const entryTotalValue = (m.quantidade * m.valor_unitario) + (m.icms || 0) + (m.ipi || 0) + (m.frete || 0);
-                totalCost += entryTotalValue;
-                totalQuantity += m.quantidade;
-            });
+            let estoqueAtual = 0;
+            let locacaoCompleta = 'N/A';
 
-            const valorMedio = totalQuantity > 0 ? totalCost / totalQuantity : 0;
-            const valorTotalEstoque = (product.estoque || 0) * valorMedio;
+            if (product.locacoes && Array.isArray(product.locacoes)) {
+                estoqueAtual = product.locacoes.reduce((acc, loc) => acc + (loc.estoque || 0), 0);
+                if (product.locacoes.length > 0) {
+                    locacaoCompleta = product.locacoes.map(loc => {
+                        const localNome = locais[loc.localId]?.nome || 'Desconhecido';
+                        return `${loc.locacao} (${localNome}) - <b>Estoque: ${loc.estoque || 0}</b>`;
+                    }).join('<br>');
+                }
+            }
 
-            const local = locations[product.enderecamentoId] ?
-                `${locations[product.enderecamentoId].codigo} - ${locations[product.enderecamentoId].local}` : 'N/A';
-
-            const medidas = productMovements
-                .filter(m => m.medida)
-                .map(m => `${m.medida} (${m.tipo})`)
-                .join(', ');
+            const quantidadeReservada = reservasMap[productId] || 0;
+            const valorMedio = product.valorMedio || 0;
+            const valorTotalEstoque = estoqueAtual * valorMedio;
 
             return {
                 ...product,
+                estoque: estoqueAtual,
+                cor: product.cor || '-', // Adiciona o campo cor
+                quantidadeReservada: quantidadeReservada, // Adiciona o campo de reserva
                 valorMedio,
                 valorTotalEstoque,
-                local,
-                medidas
+                local: locacaoCompleta
             };
         });
 
+        // 4. Renderiza a tabela.
         renderTable(consolidatedData);
     }
 
-    // 3. Render Table
     function renderTable(data) {
-        tableBody.innerHTML = '<tr><td colspan="9" style="text-align:center;">Carregando...</td></tr>';
-        if(data.length === 0) {
-            tableBody.innerHTML = '<tr><td colspan="9" style="text-align:center;">Nenhum produto encontrado.</td></tr>';
-            return;
-        }
-
         tableBody.innerHTML = '';
         data.forEach(item => {
             const row = document.createElement('tr');
+            row.className = 'main-row';
             row.innerHTML = `
                 <td>${item.codigo}</td>
-                <td>${item.codigo_global}</td>
                 <td>${item.descricao}</td>
+                <td>${item.cor}</td>
                 <td>${item.estoque || 0}</td>
+                <td>${item.quantidadeReservada || 0}</td>
                 <td>${item.un}</td>
-                <td>R$ ${item.valorMedio.toFixed(2)}</td>
-                <td>R$ ${item.valorTotalEstoque.toFixed(2)}</td>
+                <td>${(item.valorMedio || 0).toFixed(2)}</td>
+                <td>${(item.valorTotalEstoque || 0).toFixed(2)}</td>
                 <td>${item.local}</td>
-                <td>${item.medidas || '-'}</td>
             `;
             tableBody.appendChild(row);
         });
+        feather.replace();
     }
 
-    // 4. Filtering
     function applyFilters() {
         const filterValues = {
             codigo: filters.codigo.value.toLowerCase(),
@@ -111,9 +99,9 @@ document.addEventListener('DOMContentLoaded', async function() {
         };
 
         const filteredData = consolidatedData.filter(item => {
-            const matchesCodigo = item.codigo.toLowerCase().includes(filterValues.codigo);
-            const matchesDescricao = item.descricao.toLowerCase().includes(filterValues.descricao);
-            const matchesLocal = item.local.toLowerCase().includes(filterValues.local);
+            const matchesCodigo = (item.codigo || '').toLowerCase().includes(filterValues.codigo);
+            const matchesDescricao = (item.descricao || '').toLowerCase().includes(filterValues.descricao);
+            const matchesLocal = (item.local || '').toLowerCase().includes(filterValues.local);
             return matchesCodigo && matchesDescricao && matchesLocal;
         });
 
@@ -122,9 +110,8 @@ document.addEventListener('DOMContentLoaded', async function() {
 
     Object.values(filters).forEach(input => input.addEventListener('input', applyFilters));
 
-    // Initial Load
     fetchDataAndCalculate().catch(error => {
         console.error("Erro ao carregar dados da consulta:", error);
-        tableBody.innerHTML = `<tr><td colspan="9" style="text-align:center; color: red;">Erro ao carregar dados.</td></tr>`;
+        tableBody.innerHTML = `<tr><td colspan="10" style="text-align:center; color: red;">Erro ao carregar dados: ${error.message}</td></tr>`;
     });
 });
