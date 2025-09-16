@@ -1,112 +1,76 @@
 <!DOCTYPE html>
-<html lang="pt-BR">
+<html lang="pt-br">
 <head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Análise de Custos por Obra - Controle de Estoque</title>
-    <link rel="stylesheet" href="css/style.css">
-    <script src="https://cdn.jsdelivr.net/npm/feather-icons/dist/feather.min.js"></script>
-    <script src="https://cdn.tailwindcss.com"></script>
-    <script>
-        tailwind.config = {
-            corePlugins: {
-                preflight: false,
-            }
-        }
-    </script>
-    <link href="https://fonts.googleapis.com/css2?family=Roboto:wght@400;500;700&display=swap" rel="stylesheet">
-    <link href="https://fonts.googleapis.com/icon?family=Material+Icons" rel="stylesheet">
+    <meta charset="utf-8"/>
+    <meta content="width=device-width, initial-scale=1.0" name="viewport"/>
+    <title>Obras - Controle de Estoque</title>
+    <link href="https://cdnjs.cloudflare.com/ajax/libs/tailwindcss/2.2.19/tailwind.min.css" rel="stylesheet">
+    <link href="https://fonts.googleapis.com/css2?family=Roboto:wght@400;500;700&display=swap" rel="stylesheet"/>
+    <link href="https://fonts.googleapis.com/icon?family=Material+Icons" rel="stylesheet"/>
     <style>
-        .obras-grid {
-            display: grid;
-            grid-template-columns: repeat(auto-fill, minmax(300px, 1fr));
-            gap: 20px;
-        }
-        .obra-card {
-            background-color: #f8f9fa;
-            border: 1px solid #dee2e6;
-            border-radius: 5px;
-            padding: 20px;
-            display: flex;
-            flex-direction: column;
-        }
-        .obra-card h4 {
-            margin-top: 0;
-        }
-        .obra-card .custo {
-            font-size: 1.5rem;
-            font-weight: bold;
-            color: #28a745;
-            margin: 10px 0;
-        }
-        .obra-card .ver-mais {
-            margin-top: auto;
-            align-self: flex-end;
-            text-decoration: none;
-            font-weight: bold;
+        body {
+            font-family: 'Roboto', sans-serif;
+            background-color: #f8fafc;
         }
     </style>
 </head>
-<body class="flex h-screen bg-gray-100">
-    <aside class="w-64 bg-gray-800 text-white flex flex-col flex-shrink-0">
-        <div class="p-6 text-2xl font-bold border-b border-gray-700">
-            Estoque
-        </div>
-        <nav class="flex-1 p-4 space-y-2">
-            <a href="index.html" class="flex items-center px-4 py-2 text-gray-300 hover:bg-gray-700 rounded-md">
-                <span class="material-icons mr-3">dashboard</span>
-                Dashboard
-            </a>
-            <a href="configuracoes.html" class="flex items-center px-4 py-2 text-gray-300 hover:bg-gray-700 rounded-md">
-                <span class="material-icons mr-3">settings</span>
-                Configurações
-            </a>
-            <a href="produtos.html" class="flex items-center px-4 py-2 text-gray-300 hover:bg-gray-700 rounded-md">
-                <span class="material-icons mr-3">inventory_2</span>
-                Produtos
-            </a>
-            <a href="movimentacoes.html" class="flex items-center px-4 py-2 text-gray-300 hover:bg-gray-700 rounded-md">
-                <span class="material-icons mr-3">sync_alt</span>
-                Movimentações
-            </a>
-            <a href="obras.html" class="flex items-center px-4 py-2 text-white bg-blue-500 rounded-md">
-                <span class="material-icons mr-3">construction</span>
-                Obras
-            </a>
-            <a href="consultas.html" class="flex items-center px-4 py-2 text-gray-300 hover:bg-gray-700 rounded-md">
-                <span class="material-icons mr-3">search</span>
-                Consultas
-            </a>
-            <a href="reservas.html" class="flex items-center px-4 py-2 text-gray-300 hover:bg-gray-700 rounded-md">
-                <span class="material-icons mr-3">book_online</span>
-                Reservas
-            </a>
-            <a href="implementacao.html" class="flex items-center px-4 py-2 text-gray-300 hover:bg-gray-700 rounded-md">
-                <span class="material-icons mr-3">build</span>
-                Implementação
-            </a>
-        </nav>
-    </aside>
-    <main class="main-content flex-1 p-8 overflow-y-auto">
-        <header>
-            <h1>Análise de Custos por Obra</h1>
-        </header>
-        <section class="content">
-            <div class="card">
-                <div class="card-body">
-                    <div class="filters-container" style="display: flex; gap: 10px; margin-bottom: 20px;">
-                        <input type="text" id="filter-codigo" class="form-control" placeholder="Filtrar por Código...">
-                        <input type="text" id="filter-obra" class="form-control" placeholder="Filtrar por Obra...">
-                    </div>
-                    <div id="obras-container" class="obras-grid">
-                        <!-- Obra cards will be loaded here by JS -->
-                    </div>
-                </div>
+<body class="flex h-screen">
+<aside class="w-64 bg-gray-800 text-white flex flex-col">
+    <div class="p-6 text-2xl font-bold border-b border-gray-700">
+        Estoque
+    </div>
+    <nav class="flex-1 p-4 space-y-2">
+        <a href="index.html" class="flex items-center px-4 py-2 text-gray-300 hover:bg-gray-700 rounded-md">
+            <span class="material-icons mr-3">dashboard</span>
+            Dashboard
+        </a>
+        <a href="configuracoes.html" class="flex items-center px-4 py-2 text-gray-300 hover:bg-gray-700 rounded-md">
+            <span class="material-icons mr-3">settings</span>
+            Configurações
+        </a>
+        <a href="produtos.html" class="flex items-center px-4 py-2 text-gray-300 hover:bg-gray-700 rounded-md">
+            <span class="material-icons mr-3">inventory_2</span>
+            Produtos
+        </a>
+        <a href="movimentacoes.html" class="flex items-center px-4 py-2 text-gray-300 hover:bg-gray-700 rounded-md">
+            <span class="material-icons mr-3">sync_alt</span>
+            Movimentações
+        </a>
+        <a href="obras.html" class="flex items-center px-4 py-2 text-white bg-blue-500 rounded-md">
+            <span class="material-icons mr-3">construction</span>
+            Obras
+        </a>
+        <a href="consultas.html" class="flex items-center px-4 py-2 text-gray-300 hover:bg-gray-700 rounded-md">
+            <span class="material-icons mr-3">search</span>
+            Consultas
+        </a>
+        <a href="reservas.html" class="flex items-center px-4 py-2 text-gray-300 hover:bg-gray-700 rounded-md">
+            <span class="material-icons mr-3">book_online</span>
+            Reservas
+        </a>
+        <a href="implementacao.html" class="flex items-center px-4 py-2 text-gray-300 hover:bg-gray-700 rounded-md">
+            <span class="material-icons mr-3">build</span>
+            Implementação
+        </a>
+    </nav>
+</aside>
+<main class="flex-1 p-8 overflow-y-auto">
+    <header>
+        <h1 class="text-3xl font-bold text-gray-800">Análise de Custos por Obra</h1>
+    </header>
+    <section class="content mt-8">
+        <div class="bg-white p-6 rounded-lg shadow-md">
+             <div class="grid grid-cols-1 md:grid-cols-2 gap-4 mb-4">
+                <input type="text" id="filter-codigo" class="form-input" placeholder="Filtrar por Código...">
+                <input type="text" id="filter-obra" class="form-input" placeholder="Filtrar por Obra...">
             </div>
-        </section>
-    </main>
-    <script type="module" src="js/main.js"></script>
-    <script type="module" src="js/obras.js"></script>
-    <script> feather.replace() </script>
+            <div id="obras-container" class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+                <!-- Obra cards will be loaded here by JS -->
+            </div>
+        </div>
+    </section>
+</main>
+<script type="module" src="js/main.js"></script>
+<script type="module" src="js/obras.js"></script>
 </body>
 </html>

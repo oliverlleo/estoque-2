@@ -1,101 +1,94 @@
 <!DOCTYPE html>
-<html lang="pt-BR">
+<html lang="pt-br">
 <head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta charset="utf-8"/>
+    <meta content="width=device-width, initial-scale=1.0" name="viewport"/>
     <title>Consultas - Controle de Estoque</title>
-    <link rel="stylesheet" href="css/style.css">
-    <script src="https://cdn.jsdelivr.net/npm/feather-icons/dist/feather.min.js"></script>
-    <script src="https://cdn.tailwindcss.com"></script>
-    <script>
-        tailwind.config = {
-            corePlugins: {
-                preflight: false,
-            }
+    <link href="https://cdnjs.cloudflare.com/ajax/libs/tailwindcss/2.2.19/tailwind.min.css" rel="stylesheet">
+    <link href="https://fonts.googleapis.com/css2?family=Roboto:wght@400;500;700&display=swap" rel="stylesheet"/>
+    <link href="https://fonts.googleapis.com/icon?family=Material+Icons" rel="stylesheet"/>
+    <style>
+        body {
+            font-family: 'Roboto', sans-serif;
+            background-color: #f8fafc;
         }
-    </script>
-    <link href="https://fonts.googleapis.com/css2?family=Roboto:wght@400;500;700&display=swap" rel="stylesheet">
-    <link href="https://fonts.googleapis.com/icon?family=Material+Icons" rel="stylesheet">
+    </style>
 </head>
-<body class="flex h-screen bg-gray-100">
-    <aside class="w-64 bg-gray-800 text-white flex flex-col flex-shrink-0">
-        <div class="p-6 text-2xl font-bold border-b border-gray-700">
-            Estoque
-        </div>
-        <nav class="flex-1 p-4 space-y-2">
-            <a href="index.html" class="flex items-center px-4 py-2 text-gray-300 hover:bg-gray-700 rounded-md">
-                <span class="material-icons mr-3">dashboard</span>
-                Dashboard
-            </a>
-            <a href="configuracoes.html" class="flex items-center px-4 py-2 text-gray-300 hover:bg-gray-700 rounded-md">
-                <span class="material-icons mr-3">settings</span>
-                Configurações
-            </a>
-            <a href="produtos.html" class="flex items-center px-4 py-2 text-gray-300 hover:bg-gray-700 rounded-md">
-                <span class="material-icons mr-3">inventory_2</span>
-                Produtos
-            </a>
-            <a href="movimentacoes.html" class="flex items-center px-4 py-2 text-gray-300 hover:bg-gray-700 rounded-md">
-                <span class="material-icons mr-3">sync_alt</span>
-                Movimentações
-            </a>
-            <a href="obras.html" class="flex items-center px-4 py-2 text-gray-300 hover:bg-gray-700 rounded-md">
-                <span class="material-icons mr-3">construction</span>
-                Obras
-            </a>
-            <a href="consultas.html" class="flex items-center px-4 py-2 text-white bg-blue-500 rounded-md">
-                <span class="material-icons mr-3">search</span>
-                Consultas
-            </a>
-            <a href="reservas.html" class="flex items-center px-4 py-2 text-gray-300 hover:bg-gray-700 rounded-md">
-                <span class="material-icons mr-3">book_online</span>
-                Reservas
-            </a>
-            <a href="implementacao.html" class="flex items-center px-4 py-2 text-gray-300 hover:bg-gray-700 rounded-md">
-                <span class="material-icons mr-3">build</span>
-                Implementação
-            </a>
-        </nav>
-    </aside>
-    <main class="main-content flex-1 p-8 overflow-y-auto">
-        <header>
-            <h1>Consulta de Estoque</h1>
-        </header>
-        <section class="content">
-            <div class="card">
-                <div class="card-header"><h3>Consulta de Estoque e Valores</h3></div>
-                <div class="card-body">
-                    <div class="filters-container" style="display: flex; gap: 10px; margin-bottom: 20px;">
-                        <input type="text" id="filter-codigo" class="form-control" placeholder="Filtrar por Código...">
-                        <input type="text" id="filter-descricao" class="form-control" placeholder="Filtrar por Descrição...">
-                        <input type="text" id="filter-local" class="form-control" placeholder="Filtrar por Local...">
-                    </div>
-                    <div class="table-wrapper">
-                        <table id="table-consultas" class="table">
-                            <thead>
-                                <tr>
-                                    <th>Código</th>
-                                    <th>Descrição</th>
-                                    <th>Cor</th>
-                                    <th>Estoque Atual</th>
-                                    <th>Reservado</th>
-                                    <th>UN</th>
-                                    <th>Custo Un. Médio</th>
-                                    <th>Custo Total Estoque</th>
-                                    <th>Locação</th>
-                                </tr>
-                            </thead>
-                            <tbody>
-                                <!-- Data will be loaded here by JS -->
-                            </tbody>
-                        </table>
-                    </div>
-                </div>
+<body class="flex h-screen">
+<aside class="w-64 bg-gray-800 text-white flex flex-col">
+    <div class="p-6 text-2xl font-bold border-b border-gray-700">
+        Estoque
+    </div>
+    <nav class="flex-1 p-4 space-y-2">
+        <a href="index.html" class="flex items-center px-4 py-2 text-gray-300 hover:bg-gray-700 rounded-md">
+            <span class="material-icons mr-3">dashboard</span>
+            Dashboard
+        </a>
+        <a href="configuracoes.html" class="flex items-center px-4 py-2 text-gray-300 hover:bg-gray-700 rounded-md">
+            <span class="material-icons mr-3">settings</span>
+            Configurações
+        </a>
+        <a href="produtos.html" class="flex items-center px-4 py-2 text-gray-300 hover:bg-gray-700 rounded-md">
+            <span class="material-icons mr-3">inventory_2</span>
+            Produtos
+        </a>
+        <a href="movimentacoes.html" class="flex items-center px-4 py-2 text-gray-300 hover:bg-gray-700 rounded-md">
+            <span class="material-icons mr-3">sync_alt</span>
+            Movimentações
+        </a>
+        <a href="obras.html" class="flex items-center px-4 py-2 text-gray-300 hover:bg-gray-700 rounded-md">
+            <span class="material-icons mr-3">construction</span>
+            Obras
+        </a>
+        <a href="consultas.html" class="flex items-center px-4 py-2 text-white bg-blue-500 rounded-md">
+            <span class="material-icons mr-3">search</span>
+            Consultas
+        </a>
+        <a href="reservas.html" class="flex items-center px-4 py-2 text-gray-300 hover:bg-gray-700 rounded-md">
+            <span class="material-icons mr-3">book_online</span>
+            Reservas
+        </a>
+        <a href="implementacao.html" class="flex items-center px-4 py-2 text-gray-300 hover:bg-gray-700 rounded-md">
+            <span class="material-icons mr-3">build</span>
+            Implementação
+        </a>
+    </nav>
+</aside>
+<main class="flex-1 p-8 overflow-y-auto">
+    <header>
+        <h1 class="text-3xl font-bold text-gray-800">Consulta de Estoque</h1>
+    </header>
+    <section class="content mt-8">
+        <div class="bg-white p-6 rounded-lg shadow-md">
+            <div class="grid grid-cols-1 md:grid-cols-3 gap-4 mb-4">
+                <input type="text" id="filter-codigo" class="form-input" placeholder="Filtrar por Código...">
+                <input type="text" id="filter-descricao" class="form-input" placeholder="Filtrar por Descrição...">
+                <input type="text" id="filter-local" class="form-input" placeholder="Filtrar por Local...">
             </div>
-        </section>
-    </main>
-    <script type="module" src="js/main.js"></script>
-    <script type="module" src="js/consultas.js"></script>
-    <script> feather.replace() </script>
+            <div class="overflow-x-auto">
+                <table id="table-consultas" class="min-w-full divide-y divide-gray-200">
+                    <thead class="bg-gray-50">
+                        <tr>
+                            <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Código</th>
+                            <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Descrição</th>
+                            <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Cor</th>
+                            <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Estoque Atual</th>
+                            <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Reservado</th>
+                            <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">UN</th>
+                            <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Custo Un. Médio</th>
+                            <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Custo Total Estoque</th>
+                            <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Locação</th>
+                        </tr>
+                    </thead>
+                    <tbody class="bg-white divide-y divide-gray-200">
+                        <!-- Data will be loaded here by JS -->
+                    </tbody>
+                </table>
+            </div>
+        </div>
+    </section>
+</main>
+<script type="module" src="js/main.js"></script>
+<script type="module" src="js/consultas.js"></script>
 </body>
 </html>
