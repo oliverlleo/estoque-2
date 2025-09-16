@@ -401,7 +401,8 @@ document.addEventListener('DOMContentLoaded', async function() {
                     medida_sobra: medidaSobraStr,
                     estoque: 0, // Estoque inicial de sobra é zero
                     isSobra: true, // Flag para identificar o produto como sobra
-                    valorMedio: custoProporcionalDaSobra // Custo da sobra vira o valor médio inicial
+                    valorMedio: custoProporcionalDaSobra, // Custo da sobra vira o valor médio inicial
+                    conversaoId: null // Sobra não tem regra de conversão
                 };
                 delete newSobraProductData.id;
 
