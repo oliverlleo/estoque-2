@@ -25,17 +25,21 @@ document.addEventListener('DOMContentLoaded', function() {
         {
             name: "Fornecedores",
             id: "fornecedor",
+            icon: "groups",
+            description: "Cadastre e gerencie seus fornecedores.",
             collectionName: "fornecedores",
             fields: { nome: { label: "Nome do Fornecedor" }, imposto: { label: "Imposto (ST)", type: 'number' } },
             tableHeaders: "<th>Nome</th><th>Contatos</th><th>Marcas</th><th>Ações</th>"
         },
-        { name: "Grupos", id: "grupo", collectionName: "grupos", fields: { nome: { label: "Nome do Grupo" } }, render: (d) => `<td>${d.nome || ''}</td>`, tableHeaders: "<th>Nome</th><th>Ações</th>" },
-        { name: "Aplicações", id: "aplicacao", collectionName: "aplicacoes", fields: { nome: { label: "Nome da Aplicação" } }, render: (d) => `<td>${d.nome || ''}</td>`, tableHeaders: "<th>Nome</th><th>Ações</th>" },
-        { name: "Conjuntos", id: "conjunto", collectionName: "conjuntos", fields: { nome: { label: "Nome do Conjunto" } }, render: (d) => `<td>${d.nome || ''}</td>`, tableHeaders: "<th>Nome</th><th>Ações</th>" },
-        { name: "Locação", id: "local", collectionName: "locais", fields: { nome: { label: "Nome do Local" } }, render: (d) => `<td>${d.nome || ''}</td>`, tableHeaders: "<th>Nome</th><th>Ações</th>" },
+        { name: "Grupos", id: "grupo", icon: "category", description: "Organize seus produtos em grupos.", collectionName: "grupos", fields: { nome: { label: "Nome do Grupo" } }, render: (d) => `<td>${d.nome || ''}</td>`, tableHeaders: "<th>Nome</th><th>Ações</th>" },
+        { name: "Aplicações", id: "aplicacao", icon: "widgets", description: "Defina as aplicações dos produtos.", collectionName: "aplicacoes", fields: { nome: { label: "Nome da Aplicação" } }, render: (d) => `<td>${d.nome || ''}</td>`, tableHeaders: "<th>Nome</th><th>Ações</th>" },
+        { name: "Conjuntos", id: "conjunto", icon: "blender", description: "Crie e gerencie conjuntos de produtos.", collectionName: "conjuntos", fields: { nome: { label: "Nome do Conjunto" } }, render: (d) => `<td>${d.nome || ''}</td>`, tableHeaders: "<th>Nome</th><th>Ações</th>" },
+        { name: "Locação", id: "local", icon: "place", description: "Gerencie os locais de armazenamento.", collectionName: "locais", fields: { nome: { label: "Nome do Local" } }, render: (d) => `<td>${d.nome || ''}</td>`, tableHeaders: "<th>Nome</th><th>Ações</th>" },
         {
             name: "Tipos de Entrada",
             id: "tipo-entrada",
+            icon: "input",
+            description: "Configure os tipos de entrada de estoque.",
             collectionName: "tipos_entrada",
             fields: {
                 nome: { label: "Nome do Tipo de Entrada" },
@@ -54,6 +58,8 @@ document.addEventListener('DOMContentLoaded', function() {
         {
             name: "Tipos de Saída",
             id: "tipo-saida",
+            icon: "output",
+            description: "Configure os tipos de saída de estoque.",
             collectionName: "tipos_saida",
             fields: {
                 nome: { label: "Nome do Tipo de Saída" },
@@ -69,10 +75,12 @@ document.addEventListener('DOMContentLoaded', function() {
         `,
             tableHeaders: "<th>Nome</th><th>Mov. Estoque</th><th>Informa Obra</th><th>Reserva</th><th>Ações</th>"
         },
-        { name: "Obras", id: "obra", collectionName: "obras", fields: { codigo: { label: "Código da Obra" }, nome: { label: "Nome da Obra" } }, render: (d) => `<td>${d.codigo || ''}</td><td>${d.nome || ''}</td>`, tableHeaders: "<th>Código</th><th>Nome</th><th>Ações</th>" },
+        { name: "Obras", id: "obra", icon: "construction", description: "Gerencie as obras relacionadas ao estoque.", collectionName: "obras", fields: { codigo: { label: "Código da Obra" }, nome: { label: "Nome da Obra" } }, render: (d) => `<td>${d.codigo || ''}</td><td>${d.nome || ''}</td>`, tableHeaders: "<th>Código</th><th>Nome</th><th>Ações</th>" },
         {
             name: "Conversão de Unidade",
             id: "conversao",
+            icon: "swap_horiz",
+            description: "Defina as conversões de unidades de medida.",
             collectionName: "conversoes",
             fields: {
                 nome_regra: { label: "Nome da Regra (ex: Metro p/ Peça)" },
@@ -94,13 +102,29 @@ document.addEventListener('DOMContentLoaded', function() {
     const modalBody = document.getElementById('modal-body');
     const closeButton = document.querySelector('.close-button');
 
-    configs.forEach(config => {
-        const button = document.createElement('button');
-        button.className = 'btn';
-        button.style.backgroundColor = '#495057';
-        button.textContent = config.name;
-        button.addEventListener('click', () => openConfigModal(config));
-        buttonsContainer.appendChild(button);
+    const iconColorClasses = [
+        'text-blue-500', 'text-green-500', 'text-indigo-500', 'text-purple-500',
+        'text-yellow-500', 'text-red-500', 'text-pink-500', 'text-teal-500', 'text-orange-500'
+    ];
+
+    configs.forEach((config, index) => {
+        const card = document.createElement('a');
+        card.href = "#";
+        card.className = "bg-white p-6 rounded-lg shadow-md hover:shadow-lg transition-shadow flex flex-col items-center text-center";
+        card.addEventListener('click', (e) => {
+            e.preventDefault();
+            openConfigModal(config)
+        });
+
+        const iconColor = iconColorClasses[index % iconColorClasses.length];
+
+        card.innerHTML = `
+            <span class="material-icons text-4xl ${iconColor} mb-4">${config.icon}</span>
+            <h2 class="text-lg font-semibold text-gray-800">${config.name}</h2>
+            <p class="text-gray-500 text-sm mt-1">${config.description}</p>
+        `;
+
+        buttonsContainer.appendChild(card);
     });
 
     function openConfigModal(config) {
