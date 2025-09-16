@@ -1,0 +1,165 @@
+/* Estilos gerais para o conteúdo do dashboard */
+.main-content .content {
+    display: flex;
+    flex-direction: column;
+    gap: 24px;
+}
+
+.subtitle {
+    font-size: 1rem;
+    color: #6c757d;
+    margin-top: -10px;
+}
+
+/* Estilo base dos cards */
+.card {
+    background-color: #fff;
+    border-radius: 8px;
+    box-shadow: 0 2px 4px rgba(0,0,0,0.05);
+    padding: 24px;
+    border: 1px solid #e9ecef;
+}
+
+/* Grid de KPIs */
+.kpi-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(240px, 1fr));
+    gap: 24px;
+}
+
+.kpi-card {
+    display: flex;
+    align-items: center;
+    gap: 20px;
+}
+
+.kpi-card .card-icon-wrapper {
+    width: 60px;
+    height: 60px;
+    border-radius: 50%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    flex-shrink: 0;
+}
+
+.kpi-card .card-icon-wrapper i {
+    width: 28px;
+    height: 28px;
+}
+
+.kpi-info {
+    display: flex;
+    flex-direction: column;
+}
+
+.kpi-title {
+    font-size: 0.9rem;
+    color: #6c757d;
+    margin-bottom: 4px;
+}
+
+.kpi-value {
+    font-size: 1.75rem;
+    font-weight: 600;
+    color: #212529;
+}
+
+/* Grid dos Gráficos */
+.charts-grid {
+    display: grid;
+    grid-template-columns: 1fr 1.5fr; /* Proporção 40% / 60% */
+    gap: 24px;
+}
+
+.chart-container-full {
+    height: 350px;
+}
+
+.chart-container {
+    height: 350px;
+}
+
+.chart-container h3, .list-container h3, .chart-container-full h3 {
+    margin-top: 0;
+    margin-bottom: 20px;
+    font-size: 1.1rem;
+    font-weight: 600;
+    color: #343a40;
+}
+
+/* Grid das Listas */
+.lists-grid {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 24px;
+}
+
+/* Tabelas do Dashboard */
+.dashboard-table {
+    width: 100%;
+    border-collapse: collapse;
+}
+
+.dashboard-table th, .dashboard-table td {
+    text-align: left;
+    padding: 12px 8px;
+    border-bottom: 1px solid #f1f3f5;
+    font-size: 0.9rem;
+}
+
+.dashboard-table th {
+    font-weight: 600;
+    color: #495057;
+}
+
+.dashboard-table tbody tr:last-child td {
+    border-bottom: none;
+}
+
+.dashboard-table .status-badge {
+    padding: 4px 8px;
+    border-radius: 12px;
+    font-size: 0.8rem;
+    font-weight: 600;
+    text-transform: uppercase;
+}
+
+.dashboard-table .status-entrada {
+    background-color: #d4edda;
+    color: #155724;
+}
+
+.dashboard-table .status-saida {
+    background-color: #f8d7da;
+    color: #721c24;
+}
+
+.dashboard-table .btn-comprar {
+    padding: 6px 12px;
+    background-color: #007bff;
+    color: white;
+    border: none;
+    border-radius: 4px;
+    cursor: pointer;
+    font-size: 0.8rem;
+}
+
+.dashboard-table .btn-comprar:hover {
+    background-color: #0056b3;
+}
+
+
+/* Responsividade */
+@media (max-width: 1200px) {
+    .charts-grid {
+        grid-template-columns: 1fr; /* Um gráfico por linha */
+    }
+}
+
+@media (max-width: 768px) {
+    .kpi-grid,
+    .lists-grid {
+        grid-template-columns: 1fr; /* Um card por linha */
+    }
+}
