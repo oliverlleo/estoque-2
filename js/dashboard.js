@@ -2,16 +2,26 @@ import { db } from './firebase-config.js';
 import { collection, getDocs, query, where, orderBy, limit, Timestamp } from "https://www.gstatic.com/firebasejs/9.6.1/firebase-firestore.js";
 
 document.addEventListener('DOMContentLoaded', () => {
+    // --- Armazenamento de Dados e Estado ---
+    let allProducts = [], allMovements = [], allGroups = {}, allObrasMap = {}, allObrasList = [], allProductsMap = {};
+    let chartInstances = {}; // Armazena instâncias dos gráficos para destruí-los depois
+
     // --- Elementos do DOM ---
     const kpiValorTotalEl = document.getElementById('kpi-valor-total');
     const kpiItensMinimoEl = document.getElementById('kpi-itens-minimo');
     const kpiReservasEl = document.getElementById('kpi-reservas');
     const kpiCustoObrasEl = document.getElementById('kpi-custo-obras');
-    const tableUltimasMovimentacoesBody = document.getElementById('table-ultimas-movimentacoes');
     const tableAlertasEstoqueBody = document.getElementById('table-alertas-estoque');
+    const filtroObraGlobal = document.getElementById('filtro-obra-global');
 
     // --- Funções Utilitárias ---
     const formatCurrency = (value) => (typeof value === 'number' ? value : 0).toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' });
+    const destroyChart = (chartId) => {
+        if (chartInstances[chartId]) {
+            chartInstances[chartId].destroy();
+            delete chartInstances[chartId];
+        }
+    };
 
     // --- Lógica de Cálculo de KPIs ---
     const calcularValorTotalEstoque = (products) => products.reduce((total, p) => {
@@ -20,101 +30,120 @@ document.addEventListener('DOMContentLoaded', () => {
     }, 0);
 
     const calcularItensAbaixoMinimo = (products) => {
-        // TODO: Implementar quando o campo `estoqueMinimo` for adicionado aos produtos.
-        return 0;
+        return 0; // Lógica pendente
     };
 
-    const calcularReservasPendentes = (movements) => movements.filter(mov => mov.tipo === 'reserva').length;
+    const calcularReservasPendentes = (movements, obraId) => {
+        return movements.filter(mov => {
+            const matchTipo = mov.tipo === 'reserva';
+            const matchObra = obraId === 'todos' || mov.obraId === obraId;
+            return matchTipo && matchObra;
+        }).length;
+    };
 
-    const calcularCustoTotalObras = (movements) => movements.reduce((total, mov) => {
-        if (mov.tipo === 'saida' && mov.obraId) {
-            return total + ((mov.quantidade || 0) * (mov.valorMedioHistorico || 0));
-        }
-        return total;
-    }, 0);
+    const calcularCustoTotalObras = (movements, obraId) => {
+        return movements.reduce((total, mov) => {
+            if (mov.tipo === 'saida' && mov.obraId && (obraId === 'todos' || mov.obraId === obraId)) {
+                return total + ((mov.quantidade || 0) * (mov.valorMedioHistorico || 0));
+            }
+            return total;
+        }, 0);
+    };
 
     // --- Lógica de Renderização ---
-    function displayKpis(products, movements) {
+    function displayKpis(products, movements, obraId) {
+        // KPIs globais não são afetados pelo filtro
         kpiValorTotalEl.textContent = formatCurrency(calcularValorTotalEstoque(products));
         kpiItensMinimoEl.textContent = calcularItensAbaixoMinimo(products);
-        kpiReservasEl.textContent = calcularReservasPendentes(movements);
-        kpiCustoObrasEl.textContent = formatCurrency(calcularCustoTotalObras(movements));
+        // KPIs filtrados
+        kpiReservasEl.textContent = calcularReservasPendentes(movements, obraId);
+        kpiCustoObrasEl.textContent = formatCurrency(calcularCustoTotalObras(movements, obraId));
     }
 
-    function renderValorPorGrupoChart(products, groups) {
+    function renderValorPorGrupoChart(products, movements, groups, obraId) {
+        destroyChart('chart-valor-grupo');
         const valorPorGrupo = new Map();
-        products.forEach(p => {
-            if (!p.grupoId) return;
-            const estoqueTotal = (p.locacoes || []).reduce((sum, loc) => sum + (loc.estoque || 0), 0);
-            const valorProduto = estoqueTotal * (p.valorMedio || 0);
-            const valorAtual = valorPorGrupo.get(p.grupoId) || 0;
-            valorPorGrupo.set(p.grupoId, valorAtual + valorProduto);
-        });
+
+        if (obraId === 'todos') {
+            // Lógica original: valor total em estoque por grupo
+            products.forEach(p => {
+                if (!p.grupoId) return;
+                const estoqueTotal = (p.locacoes || []).reduce((sum, loc) => sum + (loc.estoque || 0), 0);
+                const valorProduto = estoqueTotal * (p.valorMedio || 0);
+                const valorAtual = valorPorGrupo.get(p.grupoId) || 0;
+                valorPorGrupo.set(p.grupoId, valorAtual + valorProduto);
+            });
+        } else {
+            // Nova lógica: valor CONSUMIDO pela obra por grupo de produto
+            movements.forEach(mov => {
+                if (mov.tipo === 'saida' && mov.obraId === obraId) {
+                    const product = products.find(p => p.id === mov.productId);
+                    if (product && product.grupoId) {
+                        const custo = (mov.quantidade || 0) * (mov.valorMedioHistorico || 0);
+                        const valorAtual = valorPorGrupo.get(product.grupoId) || 0;
+                        valorPorGrupo.set(product.grupoId, valorAtual + custo);
+                    }
+                }
+            });
+        }
 
         const labels = Array.from(valorPorGrupo.keys()).map(id => groups[id]?.nome || 'Sem Grupo');
         const data = Array.from(valorPorGrupo.values());
 
-        new Chart(document.getElementById('chart-valor-grupo'), {
+        chartInstances['chart-valor-grupo'] = new Chart(document.getElementById('chart-valor-grupo'), {
             type: 'doughnut',
-            data: {
-                labels: labels,
-                datasets: [{
-                    label: 'Valor por Grupo',
-                    data: data,
-                    backgroundColor: ['#4e73df', '#1cc88a', '#36b9cc', '#f6c23e', '#e74a3b', '#858796'],
-                    hoverOffset: 4
-                }]
-            },
-            options: {
-                responsive: true,
-                maintainAspectRatio: false,
-                plugins: { legend: { position: 'bottom' } }
-            }
+            data: { labels, datasets: [{ data, backgroundColor: ['#4e73df', '#1cc88a', '#36b9cc', '#f6c23e', '#e74a3b', '#858796'] }] },
+            options: { responsive: true, maintainAspectRatio: false, plugins: { legend: { position: 'bottom' } } }
         });
     }
 
-    function renderTopObrasChart(movements, obras) {
-        const custoPorObra = new Map();
-        movements.forEach(mov => {
-            if (mov.tipo === 'saida' && mov.obraId) {
-                const custo = (mov.quantidade || 0) * (mov.valorMedioHistorico || 0);
-                const custoAtual = custoPorObra.get(mov.obraId) || 0;
-                custoPorObra.set(mov.obraId, custoAtual + custo);
-            }
-        });
+    function renderTopObrasChart(products, movements, obras, obraId) {
+        destroyChart('chart-top-obras');
+        const chartEl = document.getElementById('chart-top-obras');
+        const titleEl = chartEl.parentElement.querySelector('h3');
+        let labels = [], data = [], chartTitle = '', chartLabel = '', backgroundColor = '';
 
-        const sortedObras = Array.from(custoPorObra.entries())
-            .sort((a, b) => b[1] - a[1])
-            .slice(0, 5);
+        if (obraId === 'todos') {
+            chartTitle = 'Top 5 Obras com Maior Custo';
+            chartLabel = 'Custo Total';
+            backgroundColor = '#e74a3b';
+            const custoPorObra = new Map();
+            movements.forEach(mov => {
+                if (mov.tipo === 'saida' && mov.obraId) {
+                    const custo = (mov.quantidade || 0) * (mov.valorMedioHistorico || 0);
+                    custoPorObra.set(mov.obraId, (custoPorObra.get(mov.obraId) || 0) + custo);
+                }
+            });
+            const sorted = Array.from(custoPorObra.entries()).sort((a, b) => b[1] - a[1]).slice(0, 5);
+            labels = sorted.map(item => obras[item[0]]?.nome || 'Desconhecida');
+            data = sorted.map(item => item[1]);
+        } else {
+            chartTitle = 'Top 5 Produtos Consumidos na Obra';
+            chartLabel = 'Valor Consumido';
+            backgroundColor = '#4e73df';
+            const custoPorProduto = new Map();
+            movements.forEach(mov => {
+                if (mov.tipo === 'saida' && mov.obraId === obraId) {
+                    const custo = (mov.quantidade || 0) * (mov.valorMedioHistorico || 0);
+                    custoPorProduto.set(mov.productId, (custoPorProduto.get(mov.productId) || 0) + custo);
+                }
+            });
+            const sorted = Array.from(custoPorProduto.entries()).sort((a, b) => b[1] - a[1]).slice(0, 5);
+            labels = sorted.map(item => products.find(p => p.id === item[0])?.descricao || 'Desconhecido');
+            data = sorted.map(item => item[1]);
+        }
 
-        const labels = sortedObras.map(item => obras[item[0]]?.nome || 'Obra Desconhecida');
-        const data = sortedObras.map(item => item[1]);
-
-        new Chart(document.getElementById('chart-top-obras'), {
+        titleEl.textContent = chartTitle;
+        chartInstances['chart-top-obras'] = new Chart(chartEl, {
             type: 'bar',
-            data: {
-                labels: labels,
-                datasets: [{
-                    label: 'Custo Total',
-                    data: data,
-                    backgroundColor: '#e74a3b'
-                }]
-            },
-            options: {
-                indexAxis: 'y',
-                responsive: true,
-                maintainAspectRatio: false,
-                plugins: { legend: { display: false } }
-            }
+            data: { labels, datasets: [{ label: chartLabel, data, backgroundColor }] },
+            options: { indexAxis: 'y', responsive: true, maintainAspectRatio: false, plugins: { legend: { display: false } } }
         });
     }
 
-    function renderEntradasSaidasChart(movements) {
-        const labels = [];
-        const entradasData = [];
-        const saidasData = [];
-        const dateMap = new Map();
-
+    function renderEntradasSaidasChart(movements, obraId) {
+        destroyChart('chart-entradas-saidas');
+        const labels = [], dateMap = new Map();
         for (let i = 29; i >= 0; i--) {
             const d = new Date();
             d.setDate(d.getDate() - i);
@@ -134,95 +163,111 @@ document.addEventListener('DOMContentLoaded', () => {
                     const quantidade = mov.quantidade || 0;
                     if (mov.tipo === 'entrada') {
                         dayData.entradas += quantidade;
-                    } else if (mov.tipo === 'saida') {
+                    } else if (mov.tipo === 'saida' && (obraId === 'todos' || mov.obraId === obraId)) {
                         dayData.saidas += quantidade;
                     }
                 }
             }
         });
 
-        for (const value of dateMap.values()) {
-            entradasData.push(value.entradas);
-            saidasData.push(value.saidas);
-        }
+        const entradasData = Array.from(dateMap.values()).map(v => v.entradas);
+        const saidasData = Array.from(dateMap.values()).map(v => v.saidas);
 
-        new Chart(document.getElementById('chart-entradas-saidas'), {
+        chartInstances['chart-entradas-saidas'] = new Chart(document.getElementById('chart-entradas-saidas'), {
             type: 'line',
             data: {
-                labels: labels,
-                datasets: [{
-                    label: 'Entradas',
-                    data: entradasData,
-                    borderColor: '#1cc88a',
-                    backgroundColor: 'rgba(28, 200, 138, 0.1)',
-                    fill: true,
-                    tension: 0.3
-                }, {
-                    label: 'Saídas',
-                    data: saidasData,
-                    borderColor: '#e74a3b',
-                    backgroundColor: 'rgba(231, 74, 59, 0.1)',
-                    fill: true,
-                    tension: 0.3
-                }]
+                labels,
+                datasets: [
+                    { label: 'Entradas (Global)', data: entradasData, borderColor: '#1cc88a', backgroundColor: 'rgba(28, 200, 138, 0.1)', fill: true, tension: 0.3 },
+                    { label: 'Saídas (Filtrado)', data: saidasData, borderColor: '#e74a3b', backgroundColor: 'rgba(231, 74, 59, 0.1)', fill: true, tension: 0.3 }
+                ]
             },
-            options: {
-                responsive: true,
-                maintainAspectRatio: false,
-                plugins: { legend: { position: 'top' } },
-                scales: { y: { beginAtZero: true } }
-            }
+            options: { responsive: true, maintainAspectRatio: false, plugins: { legend: { position: 'top' } }, scales: { y: { beginAtZero: true } } }
         });
     }
 
-    async function renderUltimasMovimentacoes(productsMap) {
-        const q = query(collection(db, 'movimentacoes'), orderBy('data', 'desc'), limit(10));
+    async function renderActivityFeed(productsMap, obrasMap, obraId) {
+        const feedContainer = document.getElementById('feed-atividades-container');
+        if (!feedContainer) return;
+
+        let q;
+        if (obraId === 'todos') {
+            q = query(collection(db, 'movimentacoes'), orderBy('data', 'desc'), limit(10));
+        } else {
+            q = query(collection(db, 'movimentacoes'), where('obraId', '==', obraId), orderBy('data', 'desc'), limit(10));
+        }
+
         const snapshot = await getDocs(q);
         let html = '';
-        snapshot.forEach(doc => {
-            const mov = doc.data();
-            const product = productsMap[mov.productId] || { descricao: 'Produto não encontrado' };
-            const tipoClass = mov.tipo === 'entrada' ? 'status-entrada' : 'status-saida';
-            html += `
-                <tr>
-                    <td><span class="status-badge ${tipoClass}">${mov.tipo}</span></td>
-                    <td>${product.descricao}</td>
-                    <td>${mov.quantidade}</td>
-                    <td>${mov.data ? mov.data.toDate().toLocaleDateString('pt-BR') : 'N/A'}</td>
-                </tr>
-            `;
-        });
-        tableUltimasMovimentacoesBody.innerHTML = html;
+        if (snapshot.empty) {
+            html = '<div class="feed-item-empty">Nenhuma atividade encontrada para esta seleção.</div>';
+        } else {
+            snapshot.forEach(doc => {
+                const mov = doc.data();
+                const product = productsMap[mov.productId] || { descricao: 'Produto desconhecido' };
+                const obra = obrasMap[mov.obraId] || { nome: 'Destino desconhecido' };
+                const date = mov.data ? mov.data.toDate().toLocaleDateString('pt-BR') : '';
+
+                let icon = '', message = '';
+
+                switch (mov.tipo) {
+                    case 'entrada':
+                        icon = '📦';
+                        message = `<strong>${product.descricao}</strong> teve entrada de <strong>${mov.quantidade}</strong> unidades.`;
+                        break;
+                    case 'saida':
+                        icon = '🏗️';
+                        message = `<strong>${obra.nome}</strong> requisitou <strong>${mov.quantidade}</strong> de <strong>${product.descricao}</strong>.`;
+                        break;
+                    case 'reserva':
+                        icon = '📝';
+                        message = `Reserva de <strong>${mov.quantidade}</strong> de <strong>${product.descricao}</strong> para <strong>${obra.nome}</strong>.`;
+                        break;
+                    case 'transferencia':
+                        icon = '🔄';
+                        message = `Transferência de <strong>${mov.quantidade}</strong> de <strong>${product.descricao}</strong>.`;
+                        break;
+                    case 'reserva_cancelada':
+                        icon = '❌';
+                        message = `Reserva de <strong>${product.descricao}</strong> para <strong>${obra.nome}</strong> foi cancelada.`;
+                        break;
+                    default:
+                        icon = '🔹';
+                        message = `Movimentação de ${product.descricao} (${mov.quantidade}).`;
+                }
+
+                html += `
+                    <div class="feed-item">
+                        <div class="feed-icon">${icon}</div>
+                        <div class="feed-content">
+                            <p class="feed-message">${message}</p>
+                            <span class="feed-date">${date}</span>
+                        </div>
+                    </div>
+                `;
+            });
+        }
+        feedContainer.innerHTML = html;
     }
 
     function renderAlertasEstoque(products) {
-        // TODO: Implementar a lógica real quando `estoqueMinimo` estiver disponível.
-        let html = `
-            <tr>
-                <td colspan="4" style="text-align: center; color: #6c757d;">
-                    Nenhum alerta de estoque. (Configure o 'estoque mínimo' nos produtos)
-                </td>
-            </tr>
-        `;
-        tableAlertasEstoqueBody.innerHTML = html;
+        tableAlertasEstoqueBody.innerHTML = `<tr><td colspan="4" style="text-align: center; color: #6c757d;">Nenhum alerta de estoque. (Configure o 'estoque mínimo')</td></tr>`;
     }
 
-    function displayActionLists(products, productsMap) {
-        renderUltimasMovimentacoes(productsMap);
-        renderAlertasEstoque(products);
+    // --- Funções de Orquestração ---
+    function updateDashboard(obraId) {
+        displayKpis(allProducts, allMovements, obraId);
+        renderValorPorGrupoChart(allProducts, allMovements, allGroups, obraId);
+        renderTopObrasChart(allProducts, allMovements, allObrasMap, obraId);
+        renderEntradasSaidasChart(allMovements, obraId);
+        renderActivityFeed(allProductsMap, allObrasMap, obraId);
+        renderAlertasEstoque(allProducts); // Não é afetado pelo filtro
+        feather.replace();
     }
 
-    function displayCharts(products, movements, groups, obras) {
-        renderValorPorGrupoChart(products, groups);
-        renderTopObrasChart(movements, obras);
-        renderEntradasSaidasChart(movements);
-    }
-
-    // --- Função Principal ---
     async function loadDashboard() {
         try {
             kpiValorTotalEl.textContent = 'Carregando...';
-            // Busca de dados em paralelo
             const [productsSnap, movementsSnap, groupsSnap, obrasSnap] = await Promise.all([
                 getDocs(query(collection(db, 'produtos'), where("arquivado", "!=", true))),
                 getDocs(collection(db, 'movimentacoes')),
@@ -230,19 +275,17 @@ document.addEventListener('DOMContentLoaded', () => {
                 getDocs(collection(db, 'obras'))
             ]);
 
-            // Mapeamento dos dados
-            const products = productsSnap.docs.map(doc => ({ id: doc.id, ...doc.data() }));
-            const movements = movementsSnap.docs.map(doc => ({ id: doc.id, ...doc.data() }));
-            const productsMap = Object.fromEntries(productsSnap.docs.map(doc => [doc.id, doc.data()]));
-            const groups = Object.fromEntries(groupsSnap.docs.map(doc => [doc.id, doc.data()]));
-            const obras = Object.fromEntries(obrasSnap.docs.map(doc => [doc.id, doc.data()]));
+            allProducts = productsSnap.docs.map(doc => ({ id: doc.id, ...doc.data() }));
+            allMovements = movementsSnap.docs.map(doc => ({ id: doc.id, ...doc.data() }));
+            allProductsMap = Object.fromEntries(productsSnap.docs.map(doc => [doc.id, doc.data()]));
+            allGroups = Object.fromEntries(groupsSnap.docs.map(doc => [doc.id, doc.data()]));
+            allObrasMap = Object.fromEntries(obrasSnap.docs.map(doc => [doc.id, doc.data()]));
+            allObrasList = obrasSnap.docs.map(doc => ({ id: doc.id, ...doc.data() }));
 
-            // Renderização dos componentes
-            displayKpis(products, movements);
-            displayCharts(products, movements, groups, obras);
-            displayActionLists(products, productsMap);
+            populateObrasFilter(allObrasList);
+            filtroObraGlobal.addEventListener('change', (e) => updateDashboard(e.target.value));
 
-            feather.replace();
+            updateDashboard('todos'); // Carga inicial com "Todas as Obras"
 
         } catch (error) {
             console.error("Erro ao carregar dados do dashboard:", error);
@@ -251,6 +294,15 @@ document.addEventListener('DOMContentLoaded', () => {
             kpiReservasEl.textContent = 'Erro';
             kpiCustoObrasEl.textContent = 'Erro';
         }
+    }
+
+    function populateObrasFilter(obras) {
+        obras.forEach(obra => {
+            const option = document.createElement('option');
+            option.value = obra.id;
+            option.textContent = obra.nome;
+            filtroObraGlobal.appendChild(option);
+        });
     }
 
     loadDashboard();

@@ -31,6 +31,21 @@
         <header>
             <h1>Dashboard</h1>
             <p class="subtitle">Bem-vindo ao seu sistema de controle de estoque.</p>
+            <div class="dashboard-controls">
+                <div class="control-group">
+                    <label for="filtro-obra-global"><i data-feather="filter"></i> Filtrar por Obra</label>
+                    <select id="filtro-obra-global" class="form-control">
+                        <option value="todos">Todas as Obras</option>
+                        <!-- Obras carregadas via JS -->
+                    </select>
+                </div>
+                <div class="actions-group">
+                    <a href="movimentacoes.html" class="btn btn-action"><i data-feather="plus-circle"></i> Nova Entrada</a>
+                    <a href="movimentacoes.html" class="btn btn-action btn-saida"><i data-feather="minus-circle"></i> Nova Saída</a>
+                    <a href="reservas.html" class="btn btn-action"><i data-feather="clipboard"></i> Criar Reserva</a>
+                    <a href="produtos.html" class="btn btn-action"><i data-feather="box"></i> Cadastrar Produto</a>
+                </div>
+            </div>
         </header>
         <section class="content">
             <!-- Seção de KPIs -->
@@ -94,20 +109,10 @@
             <!-- Seção de Listas de Ação Rápida -->
             <div class="lists-grid">
                 <div class="card list-container">
-                    <h3>Últimas Movimentações</h3>
-                    <table class="dashboard-table">
-                        <thead>
-                            <tr>
-                                <th>Tipo</th>
-                                <th>Produto</th>
-                                <th>Qtd.</th>
-                                <th>Data</th>
-                            </tr>
-                        </thead>
-                        <tbody id="table-ultimas-movimentacoes">
-                            <!-- Linhas inseridas via JS -->
-                        </tbody>
-                    </table>
+                    <h3>Feed de Atividades Recentes</h3>
+                    <div id="feed-atividades-container" class="feed-container">
+                        <!-- Feed items are inserted here by JS -->
+                    </div>
                 </div>
                 <div class="card list-container">
                     <h3>Alertas de Estoque Crítico</h3>
