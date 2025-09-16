@@ -4,26 +4,26 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Dashboard - Controle de Estoque</title>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.2/css/all.min.css">
     <link rel="stylesheet" href="css/style.css">
     <link rel="stylesheet" href="css/dashboard.css">
-    <script src="https://cdn.jsdelivr.net/npm/feather-icons/dist/feather.min.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
 </head>
 <body>
     <aside class="sidebar">
         <div class="sidebar-header">
-            <h2><i data-feather="archive"></i> Estoque</h2>
+            <h2><i class="fas fa-archive"></i> Estoque</h2>
         </div>
         <nav>
             <ul>
-                <li><a href="index.html" class="active"><i data-feather="home"></i>Dashboard</a></li>
-                <li><a href="configuracoes.html"><i data-feather="settings"></i>Configurações</a></li>
-                <li><a href="produtos.html"><i data-feather="box"></i>Produtos</a></li>
-                <li><a href="movimentacoes.html"><i data-feather="git-commit"></i>Movimentações</a></li>
-                <li><a href="obras.html"><i data-feather="briefcase"></i>Obras</a></li>
-                <li><a href="consultas.html"><i data-feather="search"></i>Consultas</a></li>
-                <li><a href="reservas.html"><i data-feather="clipboard"></i>Reservas</a></li>
-                <li><a href="implementacao.html"><i data-feather="chevrons-down"></i>Implementação</a></li>
+                <li><a href="index.html" class="active"><i class="fas fa-th-large"></i>Dashboard</a></li>
+                <li><a href="configuracoes.html"><i class="fas fa-cog"></i>Configurações</a></li>
+                <li><a href="produtos.html"><i class="fas fa-box"></i>Produtos</a></li>
+                <li><a href="movimentacoes.html"><i class="fas fa-exchange-alt"></i>Movimentações</a></li>
+                <li><a href="obras.html"><i class="fas fa-briefcase"></i>Obras</a></li>
+                <li><a href="consultas.html"><i class="fas fa-search"></i>Consultas</a></li>
+                <li><a href="reservas.html"><i class="fas fa-clipboard-list"></i>Reservas</a></li>
+                <li><a href="implementacao.html"><i class="fas fa-wrench"></i>Implementação</a></li>
             </ul>
         </nav>
     </aside>
@@ -33,17 +33,17 @@
             <p class="subtitle">Bem-vindo ao seu sistema de controle de estoque.</p>
             <div class="dashboard-controls">
                 <div class="control-group">
-                    <label for="filtro-obra-global"><i data-feather="filter"></i> Filtrar por Obra</label>
+                    <label for="filtro-obra-global"><i class="fas fa-filter"></i> Filtrar por Obra</label>
                     <select id="filtro-obra-global" class="form-control">
                         <option value="todos">Todas as Obras</option>
                         <!-- Obras carregadas via JS -->
                     </select>
                 </div>
                 <div class="actions-group">
-                    <a href="movimentacoes.html" class="btn btn-action"><i data-feather="plus-circle"></i> Nova Entrada</a>
-                    <a href="movimentacoes.html" class="btn btn-action btn-saida"><i data-feather="minus-circle"></i> Nova Saída</a>
-                    <a href="reservas.html" class="btn btn-action"><i data-feather="clipboard"></i> Criar Reserva</a>
-                    <a href="produtos.html" class="btn btn-action"><i data-feather="box"></i> Cadastrar Produto</a>
+                    <a href="movimentacoes.html" class="btn btn-action"><i class="fas fa-plus-circle"></i> Nova Entrada</a>
+                    <a href="movimentacoes.html" class="btn btn-action btn-saida"><i class="fas fa-minus-circle"></i> Nova Saída</a>
+                    <a href="reservas.html" class="btn btn-action"><i class="fas fa-clipboard-list"></i> Criar Reserva</a>
+                    <a href="produtos.html" class="btn btn-action"><i class="fas fa-box"></i> Cadastrar Produto</a>
                 </div>
             </div>
         </header>
@@ -52,7 +52,7 @@
             <div class="kpi-grid">
                 <div class="card kpi-card">
                     <div class="card-icon-wrapper" style="background-color: #e6f3ff;">
-                        <i data-feather="dollar-sign" style="color: #006ce0;"></i>
+                        <i class="fas fa-dollar-sign" style="color: #006ce0;"></i>
                     </div>
                     <div class="kpi-info">
                         <span class="kpi-title">Valor Total em Estoque</span>
@@ -61,7 +61,7 @@
                 </div>
                 <div class="card kpi-card">
                     <div class="card-icon-wrapper" style="background-color: #fff8e1;">
-                        <i data-feather="alert-triangle" style="color: #f5a623;"></i>
+                        <i class="fas fa-exclamation-triangle" style="color: #f5a623;"></i>
                     </div>
                     <div class="kpi-info">
                         <span class="kpi-title">Itens Abaixo do Mínimo</span>
@@ -70,7 +70,7 @@
                 </div>
                 <div class="card kpi-card">
                     <div class="card-icon-wrapper" style="background-color: #eef9f3;">
-                        <i data-feather="clipboard" style="color: #2e7d32;"></i>
+                        <i class="fas fa-clipboard-list" style="color: #2e7d32;"></i>
                     </div>
                     <div class="kpi-info">
                         <span class="kpi-title">Reservas Pendentes</span>
@@ -79,7 +79,7 @@
                 </div>
                 <div class="card kpi-card">
                     <div class="card-icon-wrapper" style="background-color: #fdeaea;">
-                        <i data-feather="tool" style="color: #c62828;"></i>
+                        <i class="fas fa-wrench" style="color: #c62828;"></i>
                     </div>
                     <div class="kpi-info">
                         <span class="kpi-title">Custo Total nas Obras</span>
@@ -135,8 +135,5 @@
     </main>
     <script type="module" src="js/main.js"></script>
     <script type="module" src="js/dashboard.js"></script>
-    <script>
-        feather.replace()
-    </script>
 </body>
 </html>
