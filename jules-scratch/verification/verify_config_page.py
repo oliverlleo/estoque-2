@@ -33,7 +33,7 @@ def run_verification():
         expect(modal_title).to_have_text('Cadastro de Fornecedores')
 
         # Take a screenshot with the modal open
-        page.screenshot(path='jules-scratch/verification/config_page_modal.png')
+        page.screenshot(path='jules-scratch/verification/config_page_modal_open.png')
 
         browser.close()
 
