@@ -399,23 +399,17 @@ document.addEventListener('DOMContentLoaded', async function() {
                     ...originalProductData,
                     codigo: `${originalProductData.codigo}-S${medidaSobraStr}`,
                     medida_sobra: medidaSobraStr,
-                    estoque: 1,
+                    estoque: 0, // Estoque inicial de sobra é zero
+                    isSobra: true, // Flag para identificar o produto como sobra
+                    valorMedio: custoProporcionalDaSobra // Custo da sobra vira o valor médio inicial
                 };
                 delete newSobraProductData.id;
 
                 const newProductRef = doc(collection(db, 'produtos'));
                 transaction.set(newProductRef, newSobraProductData);
 
-                const newMovementRef = doc(collection(db, 'movimentacoes'));
-                const movementData = {
-                    tipo: 'entrada',
-                    productId: newProductRef.id,
-                    quantidade: 1,
-                    custo_total_entrada: custoProporcionalDaSobra,
-                    data: serverTimestamp(),
-                    observacao: `Entrada de sobra proporcional do produto ${originalProductData.codigo}`
-                };
-                transaction.set(newMovementRef, movementData);
+                // A criação automática de movimentação foi removida.
+                // A entrada agora deve ser feita manualmente na tela de movimentações.
             });
 
             alert(`Sobra cadastrada com sucesso! Custo proporcional calculado: R$ ${custoProporcionalDaSobra.toFixed(2)}`);
