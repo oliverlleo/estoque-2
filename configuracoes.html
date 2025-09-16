@@ -6,44 +6,74 @@
     <title>Configurações - Controle de Estoque</title>
     <link rel="stylesheet" href="css/style.css">
     <script src="https://cdn.jsdelivr.net/npm/feather-icons/dist/feather.min.js"></script>
+    <link href="https://cdnjs.cloudflare.com/ajax/libs/tailwindcss/2.2.19/tailwind.min.css" rel="stylesheet">
+    <link href="https://fonts.googleapis.com/icon?family=Material+Icons" rel="stylesheet">
 </head>
-<body>
-    <aside class="sidebar">
-        <div class="sidebar-header">
-            <h2><i data-feather="archive"></i> Estoque</h2>
+<body class="flex h-screen">
+    <aside class="w-64 bg-gray-800 text-white flex flex-col">
+        <div class="p-6 text-2xl font-bold border-b border-gray-700">
+            Estoque
         </div>
-        <nav>
-            <ul>
-                <li><a href="index.html"><i data-feather="home"></i>Dashboard</a></li>
-                <li><a href="configuracoes.html" class="active"><i data-feather="settings"></i>Configurações</a></li>
-                <li><a href="produtos.html"><i data-feather="box"></i>Produtos</a></li>
-                <li><a href="movimentacoes.html"><i data-feather="git-commit"></i>Movimentações</a></li>
-                <li><a href="obras.html"><i data-feather="briefcase"></i>Obras</a></li>
-                <li><a href="consultas.html"><i data-feather="search"></i>Consultas</a></li>
-                <li><a href="reservas.html"><i data-feather="clipboard"></i>Reservas</a></li>
-                <li><a href="implementacao.html"><i data-feather="chevrons-down"></i>Implementação</a></li>
-            </ul>
+        <nav class="flex-1 p-4 space-y-2">
+            <a href="index.html" class="flex items-center px-4 py-2 text-gray-300 hover:bg-gray-700 rounded-md">
+                <span class="material-icons mr-3">dashboard</span>
+                Dashboard
+            </a>
+            <a href="configuracoes.html" class="flex items-center px-4 py-2 text-white bg-blue-500 rounded-md">
+                <span class="material-icons mr-3">settings</span>
+                Configurações
+            </a>
+            <a href="produtos.html" class="flex items-center px-4 py-2 text-gray-300 hover:bg-gray-700 rounded-md">
+                <span class="material-icons mr-3">inventory_2</span>
+                Produtos
+            </a>
+            <a href="movimentacoes.html" class="flex items-center px-4 py-2 text-gray-300 hover:bg-gray-700 rounded-md">
+                <span class="material-icons mr-3">sync_alt</span>
+                Movimentações
+            </a>
+            <a href="obras.html" class="flex items-center px-4 py-2 text-gray-300 hover:bg-gray-700 rounded-md">
+                <span class="material-icons mr-3">construction</span>
+                Obras
+            </a>
+            <a href="consultas.html" class="flex items-center px-4 py-2 text-gray-300 hover:bg-gray-700 rounded-md">
+                <span class="material-icons mr-3">search</span>
+                Consultas
+            </a>
+            <a href="reservas.html" class="flex items-center px-4 py-2 text-gray-300 hover:bg-gray-700 rounded-md">
+                <span class="material-icons mr-3">book_online</span>
+                Reservas
+            </a>
+            <a href="implementacao.html" class="flex items-center px-4 py-2 text-gray-300 hover:bg-gray-700 rounded-md">
+                <span class="material-icons mr-3">build</span>
+                Implementação
+            </a>
         </nav>
     </aside>
-    <main class="main-content">
-        <header>
-            <h1>Configurações</h1>
+    <main class="flex-1 p-8 overflow-y-auto bg-gray-50">
+        <header class="mb-8">
+            <h1 class="text-3xl font-bold text-gray-800">Configurações</h1>
+            <p class="text-gray-500 mt-1">Gerencie as configurações gerais do seu sistema de estoque.</p>
         </header>
-        <section class="content">
-            <div id="config-buttons-container" class="config-buttons-container">
-                </div>
 
-            <div id="config-modal" class="modal">
-                <div class="modal-content">
-                    <div class="modal-header">
-                        <h3 id="modal-title">Título do Modal</h3>
-                        <span class="close-button">&times;</span>
-                    </div>
-                    <div id="modal-body" class="modal-body">
-                        </div>
+        <div id="config-buttons-container" class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6">
+        </div>
+
+        <!-- Modal Principal -->
+        <div id="config-modal" class="fixed inset-0 bg-gray-900 bg-opacity-60 hidden justify-center items-start z-50 pt-10 pb-10">
+            <div id="modal-content-container" class="bg-white rounded-lg shadow-2xl w-full max-w-5xl">
+                <!-- Modal Header -->
+                <div class="px-6 py-4 bg-gray-50 border-b border-gray-200 flex justify-between items-center">
+                    <h2 id="modal-title" class="text-xl font-semibold text-gray-800"></h2>
+                    <button class="close-button text-gray-500 hover:text-gray-800">
+                        <span class="material-icons">close</span>
+                    </button>
+                </div>
+                <!-- Modal Body -->
+                <div id="modal-body" class="p-6 overflow-y-auto" style="max-height: 70vh;">
+                    <!-- Conteúdo dinâmico do modal será injetado aqui -->
                 </div>
             </div>
-        </section>
+        </div>
     </main>
     <script type="module" src="js/main.js"></script>
     <script type="module" src="js/configuracoes.js"></script>
