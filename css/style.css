@@ -987,3 +987,35 @@ input:checked + .slider:before {
     border: none;
     text-align: left;
 }
+
+/* --- Estilos para Ordenação de Colunas --- */
+#table-consultas th[data-column] {
+    cursor: pointer;
+    position: relative;
+    user-select: none; /* Previne seleção de texto ao clicar */
+}
+
+#table-consultas th[data-column]:hover {
+    background-color: #e9ecef;
+}
+
+#table-consultas th[data-column]::after {
+    content: '';
+    position: absolute;
+    right: 15px;
+    top: 50%;
+    border: 5px solid transparent;
+    opacity: 0.5;
+}
+
+#table-consultas th[data-column].sorted.asc::after {
+    border-bottom-color: #212529;
+    transform: translateY(-50%);
+    opacity: 1;
+}
+
+#table-consultas th[data-column].sorted.desc::after {
+    border-top-color: #212529;
+    transform: translateY(-50%);
+    opacity: 1;
+}

@@ -6,6 +6,7 @@
     <title>Consultas - Controle de Estoque</title>
     <link rel="stylesheet" href="css/style.css">
     <script src="https://cdn.jsdelivr.net/npm/feather-icons/dist/feather.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
     <link href="https://cdnjs.cloudflare.com/ajax/libs/tailwindcss/2.2.19/tailwind.min.css" rel="stylesheet">
     <link href="https://fonts.googleapis.com/icon?family=Material+Icons" rel="stylesheet">
 </head>
@@ -61,26 +62,33 @@
                         <input type="text" id="filter-codigo" class="form-control" placeholder="Filtrar por Código...">
                         <input type="text" id="filter-descricao" class="form-control" placeholder="Filtrar por Descrição...">
                         <input type="text" id="filter-local" class="form-control" placeholder="Filtrar por Local...">
+                        <button id="export-button" class="btn btn-success" style="margin-left: auto;">Exportar para Excel</button>
                     </div>
                     <div class="table-wrapper">
                         <table id="table-consultas" class="table">
                             <thead>
                                 <tr>
-                                    <th>Código</th>
-                                    <th>Descrição</th>
-                                    <th>Cor</th>
-                                    <th>Estoque Atual</th>
-                                    <th>Reservado</th>
-                                    <th>UN</th>
-                                    <th>Custo Un. Médio</th>
-                                    <th>Custo Total Estoque</th>
-                                    <th>Locação</th>
+                                    <th data-column="codigo">Código</th>
+                                    <th data-column="descricao">Descrição</th>
+                                    <th data-column="cor">Cor</th>
+                                    <th data-column="fornecedorNome">Fornecedor</th>
+                                    <th data-column="estoque">Estoque Atual</th>
+                                    <th data-column="quantidadeReservada">Reservado</th>
+                                    <th data-column="un">UN</th>
+                                    <th data-column="valorMedio">Custo Un. Médio</th>
+                                    <th data-column="valorTotalEstoque">Custo Total Estoque</th>
+                                    <th data-column="local">Locação</th>
                                 </tr>
                             </thead>
                             <tbody>
                                 <!-- Data will be loaded here by JS -->
                             </tbody>
                         </table>
+                    </div>
+                    <div id="pagination-controls" class="flex justify-center items-center mt-4" style="display: none;">
+                        <button id="prev-page" class="btn btn-secondary">&laquo; Anterior</button>
+                        <span id="page-info" class="mx-4">Página 1 de 1</span>
+                        <button id="next-page" class="btn btn-secondary">Próximo &raquo;</button>
                     </div>
                 </div>
             </div>
