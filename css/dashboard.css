@@ -281,8 +281,7 @@
     color: #6c757d;
 }
 
-/* Override padding for chart containers to save space */
-.chart-container,
-.chart-container-full {
-    padding: 12px;
+.chart-canvas-wrapper {
+    position: relative;
+    height: 280px;
 }

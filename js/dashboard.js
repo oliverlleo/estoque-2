@@ -93,7 +93,7 @@ document.addEventListener('DOMContentLoaded', () => {
         chartInstances['chart-valor-grupo'] = new Chart(document.getElementById('chart-valor-grupo'), {
             type: 'doughnut',
             data: { labels, datasets: [{ data, backgroundColor: ['#4e73df', '#1cc88a', '#36b9cc', '#f6c23e', '#e74a3b', '#858796'] }] },
-            options: { responsive: true, maintainAspectRatio: false, plugins: { legend: { position: 'bottom', labels: { font: { size: 10 } } } } }
+            options: { responsive: true, maintainAspectRatio: false, plugins: { legend: { position: 'bottom' } } }
         });
     }
 
@@ -137,7 +137,7 @@ document.addEventListener('DOMContentLoaded', () => {
         chartInstances['chart-top-obras'] = new Chart(chartEl, {
             type: 'bar',
             data: { labels, datasets: [{ label: chartLabel, data, backgroundColor }] },
-            options: { indexAxis: 'y', responsive: true, maintainAspectRatio: false, plugins: { legend: { display: false } }, scales: { x: { ticks: { font: { size: 10 } } }, y: { ticks: { font: { size: 10 } } } } }
+            options: { indexAxis: 'y', responsive: true, maintainAspectRatio: false, plugins: { legend: { display: false } } }
         });
     }
 
@@ -182,7 +182,7 @@ document.addEventListener('DOMContentLoaded', () => {
                     { label: 'Saídas (Filtrado)', data: saidasData, borderColor: '#e74a3b', backgroundColor: 'rgba(231, 74, 59, 0.1)', fill: true, tension: 0.3 }
                 ]
             },
-            options: { responsive: true, maintainAspectRatio: false, plugins: { legend: { position: 'top', labels: { font: { size: 10 } } } }, scales: { y: { beginAtZero: true, ticks: { font: { size: 10 } } }, x: { ticks: { font: { size: 10 } } } } }
+            options: { responsive: true, maintainAspectRatio: false, plugins: { legend: { position: 'top' } }, scales: { y: { beginAtZero: true } } }
         });
     }
 
