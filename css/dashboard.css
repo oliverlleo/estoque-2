@@ -73,9 +73,11 @@
 }
 
 .chart-container-full {
+    height: 350px;
 }
 
 .chart-container {
+    height: 350px;
 }
 
 .chart-container h3, .list-container h3, .chart-container-full h3 {
@@ -277,4 +279,10 @@
     text-align: center;
     padding: 20px;
     color: #6c757d;
+}
+
+/* Override padding for chart containers to save space */
+.chart-container,
+.chart-container-full {
+    padding: 12px;
 }
