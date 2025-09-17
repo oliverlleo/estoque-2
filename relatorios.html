@@ -1,0 +1,255 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Relatórios - Controle de Estoque</title>
+    <link rel="stylesheet" href="css/style.css">
+    <script src="https://cdn.jsdelivr.net/npm/feather-icons/dist/feather.min.js"></script>
+    <link href="https://cdnjs.cloudflare.com/ajax/libs/tailwindcss/2.2.19/tailwind.min.css" rel="stylesheet">
+    <link href="https://fonts.googleapis.com/icon?family=Material+Icons" rel="stylesheet">
+</head>
+<body class="flex h-screen">
+    <aside class="w-64 bg-gray-800 text-white flex flex-col">
+        <div class="p-6 text-2xl font-bold border-b border-gray-700">
+            Estoque
+        </div>
+        <nav class="flex-1 p-4 space-y-2">
+            <a href="index.html" class="flex items-center px-4 py-2 text-gray-300 hover:bg-gray-700 rounded-md">
+                <span class="material-icons mr-3">dashboard</span>
+                Dashboard
+            </a>
+            <a href="configuracoes.html" class="flex items-center px-4 py-2 text-gray-300 hover:bg-gray-700 rounded-md">
+                <span class="material-icons mr-3">settings</span>
+                Configurações
+            </a>
+            <a href="produtos.html" class="flex items-center px-4 py-2 text-gray-300 hover:bg-gray-700 rounded-md">
+                <span class="material-icons mr-3">inventory_2</span>
+                Produtos
+            </a>
+            <a href="movimentacoes.html" class="flex items-center px-4 py-2 text-gray-300 hover:bg-gray-700 rounded-md">
+                <span class="material-icons mr-3">sync_alt</span>
+                Movimentações
+            </a>
+            <a href="obras.html" class="flex items-center px-4 py-2 text-gray-300 hover:bg-gray-700 rounded-md">
+                <span class="material-icons mr-3">construction</span>
+                Obras
+            </a>
+            <a href="consultas.html" class="flex items-center px-4 py-2 text-gray-300 hover:bg-gray-700 rounded-md">
+                <span class="material-icons mr-3">search</span>
+                Consultas
+            </a>
+            <a href="reservas.html" class="flex items-center px-4 py-2 text-gray-300 hover:bg-gray-700 rounded-md">
+                <span class="material-icons mr-3">book_online</span>
+                Reservas
+            </a>
+            <a href="implementacao.html" class="flex items-center px-4 py-2 text-gray-300 hover:bg-gray-700 rounded-md">
+                <span class="material-icons mr-3">build</span>
+                Implementação
+            </a>
+             <a href="relatorios.html" class="flex items-center px-4 py-2 text-white bg-blue-500 rounded-md">
+                <span class="material-icons mr-3">analytics</span>
+                Relatórios
+            </a>
+        </nav>
+    </aside>
+    <main class="main-content flex-1 overflow-y-auto">
+        <header>
+            <h1>Relatórios</h1>
+        </header>
+        <section class="content">
+            <div class="card">
+                <div class="card-header">
+                    <h3>Curva ABC de Estoque</h3>
+                </div>
+                <div class="card-body">
+                    <div class="table-wrapper">
+                        <table id="table-curva-abc" class="table">
+                            <thead>
+                                <tr>
+                                    <th>Código</th>
+                                    <th>Descrição</th>
+                                    <th>Custo Total Estoque</th>
+                                    <th>% Acumulado</th>
+                                    <th>Classificação</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                <!-- Data will be loaded here by JS -->
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+            </div>
+
+            <div class="card">
+                <div class="card-header">
+                    <h3>Custo de Mercadoria Vendida (CMV) por Obra</h3>
+                </div>
+                <div class="card-body">
+                    <div class="table-wrapper">
+                        <table id="table-cmv-obra" class="table">
+                            <thead>
+                                <tr>
+                                    <th>Obra</th>
+                                    <th>Custo Total (CMV)</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                <!-- Data will be loaded here by JS -->
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+            </div>
+
+            <div class="card">
+                <div class="card-header">
+                    <h3>Análise de Custo por Fornecedor</h3>
+                </div>
+                <div class="card-body">
+                    <div class="table-wrapper">
+                        <table id="table-custo-fornecedor" class="table">
+                            <thead>
+                                <tr>
+                                    <th>Fornecedor</th>
+                                    <th>Custo Total das Saídas</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                <!-- Data will be loaded here by JS -->
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+            </div>
+
+            <div class="card">
+                <div class="card-header">
+                    <h3>Análise de Custo por Grupo de Produto</h3>
+                </div>
+                <div class="card-body">
+                    <div class="table-wrapper">
+                        <table id="table-custo-grupo" class="table">
+                            <thead>
+                                <tr>
+                                    <th>Grupo de Produto</th>
+                                    <th>Custo Total das Saídas</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                <!-- Data will be loaded here by JS -->
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+            </div>
+
+            <div class="card">
+                <div class="card-header">
+                    <h3>Indicadores de Eficiência</h3>
+                </div>
+                <div class="card-body">
+                    <div class="kpi-grid" style="display: grid; grid-template-columns: repeat(auto-fit, minmax(250px, 1fr)); gap: 20px;">
+                        <div class="kpi-card-relatorio">
+                            <h4>Giro de Estoque (Últimos 365 dias)</h4>
+                            <p id="kpi-giro-estoque" class="kpi-value">Calculando...</p>
+                            <small>Mede quantas vezes o estoque foi renovado no período.</small>
+                        </div>
+                        <div class="kpi-card-relatorio">
+                            <h4>Nível de Serviço (Reservas)</h4>
+                            <p id="kpi-nivel-servico" class="kpi-value">Calculando...</p>
+                            <small>% de reservas atendidas vs. canceladas.</small>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <div class="card">
+                <div class="card-header">
+                    <div style="display: flex; justify-content: space-between; align-items: center;">
+                        <h3>Produtos Sem Movimentação (Estoque Obsoleto)</h3>
+                        <select id="periodo-sem-movimentacao" class="form-control" style="width: auto;">
+                            <option value="90">Últimos 90 dias</option>
+                            <option value="180" selected>Últimos 180 dias</option>
+                            <option value="365">Últimos 365 dias</option>
+                        </select>
+                    </div>
+                </div>
+                <div class="card-body">
+                    <div class="table-wrapper">
+                        <table id="table-sem-movimentacao" class="table">
+                            <thead>
+                                <tr>
+                                    <th>Código</th>
+                                    <th>Descrição</th>
+                                    <th>Estoque Atual</th>
+                                    <th>Custo Total em Estoque</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                <!-- Data will be loaded here by JS -->
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+            </div>
+
+            <div class="card">
+                <div class="card-header">
+                    <h3>Posição de Estoque por Local de Armazenamento</h3>
+                </div>
+                <div class="card-body">
+                    <div class="table-wrapper">
+                        <table id="table-posicao-estoque" class="table">
+                            <thead>
+                                <tr>
+                                    <th>Código</th>
+                                    <th>Descrição</th>
+                                    <th>Local Físico</th>
+                                    <th>Locação</th>
+                                    <th>Estoque na Locação</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                <!-- Data will be loaded here by JS -->
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+            </div>
+
+            <div class="card">
+                <div class="card-header">
+                    <h3>Histórico de Consumo por Produto</h3>
+                </div>
+                <div class="card-body">
+                    <div class="search-container" style="margin-bottom: 20px; position: relative;">
+                        <input type="text" id="consumo-produto-search" placeholder="Buscar produto por código ou descrição..." class="form-control" autocomplete="off">
+                        <div id="consumo-produto-results" class="search-results" style="position: absolute; background-color: white; border: 1px solid #ccc; width: 100%; z-index: 100; max-height: 200px; overflow-y: auto;"></div>
+                    </div>
+                    <div class="table-wrapper">
+                        <table id="table-consumo-produto" class="table">
+                            <thead>
+                                <tr>
+                                    <th>Data da Saída</th>
+                                    <th>Quantidade</th>
+                                    <th>Obra</th>
+                                    <th>Requisitante</th>
+                                    <th>Observação</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                <tr><td colspan="5" class="text-center">Selecione um produto para ver seu histórico.</td></tr>
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+            </div>
+        </section>
+    </main>
+    <script type="module" src="js/main.js"></script>
+    <script type="module" src="js/relatorios.js"></script>
+    <script> feather.replace() </script>
+</body>
+</html>

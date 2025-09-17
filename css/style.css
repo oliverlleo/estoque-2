@@ -987,3 +987,48 @@ input:checked + .slider:before {
     border: none;
     text-align: left;
 }
+
+/* Estilos para a tabela de Curva ABC */
+.classificacao-a {
+    background-color: #d4edda; /* Verde claro */
+    color: #155724;
+    font-weight: bold;
+}
+
+.classificacao-b {
+    background-color: #fff3cd; /* Amarelo claro */
+    color: #856404;
+}
+
+.classificacao-c {
+    background-color: #f8d7da; /* Vermelho claro */
+    color: #721c24;
+}
+
+/* Estilos para os cards de KPI na página de relatórios */
+.kpi-card-relatorio {
+    background-color: #f8f9fa;
+    border: 1px solid #dee2e6;
+    border-radius: 8px;
+    padding: 20px;
+    text-align: center;
+}
+
+.kpi-card-relatorio h4 {
+    font-size: 1.1rem;
+    color: #495057;
+    margin-bottom: 10px;
+}
+
+.kpi-card-relatorio .kpi-value {
+    font-size: 2.5rem;
+    font-weight: 700;
+    color: #0d6efd;
+    margin-bottom: 10px;
+    display: block;
+}
+
+.kpi-card-relatorio small {
+    font-size: 0.9rem;
+    color: #6c757d;
+}
