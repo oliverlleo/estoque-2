@@ -134,6 +134,10 @@ body {
     cursor: pointer;
 }
 
+.btn-primary {
+    background-color: #0d6efd;
+}
+
 .btn-success {
     background-color: #198754;
 }
