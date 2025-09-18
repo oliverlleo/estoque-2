@@ -127,7 +127,7 @@ document.addEventListener('DOMContentLoaded', async function() {
         }
     }
 
-    // --- RENDERING (sem alterações) ---
+    // --- RENDERING (MODIFICADO) ---
     function renderTable(items) {
         tableBody.innerHTML = '';
 
@@ -147,32 +147,24 @@ document.addEventListener('DOMContentLoaded', async function() {
             row.dataset.locacao = loc.locacao;
             row.dataset.localId = loc.localId;
 
-            let quantityInputHtml, valueInputHtml, icmsInputHtml, ipiInputHtml, freteInputHtml;
+            // Guarda os valores originais para comparação no momento de salvar
+            const originalQty = loc.estoque || 0;
+            // O valor unitário agora vem do custo médio do produto ou da movimentação existente.
+            const originalValue = existingMovement ? (existingMovement.valor_unitario || 0) : (product.valorMedio || 0);
 
+            row.dataset.originalQuantity = originalQty;
+            row.dataset.originalValue = originalValue;
             if (existingMovement) {
                 row.dataset.movementId = existingMovement.id;
                 row.classList.add('implemented');
-                quantityInputHtml = `<input type="number" class="form-control quantity-input" value="${existingMovement.quantidade}" disabled title="Quantidade já implementada.">`;
-                valueInputHtml = `<input type="number" class="form-control value-input" value="${existingMovement.valor_unitario || ''}" min="0" step="0.01">`;
-                icmsInputHtml = `<input type="number" class="form-control icms-input" value="${existingMovement.icms || ''}" min="0" step="0.01">`;
-                ipiInputHtml = `<input type="number" class="form-control ipi-input" value="${existingMovement.ipi || ''}" min="0" step="0.01">`;
-                freteInputHtml = `<input type="number" class="form-control frete-input" value="${existingMovement.frete || ''}" min="0" step="0.01">`;
-            } else {
-                const allMovementsForThisProduct = Object.values(implementationMovements)
-                    .filter(m => m.productId === product.id && m.data)
-                    .sort((a, b) => b.data.toMillis() - a.data.toMillis());
-
-                let suggestedData = { valor_unitario: '', icms: '', ipi: '', frete: '' };
-                if (allMovementsForThisProduct.length > 0) {
-                    suggestedData = allMovementsForThisProduct[0];
-                }
-
-                quantityInputHtml = `<input type="number" class="form-control quantity-input" min="0" step="any">`;
-                valueInputHtml = `<input type="number" class="form-control value-input" value="${suggestedData.valor_unitario || ''}" min="0" step="0.01" title="Valor sugerido da última implementação deste produto">`;
-                icmsInputHtml = `<input type="number" class="form-control icms-input" value="${suggestedData.icms || ''}" min="0" step="0.01" title="ICMS sugerido da última implementação deste produto">`;
-                ipiInputHtml = `<input type="number" class="form-control ipi-input" value="${suggestedData.ipi || ''}" min="0" step="0.01" title="IPI sugerido da última implementação deste produto">`;
-                freteInputHtml = `<input type="number" class="form-control frete-input" value="${suggestedData.frete || ''}" min="0" step="0.01" title="Frete sugerido da última implementação deste produto">`;
             }
+
+            // Todos os campos são editáveis por padrão agora.
+            const quantityInputHtml = `<input type="number" class="form-control quantity-input" value="${originalQty}" min="0" step="any">`;
+            const valueInputHtml = `<input type="number" class="form-control value-input" value="${originalValue.toFixed(2)}" min="0" step="0.01">`;
+            const icmsInputHtml = `<input type="number" class="form-control icms-input" value="${existingMovement?.icms || ''}" min="0" step="0.01">`;
+            const ipiInputHtml = `<input type="number" class="form-control ipi-input" value="${existingMovement?.ipi || ''}" min="0" step="0.01">`;
+            const freteInputHtml = `<input type="number" class="form-control frete-input" value="${existingMovement?.frete || ''}" min="0" step="0.01">`;
 
             row.innerHTML = `
                 <td>${product.codigo}</td>
