@@ -38,6 +38,30 @@ async function atualizarCustoMedioProduto(produtoId) {
 document.addEventListener('DOMContentLoaded', async function() {
     console.log("Página de Implementação carregada.");
 
+    function formatAddressInput(e) {
+        let value = e.target.value.toUpperCase().replace(/[^A-Z0-9]/g, '');
+        let formattedValue = '';
+
+        if (value.length > 0) {
+            // 01
+            formattedValue += value.substring(0, 2).replace(/[^0-9]/g, '');
+        }
+        if (value.length > 2) {
+            // 01-A
+            formattedValue += '-' + value.substring(2, 3).replace(/[^A-Z]/g, '');
+        }
+        if (value.length > 3) {
+            // 01-A-01
+            formattedValue += '-' + value.substring(3, 5).replace(/[^0-9]/g, '');
+        }
+        if (value.length > 5) {
+            // 01-A-01-A
+            formattedValue += '-' + value.substring(5, 6).replace(/[^A-Z]/g, '');
+        }
+
+        e.target.value = formattedValue;
+    }
+
     // DOM Elements
     const startAddressInput = document.getElementById('start-address');
     const endAddressInput = document.getElementById('end-address');
@@ -104,67 +128,63 @@ document.addEventListener('DOMContentLoaded', async function() {
     }
 
     // --- RENDERING (sem alterações) ---
-    function renderTable(products) {
+    function renderTable(items) {
         tableBody.innerHTML = '';
 
-        if (products.length === 0) {
+        if (items.length === 0) {
             tableBody.innerHTML = '<tr><td colspan="8" style="text-align:center;">Nenhum item encontrado para o range de endereçamento informado.</td></tr>';
             return;
         }
 
-        products.forEach(product => {
-            if (product.locacoes && product.locacoes.length > 0) {
-                product.locacoes.forEach(loc => {
-                    const key = `${product.id}-${loc.locacao}`;
-                    const existingMovement = implementationMovements[key];
+        items.forEach(item => {
+            const product = item;
+            const loc = item.locacao;
+            const key = `${product.id}-${loc.locacao}`;
+            const existingMovement = implementationMovements[key];
 
-                    const row = document.createElement('tr');
-                    row.dataset.productId = product.id;
-                    row.dataset.locacao = loc.locacao;
-                    row.dataset.localId = loc.localId;
+            const row = document.createElement('tr');
+            row.dataset.productId = product.id;
+            row.dataset.locacao = loc.locacao;
+            row.dataset.localId = loc.localId;
 
-                    let quantityInputHtml, valueInputHtml, icmsInputHtml, ipiInputHtml, freteInputHtml;
+            let quantityInputHtml, valueInputHtml, icmsInputHtml, ipiInputHtml, freteInputHtml;
 
-                    if (existingMovement) {
-                        // Item JÁ IMPLEMENTADO nesta locação específica
-                        row.dataset.movementId = existingMovement.id;
-                        row.classList.add('implemented');
-                        quantityInputHtml = `<input type="number" class="form-control quantity-input" value="${existingMovement.quantidade}" disabled title="Quantidade já implementada.">`;
-                        valueInputHtml = `<input type="number" class="form-control value-input" value="${existingMovement.valor_unitario || ''}" min="0" step="0.01">`;
-                        icmsInputHtml = `<input type="number" class="form-control icms-input" value="${existingMovement.icms || ''}" min="0" step="0.01">`;
-                        ipiInputHtml = `<input type="number" class="form-control ipi-input" value="${existingMovement.ipi || ''}" min="0" step="0.01">`;
-                        freteInputHtml = `<input type="number" class="form-control frete-input" value="${existingMovement.frete || ''}" min="0" step="0.01">`;
-                    } else {
-                        // Item NÃO IMPLEMENTADO - busca por dados de custo de outras implementações do mesmo produto
-                        const allMovementsForThisProduct = Object.values(implementationMovements)
-                            .filter(m => m.productId === product.id && m.data)
-                            .sort((a, b) => b.data.toMillis() - a.data.toMillis());
+            if (existingMovement) {
+                row.dataset.movementId = existingMovement.id;
+                row.classList.add('implemented');
+                quantityInputHtml = `<input type="number" class="form-control quantity-input" value="${existingMovement.quantidade}" disabled title="Quantidade já implementada.">`;
+                valueInputHtml = `<input type="number" class="form-control value-input" value="${existingMovement.valor_unitario || ''}" min="0" step="0.01">`;
+                icmsInputHtml = `<input type="number" class="form-control icms-input" value="${existingMovement.icms || ''}" min="0" step="0.01">`;
+                ipiInputHtml = `<input type="number" class="form-control ipi-input" value="${existingMovement.ipi || ''}" min="0" step="0.01">`;
+                freteInputHtml = `<input type="number" class="form-control frete-input" value="${existingMovement.frete || ''}" min="0" step="0.01">`;
+            } else {
+                const allMovementsForThisProduct = Object.values(implementationMovements)
+                    .filter(m => m.productId === product.id && m.data)
+                    .sort((a, b) => b.data.toMillis() - a.data.toMillis());
 
-                        let suggestedData = { valor_unitario: '', icms: '', ipi: '', frete: '' };
-                        if (allMovementsForThisProduct.length > 0) {
-                            suggestedData = allMovementsForThisProduct[0];
-                        }
+                let suggestedData = { valor_unitario: '', icms: '', ipi: '', frete: '' };
+                if (allMovementsForThisProduct.length > 0) {
+                    suggestedData = allMovementsForThisProduct[0];
+                }
 
-                        quantityInputHtml = `<input type="number" class="form-control quantity-input" min="0" step="any">`;
-                        valueInputHtml = `<input type="number" class="form-control value-input" value="${suggestedData.valor_unitario || ''}" min="0" step="0.01" title="Valor sugerido da última implementação deste produto">`;
-                        icmsInputHtml = `<input type="number" class="form-control icms-input" value="${suggestedData.icms || ''}" min="0" step="0.01" title="ICMS sugerido da última implementação deste produto">`;
-                        ipiInputHtml = `<input type="number" class="form-control ipi-input" value="${suggestedData.ipi || ''}" min="0" step="0.01" title="IPI sugerido da última implementação deste produto">`;
-                        freteInputHtml = `<input type="number" class="form-control frete-input" value="${suggestedData.frete || ''}" min="0" step="0.01" title="Frete sugerido da última implementação deste produto">`;
-                    }
-
-                    row.innerHTML = `
-                        <td>${product.codigo}</td>
-                        <td>${product.descricao}</td>
-                        <td>${loc.locacao}</td>
-                        <td>${quantityInputHtml}</td>
-                        <td>${valueInputHtml}</td>
-                        <td>${icmsInputHtml}</td>
-                        <td>${ipiInputHtml}</td>
-                        <td>${freteInputHtml}</td>
-                    `;
-                    tableBody.appendChild(row);
-                });
+                quantityInputHtml = `<input type="number" class="form-control quantity-input" min="0" step="any">`;
+                valueInputHtml = `<input type="number" class="form-control value-input" value="${suggestedData.valor_unitario || ''}" min="0" step="0.01" title="Valor sugerido da última implementação deste produto">`;
+                icmsInputHtml = `<input type="number" class="form-control icms-input" value="${suggestedData.icms || ''}" min="0" step="0.01" title="ICMS sugerido da última implementação deste produto">`;
+                ipiInputHtml = `<input type="number" class="form-control ipi-input" value="${suggestedData.ipi || ''}" min="0" step="0.01" title="IPI sugerido da última implementação deste produto">`;
+                freteInputHtml = `<input type="number" class="form-control frete-input" value="${suggestedData.frete || ''}" min="0" step="0.01" title="Frete sugerido da última implementação deste produto">`;
             }
+
+            row.innerHTML = `
+                <td>${product.codigo}</td>
+                <td>${product.descricao}</td>
+                <td>${loc.locacao}</td>
+                <td>${quantityInputHtml}</td>
+                <td>${valueInputHtml}</td>
+                <td>${icmsInputHtml}</td>
+                <td>${ipiInputHtml}</td>
+                <td>${freteInputHtml}</td>
+            `;
+            tableBody.appendChild(row);
         });
     }
 
@@ -194,27 +214,48 @@ document.addEventListener('DOMContentLoaded', async function() {
     btnListItems.addEventListener('click', () => {
         const startAddress = startAddressInput.value.toUpperCase().trim();
         const endAddress = endAddressInput.value.toUpperCase().trim();
+        const addressPattern = /^\d{2}-[A-Z]-\d{2}-[A-Z]$/;
 
         if (!startAddress || !endAddress) {
             alert("Por favor, preencha os endereçamentos inicial e final.");
             return;
         }
 
-        const filteredProducts = allProducts.map(p => {
-            if (!p.locacoes || p.locacoes.length === 0) return null;
+        if (!addressPattern.test(startAddress) || !addressPattern.test(endAddress)) {
+            alert("O formato do endereço deve ser DD-L-DD-L (Ex: 01-A-01-A).");
+            return;
+        }
 
-            const validLocacoes = p.locacoes.filter(loc => {
-                const currentLoc = loc.locacao.toUpperCase();
-                return currentLoc >= startAddress && currentLoc <= endAddress;
-            });
-
-            if (validLocacoes.length > 0) {
-                return { ...p, locacoes: validLocacoes };
+        let itemsToRender = [];
+        allProducts.forEach(product => {
+            if (product.locacoes && product.locacoes.length > 0) {
+                product.locacoes.forEach(loc => {
+                    const currentLoc = loc.locacao.toUpperCase();
+                    if (currentLoc >= startAddress && currentLoc <= endAddress) {
+                        itemsToRender.push({ ...product, locacao: loc }); // Flatten
+                    }
+                });
             }
-            return null;
-        }).filter(p => p !== null);
+        });
 
-        renderTable(filteredProducts);
+        // 2. Sort the flattened list
+        itemsToRender.sort((a, b) => {
+            // Primary sort by address (locacao)
+            const locacaoA = a.locacao.locacao.toUpperCase();
+            const locacaoB = b.locacao.locacao.toUpperCase();
+            if (locacaoA < locacaoB) return -1;
+            if (locacaoA > locacaoB) return 1;
+
+            // Secondary sort by product code
+            const codigoA = a.codigo.toUpperCase();
+            const codigoB = b.codigo.toUpperCase();
+            if (codigoA < codigoB) return -1;
+            if (codigoA > codigoB) return 1;
+
+            return 0;
+        });
+
+        renderTable(itemsToRender);
         applyFilters();
     });
 
@@ -366,6 +407,9 @@ document.addEventListener('DOMContentLoaded', async function() {
             btnConfirmMovement.textContent = 'Confirmar Movimentação';
         }
     });
+
+    startAddressInput.addEventListener('input', formatAddressInput);
+    endAddressInput.addEventListener('input', formatAddressInput);
 
     filterNoQuantity.addEventListener('change', applyFilters);
     filterNoValue.addEventListener('change', applyFilters);
