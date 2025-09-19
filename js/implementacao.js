@@ -105,27 +105,46 @@ document.addEventListener('DOMContentLoaded', async function() {
             console.log(`Carregados ${Object.keys(tiposSaidaMap).length} tipos de saída.`);
 
 
-            // Now, find the 'Implementação' type ID to query movements
-            const implementacaoEntryType = Object.values(tiposEntradaMap).find(
-                type => type.nome.toLowerCase() === 'implementação'
-            );
+            // Find necessary movement type IDs
+            const implementacaoEntryType = Object.values(tiposEntradaMap).find(t => t.nome.toLowerCase() === 'implementação');
+            const inventarioEntryType = Object.values(tiposEntradaMap).find(t => t.nome.toLowerCase() === 'inventário');
+            const inventarioExitType = Object.values(tiposSaidaMap).find(t => t.nome.toLowerCase() === 'inventário');
 
-            implementationMovements = {};
+            // Reset and fetch all relevant movements
+            implementationMovements = {}; // This will now be a map of keys to arrays of movements
+
+            const queries = [];
             if (implementacaoEntryType) {
-                const movQuery = query(collection(db, 'movimentacoes'), where("tipo_entradaId", "==", implementacaoEntryType.id));
-                const movementsSnapshot = await getDocs(movQuery);
-
-                movementsSnapshot.docs.forEach(doc => {
-                    const mov = doc.data();
-                    if (mov.productId && mov.locacao) {
-                        const key = `${mov.productId}-${mov.locacao}`;
-                        implementationMovements[key] = { id: doc.id, ...mov };
-                    }
-                });
-                console.log(`Carregados ${Object.keys(implementationMovements).length} movimentos de implementação.`);
-            } else {
-                console.warn('O tipo de entrada "Implementação" não foi encontrado. A tela pode não funcionar como esperado.');
+                queries.push(getDocs(query(collection(db, 'movimentacoes'), where("tipo_entradaId", "==", implementacaoEntryType.id))));
             }
+            if (inventarioEntryType) {
+                queries.push(getDocs(query(collection(db, 'movimentacoes'), where("tipo_entradaId", "==", inventarioEntryType.id))));
+            }
+            if (inventarioExitType) {
+                queries.push(getDocs(query(collection(db, 'movimentacoes'), where("tipo_saidaId", "==", inventarioExitType.id))));
+            }
+
+            const snapshots = await Promise.all(queries);
+
+            const allRelevantMovements = [];
+            snapshots.forEach(snapshot => {
+                snapshot.forEach(doc => {
+                    allRelevantMovements.push({ id: doc.id, ...doc.data() });
+                });
+            });
+
+            // Group movements by product-location key for easy lookup in renderTable
+            allRelevantMovements.forEach(mov => {
+                if (mov.productId && mov.locacao) {
+                    const key = `${mov.productId}-${mov.locacao}`;
+                    if (!implementationMovements[key]) {
+                        implementationMovements[key] = [];
+                    }
+                    implementationMovements[key].push(mov);
+                }
+            });
+
+            console.log(`Carregados ${allRelevantMovements.length} movimentos de inventário/implementação.`);
 
         } catch (error) {
             console.error("Erro ao buscar dados:", error);
@@ -142,12 +161,10 @@ document.addEventListener('DOMContentLoaded', async function() {
         tableBody.innerHTML = '';
 
         if (items.length === 0) {
-            // Updated colspan to 9
-            tableBody.innerHTML = '<tr><td colspan="9" style="text-align:center;">Nenhum item encontrado para o range de endereçamento informado.</td></tr>';
+            tableBody.innerHTML = '<tr><td colspan="10" style="text-align:center;">Nenhum item encontrado para o range de endereçamento informado.</td></tr>';
             return;
         }
 
-        // Helper to get/set pending values from localStorage
         const getPendingQtde = (key) => localStorage.getItem(`pending_qtde_${key}`);
         const setPendingQtde = (key, value) => {
             if (value === '' || value === null || value === undefined) {
@@ -170,17 +187,25 @@ document.addEventListener('DOMContentLoaded', async function() {
             const saldoAtual = loc.estoque || 0;
             const pendingQtde = getPendingQtde(key);
 
-            // --- Find suggested values for cost fields (Valor, ICMS, IPI, Frete) ---
-            const allMovementsForThisProduct = Object.values(implementationMovements)
-                .filter(m => m.productId === product.id && m.data)
-                .sort((a, b) => b.data.toMillis() - a.data.toMillis());
+            // --- Status Column Logic ---
+            let statusCellHtml = '';
+            const movementsForItem = implementationMovements[key] || [];
+            if (movementsForItem.length > 0) {
+                movementsForItem.sort((a, b) => b.data.toMillis() - a.data.toMillis());
+                const lastMovement = movementsForItem[0];
+                if (lastMovement.data) {
+                    const lastUpdateDate = lastMovement.data.toDate().toLocaleString('pt-BR');
+                    statusCellHtml = `<span style="color: #28a745; font-weight: bold;">Atualizado</span><br><small>${lastUpdateDate}</small>`;
+                }
+            }
 
+            // --- Find suggested values for cost fields ---
+            const allMovementsForThisProduct = Object.values(implementationMovements).flat().filter(m => m.productId === product.id && m.tipo === 'entrada' && m.custo_total_entrada > 0 && m.data).sort((a, b) => b.data.toMillis() - a.data.toMillis());
             let suggestedData = { valor_unitario: '', icms: '', ipi: '', frete: '' };
             if (allMovementsForThisProduct.length > 0) {
                 suggestedData = allMovementsForThisProduct[0];
             }
 
-            // --- Create input fields ---
             const qtdeInputHtml = `<input type="number" class="form-control qtde-input" value="${pendingQtde || ''}" min="0" step="any" placeholder="Nova Qtde">`;
             const valueInputHtml = `<input type="number" class="form-control value-input" value="${suggestedData.valor_unitario || ''}" min="0" step="0.01" title="Valor sugerido da última implementação deste produto">`;
             const icmsInputHtml = `<input type="number" class="form-control icms-input" value="${suggestedData.icms || ''}" min="0" step="0.01" title="ICMS sugerido da última implementação deste produto">`;
@@ -197,10 +222,10 @@ document.addEventListener('DOMContentLoaded', async function() {
                 <td>${icmsInputHtml}</td>
                 <td>${ipiInputHtml}</td>
                 <td>${freteInputHtml}</td>
+                <td>${statusCellHtml}</td>
             `;
             tableBody.appendChild(row);
 
-            // Add event listener for the new qtde input to save to localStorage
             const qtdeInput = row.querySelector('.qtde-input');
             qtdeInput.addEventListener('input', (e) => {
                 setPendingQtde(key, e.target.value);
