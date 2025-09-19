@@ -72,7 +72,7 @@ document.addEventListener('DOMContentLoaded', async function() {
     const btnConfirmMovement = document.getElementById('btn-confirm-movement');
 
     let allProducts = [];
-    let implementationMovements = {};
+    let allImplementationMovements = []; // Corrected: To store all implementation movements
     let tiposEntradaMap = {};
     let tiposSaidaMap = {};
     let tempInventoryData = {};
@@ -109,7 +109,20 @@ document.addEventListener('DOMContentLoaded', async function() {
                 tempInventoryData[doc.id] = doc.data();
             });
 
-            console.log(`Dados carregados: ${allProducts.length} produtos, ${Object.keys(tiposEntradaMap).length} tipos de entrada, ${Object.keys(tiposSaidaMap).length} tipos de saída, ${Object.keys(tempInventoryData).length} itens de inventário temporário.`);
+            // Corrected: Fetch all implementation movements for suggestions
+            const implementacaoEntryType = Object.values(tiposEntradaMap).find(
+                type => type.nome.toLowerCase() === 'implementação'
+            );
+            allImplementationMovements = [];
+            if (implementacaoEntryType) {
+                const movQuery = query(collection(db, 'movimentacoes'), where("tipo_entradaId", "==", implementacaoEntryType.id));
+                const movementsSnapshot = await getDocs(movQuery);
+                movementsSnapshot.forEach(doc => {
+                    allImplementationMovements.push(doc.data());
+                });
+            }
+
+            console.log(`Dados carregados: ${allProducts.length} produtos, ${allImplementationMovements.length} movimentos de implementação, ${Object.keys(tempInventoryData).length} itens de inventário temporário.`);
 
         } catch (error) {
             console.error("Erro ao buscar dados:", error);
@@ -150,12 +163,30 @@ document.addEventListener('DOMContentLoaded', async function() {
 
             let valueInputHtml, icmsInputHtml, ipiInputHtml, freteInputHtml;
 
-            const isValorDisabled = saldoAtual > 0;
+            if (saldoAtual > 0) {
+                // Adjustment: fields are disabled and empty
+                const title = 'O valor só é informado na implementação inicial.';
+                valueInputHtml = `<input type="number" class="form-control value-input" value="" min="0" step="0.01" disabled title="${title}">`;
+                icmsInputHtml = `<input type="number" class="form-control icms-input" value="" min="0" step="0.01" disabled>`;
+                ipiInputHtml = `<input type="number" class="form-control ipi-input" value="" min="0" step="0.01" disabled>`;
+                freteInputHtml = `<input type="number" class="form-control frete-input" value="" min="0" step="0.01" disabled>`;
+            } else {
+                // Initial Implementation: fields are enabled and suggest values
+                const allMovementsForThisProduct = allImplementationMovements
+                    .filter(m => m.productId === product.id && m.data)
+                    .sort((a, b) => b.data.toMillis() - a.data.toMillis());
 
-            valueInputHtml = `<input type="number" class="form-control value-input" value="" min="0" step="0.01" ${isValorDisabled ? 'disabled' : 'required'} title="${isValorDisabled ? 'O valor só é informado na implementação inicial.' : 'Valor unitário é obrigatório para implementação.'}">`;
-            icmsInputHtml = `<input type="number" class="form-control icms-input" value="" min="0" step="0.01" ${isValorDisabled ? 'disabled' : ''}>`;
-            ipiInputHtml = `<input type="number" class="form-control ipi-input" value="" min="0" step="0.01" ${isValorDisabled ? 'disabled' : ''}>`;
-            freteInputHtml = `<input type="number" class="form-control frete-input" value="" min="0" step="0.01" ${isValorDisabled ? 'disabled' : ''}>`;
+                let suggestedData = { valor_unitario: '', icms: '', ipi: '', frete: '' };
+                if (allMovementsForThisProduct.length > 0) {
+                    suggestedData = allMovementsForThisProduct[0];
+                }
+
+                const title = 'Valor unitário é obrigatório para implementação.';
+                valueInputHtml = `<input type="number" class="form-control value-input" value="${suggestedData.valor_unitario || ''}" min="0" step="0.01" required title="${title}">`;
+                icmsInputHtml = `<input type="number" class="form-control icms-input" value="${suggestedData.icms || ''}" min="0" step="0.01">`;
+                ipiInputHtml = `<input type="number" class="form-control ipi-input" value="${suggestedData.ipi || ''}" min="0" step="0.01">`;
+                freteInputHtml = `<input type="number" class="form-control frete-input" value="${suggestedData.frete || ''}" min="0" step="0.01">`;
+            }
 
             row.innerHTML = `
                 <td>${product.codigo}</td>
