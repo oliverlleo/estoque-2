@@ -142,8 +142,8 @@ document.addEventListener('DOMContentLoaded', async function() {
         tableBody.innerHTML = '';
 
         if (items.length === 0) {
-            // Updated colspan to 9
-            tableBody.innerHTML = '<tr><td colspan="9" style="text-align:center;">Nenhum item encontrado para o range de endereçamento informado.</td></tr>';
+            // Updated colspan to 10
+            tableBody.innerHTML = '<tr><td colspan="10" style="text-align:center;">Nenhum item encontrado para o range de endereçamento informado.</td></tr>';
             return;
         }
 
@@ -170,6 +170,12 @@ document.addEventListener('DOMContentLoaded', async function() {
             const saldoAtual = loc.estoque || 0;
             const pendingQtde = getPendingQtde(key);
 
+            // Check if the item has an initial implementation movement
+            const isImplemented = implementationMovements[key];
+            const statusHtml = isImplemented
+                ? `<td class="status-implementado" style="color: green; font-weight: bold;">Atualizado</td>`
+                : `<td>-</td>`;
+
             // --- Find suggested values for cost fields (Valor, ICMS, IPI, Frete) ---
             const allMovementsForThisProduct = Object.values(implementationMovements)
                 .filter(m => m.productId === product.id && m.data)
@@ -191,6 +197,7 @@ document.addEventListener('DOMContentLoaded', async function() {
                 <td>${product.codigo}</td>
                 <td>${product.descricao}</td>
                 <td>${loc.locacao}</td>
+                ${statusHtml}
                 <td class="saldo-atual">${saldoAtual}</td>
                 <td>${qtdeInputHtml}</td>
                 <td>${valueInputHtml}</td>
