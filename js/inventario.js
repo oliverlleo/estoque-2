@@ -286,7 +286,7 @@ document.addEventListener('DOMContentLoaded', async function() {
         applyFilters();
     });
 
-    // --- CONFIRM MOVEMENT LOGIC (REBUILT) ---
+    // --- CONFIRM MOVEMENT LOGIC (REBUILT AND FIXED) ---
     btnConfirmMovement.addEventListener('click', async () => {
         const rowsToProcess = Array.from(tableBody.querySelectorAll('tr:not([style*="display: none"])'));
 
@@ -295,16 +295,9 @@ document.addEventListener('DOMContentLoaded', async function() {
             return;
         }
 
-        // --- Find necessary movement types ---
-        const implementacaoEntryType = Object.values(tiposEntradaMap).find(
-            type => type.nome.toLowerCase() === 'implementação'
-        );
-        const inventarioEntryType = Object.values(tiposEntradaMap).find(
-            type => type.nome.toLowerCase() === 'inventário'
-        );
-        const inventarioExitType = Object.values(tiposSaidaMap).find(
-            type => type.nome.toLowerCase() === 'inventário'
-        );
+        const implementacaoEntryType = Object.values(tiposEntradaMap).find(type => type.nome.toLowerCase() === 'implementação');
+        const inventarioEntryType = Object.values(tiposEntradaMap).find(type => type.nome.toLowerCase() === 'inventário');
+        const inventarioExitType = Object.values(tiposSaidaMap).find(type => type.nome.toLowerCase() === 'inventário');
 
         if (!implementacaoEntryType) {
             alert('Erro Crítico: O tipo de entrada "Implementação" não foi encontrado. Crie-o em "Configurações -> Tipos de Entrada".');
@@ -324,6 +317,7 @@ document.addEventListener('DOMContentLoaded', async function() {
 
         const productsToUpdateCost = new Set();
         const keysToClearFromStorage = [];
+        const newMemoryMovements = {};
 
         try {
             const conversoesSnapshot = await getDocs(collection(db, 'conversoes'));
@@ -333,14 +327,12 @@ document.addEventListener('DOMContentLoaded', async function() {
             await runTransaction(db, async (transaction) => {
                 const productsToUpdate = new Map();
 
-                // Pre-fetch all product data needed for the transaction
                 for (const row of rowsToProcess) {
                     const productId = row.dataset.productId;
                     if (productId && !productsToUpdate.has(productId)) {
                         const productRef = doc(db, 'produtos', productId);
                         const productDoc = await transaction.get(productRef);
                         if (!productDoc.exists()) throw new Error(`Produto com ID ${productId} não encontrado.`);
-                        // Deep copy locacoes to avoid mutation issues
                         const productData = { ...productDoc.data(), locacoes: JSON.parse(JSON.stringify(productDoc.data().locacoes)) };
                         productsToUpdate.set(productId, productData);
                     }
@@ -348,31 +340,24 @@ document.addEventListener('DOMContentLoaded', async function() {
 
                 for (const row of rowsToProcess) {
                     const qtdeInput = row.querySelector('.qtde-input');
-                    if (!qtdeInput || !qtdeInput.value) {
-                        continue; // Skip if no quantity is entered
-                    }
+                    if (!qtdeInput || !qtdeInput.value) continue;
 
                     const productId = row.dataset.productId;
                     const locacaoStr = row.dataset.locacao;
                     const saldoAtual = parseFloat(row.querySelector('.saldo-atual').textContent) || 0;
                     const qtde = parseFloat(qtdeInput.value);
                     const valorUnit = parseFloat(row.querySelector('.value-input').value) || 0;
-
+                    const key = `${productId}-${locacaoStr}`;
                     const productData = productsToUpdate.get(productId);
+
                     if (!productData) continue;
 
                     const locacaoIndex = productData.locacoes.findIndex(l => l.locacao === locacaoStr);
                     if (locacaoIndex === -1) throw new Error(`Locação ${locacaoStr} não encontrada no produto ${productData.codigo}.`);
 
-                    const key = `${productId}-${locacaoStr}`;
-
-                    // --- LOGIC IMPLEMENTATION ---
-
                     if (saldoAtual === 0) {
-                        // Scenario 1: Initial Implementation
                         if (valorUnit <= 0) {
-                            // Don't process, but keep qtde in localStorage
-                            continue;
+                            continue; // Skip if no value, but keep localStorage
                         }
 
                         let quantidadeParaEstoque = qtde;
@@ -391,91 +376,70 @@ document.addEventListener('DOMContentLoaded', async function() {
                         const frete = parseFloat(row.querySelector('.frete-input').value) || 0;
                         const custoTotal = (quantidadeCompra * valorUnit) + icms + ipi + frete;
 
-                        // Update stock
                         if (implementacaoEntryType.movimenta_estoque) {
                             productData.locacoes[locacaoIndex].estoque = quantidadeParaEstoque;
                         }
 
-                        // Create movement
                         const newMovementRef = doc(collection(db, 'movimentacoes'));
-                        transaction.set(newMovementRef, {
-                            productId: productId,
-                            tipo: 'entrada',
-                            tipo_entradaId: implementacaoEntryType.id,
-                            quantidade: quantidadeParaEstoque,
-                            quantidade_compra: quantidadeCompra,
-                            locacao: locacaoStr,
-                            data: serverTimestamp(),
+                        const movementData = {
+                            productId, tipo: 'entrada', tipo_entradaId: implementacaoEntryType.id,
+                            quantidade: quantidadeParaEstoque, quantidade_compra: quantidadeCompra,
+                            locacao: locacaoStr, data: serverTimestamp(),
                             observacao: `Implementação inicial de inventário.`,
-                            valor_unitario: valorUnit,
-                            icms, ipi, frete,
-                            custo_total_entrada: custoTotal
-                        });
+                            valor_unitario: valorUnit, icms, ipi, frete, custo_total_entrada: custoTotal
+                        };
+                        transaction.set(newMovementRef, movementData);
 
                         productsToUpdateCost.add(productId);
                         keysToClearFromStorage.push(key);
+                        newMemoryMovements[key] = movementData; // For status update
 
                     } else {
-                        // Scenario 2: Inventory Adjustment
                         const diff = qtde - saldoAtual;
                         if (diff === 0) {
-                            keysToClearFromStorage.push(key); // Clear storage if user sets qtde to current saldo
+                            keysToClearFromStorage.push(key);
                             continue;
                         }
 
-                        // Update stock
                         productData.locacoes[locacaoIndex].estoque = qtde;
 
-                        // Create adjustment movement (no cost)
                         const newMovementRef = doc(collection(db, 'movimentacoes'));
                         if (diff > 0) {
-                            // Positive adjustment -> ENTRADA
                             transaction.set(newMovementRef, {
-                                productId,
-                                tipo: 'entrada',
-                                tipo_entradaId: inventarioEntryType.id,
-                                quantidade: diff,
-                                locacao: locacaoStr,
-                                data: serverTimestamp(),
+                                productId, tipo: 'entrada', tipo_entradaId: inventarioEntryType.id,
+                                quantidade: diff, locacao: locacaoStr, data: serverTimestamp(),
                                 observacao: `Ajuste de inventário (Entrada). Saldo anterior: ${saldoAtual}.`
                             });
                         } else {
-                            // Negative adjustment -> SAIDA
                             transaction.set(newMovementRef, {
-                                productId,
-                                tipo: 'saida',
-                                tipo_saidaId: inventarioExitType.id,
-                                quantidade: Math.abs(diff),
-                                locacao: locacaoStr,
-                                data: serverTimestamp(),
+                                productId, tipo: 'saida', tipo_saidaId: inventarioExitType.id,
+                                quantidade: Math.abs(diff), locacao: locacaoStr, data: serverTimestamp(),
                                 observacao: `Ajuste de inventário (Saída). Saldo anterior: ${saldoAtual}.`
                             });
                         }
                         keysToClearFromStorage.push(key);
                     }
-                } // End of row loop
+                }
 
-                // Commit all product updates
                 for (const [productId, productData] of productsToUpdate.entries()) {
                     const productRef = doc(db, 'produtos', productId);
                     transaction.update(productRef, { locacoes: productData.locacoes });
                 }
-            }); // End of transaction
+            });
 
-            // --- Post-Transaction Operations ---
+            Object.assign(implementationMovements, newMemoryMovements);
 
-            // Recalculate average cost only for affected products
             if (productsToUpdateCost.size > 0 && implementacaoEntryType.recalcula_custo_medio) {
                 console.log("Recalculando custo médio para produtos de implementação...");
                 const costUpdatePromises = Array.from(productsToUpdateCost).map(id => atualizarCustoMedioProduto(id));
                 await Promise.all(costUpdatePromises);
             }
 
-            // Clear localStorage for processed items
             keysToClearFromStorage.forEach(key => localStorage.removeItem(`pending_qtde_${key}`));
 
-            alert("Operação concluída com sucesso! Os dados serão atualizados.");
-            await fetchAllData();
+            alert("Operação concluída com sucesso! A tela será atualizada.");
+            renderTable(itemsToRender); // Re-render with in-memory changes for immediate feedback
+            await fetchAllData(); // Fetch fresh data in the background
             btnListItems.click();
 
         } catch (error) {
