@@ -335,6 +335,20 @@ document.addEventListener('DOMContentLoaded', async function() {
         data.forEach(mov => {
             const row = document.createElement('tr');
             const searchData = mov._search_data;
+            const product = productsMap[mov.productId] || {};
+            const standardUnit = product.un || '';
+
+            let quantidadeCellHtml = '';
+            // Use toFixed to avoid floating point comparison issues
+            const qtyCompra = mov.quantidade_compra ? Number(mov.quantidade_compra).toFixed(4) : null;
+            const qtyEstoque = mov.quantidade ? Number(mov.quantidade).toFixed(4) : null;
+
+            if (mov.tipo === 'entrada' && qtyCompra && mov.un_compra && qtyCompra !== qtyEstoque) {
+                quantidadeCellHtml = `${Number(mov.quantidade_compra).toLocaleString('pt-BR')} ${mov.un_compra} <span style="color: red; font-weight: bold;">&rarr;</span> ${Number(mov.quantidade).toLocaleString('pt-BR', { minimumFractionDigits: 3, maximumFractionDigits: 3 })} ${standardUnit}`;
+            } else {
+                quantidadeCellHtml = Number(mov.quantidade).toLocaleString('pt-BR');
+            }
+
             const valorUnitarioFmt = mov.valor_unitario ? parseFloat(mov.valor_unitario).toFixed(2) : '-';
             const icmsFmt = mov.icms ? parseFloat(mov.icms).toFixed(2) : '-';
             const ipiFmt = mov.ipi ? parseFloat(mov.ipi).toFixed(2) : '-';
@@ -352,7 +366,7 @@ document.addEventListener('DOMContentLoaded', async function() {
                 <td>${searchData.codigo || 'N/A'}</td>
                 <td>${searchData.descricao || 'Produto não encontrado'}</td>
                 <td>${searchData.un || 'N/A'}</td>
-                <td>${searchData.quantidade}</td>
+                <td>${quantidadeCellHtml}</td>
                 <td>${searchData.nf || '-'}</td>
                 <td>${valorUnitarioFmt}</td>
                 <td title="${icmsTitle}">${icmsFmt}</td>
