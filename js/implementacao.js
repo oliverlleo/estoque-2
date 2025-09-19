@@ -368,25 +368,19 @@ document.addEventListener('DOMContentLoaded', async function() {
                             continue;
                         }
 
-                        let quantidadeParaEstoque = qtde;
-                        let quantidadeCompra = qtde;
-                        if (productData.conversaoId && conversoesMap.has(productData.conversaoId)) {
-                            const regra = conversoesMap.get(productData.conversaoId);
-                            const fator_qtd_compra = parseFloat(String(regra.qtd_compra).replace(',', '.'));
-                            const fator_qtd_padrao = parseFloat(String(regra.qtd_padrao).replace(',', '.'));
-                            if (fator_qtd_compra > 0) {
-                                quantidadeParaEstoque = (qtde / fator_qtd_compra) * fator_qtd_padrao;
-                            }
-                        }
+                        // BUG FIX: The conversion logic was incorrectly applied during initial implementation.
+                        // The user enters the quantity and value in the standard unit on this screen,
+                        // so no conversion should take place.
+                        const quantidade = qtde; // Use qtde directly from the input
 
                         const icms = parseFloat(row.querySelector('.icms-input').value) || 0;
                         const ipi = parseFloat(row.querySelector('.ipi-input').value) || 0;
                         const frete = parseFloat(row.querySelector('.frete-input').value) || 0;
-                        const custoTotal = (quantidadeCompra * valorUnit) + icms + ipi + frete;
+                        const custoTotal = (quantidade * valorUnit) + icms + ipi + frete;
 
                         // Update stock
                         if (implementacaoEntryType.movimenta_estoque) {
-                            productData.locacoes[locacaoIndex].estoque = quantidadeParaEstoque;
+                            productData.locacoes[locacaoIndex].estoque = quantidade;
                         }
 
                         // Create movement
@@ -395,8 +389,8 @@ document.addEventListener('DOMContentLoaded', async function() {
                             productId: productId,
                             tipo: 'entrada',
                             tipo_entradaId: implementacaoEntryType.id,
-                            quantidade: quantidadeParaEstoque,
-                            quantidade_compra: quantidadeCompra,
+                            quantidade: quantidade, // This is the quantity in the standard unit
+                            quantidade_compra: quantidade, // For consistency, as no conversion happened
                             locacao: locacaoStr,
                             data: serverTimestamp(),
                             observacao: `Implementação inicial de inventário.`,
