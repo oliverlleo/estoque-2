@@ -70,15 +70,13 @@ document.addEventListener('DOMContentLoaded', async function() {
                 }
             }
 
-            const valorTotalEstoque = estoqueAtual * valorMedioAjustado;
-
             return {
                 ...product,
                 estoque: estoqueAtual,
                 cor: product.cor || '-', // Adiciona o campo cor
                 quantidadeReservada: quantidadeReservada, // Adiciona o campo de reserva
                 valorMedio: valorMedioAjustado, // Usa o valor ajustado para exibição
-                valorTotalEstoque: valorTotalEstoque,
+                valorTotalEstoque: estoqueAtual * valorMedioAjustado,
                 local: locacaoCompleta
             };
         });
