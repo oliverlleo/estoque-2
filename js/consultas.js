@@ -60,23 +60,13 @@ document.addEventListener('DOMContentLoaded', async function() {
             const quantidadeReservada = reservasMap[productId] || 0;
             const valorMedio = product.valorMedio || 0;
 
-            let valorMedioAjustado = valorMedio;
-            if (product.conversaoId && conversoesMap[product.conversaoId]) {
-                const regra = conversoesMap[product.conversaoId];
-                const qtdCompra = parseFloat(String(regra.qtd_compra).replace(',', '.'));
-                const qtdPadrao = parseFloat(String(regra.qtd_padrao).replace(',', '.'));
-                if (qtdPadrao > 0) {
-                    valorMedioAjustado = valorMedio * (qtdCompra / qtdPadrao);
-                }
-            }
-
             return {
                 ...product,
                 estoque: estoqueAtual,
                 cor: product.cor || '-', // Adiciona o campo cor
                 quantidadeReservada: quantidadeReservada, // Adiciona o campo de reserva
-                valorMedio: valorMedioAjustado, // Usa o valor ajustado para exibição
-                valorTotalEstoque: estoqueAtual * valorMedioAjustado,
+                valorMedio: valorMedio, // Usa o valor ajustado para exibição
+                valorTotalEstoque: estoqueAtual * valorMedio,
                 local: locacaoCompleta
             };
         });
