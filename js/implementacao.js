@@ -182,6 +182,7 @@ document.addEventListener('DOMContentLoaded', async function() {
         applyFilters();
     });
 
+    // --- CONFIRM MOVEMENT LOGIC (LÓGICA INVERTIDA FINAL) ---
     btnConfirmMovement.addEventListener('click', async () => {
         const rowsToProcess = Array.from(tableBody.querySelectorAll('tr:not([style*="display: none"])'));
         if (rowsToProcess.length === 0 || !rowsToProcess[0].dataset.productId) {
@@ -236,6 +237,37 @@ document.addEventListener('DOMContentLoaded', async function() {
                     const locacaoIndex = productData.locacoes.findIndex(l => l.locacao === locacao);
                     if (locacaoIndex === -1) throw new Error(`Locação ${locacao} não encontrada para o produto ${productData.codigo}`);
 
+                    // LÓGICA INVERTIDA
+                    // Alteração de VALOR cria/atualiza a 'Implementação'
+                    if (valChanged) {
+                        const custoTotal = (newQty * newVal) + icms + ipi + frete;
+                        if (isNewImplementation) {
+                             if (newQty > 0 && newVal > 0) {
+                                const newMovementRef = doc(collection(db, 'movimentacoes'));
+                                transaction.set(newMovementRef, {
+                                    productId, locacao, tipo: 'entrada',
+                                    tipo_entradaId: implementacaoEntryType.id,
+                                    quantidade: newQty, valor_unitario: newVal,
+                                    icms, ipi, frete, custo_total_entrada: custoTotal,
+                                    data: serverTimestamp(),
+                                    observacao: 'Implementação inicial via tela de inventário.'
+                                });
+                                productsToUpdateCost.add(productId);
+                             }
+                        } else {
+                            const movementRef = doc(db, 'movimentacoes', movementId);
+                            transaction.update(movementRef, {
+                                valor_unitario: newVal, icms, ipi, frete,
+                                custo_total_entrada: custoTotal,
+                                data_atualizacao: serverTimestamp()
+                            });
+                            if (originalVal.toFixed(2) === '0.00' && newVal > 0) {
+                                productsToUpdateCost.add(productId);
+                            }
+                        }
+                    }
+
+                    // Alteração de QUANTIDADE cria o ajuste de 'inventario'
                     if (qtyChanged) {
                         productData.locacoes[locacaoIndex].estoque = newQty;
                         const inventoryMovementRef = doc(collection(db, 'movimentacoes'));
@@ -253,34 +285,6 @@ document.addEventListener('DOMContentLoaded', async function() {
                             movementData.quantidade = originalQty - newQty;
                         }
                         transaction.set(inventoryMovementRef, movementData);
-                    }
-
-                    if (valChanged) {
-                        const custoTotal = (isNewImplementation ? newQty : originalQty) * newVal + icms + ipi + frete;
-                        if (isNewImplementation) {
-                            if (newQty > 0 && newVal > 0) {
-                                const newMovementRef = doc(collection(db, 'movimentacoes'));
-                                transaction.set(newMovementRef, {
-                                    productId, locacao, tipo: 'entrada',
-                                    tipo_entradaId: implementacaoEntryType.id,
-                                    quantidade: newQty, valor_unitario: newVal,
-                                    icms, ipi, frete, custo_total_entrada: custoTotal,
-                                    data: serverTimestamp(),
-                                    observacao: 'Implementação inicial via tela de inventário.'
-                                });
-                                productsToUpdateCost.add(productId);
-                            }
-                        } else {
-                            const movementRef = doc(db, 'movimentacoes', movementId);
-                            transaction.update(movementRef, {
-                                valor_unitario: newVal, icms, ipi, frete,
-                                custo_total_entrada: custoTotal,
-                                data_atualizacao: serverTimestamp()
-                            });
-                            if (originalVal.toFixed(2) === '0.00' && newVal > 0) {
-                                productsToUpdateCost.add(productId);
-                            }
-                        }
                     }
                 }
 
