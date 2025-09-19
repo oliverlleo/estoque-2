@@ -36,7 +36,7 @@ async function atualizarCustoMedioProduto(produtoId) {
 
 
 document.addEventListener('DOMContentLoaded', async function() {
-    console.log("Página de Implementação carregada.");
+    console.log("Página de Inventario carregada.");
 
     function formatAddressInput(e) {
         let value = e.target.value.toUpperCase().replace(/[^A-Z0-9]/g, '');
@@ -430,7 +430,7 @@ document.addEventListener('DOMContentLoaded', async function() {
                             quantidade_compra: quantidade, // For consistency, as no conversion happened
                             locacao: locacaoStr,
                             data: serverTimestamp(),
-                            observacao: `Implementação inicial de inventário.`,
+                            observacao: `Inventário inicial.`,
                             valor_unitario: valorUnit,
                             icms, ipi, frete,
                             custo_total_entrada: custoTotal
