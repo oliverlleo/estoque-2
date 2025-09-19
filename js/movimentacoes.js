@@ -242,7 +242,7 @@ document.addEventListener('DOMContentLoaded', async function() {
             }
 
             const quantidadeDisplay = isXmlImport ? mov.quantidade_compra : mov.quantidade;
-            const unidadeDisplay = isXmlImport ? mov.un_compra : product.un;
+            const unidadeDisplay = mov.un_compra || product.un;
 
             const processedMov = {
                 ...mov,
@@ -466,11 +466,13 @@ document.addEventListener('DOMContentLoaded', async function() {
                     let custoTotalEntrada = (quantidade * valorUnitario) + icms + ipi + frete;
 
                     // Criação do documento de movimentação
+                    const selectedUnit = document.getElementById('mov-unidade-selecao').value;
                     const movementRef = doc(collection(db, 'movimentacoes'));
                     const movementData = {
                         tipo: 'entrada',
                         productId,
                         locacao: locacaoSelecionada, // Campo novo
+                        un_compra: selectedUnit || productData.un, // Salva a unidade de compra selecionada
                         data: serverTimestamp(),
                         tipo_entradaId: tipoEntradaId,
                         nf: document.getElementById('mov-nf').value,
