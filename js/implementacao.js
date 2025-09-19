@@ -287,14 +287,12 @@ document.addEventListener('DOMContentLoaded', async function() {
 
                     const originalVal = parseFloat(row.dataset.originalValue);
                     const newQty = parseFloat(row.querySelector('.quantity-input').value) || 0;
-                    const newValUnsafe = row.querySelector('.value-input').value;
-                    const newVal = parseFloat(newValUnsafe) || 0;
+                    const newVal = parseFloat(row.querySelector('.value-input').value) || 0;
 
                     const icms = parseFloat(row.querySelector('.icms-input').value) || 0;
                     const ipi = parseFloat(row.querySelector('.ipi-input').value) || 0;
                     const frete = parseFloat(row.querySelector('.frete-input').value) || 0;
 
-                    // Compara a string formatada para evitar erros de ponto flutuante
                     const qtyChanged = newQty !== originalQty;
                     const valChanged = newVal.toFixed(2) !== originalVal.toFixed(2);
 
@@ -308,18 +306,23 @@ document.addEventListener('DOMContentLoaded', async function() {
                     if (locacaoIndex === -1) throw new Error(`Locação ${locacao} não encontrada para o produto ${productData.codigo}`);
 
                     if (qtyChanged) {
-                        const diff = newQty - originalQty;
                         productData.locacoes[locacaoIndex].estoque = newQty;
-
                         const inventoryMovementRef = doc(collection(db, 'movimentacoes'));
-                        transaction.set(inventoryMovementRef, {
+                        let movementData = {
                             productId, locacao,
                             tipo: 'inventario',
-                            subTipo: diff > 0 ? 'entrada' : 'saida',
-                            quantidade: Math.abs(diff),
                             data: serverTimestamp(),
                             observacao: `Ajuste de ${originalQty} para ${newQty} via tela de inventário.`
-                        });
+                        };
+
+                        if (newQty > originalQty) {
+                            movementData.subTipo = 'entrada';
+                            movementData.quantidade = newQty - originalQty;
+                        } else {
+                            movementData.subTipo = 'saida';
+                            movementData.quantidade = originalQty - newQty;
+                        }
+                        transaction.set(inventoryMovementRef, movementData);
                     }
 
                     if (valChanged) {
