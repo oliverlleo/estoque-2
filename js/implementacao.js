@@ -181,7 +181,7 @@ document.addEventListener('DOMContentLoaded', async function() {
     }
 
 
-    // --- EVENT LISTENERS & FILTERS (sem alterações) ---
+    // --- EVENT LISTENERS & FILTERS ---
     function applyFilters() {
         const noQuantityChecked = filterNoQuantity.checked;
         const noValueChecked = filterNoValue.checked;
@@ -230,20 +230,15 @@ document.addEventListener('DOMContentLoaded', async function() {
             }
         });
 
-        // 2. Sort the flattened list
         itemsToRender.sort((a, b) => {
-            // Primary sort by address (locacao)
-            const locacaoA = a.locacao.locacao.toUpperCase();
-            const locacaoB = b.locacao.locacao.toUpperCase();
-            if (locacaoA < locacaoB) return -1;
-            if (locacaoA > locacaoB) return 1;
-
-            // Secondary sort by product code
-            const codigoA = a.codigo.toUpperCase();
-            const codigoB = b.codigo.toUpperCase();
-            if (codigoA < codigoB) return -1;
-            if (codigoA > codigoB) return 1;
-
+            const locA = a.locacao.locacao.toUpperCase();
+            const locB = b.locacao.locacao.toUpperCase();
+            if (locA < locB) return -1;
+            if (locA > locB) return 1;
+            const codA = a.codigo.toUpperCase();
+            const codB = b.codigo.toUpperCase();
+            if (codA < codB) return -1;
+            if (codA > codB) return 1;
             return 0;
         });
 
@@ -251,137 +246,135 @@ document.addEventListener('DOMContentLoaded', async function() {
         applyFilters();
     });
 
-    // --- CONFIRM MOVEMENT LOGIC (REBUILT) ---
+    // --- CONFIRM MOVEMENT LOGIC (RECONSTRUÍDO E CORRIGIDO) ---
     btnConfirmMovement.addEventListener('click', async () => {
         const rowsToProcess = Array.from(tableBody.querySelectorAll('tr:not([style*="display: none"])'));
-
         if (rowsToProcess.length === 0 || !rowsToProcess[0].dataset.productId) {
             alert("Nenhum item visível para processar.");
             return;
         }
 
-        // 1. Encontrar o tipo de entrada "Implementação"
-        const implementacaoEntryType = Object.values(tiposEntradaMap).find(
-            type => type.nome.toLowerCase() === 'implementação'
-        );
-
+        const implementacaoEntryType = Object.values(tiposEntradaMap).find(t => t.nome.toLowerCase() === 'implementação');
         if (!implementacaoEntryType) {
-            alert('Erro Crítico: O tipo de entrada "Implementação" não foi encontrado nas configurações. Por favor, vá em "Configurações -> Tipos de Entrada" e crie um com o nome exato "Implementação".');
+            alert('Erro Crítico: O tipo de entrada "Implementação" não foi encontrado.');
             return;
         }
 
-        if (!confirm(`Confirmar as alterações para os itens visíveis?`)) {
-            return;
-        }
+        if (!confirm(`Confirmar as alterações para os itens visíveis?`)) return;
 
         btnConfirmMovement.disabled = true;
         btnConfirmMovement.textContent = 'Processando...';
 
         const productsToUpdateCost = new Set();
+        const productsDataCache = new Map();
 
         try {
-            // Pré-busca de todas as regras de conversão para evitar leituras dentro do loop da transação
-            const conversoesSnapshot = await getDocs(collection(db, 'conversoes'));
-            const conversoesMap = new Map();
-            conversoesSnapshot.forEach(doc => conversoesMap.set(doc.id, doc.data()));
-
             await runTransaction(db, async (transaction) => {
-                const productsToUpdateStock = new Map();
-
+                // Pré-carregar dados dos produtos para evitar leituras repetidas
                 for (const row of rowsToProcess) {
-                    const quantityInput = row.querySelector('.quantity-input');
-                    const isNewImplementation = !quantityInput.disabled && parseFloat(quantityInput.value) > 0;
-
-                    if (isNewImplementation) {
-                        const productId = row.dataset.productId;
-                        if (!productsToUpdateStock.has(productId)) {
-                            const productRef = doc(db, 'produtos', productId);
-                            const productDoc = await transaction.get(productRef);
-                            if (!productDoc.exists()) throw new Error(`Produto com ID ${productId} não encontrado.`);
-                            productsToUpdateStock.set(productId, { ...productDoc.data(), locacoes: JSON.parse(JSON.stringify(productDoc.data().locacoes)) });
-                        }
+                    const productId = row.dataset.productId;
+                    if (!productsDataCache.has(productId)) {
+                        const productRef = doc(db, 'produtos', productId);
+                        const productDoc = await transaction.get(productRef);
+                        if (!productDoc.exists()) throw new Error(`Produto ${productId} não encontrado.`);
+                        productsDataCache.set(productId, productDoc.data());
                     }
                 }
 
                 for (const row of rowsToProcess) {
-                    const quantityInput = row.querySelector('.quantity-input');
-                    const quantity = parseFloat(quantityInput.value) || 0;
-                    const isAlreadyImplemented = quantityInput.disabled;
                     const productId = row.dataset.productId;
+                    const locacao = row.dataset.locacao;
+                    const movementId = row.dataset.movementId;
+                    const originalQty = parseFloat(row.dataset.originalQuantity);
+                    const originalVal = parseFloat(row.dataset.originalValue);
 
-                    const value = parseFloat(row.querySelector('.value-input').value) || 0;
+                    const newQty = parseFloat(row.querySelector('.quantity-input').value) || 0;
+                    const newVal = parseFloat(row.querySelector('.value-input').value) || 0;
                     const icms = parseFloat(row.querySelector('.icms-input').value) || 0;
                     const ipi = parseFloat(row.querySelector('.ipi-input').value) || 0;
                     const frete = parseFloat(row.querySelector('.frete-input').value) || 0;
 
-                    if (isAlreadyImplemented) {
-                        const movementId = row.dataset.movementId;
-                        if (movementId) {
-                            const movementRef = doc(db, 'movimentacoes', movementId);
-                            const custoTotal = (quantity * value) + icms + ipi + frete;
-                            transaction.update(movementRef, {
-                                valor_unitario: value,
-                                icms: icms,
-                                ipi: ipi,
-                                frete: frete,
+                    const qtyChanged = newQty !== originalQty;
+                    const valChanged = newVal.toFixed(2) !== originalVal.toFixed(2);
+
+                    // **A CORREÇÃO PRINCIPAL ESTÁ AQUI**
+                    // Pula a linha se NADA foi alterado pelo usuário.
+                    if (!qtyChanged && !valChanged) {
+                        continue;
+                    }
+
+                    const isNewImplementation = !movementId;
+                    const productData = productsDataCache.get(productId);
+                    const locacaoIndex = productData.locacoes.findIndex(l => l.locacao === locacao);
+                    if (locacaoIndex === -1) throw new Error(`Locação ${locacao} não encontrada para o produto ${productData.codigo}`);
+
+                    // Cenário 1: Nova Implementação (item sem movimentação prévia)
+                    if (isNewImplementation) {
+                        // Só cria a movimentação se tiver quantidade E valor.
+                        if (newQty > 0 && newVal > 0) {
+                            productData.locacoes[locacaoIndex].estoque = newQty;
+                            const custoTotal = (newQty * newVal) + icms + ipi + frete;
+                            const newMovementRef = doc(collection(db, 'movimentacoes'));
+                            transaction.set(newMovementRef, {
+                                productId, locacao,
+                                tipo: 'entrada',
+                                tipo_entradaId: implementacaoEntryType.id,
+                                quantidade: newQty,
+                                valor_unitario: newVal,
+                                icms, ipi, frete,
                                 custo_total_entrada: custoTotal,
-                                data_atualizacao: serverTimestamp()
+                                data: serverTimestamp(),
+                                observacao: 'Implementação inicial via tela de inventário.'
                             });
                             productsToUpdateCost.add(productId);
                         }
-                    } else if (quantity > 0) {
-                        const locacaoStr = row.dataset.locacao;
-                        const productData = productsToUpdateStock.get(productId);
+                        // Se não atender à condição, simplesmente continua, pois a alteração de estoque (se houver)
+                        // será tratada no Cenário 2a.
+                    }
 
-                        let quantidadeParaEstoque = quantity;
-                        let quantidadeCompra = quantity;
+                    // Cenário 2: Item Existente (com movimentação prévia)
+                    // 2a: Mudança de Quantidade (SEMPRE que a quantidade for diferente)
+                    if (qtyChanged) {
+                        const diff = newQty - originalQty;
+                        productData.locacoes[locacaoIndex].estoque = newQty;
 
-                        if (productData.conversaoId && conversoesMap.has(productData.conversaoId)) {
-                            const regra = conversoesMap.get(productData.conversaoId);
-                            const fator_qtd_compra = parseFloat(String(regra.qtd_compra).replace(',', '.'));
-                            const fator_qtd_padrao = parseFloat(String(regra.qtd_padrao).replace(',', '.'));
-                            if (fator_qtd_compra > 0) {
-                                quantidadeParaEstoque = (quantity / fator_qtd_compra) * fator_qtd_padrao;
-                            }
-                        }
-
-                        const custoTotal = (quantidadeCompra * value) + icms + ipi + frete;
-
-                        const locacaoIndex = productData.locacoes.findIndex(l => l.locacao === locacaoStr);
-                        if (locacaoIndex === -1) throw new Error(`Locação ${locacaoStr} não encontrada no produto ${productData.codigo}.`);
-
-                        if (implementacaoEntryType.movimenta_estoque) {
-                            productData.locacoes[locacaoIndex].estoque = (productData.locacoes[locacaoIndex].estoque || 0) + quantidadeParaEstoque;
-                        }
-
-                        const newMovementRef = doc(collection(db, 'movimentacoes'));
-                        const movementData = {
-                            productId: productId,
-                            tipo: 'entrada',
-                            tipo_entradaId: implementacaoEntryType.id,
-                            quantidade: quantidadeParaEstoque,
-                            quantidade_compra: quantidadeCompra,
-                            locacao: locacaoStr,
+                        const inventoryMovementRef = doc(collection(db, 'movimentacoes'));
+                        transaction.set(inventoryMovementRef, {
+                            productId, locacao,
+                            tipo: 'inventario',
+                            subTipo: diff > 0 ? 'entrada' : 'saida',
+                            quantidade: Math.abs(diff),
                             data: serverTimestamp(),
-                            observacao: `Implementação via tela de implementação.`,
-                            valor_unitario: value,
-                            icms: icms,
-                            ipi: ipi,
-                            frete: frete,
-                            custo_total_entrada: custoTotal
-                        };
-                        transaction.set(newMovementRef, movementData);
-                        productsToUpdateCost.add(productId);
+                            observacao: `Ajuste de ${originalQty} para ${newQty} via tela de inventário.`
+                        });
+                    }
+
+                    // 2b: Mudança de Valor (SÓ se o valor mudou E JÁ EXISTIA uma movimentação)
+                    if (valChanged && !isNewImplementation) {
+                        const movementRef = doc(db, 'movimentacoes', movementId);
+                        const custoTotal = (newQty * newVal) + icms + ipi + frete;
+                        transaction.update(movementRef, {
+                            valor_unitario: newVal,
+                            icms, ipi, frete,
+                            custo_total_entrada: custoTotal,
+                            data_atualizacao: serverTimestamp()
+                        });
+                        // Recalcula o custo médio apenas se um valor foi adicionado onde não havia
+                        if (originalVal === 0 && newVal > 0) {
+                            productsToUpdateCost.add(productId);
+                        }
                     }
                 }
 
-                for (const [productId, productData] of productsToUpdateStock.entries()) {
-                    const productRef = doc(db, 'produtos', productId);
-                    transaction.update(productRef, { locacoes: productData.locacoes });
+                // Salvar todas as alterações de estoque no final
+                for (const [id, pData] of productsDataCache.entries()) {
+                    const productRef = doc(db, 'produtos', id);
+                    transaction.update(productRef, { locacoes: pData.locacoes });
                 }
             });
 
-            if (implementacaoEntryType.recalcula_custo_medio) {
+            // Após a transação, recalcular custos médios
+            if (productsToUpdateCost.size > 0) {
                 console.log("Recalculando custo médio para produtos afetados...");
                 const costUpdatePromises = Array.from(productsToUpdateCost).map(id => atualizarCustoMedioProduto(id));
                 await Promise.all(costUpdatePromises);
