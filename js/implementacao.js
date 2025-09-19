@@ -77,6 +77,7 @@ document.addEventListener('DOMContentLoaded', async function() {
     let tiposSaidaMap = {}; // Armazena as configurações dos tipos de saída
 
     // --- DATA FETCHING ---
+    const normalizeStr = (str) => str ? str.toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g, "") : "";
 
     async function fetchAllData() {
         btnListItems.disabled = true;
@@ -105,10 +106,10 @@ document.addEventListener('DOMContentLoaded', async function() {
             console.log(`Carregados ${Object.keys(tiposSaidaMap).length} tipos de saída.`);
 
 
-            // Find necessary movement type IDs
-            const implementacaoEntryType = Object.values(tiposEntradaMap).find(t => t.nome.toLowerCase() === 'implementação');
-            const inventarioEntryType = Object.values(tiposEntradaMap).find(t => t.nome.toLowerCase() === 'inventário');
-            const inventarioExitType = Object.values(tiposSaidaMap).find(t => t.nome.toLowerCase() === 'inventário');
+            // Find necessary movement type IDs using a robust method
+            const implementacaoEntryType = Object.values(tiposEntradaMap).find(t => normalizeStr(t.nome) === 'implementacao');
+            const inventarioEntryType = Object.values(tiposEntradaMap).find(t => normalizeStr(t.nome) === 'inventario');
+            const inventarioExitType = Object.values(tiposSaidaMap).find(t => normalizeStr(t.nome) === 'inventario');
 
             // Reset and fetch all relevant movements
             implementationMovements = {}; // This will now be a map of keys to arrays of movements
@@ -116,12 +117,18 @@ document.addEventListener('DOMContentLoaded', async function() {
             const queries = [];
             if (implementacaoEntryType) {
                 queries.push(getDocs(query(collection(db, 'movimentacoes'), where("tipo_entradaId", "==", implementacaoEntryType.id))));
+            } else {
+                console.warn("Tipo de entrada 'Implementação' não encontrado.");
             }
             if (inventarioEntryType) {
                 queries.push(getDocs(query(collection(db, 'movimentacoes'), where("tipo_entradaId", "==", inventarioEntryType.id))));
+            } else {
+                console.warn("Tipo de entrada 'Inventário' não encontrado.");
             }
             if (inventarioExitType) {
                 queries.push(getDocs(query(collection(db, 'movimentacoes'), where("tipo_saidaId", "==", inventarioExitType.id))));
+            } else {
+                console.warn("Tipo de saída 'Inventário' não encontrado.");
             }
 
             const snapshots = await Promise.all(queries);
