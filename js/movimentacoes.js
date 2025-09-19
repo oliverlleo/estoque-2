@@ -127,12 +127,13 @@ document.addEventListener('DOMContentLoaded', async function() {
         const product = productsMap[productId];
         const locacaoSelect = document.getElementById('mov-locacao');
         const isEntrada = document.getElementById('movement-toggle').checked;
+        const unitSelect = document.getElementById('mov-unidade-selecao');
 
-        // Limpa e desabilita o select de locação
+        // Reset fields
         locacaoSelect.innerHTML = '<option value="">Selecione a Locação...</option>';
         locacaoSelect.disabled = true;
-
-        // Esconde o display de estoque antigo
+        unitSelect.innerHTML = '';
+        unitSelect.style.display = 'none';
         document.getElementById('mov-estoque-display-wrapper').style.display = 'none';
 
         if (product) {
@@ -140,13 +141,13 @@ document.addEventListener('DOMContentLoaded', async function() {
             document.getElementById('mov-descricao-display').textContent = product.descricao;
             document.getElementById('mov-un-display').textContent = product.un;
 
+            // Populate locations
             if (product.locacoes && product.locacoes.length > 0) {
                 product.locacoes.forEach(loc => {
                     const option = document.createElement('option');
-                    option.value = loc.locacao; // Usar o código da locação como valor
-
+                    option.value = loc.locacao;
                     let text = loc.locacao;
-                    if (!isEntrada) { // Se for SAÍDA, mostra o estoque
+                    if (!isEntrada) {
                         text += ` (Estoque: ${loc.estoque || 0})`;
                     }
                     option.textContent = text;
@@ -154,8 +155,25 @@ document.addEventListener('DOMContentLoaded', async function() {
                 });
                 locacaoSelect.disabled = false;
             }
+
+            // --- NEW FEATURE: Handle Unit Selection Dropdown ---
+            if (isEntrada && product.conversaoId && configData.conversoes[product.conversaoId]) {
+                const conversao = configData.conversoes[product.conversaoId];
+                const purchaseUnit = conversao.medida_compra;
+                const standardUnit = conversao.medida_padrao;
+
+                if (purchaseUnit && standardUnit) {
+                    unitSelect.innerHTML = `
+                        <option value="${purchaseUnit}">${purchaseUnit}</option>
+                        <option value="${standardUnit}">${standardUnit}</option>
+                    `;
+                    unitSelect.style.display = 'inline-block';
+                }
+            }
+            // --- END OF NEW FEATURE ---
+
         } else {
-            // Limpa os campos se nenhum produto for selecionado
+            // Clear fields if no product is selected
             document.getElementById('mov-codigo-display').textContent = '-';
             document.getElementById('mov-descricao-display').textContent = '-';
             document.getElementById('mov-un-display').textContent = '-';
@@ -167,26 +185,22 @@ document.addEventListener('DOMContentLoaded', async function() {
         const valorUnitarioInput = document.getElementById('mov-valor-unitario');
 
         if (isEntrada) {
-            // Desabilita/habilita todos os campos de custo com base em isSobra
             costFields.forEach(fieldId => {
                 const field = document.getElementById(fieldId);
                 field.disabled = isSobra;
-                field.value = ''; // Limpa todos para começar
+                field.value = '';
             });
 
             quantField.disabled = isSobra;
 
             if (isSobra) {
-                // Se for sobra, preenche o valor unitário com o valor médio e fixa a quantidade em 1
                 valorUnitarioInput.value = product.valorMedio ? product.valorMedio.toFixed(2) : '0.00';
                 quantField.value = 1;
                 quantField.placeholder = "Entrada de sobra é sempre 1 Unidade";
             } else {
-                // Se não for sobra, reabilita os campos e reseta o placeholder de quantidade
                 quantField.placeholder = "Quantidade";
             }
         } else {
-            // Se for SAÍDA, todos os campos de custo e quantidade são habilitados
             costFields.forEach(fieldId => document.getElementById(fieldId).disabled = false);
             quantField.disabled = false;
             quantField.placeholder = "Quantidade";
@@ -413,18 +427,25 @@ document.addEventListener('DOMContentLoaded', async function() {
                         throw new Error("Locação selecionada não encontrada no produto.");
                     }
 
-                    // Lógica de conversão (mantida)
+                    // Lógica de conversão condicional
                     const conversaoId = productData.conversaoId;
                     let quantidadeParaEstoque = quantidade;
+
                     if (conversaoId) {
                         const conversaoRef = doc(db, 'conversoes', conversaoId);
-                        const conversaoDoc = await transaction.get(conversaoRef); // Usar transaction.get
+                        const conversaoDoc = await transaction.get(conversaoRef);
                         if (conversaoDoc.exists()) {
                             const regra = conversaoDoc.data();
-                            const fator_qtd_compra = parseFloat(String(regra.qtd_compra).replace(',', '.'));
-                            const fator_qtd_padrao = parseFloat(String(regra.qtd_padrao).replace(',', '.'));
-                            if (fator_qtd_compra > 0) {
-                                quantidadeParaEstoque = (quantidade / fator_qtd_compra) * fator_qtd_padrao;
+                            const selectedUnit = document.getElementById('mov-unidade-selecao').value;
+                            const purchaseUnit = regra.medida_compra;
+
+                            // Only run conversion if the selected unit is the purchase unit
+                            if (selectedUnit === purchaseUnit) {
+                                const fator_qtd_compra = parseFloat(String(regra.qtd_compra).replace(',', '.'));
+                                const fator_qtd_padrao = parseFloat(String(regra.qtd_padrao).replace(',', '.'));
+                                if (fator_qtd_compra > 0) {
+                                    quantidadeParaEstoque = (quantidade / fator_qtd_compra) * fator_qtd_padrao;
+                                }
                             }
                         }
                     }
