@@ -15,15 +15,21 @@ document.addEventListener('DOMContentLoaded', async function() {
 
     async function fetchDataAndCalculate() {
         // 1. Busca todas as fontes de dados necessárias em paralelo.
-        const [productsSnapshot, locaisSnapshot, movementsSnapshot] = await Promise.all([
+        const [productsSnapshot, locaisSnapshot, movementsSnapshot, conversoesSnapshot] = await Promise.all([
             getDocs(query(collection(db, 'produtos'), where("arquivado", "!=", true))),
             getDocs(collection(db, 'locais')),
-            getDocs(query(collection(db, 'movimentacoes'), where("tipo", "==", "reserva")))
+            getDocs(query(collection(db, 'movimentacoes'), where("tipo", "==", "reserva"))),
+            getDocs(collection(db, 'conversoes'))
         ]);
 
         const locais = {};
         locaisSnapshot.forEach(doc => {
             locais[doc.id] = doc.data();
+        });
+
+        const conversoesMap = {};
+        conversoesSnapshot.forEach(doc => {
+            conversoesMap[doc.id] = doc.data();
         });
 
         // 2. Calcula a quantidade total reservada para cada produto.
@@ -53,15 +59,14 @@ document.addEventListener('DOMContentLoaded', async function() {
 
             const quantidadeReservada = reservasMap[productId] || 0;
             const valorMedio = product.valorMedio || 0;
-            const valorTotalEstoque = estoqueAtual * valorMedio;
 
             return {
                 ...product,
                 estoque: estoqueAtual,
                 cor: product.cor || '-', // Adiciona o campo cor
                 quantidadeReservada: quantidadeReservada, // Adiciona o campo de reserva
-                valorMedio,
-                valorTotalEstoque,
+                valorMedio: valorMedio, // Usa o valor ajustado para exibição
+                valorTotalEstoque: estoqueAtual * valorMedio,
                 local: locacaoCompleta
             };
         });
