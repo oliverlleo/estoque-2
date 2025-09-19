@@ -69,6 +69,7 @@ document.addEventListener('DOMContentLoaded', async function() {
     const tableBody = document.querySelector('#table-implementacao tbody');
     const filterNoQuantity = document.getElementById('filter-no-quantity');
     const filterNoValue = document.getElementById('filter-no-value');
+    const filterHideUpdated = document.getElementById('filter-hide-updated');
     const btnConfirmMovement = document.getElementById('btn-confirm-movement');
 
     let allProducts = [];
@@ -245,19 +246,23 @@ document.addEventListener('DOMContentLoaded', async function() {
     function applyFilters() {
         const noQuantityChecked = filterNoQuantity.checked;
         const noValueChecked = filterNoValue.checked;
+        const hideUpdatedChecked = filterHideUpdated.checked;
 
         document.querySelectorAll('#table-implementacao tbody tr').forEach(row => {
             if (!row.dataset.productId) return;
 
-            const quantityInput = row.querySelector('.qtde-input'); // Changed to qtde-input
+            const quantityInput = row.querySelector('.qtde-input');
             const valueInput = row.querySelector('.value-input');
+            const statusCell = row.cells[9]; // 10th column
 
-            const hasQuantity = quantityInput.value && parseFloat(quantityInput.value) > 0;
-            const hasValue = valueInput.value && parseFloat(valueInput.value) > 0;
+            const hasQuantity = quantityInput && quantityInput.value && parseFloat(quantityInput.value) > 0;
+            const hasValue = valueInput && valueInput.value && parseFloat(valueInput.value) > 0;
+            const isUpdated = statusCell && statusCell.innerHTML.includes('Atualizado');
 
             let shouldShow = true;
             if (noQuantityChecked && hasQuantity) shouldShow = false;
             if (noValueChecked && hasValue) shouldShow = false;
+            if (hideUpdatedChecked && isUpdated) shouldShow = false;
 
             row.style.display = shouldShow ? '' : 'none';
         });
@@ -511,6 +516,7 @@ document.addEventListener('DOMContentLoaded', async function() {
 
     filterNoQuantity.addEventListener('change', applyFilters);
     filterNoValue.addEventListener('change', applyFilters);
+    filterHideUpdated.addEventListener('change', applyFilters);
 
     fetchAllData();
 });
