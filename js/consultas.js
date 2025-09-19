@@ -59,7 +59,6 @@ document.addEventListener('DOMContentLoaded', async function() {
 
             const quantidadeReservada = reservasMap[productId] || 0;
             const valorMedio = product.valorMedio || 0;
-            const valorTotalEstoque = estoqueAtual * valorMedio;
 
             let valorMedioAjustado = valorMedio;
             if (product.conversaoId && conversoesMap[product.conversaoId]) {
@@ -71,13 +70,15 @@ document.addEventListener('DOMContentLoaded', async function() {
                 }
             }
 
+            const valorTotalEstoque = estoqueAtual * valorMedioAjustado;
+
             return {
                 ...product,
                 estoque: estoqueAtual,
                 cor: product.cor || '-', // Adiciona o campo cor
                 quantidadeReservada: quantidadeReservada, // Adiciona o campo de reserva
                 valorMedio: valorMedioAjustado, // Usa o valor ajustado para exibição
-                valorTotalEstoque, // Mantém o valor total baseado no custo por metro
+                valorTotalEstoque: valorTotalEstoque,
                 local: locacaoCompleta
             };
         });
