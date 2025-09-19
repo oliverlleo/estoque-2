@@ -73,7 +73,8 @@ document.addEventListener('DOMContentLoaded', async function() {
 
     let allProducts = [];
     let implementationMovements = {};
-    let tiposEntradaMap = {}; // Armazena as configurações dos tipos de entrada
+    let tiposEntradaMap = {};
+    let tiposSaidaMap = {}; // Armazena as configurações dos tipos de saída
 
     // --- DATA FETCHING ---
 
@@ -87,13 +88,22 @@ document.addEventListener('DOMContentLoaded', async function() {
             allProducts = productsSnapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
             console.log(`Carregados ${allProducts.length} produtos.`);
 
-            // Fetch 'Tipos de Entrada' configuration first
+            // Fetch 'Tipos de Entrada' configuration
             const tiposEntradaSnapshot = await getDocs(collection(db, 'tipos_entrada'));
             tiposEntradaMap = {};
             tiposEntradaSnapshot.forEach(doc => {
                 tiposEntradaMap[doc.id] = { id: doc.id, ...doc.data() };
             });
             console.log(`Carregados ${Object.keys(tiposEntradaMap).length} tipos de entrada.`);
+
+            // Fetch 'Tipos de Saída' configuration
+            const tiposSaidaSnapshot = await getDocs(collection(db, 'tipos_saida'));
+            tiposSaidaMap = {};
+            tiposSaidaSnapshot.forEach(doc => {
+                tiposSaidaMap[doc.id] = { id: doc.id, ...doc.data() };
+            });
+            console.log(`Carregados ${Object.keys(tiposSaidaMap).length} tipos de saída.`);
+
 
             // Now, find the 'Implementação' type ID to query movements
             const implementacaoEntryType = Object.values(tiposEntradaMap).find(
@@ -127,69 +137,79 @@ document.addEventListener('DOMContentLoaded', async function() {
         }
     }
 
-    // --- RENDERING (sem alterações) ---
+    // --- RENDERING (REBUILT) ---
     function renderTable(items) {
         tableBody.innerHTML = '';
 
         if (items.length === 0) {
-            tableBody.innerHTML = '<tr><td colspan="8" style="text-align:center;">Nenhum item encontrado para o range de endereçamento informado.</td></tr>';
+            // Updated colspan to 9
+            tableBody.innerHTML = '<tr><td colspan="9" style="text-align:center;">Nenhum item encontrado para o range de endereçamento informado.</td></tr>';
             return;
         }
+
+        // Helper to get/set pending values from localStorage
+        const getPendingQtde = (key) => localStorage.getItem(`pending_qtde_${key}`);
+        const setPendingQtde = (key, value) => {
+            if (value === '' || value === null || value === undefined) {
+                localStorage.removeItem(`pending_qtde_${key}`);
+            } else {
+                localStorage.setItem(`pending_qtde_${key}`, value);
+            }
+        };
 
         items.forEach(item => {
             const product = item;
             const loc = item.locacao;
             const key = `${product.id}-${loc.locacao}`;
-            const existingMovement = implementationMovements[key];
 
             const row = document.createElement('tr');
             row.dataset.productId = product.id;
             row.dataset.locacao = loc.locacao;
             row.dataset.localId = loc.localId;
 
-            let quantityInputHtml, valueInputHtml, icmsInputHtml, ipiInputHtml, freteInputHtml;
+            const saldoAtual = loc.estoque || 0;
+            const pendingQtde = getPendingQtde(key);
 
-            if (existingMovement) {
-                row.dataset.movementId = existingMovement.id;
-                row.classList.add('implemented');
-                quantityInputHtml = `<input type="number" class="form-control quantity-input" value="${existingMovement.quantidade}" disabled title="Quantidade já implementada.">`;
-                valueInputHtml = `<input type="number" class="form-control value-input" value="${existingMovement.valor_unitario || ''}" min="0" step="0.01">`;
-                icmsInputHtml = `<input type="number" class="form-control icms-input" value="${existingMovement.icms || ''}" min="0" step="0.01">`;
-                ipiInputHtml = `<input type="number" class="form-control ipi-input" value="${existingMovement.ipi || ''}" min="0" step="0.01">`;
-                freteInputHtml = `<input type="number" class="form-control frete-input" value="${existingMovement.frete || ''}" min="0" step="0.01">`;
-            } else {
-                const allMovementsForThisProduct = Object.values(implementationMovements)
-                    .filter(m => m.productId === product.id && m.data)
-                    .sort((a, b) => b.data.toMillis() - a.data.toMillis());
+            // --- Find suggested values for cost fields (Valor, ICMS, IPI, Frete) ---
+            const allMovementsForThisProduct = Object.values(implementationMovements)
+                .filter(m => m.productId === product.id && m.data)
+                .sort((a, b) => b.data.toMillis() - a.data.toMillis());
 
-                let suggestedData = { valor_unitario: '', icms: '', ipi: '', frete: '' };
-                if (allMovementsForThisProduct.length > 0) {
-                    suggestedData = allMovementsForThisProduct[0];
-                }
-
-                quantityInputHtml = `<input type="number" class="form-control quantity-input" min="0" step="any">`;
-                valueInputHtml = `<input type="number" class="form-control value-input" value="${suggestedData.valor_unitario || ''}" min="0" step="0.01" title="Valor sugerido da última implementação deste produto">`;
-                icmsInputHtml = `<input type="number" class="form-control icms-input" value="${suggestedData.icms || ''}" min="0" step="0.01" title="ICMS sugerido da última implementação deste produto">`;
-                ipiInputHtml = `<input type="number" class="form-control ipi-input" value="${suggestedData.ipi || ''}" min="0" step="0.01" title="IPI sugerido da última implementação deste produto">`;
-                freteInputHtml = `<input type="number" class="form-control frete-input" value="${suggestedData.frete || ''}" min="0" step="0.01" title="Frete sugerido da última implementação deste produto">`;
+            let suggestedData = { valor_unitario: '', icms: '', ipi: '', frete: '' };
+            if (allMovementsForThisProduct.length > 0) {
+                suggestedData = allMovementsForThisProduct[0];
             }
+
+            // --- Create input fields ---
+            const qtdeInputHtml = `<input type="number" class="form-control qtde-input" value="${pendingQtde || ''}" min="0" step="any" placeholder="Nova Qtde">`;
+            const valueInputHtml = `<input type="number" class="form-control value-input" value="${suggestedData.valor_unitario || ''}" min="0" step="0.01" title="Valor sugerido da última implementação deste produto">`;
+            const icmsInputHtml = `<input type="number" class="form-control icms-input" value="${suggestedData.icms || ''}" min="0" step="0.01" title="ICMS sugerido da última implementação deste produto">`;
+            const ipiInputHtml = `<input type="number" class="form-control ipi-input" value="${suggestedData.ipi || ''}" min="0" step="0.01" title="IPI sugerido da última implementação deste produto">`;
+            const freteInputHtml = `<input type="number" class="form-control frete-input" value="${suggestedData.frete || ''}" min="0" step="0.01" title="Frete sugerido da última implementação deste produto">`;
 
             row.innerHTML = `
                 <td>${product.codigo}</td>
                 <td>${product.descricao}</td>
                 <td>${loc.locacao}</td>
-                <td>${quantityInputHtml}</td>
+                <td class="saldo-atual">${saldoAtual}</td>
+                <td>${qtdeInputHtml}</td>
                 <td>${valueInputHtml}</td>
                 <td>${icmsInputHtml}</td>
                 <td>${ipiInputHtml}</td>
                 <td>${freteInputHtml}</td>
             `;
             tableBody.appendChild(row);
+
+            // Add event listener for the new qtde input to save to localStorage
+            const qtdeInput = row.querySelector('.qtde-input');
+            qtdeInput.addEventListener('input', (e) => {
+                setPendingQtde(key, e.target.value);
+            });
         });
     }
 
 
-    // --- EVENT LISTENERS & FILTERS (sem alterações) ---
+    // --- EVENT LISTENERS & FILTERS (REBUILT) ---
     function applyFilters() {
         const noQuantityChecked = filterNoQuantity.checked;
         const noValueChecked = filterNoValue.checked;
@@ -197,7 +217,7 @@ document.addEventListener('DOMContentLoaded', async function() {
         document.querySelectorAll('#table-implementacao tbody tr').forEach(row => {
             if (!row.dataset.productId) return;
 
-            const quantityInput = row.querySelector('.quantity-input');
+            const quantityInput = row.querySelector('.qtde-input'); // Changed to qtde-input
             const valueInput = row.querySelector('.value-input');
 
             const hasQuantity = quantityInput.value && parseFloat(quantityInput.value) > 0;
@@ -268,17 +288,27 @@ document.addEventListener('DOMContentLoaded', async function() {
             return;
         }
 
-        // 1. Encontrar o tipo de entrada "Implementação"
+        // --- Find necessary movement types ---
         const implementacaoEntryType = Object.values(tiposEntradaMap).find(
             type => type.nome.toLowerCase() === 'implementação'
         );
+        const inventarioEntryType = Object.values(tiposEntradaMap).find(
+            type => type.nome.toLowerCase() === 'inventário'
+        );
+        const inventarioExitType = Object.values(tiposSaidaMap).find(
+            type => type.nome.toLowerCase() === 'inventário'
+        );
 
         if (!implementacaoEntryType) {
-            alert('Erro Crítico: O tipo de entrada "Implementação" não foi encontrado nas configurações. Por favor, vá em "Configurações -> Tipos de Entrada" e crie um com o nome exato "Implementação".');
+            alert('Erro Crítico: O tipo de entrada "Implementação" não foi encontrado. Crie-o em "Configurações -> Tipos de Entrada".');
+            return;
+        }
+        if (!inventarioEntryType || !inventarioExitType) {
+            alert('Erro Crítico: O tipo de movimento "Inventário" não foi encontrado. Crie-o em "Configurações -> Tipos de Entrada" e "Tipos de Saída".');
             return;
         }
 
-        if (!confirm(`Confirmar as alterações para os itens visíveis?`)) {
+        if (!confirm(`Confirmar as alterações para os ${rowsToProcess.length} itens visíveis?`)) {
             return;
         }
 
@@ -286,84 +316,82 @@ document.addEventListener('DOMContentLoaded', async function() {
         btnConfirmMovement.textContent = 'Processando...';
 
         const productsToUpdateCost = new Set();
+        const keysToClearFromStorage = [];
 
         try {
-            // Pré-busca de todas as regras de conversão para evitar leituras dentro do loop da transação
             const conversoesSnapshot = await getDocs(collection(db, 'conversoes'));
             const conversoesMap = new Map();
             conversoesSnapshot.forEach(doc => conversoesMap.set(doc.id, doc.data()));
 
             await runTransaction(db, async (transaction) => {
-                const productsToUpdateStock = new Map();
+                const productsToUpdate = new Map();
 
+                // Pre-fetch all product data needed for the transaction
                 for (const row of rowsToProcess) {
-                    const quantityInput = row.querySelector('.quantity-input');
-                    const isNewImplementation = !quantityInput.disabled && parseFloat(quantityInput.value) > 0;
-
-                    if (isNewImplementation) {
-                        const productId = row.dataset.productId;
-                        if (!productsToUpdateStock.has(productId)) {
-                            const productRef = doc(db, 'produtos', productId);
-                            const productDoc = await transaction.get(productRef);
-                            if (!productDoc.exists()) throw new Error(`Produto com ID ${productId} não encontrado.`);
-                            productsToUpdateStock.set(productId, { ...productDoc.data(), locacoes: JSON.parse(JSON.stringify(productDoc.data().locacoes)) });
-                        }
+                    const productId = row.dataset.productId;
+                    if (productId && !productsToUpdate.has(productId)) {
+                        const productRef = doc(db, 'produtos', productId);
+                        const productDoc = await transaction.get(productRef);
+                        if (!productDoc.exists()) throw new Error(`Produto com ID ${productId} não encontrado.`);
+                        // Deep copy locacoes to avoid mutation issues
+                        const productData = { ...productDoc.data(), locacoes: JSON.parse(JSON.stringify(productDoc.data().locacoes)) };
+                        productsToUpdate.set(productId, productData);
                     }
                 }
 
                 for (const row of rowsToProcess) {
-                    const quantityInput = row.querySelector('.quantity-input');
-                    const quantity = parseFloat(quantityInput.value) || 0;
-                    const isAlreadyImplemented = quantityInput.disabled;
+                    const qtdeInput = row.querySelector('.qtde-input');
+                    if (!qtdeInput || !qtdeInput.value) {
+                        continue; // Skip if no quantity is entered
+                    }
+
                     const productId = row.dataset.productId;
+                    const locacaoStr = row.dataset.locacao;
+                    const saldoAtual = parseFloat(row.querySelector('.saldo-atual').textContent) || 0;
+                    const qtde = parseFloat(qtdeInput.value);
+                    const valorUnit = parseFloat(row.querySelector('.value-input').value) || 0;
 
-                    const value = parseFloat(row.querySelector('.value-input').value) || 0;
-                    const icms = parseFloat(row.querySelector('.icms-input').value) || 0;
-                    const ipi = parseFloat(row.querySelector('.ipi-input').value) || 0;
-                    const frete = parseFloat(row.querySelector('.frete-input').value) || 0;
+                    const productData = productsToUpdate.get(productId);
+                    if (!productData) continue;
 
-                    if (isAlreadyImplemented) {
-                        const movementId = row.dataset.movementId;
-                        if (movementId) {
-                            const movementRef = doc(db, 'movimentacoes', movementId);
-                            const custoTotal = (quantity * value) + icms + ipi + frete;
-                            transaction.update(movementRef, {
-                                valor_unitario: value,
-                                icms: icms,
-                                ipi: ipi,
-                                frete: frete,
-                                custo_total_entrada: custoTotal,
-                                data_atualizacao: serverTimestamp()
-                            });
-                            productsToUpdateCost.add(productId);
+                    const locacaoIndex = productData.locacoes.findIndex(l => l.locacao === locacaoStr);
+                    if (locacaoIndex === -1) throw new Error(`Locação ${locacaoStr} não encontrada no produto ${productData.codigo}.`);
+
+                    const key = `${productId}-${locacaoStr}`;
+
+                    // --- LOGIC IMPLEMENTATION ---
+
+                    if (saldoAtual === 0) {
+                        // Scenario 1: Initial Implementation
+                        if (valorUnit <= 0) {
+                            // Don't process, but keep qtde in localStorage
+                            continue;
                         }
-                    } else if (quantity > 0) {
-                        const locacaoStr = row.dataset.locacao;
-                        const productData = productsToUpdateStock.get(productId);
 
-                        let quantidadeParaEstoque = quantity;
-                        let quantidadeCompra = quantity;
-
+                        let quantidadeParaEstoque = qtde;
+                        let quantidadeCompra = qtde;
                         if (productData.conversaoId && conversoesMap.has(productData.conversaoId)) {
                             const regra = conversoesMap.get(productData.conversaoId);
                             const fator_qtd_compra = parseFloat(String(regra.qtd_compra).replace(',', '.'));
                             const fator_qtd_padrao = parseFloat(String(regra.qtd_padrao).replace(',', '.'));
                             if (fator_qtd_compra > 0) {
-                                quantidadeParaEstoque = (quantity / fator_qtd_compra) * fator_qtd_padrao;
+                                quantidadeParaEstoque = (qtde / fator_qtd_compra) * fator_qtd_padrao;
                             }
                         }
 
-                        const custoTotal = (quantidadeCompra * value) + icms + ipi + frete;
+                        const icms = parseFloat(row.querySelector('.icms-input').value) || 0;
+                        const ipi = parseFloat(row.querySelector('.ipi-input').value) || 0;
+                        const frete = parseFloat(row.querySelector('.frete-input').value) || 0;
+                        const custoTotal = (quantidadeCompra * valorUnit) + icms + ipi + frete;
 
-                        const locacaoIndex = productData.locacoes.findIndex(l => l.locacao === locacaoStr);
-                        if (locacaoIndex === -1) throw new Error(`Locação ${locacaoStr} não encontrada no produto ${productData.codigo}.`);
-
+                        // Update stock
                         if (implementacaoEntryType.movimenta_estoque) {
-                            productData.locacoes[locacaoIndex].estoque = (productData.locacoes[locacaoIndex].estoque || 0) + quantidadeParaEstoque;
+                            productData.locacoes[locacaoIndex].estoque = quantidadeParaEstoque;
                         }
 
+                        // Create movement
                         const newMovementRef = doc(collection(db, 'movimentacoes'));
-                        const movementData = {
+                        transaction.set(newMovementRef, {
                             productId: productId,
                             tipo: 'entrada',
                             tipo_entradaId: implementacaoEntryType.id,
@@ -371,29 +399,73 @@ document.addEventListener('DOMContentLoaded', async function() {
                             quantidade_compra: quantidadeCompra,
                             locacao: locacaoStr,
                             data: serverTimestamp(),
-                            observacao: `Implementação via tela de implementação.`,
-                            valor_unitario: value,
-                            icms: icms,
-                            ipi: ipi,
-                            frete: frete,
+                            observacao: `Implementação inicial de inventário.`,
+                            valor_unitario: valorUnit,
+                            icms, ipi, frete,
                             custo_total_entrada: custoTotal
-                        };
-                        transaction.set(newMovementRef, movementData);
-                        productsToUpdateCost.add(productId);
-                    }
-                }
+                        });
 
-                for (const [productId, productData] of productsToUpdateStock.entries()) {
+                        productsToUpdateCost.add(productId);
+                        keysToClearFromStorage.push(key);
+
+                    } else {
+                        // Scenario 2: Inventory Adjustment
+                        const diff = qtde - saldoAtual;
+                        if (diff === 0) {
+                            keysToClearFromStorage.push(key); // Clear storage if user sets qtde to current saldo
+                            continue;
+                        }
+
+                        // Update stock
+                        productData.locacoes[locacaoIndex].estoque = qtde;
+
+                        // Create adjustment movement (no cost)
+                        const newMovementRef = doc(collection(db, 'movimentacoes'));
+                        if (diff > 0) {
+                            // Positive adjustment -> ENTRADA
+                            transaction.set(newMovementRef, {
+                                productId,
+                                tipo: 'entrada',
+                                tipo_entradaId: inventarioEntryType.id,
+                                quantidade: diff,
+                                locacao: locacaoStr,
+                                data: serverTimestamp(),
+                                observacao: `Ajuste de inventário (Entrada). Saldo anterior: ${saldoAtual}.`
+                            });
+                        } else {
+                            // Negative adjustment -> SAIDA
+                            transaction.set(newMovementRef, {
+                                productId,
+                                tipo: 'saida',
+                                tipo_saidaId: inventarioExitType.id,
+                                quantidade: Math.abs(diff),
+                                locacao: locacaoStr,
+                                data: serverTimestamp(),
+                                observacao: `Ajuste de inventário (Saída). Saldo anterior: ${saldoAtual}.`
+                            });
+                        }
+                        keysToClearFromStorage.push(key);
+                    }
+                } // End of row loop
+
+                // Commit all product updates
+                for (const [productId, productData] of productsToUpdate.entries()) {
                     const productRef = doc(db, 'produtos', productId);
                     transaction.update(productRef, { locacoes: productData.locacoes });
                 }
-            });
+            }); // End of transaction
 
-            if (implementacaoEntryType.recalcula_custo_medio) {
-                console.log("Recalculando custo médio para produtos afetados...");
+            // --- Post-Transaction Operations ---
+
+            // Recalculate average cost only for affected products
+            if (productsToUpdateCost.size > 0 && implementacaoEntryType.recalcula_custo_medio) {
+                console.log("Recalculando custo médio para produtos de implementação...");
                 const costUpdatePromises = Array.from(productsToUpdateCost).map(id => atualizarCustoMedioProduto(id));
                 await Promise.all(costUpdatePromises);
             }
+
+            // Clear localStorage for processed items
+            keysToClearFromStorage.forEach(key => localStorage.removeItem(`pending_qtde_${key}`));
 
             alert("Operação concluída com sucesso! Os dados serão atualizados.");
             await fetchAllData();
