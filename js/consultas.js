@@ -66,8 +66,8 @@ document.addEventListener('DOMContentLoaded', async function() {
                 const regra = conversoesMap[product.conversaoId];
                 const qtdCompra = parseFloat(String(regra.qtd_compra).replace(',', '.'));
                 const qtdPadrao = parseFloat(String(regra.qtd_padrao).replace(',', '.'));
-                if (qtdCompra > 0) {
-                    valorMedioAjustado = valorMedio * (qtdPadrao / qtdCompra);
+                if (qtdPadrao > 0) {
+                    valorMedioAjustado = valorMedio * (qtdCompra / qtdPadrao);
                 }
             }
 
