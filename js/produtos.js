@@ -258,23 +258,41 @@ document.addEventListener('DOMContentLoaded', async function() {
     };
 
     const formatLocacaoInput = (e) => {
-        let value = e.target.value.toUpperCase().replace(/[^A-Z0-9]/g, '');
+        let input = e.target;
+        // Mantém o cursor na posição correta após a formatação
+        let originalPos = input.selectionStart;
+        let originalLen = input.value.length;
+
+        let rawValue = input.value.toUpperCase().replace(/-/g, '');
         let formattedValue = '';
 
-        if (value.length > 0) {
-            formattedValue += value.substring(0, 2);
-        }
-        if (value.length > 2) {
-            formattedValue += '-' + value.substring(2, 3);
-        }
-        if (value.length > 3) {
-            formattedValue += '-' + value.substring(3, 5);
-        }
-        if (value.length > 5) {
-            formattedValue += '-' + value.substring(5, 6);
+        for (let i = 0; i < rawValue.length; i++) {
+            const char = rawValue[i];
+            if (i < 2) { // Posições 0, 1: NN
+                if (/[0-9]/.test(char)) formattedValue += char;
+            } else if (i === 2) { // Posição 2: L
+                if (/[A-Z]/.test(char)) formattedValue += char;
+            } else if (i < 5) { // Posições 3, 4: NN
+                if (/[0-9]/.test(char)) formattedValue += char;
+            } else if (i === 5) { // Posição 5: L
+                if (/[A-Z]/.test(char)) formattedValue += char;
+            } else {
+                break; // Limita ao tamanho máximo
+            }
         }
 
-        e.target.value = formattedValue.substring(0, 11);
+        let finalValue = '';
+        if (formattedValue.length > 0) finalValue += formattedValue.substring(0, 2);
+        if (formattedValue.length > 2) finalValue += '-' + formattedValue.substring(2, 3);
+        if (formattedValue.length > 3) finalValue += '-' + formattedValue.substring(3, 5);
+        if (formattedValue.length > 5) finalValue += '-' + formattedValue.substring(5, 6);
+
+        input.value = finalValue;
+
+        // Lógica para ajustar a posição do cursor
+        let newLen = input.value.length;
+        let newPos = originalPos + (newLen - originalLen);
+        input.setSelectionRange(newPos, newPos);
     };
 
     locacoesContainer.addEventListener('input', (e) => {
@@ -305,6 +323,9 @@ document.addEventListener('DOMContentLoaded', async function() {
         selectSobraOriginal.appendChild(firstOption);
 
         productsData.forEach(product => {
+            if (product.data.isSobra) {
+                return;
+            }
             const option = document.createElement('option');
             option.value = product.id;
             option.textContent = `${product.data.codigo} - ${product.data.descricao}`;
@@ -363,9 +384,22 @@ document.addEventListener('DOMContentLoaded', async function() {
         const medidaSobra = parseFloat(medidaSobraStr.replace(',', '.'));
 
         try {
-            const originalProductData = productsData.find(p => p.id === originalProductId)?.data;
-            if (!originalProductData) {
+            const originalProduct = productsData.find(p => p.id === originalProductId);
+            if (!originalProduct) {
                 throw new Error('Produto original não encontrado.');
+            }
+            if (originalProduct.data.isSobra) {
+                alert('Não é possível criar uma sobra a partir de um produto que já é uma sobra.');
+                return;
+            }
+            const originalProductData = originalProduct.data;
+
+            const newSobraCode = `${originalProductData.codigo}-S${medidaSobraStr}`;
+            const isDuplicate = productsData.some(p => p.data.codigo.toLowerCase() === newSobraCode.toLowerCase());
+
+            if (isDuplicate) {
+                alert(`Erro: O código de sobra "${newSobraCode}" já existe. Não é possível cadastrar duas sobras com a mesma medida para o mesmo produto.`);
+                return;
             }
 
             // --- ETAPA 1: Calcular o Valor Médio da Peça Original (PAI) ---

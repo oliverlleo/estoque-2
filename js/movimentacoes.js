@@ -426,6 +426,11 @@ document.addEventListener('DOMContentLoaded', async function() {
         }
 
         if (isEntrada) {
+            const tipoEntradaId = document.getElementById('mov-tipo-entrada').value;
+            if (!tipoEntradaId) {
+                alert('Por favor, selecione o Tipo de Entrada.');
+                return;
+            }
             // LÓGICA DE ENTRADA NORMAL (a lógica de sobra foi ignorada por enquanto)
             try {
                 await runTransaction(db, async (transaction) => {
@@ -525,6 +530,10 @@ document.addEventListener('DOMContentLoaded', async function() {
             }
         } else { // Saída
             const tipoSaidaId = document.getElementById('mov-tipo-saida').value;
+            if (!tipoSaidaId) {
+                alert('Por favor, selecione o Tipo de Saída.');
+                return;
+            }
             const tipoSaidaConfig = configData.tipos_saida[tipoSaidaId];
 
             if (tipoSaidaConfig && tipoSaidaConfig.reservar_estoque == true) {
