@@ -12,6 +12,7 @@ document.addEventListener('DOMContentLoaded', async function() {
     };
 
     let consolidatedData = [];
+    let productMap = {};
 
     async function fetchDataAndCalculate() {
         // 1. Busca todas as fontes de dados necessárias em paralelo.
@@ -61,15 +62,22 @@ document.addEventListener('DOMContentLoaded', async function() {
             const valorMedio = product.valorMedio || 0;
 
             return {
+                id: productId, // Inclui o ID do documento para referência
                 ...product,
                 estoque: estoqueAtual,
-                cor: product.cor || '-', // Adiciona o campo cor
-                quantidadeReservada: quantidadeReservada, // Adiciona o campo de reserva
-                valorMedio: valorMedio, // Usa o valor ajustado para exibição
+                cor: product.cor || '-',
+                quantidadeReservada: quantidadeReservada,
+                valorMedio: valorMedio,
                 valorTotalEstoque: estoqueAtual * valorMedio,
                 local: locacaoCompleta
             };
         });
+
+        // Cria um mapa de produtos para busca rápida da origem
+        productMap = consolidatedData.reduce((map, product) => {
+            map[product.id] = product;
+            return map;
+        }, {});
 
         // 4. Renderiza a tabela.
         renderTable(consolidatedData);
@@ -80,16 +88,28 @@ document.addEventListener('DOMContentLoaded', async function() {
         data.forEach(item => {
             const row = document.createElement('tr');
             row.className = 'main-row';
+
+            let origemHtml = '<td>-</td>';
+            if (item.isSobra && item.idProdutoOrigem) {
+                const parentProduct = productMap[item.idProdutoOrigem];
+                if (parentProduct) {
+                    origemHtml = `<td><a href="detalhe-produto.html?id=${parentProduct.id}" class="text-blue-500 hover:underline">${parentProduct.codigo}</a></td>`;
+                } else {
+                    origemHtml = `<td><span class="text-gray-400">Arquivado</span></td>`;
+                }
+            }
+
             row.innerHTML = `
-                <td>${item.codigo}</td>
+                <td><a href="detalhe-produto.html?id=${item.id}" class="text-blue-500 hover:underline">${item.codigo}</a></td>
                 <td>${item.descricao}</td>
+                ${origemHtml}
                 <td>${item.cor}</td>
                 <td>${item.estoque || 0}</td>
                 <td>${item.quantidadeReservada || 0}</td>
                 <td>${item.un}</td>
-                <td>${(item.valorMedio || 0).toFixed(2)}</td>
-                <td>${(item.valorTotalEstoque || 0).toFixed(2)}</td>
-                <td>${item.local}</td>
+                <td>R$ ${(item.valorMedio || 0).toFixed(2)}</td>
+                <td>R$ ${(item.valorTotalEstoque || 0).toFixed(2)}</td>
+                <td class="whitespace-nowrap">${item.local}</td>
             `;
             tableBody.appendChild(row);
         });

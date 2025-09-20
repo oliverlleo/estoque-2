@@ -428,6 +428,7 @@ document.addEventListener('DOMContentLoaded', async function() {
                     ...originalProductData,
                     codigo: `${originalProductData.codigo}-S${medidaSobraStr}`,
                     medida_sobra: medidaSobraStr,
+                    idProdutoOrigem: originalProductId, // Vincula a sobra ao produto pai
                     estoque: 0,
                     isSobra: true,
                     valorMedio: custoProporcionalDaSobra,

@@ -271,6 +271,18 @@
                 <div class="card-body" id="details-container">
                     <p>Carregando dados do produto...</p>
                 </div>
+                <!-- Seção para mostrar a origem da sobra -->
+                <div id="origem-container" class="card-body" style="display: none; border-top: 1px solid var(--border-color);">
+                    <h5 style="margin-bottom: 10px; color: var(--secondary-text-color);">ORIGEM DA SOBRA</h5>
+                    <p id="origem-link-container">Buscando...</p>
+                </div>
+                <!-- Seção para listar as sobras geradas -->
+                <div id="sobras-container" class="card-body" style="display: none; border-top: 1px solid var(--border-color);">
+                    <h5 style="margin-bottom: 10px; color: var(--secondary-text-color);">SOBRAS GERADAS</h5>
+                    <div id="sobras-list">
+                        <p>Nenhuma sobra gerada por este item.</p>
+                    </div>
+                </div>
             </div>
             <button id="btn-abrir-modal-baixa" class="btn btn-danger">Dar Baixa no Estoque</button>
         </section>
