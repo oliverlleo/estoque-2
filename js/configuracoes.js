@@ -75,7 +75,20 @@ document.addEventListener('DOMContentLoaded', function() {
         `,
             tableHeaders: `<th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Nome</th><th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Mov. Estoque</th><th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Informa Obra</th><th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Reserva</th><th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Ações</th>`
         },
-        { name: "Obras", id: "obra", icon: "construction", description: "Gerencie as obras relacionadas ao estoque.", collectionName: "obras", fields: { codigo: { label: "Código da Obra" }, nome: { label: "Nome da Obra" } }, render: (d) => `<td>${d.codigo || ''}</td><td>${d.nome || ''}</td>`, tableHeaders: `<th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Código</th><th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Nome</th><th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Ações</th>` },
+        {
+            name: "Obras",
+            id: "obra",
+            icon: "construction",
+            description: "Gerencie as obras relacionadas ao estoque.",
+            collectionName: "obras",
+            fields: {
+                codigo: { label: "Código da Obra" },
+                nome: { label: "Nome da Obra" },
+                orcamento: { label: "Orçamento", type: 'number' }
+            },
+            render: (d) => `<td>${d.codigo || ''}</td><td>${d.nome || ''}</td><td>${(d.orcamento || 0).toLocaleString('pt-BR', { minimumFractionDigits: 2 })}</td>`,
+            tableHeaders: `<th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Código</th><th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Nome</th><th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Orçamento</th><th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Ações</th>`
+        },
         {
             name: "Conversão de Unidade",
             id: "conversao",
