@@ -305,6 +305,9 @@ document.addEventListener('DOMContentLoaded', async function() {
         selectSobraOriginal.appendChild(firstOption);
 
         productsData.forEach(product => {
+            if (product.data.isSobra) {
+                return;
+            }
             const option = document.createElement('option');
             option.value = product.id;
             option.textContent = `${product.data.codigo} - ${product.data.descricao}`;
@@ -363,10 +366,15 @@ document.addEventListener('DOMContentLoaded', async function() {
         const medidaSobra = parseFloat(medidaSobraStr.replace(',', '.'));
 
         try {
-            const originalProductData = productsData.find(p => p.id === originalProductId)?.data;
-            if (!originalProductData) {
+            const originalProduct = productsData.find(p => p.id === originalProductId);
+            if (!originalProduct) {
                 throw new Error('Produto original não encontrado.');
             }
+            if (originalProduct.data.isSobra) {
+                alert('Não é possível criar uma sobra a partir de um produto que já é uma sobra.');
+                return;
+            }
+            const originalProductData = originalProduct.data;
 
             // --- ETAPA 1: Calcular o Valor Médio da Peça Original (PAI) ---
             const movementsSnapshot = await getDocs(collection(db, 'movimentacoes'));
