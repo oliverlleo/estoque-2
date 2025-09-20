@@ -182,6 +182,11 @@ document.addEventListener('DOMContentLoaded', () => {
                 custoTotalElement.innerHTML = `Custo Total: <span class="font-semibold text-blue-600">${custoTotalDaObra.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' })}</span>`;
             }
 
+            const orcamentoElement = document.getElementById('obra-orcamento');
+            if (orcamentoElement && obraData.orcamento) {
+                orcamentoElement.innerHTML = `Orçamento: <span class="font-semibold" style="color: red;">${parseFloat(obraData.orcamento).toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' })}</span>`;
+            }
+
             renderTabelaItens(itensUtilizados);
             renderCharts(custoPorGrupo, custoPorFornecedor);
 
