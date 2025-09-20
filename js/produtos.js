@@ -376,6 +376,14 @@ document.addEventListener('DOMContentLoaded', async function() {
             }
             const originalProductData = originalProduct.data;
 
+            const newSobraCode = `${originalProductData.codigo}-S${medidaSobraStr}`;
+            const isDuplicate = productsData.some(p => p.data.codigo.toLowerCase() === newSobraCode.toLowerCase());
+
+            if (isDuplicate) {
+                alert(`Erro: O código de sobra "${newSobraCode}" já existe. Não é possível cadastrar duas sobras com a mesma medida para o mesmo produto.`);
+                return;
+            }
+
             // --- ETAPA 1: Calcular o Valor Médio da Peça Original (PAI) ---
             const movementsSnapshot = await getDocs(collection(db, 'movimentacoes'));
             const productMovements = movementsSnapshot.docs
