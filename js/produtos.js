@@ -451,7 +451,7 @@ document.addEventListener('DOMContentLoaded', async function() {
                 transaction.set(newProductRef, newSobraProductData);
             });
 
-            alert(`Sobra cadastrada com sucesso! Custo proporcional calculado: R$ ${custoProporcionalDaSobra.toFixed(2)}`);
+            alert('Sobra cadastrada com sucesso!');
             formSobra.reset();
             selectSobraOriginal.dispatchEvent(new Event('change'));
 
