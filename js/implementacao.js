@@ -38,33 +38,21 @@ async function atualizarCustoMedioProduto(produtoId) {
 document.addEventListener('DOMContentLoaded', async function() {
     console.log("Página de Inventario carregada.");
 
-    function formatAddressInput(e) {
-        let value = e.target.value.toUpperCase().replace(/[^A-Z0-9]/g, '');
-        let formattedValue = '';
-
-        if (value.length > 0) {
-            // 01
-            formattedValue += value.substring(0, 2).replace(/[^0-9]/g, '');
-        }
-        if (value.length > 2) {
-            // 01-A
-            formattedValue += '-' + value.substring(2, 3).replace(/[^A-Z]/g, '');
-        }
-        if (value.length > 3) {
-            // 01-A-01
-            formattedValue += '-' + value.substring(3, 5).replace(/[^0-9]/g, '');
-        }
-        if (value.length > 5) {
-            // 01-A-01-A
-            formattedValue += '-' + value.substring(5, 6).replace(/[^A-Z]/g, '');
-        }
-
-        e.target.value = formattedValue;
-    }
 
     // DOM Elements
     const startAddressInput = document.getElementById('start-address');
     const endAddressInput = document.getElementById('end-address');
+    const maskOptions = {
+        mask: '0-L-00-L',
+        definitions: {
+            'L': {
+                mask: /[A-Z]/,
+            }
+        },
+        prepare: str => str.toUpperCase(),
+    };
+    IMask(startAddressInput, maskOptions);
+    IMask(endAddressInput, maskOptions);
     const btnListItems = document.getElementById('btn-list-items');
     const tableBody = document.querySelector('#table-implementacao tbody');
     const filterNoQuantity = document.getElementById('filter-no-quantity');
@@ -271,7 +259,7 @@ document.addEventListener('DOMContentLoaded', async function() {
     btnListItems.addEventListener('click', () => {
         const startAddress = startAddressInput.value.toUpperCase().trim();
         const endAddress = endAddressInput.value.toUpperCase().trim();
-        const addressPattern = /^\d{2}-[A-Z]-\d{2}-[A-Z]$/;
+        const addressPattern = /^\d{1}-[A-Z]-\d{2}-[A-Z]$/;
 
         if (!startAddress || !endAddress) {
             alert("Por favor, preencha os endereçamentos inicial e final.");
@@ -279,7 +267,7 @@ document.addEventListener('DOMContentLoaded', async function() {
         }
 
         if (!addressPattern.test(startAddress) || !addressPattern.test(endAddress)) {
-            alert("O formato do endereço deve ser DD-L-DD-L (Ex: 01-A-01-A).");
+            alert("O formato do endereço deve ser N-L-NN-L (Ex: 1-A-01-A).");
             return;
         }
 
@@ -511,8 +499,53 @@ document.addEventListener('DOMContentLoaded', async function() {
         }
     });
 
-    startAddressInput.addEventListener('input', formatAddressInput);
-    endAddressInput.addEventListener('input', formatAddressInput);
+    btnListItems.addEventListener('click', () => {
+        const startAddress = startAddressInput.value.toUpperCase().trim();
+        const endAddress = endAddressInput.value.toUpperCase().trim();
+        const addressPattern = /^\d{1}-[A-Z]-\d{2}-[A-Z]$/;
+
+        if (!startAddress || !endAddress) {
+            alert("Por favor, preencha os endereçamentos inicial e final.");
+            return;
+        }
+
+        if (!addressPattern.test(startAddress) || !addressPattern.test(endAddress)) {
+            alert("O formato do endereço deve ser N-L-NN-L (Ex: 1-A-01-A).");
+            return;
+        }
+
+        let itemsToRender = [];
+        allProducts.forEach(product => {
+            if (product.locacoes && product.locacoes.length > 0) {
+                product.locacoes.forEach(loc => {
+                    const currentLoc = loc.locacao.toUpperCase();
+                    if (currentLoc >= startAddress && currentLoc <= endAddress) {
+                        itemsToRender.push({ ...product, locacao: loc }); // Flatten
+                    }
+                });
+            }
+        });
+
+        // 2. Sort the flattened list
+        itemsToRender.sort((a, b) => {
+            // Primary sort by address (locacao)
+            const locacaoA = a.locacao.locacao.toUpperCase();
+            const locacaoB = b.locacao.locacao.toUpperCase();
+            if (locacaoA < locacaoB) return -1;
+            if (locacaoA > locacaoB) return 1;
+
+            // Secondary sort by product code
+            const codigoA = a.codigo.toUpperCase();
+            const codigoB = b.codigo.toUpperCase();
+            if (codigoA < codigoB) return -1;
+            if (codigoA > codigoB) return 1;
+
+            return 0;
+        });
+
+        renderTable(itemsToRender);
+        applyFilters();
+    });
 
     filterNoQuantity.addEventListener('change', applyFilters);
     filterNoValue.addEventListener('change', applyFilters);

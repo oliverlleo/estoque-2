@@ -236,10 +236,23 @@ document.addEventListener('DOMContentLoaded', async function() {
 
         const locacaoInput = document.createElement('input');
         locacaoInput.type = 'text';
-        locacaoInput.placeholder = 'Locação (ex: 10-B-15-C)';
+        locacaoInput.placeholder = '1-A-01-B';
         locacaoInput.className = 'form-control locacao-input';
         locacaoInput.value = locacao;
-        locacaoInput.maxLength = 11;
+        locacaoInput.maxLength = 8;
+
+        // Apply the mask
+        IMask(locacaoInput, {
+            mask: '0-L-00-L',
+            definitions: {
+                'L': {
+                    mask: /[A-Z]/,
+                }
+            },
+            prepare: function (str) {
+                return str.toUpperCase();
+            },
+        });
 
         const localSelect = document.createElement('select');
         localSelect.className = 'form-control local-select';
@@ -266,34 +279,19 @@ document.addEventListener('DOMContentLoaded', async function() {
         locacoesContainer.appendChild(row);
     };
 
-    const formatLocacaoInput = (e) => {
-        let value = e.target.value.toUpperCase().replace(/[^A-Z0-9]/g, '');
-        let formattedValue = '';
-
-        if (value.length > 0) {
-            formattedValue += value.substring(0, 2);
-        }
-        if (value.length > 2) {
-            formattedValue += '-' + value.substring(2, 3);
-        }
-        if (value.length > 3) {
-            formattedValue += '-' + value.substring(3, 5);
-        }
-        if (value.length > 5) {
-            formattedValue += '-' + value.substring(5, 6);
-        }
-
-        e.target.value = formattedValue.substring(0, 11);
-    };
-
-    locacoesContainer.addEventListener('input', (e) => {
-        if (e.target.classList.contains('locacao-input')) {
-            formatLocacaoInput(e);
-        }
+    // Aplica a máscara de locação ao campo de sobra
+    const sobraLocacaoInput = document.getElementById('sobra-locacao');
+    IMask(sobraLocacaoInput, {
+        mask: '0-L-00-L',
+        definitions: {
+            'L': {
+                mask: /[A-Z]/,
+            }
+        },
+        prepare: function (str) {
+            return str.toUpperCase();
+        },
     });
-
-    // Formata o input de locação da sobra em tempo real
-    document.getElementById('sobra-locacao').addEventListener('input', formatLocacaoInput);
 
     btnAddLocacao.addEventListener('click', () => {
         addLocacaoRow();
@@ -365,9 +363,9 @@ document.addEventListener('DOMContentLoaded', async function() {
             return;
         }
 
-        const locacaoPattern = /^[0-9]{2}-[A-Z]{1}-[0-9]{2}-[A-Z]{1}$/;
+        const locacaoPattern = /^[0-9]{1}-[A-Z]{1}-[0-9]{2}-[A-Z]{1}$/;
         if (!locacaoPattern.test(sobraLocacao)) {
-            alert(`O formato da locação "${sobraLocacao}" é inválido. Use o formato NN-L-NN-L (ex: 10-B-15-C).`);
+            alert(`O formato da locação "${sobraLocacao}" é inválido. Use o formato N-L-NN-L (ex: 1-A-02-B).`);
             return;
         }
 
@@ -491,7 +489,7 @@ document.addEventListener('DOMContentLoaded', async function() {
 
         const locacaoRows = locacoesContainer.querySelectorAll('.locacao-row');
         const locacoes = [];
-        const locacaoPattern = /^[0-9]{2}-[A-Z]{1}-[0-9]{2}-[A-Z]{1}$/;
+        const locacaoPattern = /^[0-9]{1}-[A-Z]{1}-[0-9]{2}-[A-Z]{1}$/;
 
         for (const row of locacaoRows) {
             const locacaoInput = row.querySelector('.locacao-input');
@@ -505,7 +503,7 @@ document.addEventListener('DOMContentLoaded', async function() {
             }
 
             if (!locacaoPattern.test(locacao)) {
-                alert(`O formato da locação "${locacao}" é inválido. Use o formato NN-L-NN-L (ex: 10-B-15-C).`);
+                alert(`O formato da locação "${locacao}" é inválido. Use o formato N-L-NN-L (ex: 1-A-02-B).`);
                 return;
             }
 

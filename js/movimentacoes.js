@@ -1043,6 +1043,20 @@ document.addEventListener('DOMContentLoaded', async function() {
 
     btnFecharModalCadastro.onclick = () => { cadastroProdutoModal.style.display = 'none'; };
 
+    // Adiciona a formatação para o campo de locação no modal de cadastro de produto
+    const modalLocacaoInput = document.getElementById('modal-produto-locacao');
+    IMask(modalLocacaoInput, {
+        mask: '0-L-00-L',
+        definitions: {
+            'L': {
+                mask: /[A-Z]/,
+            }
+        },
+        prepare: function (str) {
+            return str.toUpperCase();
+        },
+    });
+
     formNovoProdutoModal.addEventListener('submit', async (e) => {
         e.preventDefault();
 
