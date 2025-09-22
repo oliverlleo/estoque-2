@@ -122,7 +122,7 @@ document.addEventListener('DOMContentLoaded', async function() {
         }
     }
 
-    function updateProductInfo() {
+    async function updateProductInfo() {
         const productId = document.getElementById('mov-produto-id').value;
         const product = productsMap[productId];
         const locacaoSelect = document.getElementById('mov-locacao');
@@ -202,12 +202,24 @@ document.addEventListener('DOMContentLoaded', async function() {
                 });
 
                 // Preenche o valor unitário como sugestão, mas permite edição.
-                valorUnitarioInput.value = '0.00'; // Valor padrão enquanto calcula
-                if (product.originalProductId) {
-                    calcularCustoMedioProduto(product.originalProductId).then(custoMedio => {
+                valorUnitarioInput.value = '...'; // Valor padrão enquanto calcula
+                try {
+                    // **BUG FIX**: Fetch the full product document to get the originalProductId
+                    const productRef = doc(db, "produtos", productId);
+                    const productSnap = await getDoc(productRef);
+                    if (productSnap.exists() && productSnap.data().originalProductId) {
+                        const originalProductId = productSnap.data().originalProductId;
+                        const custoMedio = await calcularCustoMedioProduto(originalProductId);
                         valorUnitarioInput.value = custoMedio > 0 ? custoMedio.toFixed(2) : '0.00';
-                    });
+                    } else {
+                        valorUnitarioInput.value = '0.00';
+                        console.warn(`Sobra ${productId} não tem um originalProductId ou não foi encontrada.`);
+                    }
+                } catch (error) {
+                    console.error("Erro ao buscar custo médio da sobra:", error);
+                    valorUnitarioInput.value = '0.00';
                 }
+
             } else {
                 // Para produtos normais, a quantidade é editável.
                 quantField.value = '';
@@ -398,7 +410,7 @@ document.addEventListener('DOMContentLoaded', async function() {
         });
     }
 
-    function handleToggleChange() {
+    async function handleToggleChange() {
         const isEntrada = toggle.checked;
         btnImportarXml.style.display = isEntrada ? 'inline-block' : 'none';
         btnTransferencia.style.display = isEntrada ? 'none' : 'inline-block';
@@ -420,7 +432,7 @@ document.addEventListener('DOMContentLoaded', async function() {
             document.getElementById('toggle-label-entrada').style.fontWeight = 'normal';
             document.getElementById('toggle-label-entrada').style.color = '#6c757d';
         }
-        updateProductInfo();
+        await updateProductInfo();
         toggleObraRequirement();
         toggleValorUnitarioRequirement();
     }
@@ -818,7 +830,7 @@ document.addEventListener('DOMContentLoaded', async function() {
 
             formTransferencia.reset();
             transferenciaModal.style.display = 'none';
-            updateProductInfo(); // Atualiza a info do produto principal se estiver selecionado
+            await updateProductInfo(); // Atualiza a info do produto principal se estiver selecionado
         } catch (error) {
             console.error("Erro na transferência de estoque:", error);
             alert(`Erro ao realizar a transferência: ${error.message}`);
@@ -1215,7 +1227,7 @@ document.addEventListener('DOMContentLoaded', async function() {
     productSearchInput.addEventListener('focus', showAndFilterProducts);
     productSearchInput.addEventListener('input', showAndFilterProducts);
 
-    productResultsDiv.addEventListener('click', (e) => {
+    productResultsDiv.addEventListener('click', async (e) => {
         if (e.target.classList.contains('search-result-item')) {
             const productId = e.target.dataset.id;
             const product = productsMap[productId];
@@ -1226,7 +1238,7 @@ document.addEventListener('DOMContentLoaded', async function() {
             productResultsDiv.innerHTML = '';
             productResultsDiv.style.display = 'none';
 
-            updateProductInfo(); // Chama a função para atualizar o resto do formulário
+            await updateProductInfo(); // Chama a função para atualizar o resto do formulário
         }
     });
 

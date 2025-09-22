@@ -218,11 +218,15 @@ document.addEventListener('DOMContentLoaded', async function() {
                 suggestedData = allMovementsForThisProduct[0];
             }
 
+            // New logic: Lock cost fields if a suggestion exists
+            const areCostFieldsDisabled = !!suggestedData.valor_unitario;
+            const disabledAttribute = areCostFieldsDisabled ? 'disabled' : '';
+
             const qtdeInputHtml = `<input type="number" class="form-control qtde-input" value="${pendingQtde || ''}" min="0" step="any" placeholder="Nova Qtde">`;
-            const valueInputHtml = `<input type="number" class="form-control value-input" value="${suggestedData.valor_unitario || ''}" min="0" step="0.01" title="Valor sugerido da última implementação deste produto">`;
-            const icmsInputHtml = `<input type="number" class="form-control icms-input" value="${suggestedData.icms || ''}" min="0" step="0.01" title="ICMS sugerido da última implementação deste produto">`;
-            const ipiInputHtml = `<input type="number" class="form-control ipi-input" value="${suggestedData.ipi || ''}" min="0" step="0.01" title="IPI sugerido da última implementação deste produto">`;
-            const freteInputHtml = `<input type="number" class="form-control frete-input" value="${suggestedData.frete || ''}" min="0" step="0.01" title="Frete sugerido da última implementação deste produto">`;
+            const valueInputHtml = `<input type="number" class="form-control value-input" value="${suggestedData.valor_unitario || ''}" min="0" step="0.01" title="Valor sugerido da última implementação deste produto" ${disabledAttribute}>`;
+            const icmsInputHtml = `<input type="number" class="form-control icms-input" value="${suggestedData.icms || ''}" min="0" step="0.01" title="ICMS sugerido da última implementação deste produto" ${disabledAttribute}>`;
+            const ipiInputHtml = `<input type="number" class="form-control ipi-input" value="${suggestedData.ipi || ''}" min="0" step="0.01" title="IPI sugerido da última implementação deste produto" ${disabledAttribute}>`;
+            const freteInputHtml = `<input type="number" class="form-control frete-input" value="${suggestedData.frete || ''}" min="0" step="0.01" title="Frete sugerido da última implementação deste produto" ${disabledAttribute}>`;
 
             row.innerHTML = `
                 <td>${product.codigo}</td>
@@ -291,17 +295,23 @@ document.addEventListener('DOMContentLoaded', async function() {
         let itemsToRender = [];
         allProducts.forEach(product => {
             if (product.locacoes && product.locacoes.length > 0) {
-                product.locacoes.forEach(loc => {
-                    // Filter by selected local if one is chosen
-                    if (selectedLocalId && loc.localId !== selectedLocalId) {
-                        return; // Skip this location if it doesn't match the selected local
-                    }
-
+                // First, filter locations based on the criteria
+                const matchingLocacoes = product.locacoes.filter(loc => {
                     const currentLoc = loc.locacao.toUpperCase();
-                    if (currentLoc >= startAddress && currentLoc <= endAddress) {
-                        itemsToRender.push({ ...product, locacao: loc }); // Flatten
-                    }
+                    const isInAddressRange = currentLoc >= startAddress && currentLoc <= endAddress;
+                    const matchesLocal = !selectedLocalId || loc.localId === selectedLocalId;
+                    return isInAddressRange && matchesLocal;
                 });
+
+                // Then, if there are any matching locations, add them to the render list
+                if (matchingLocacoes.length > 0) {
+                    matchingLocacoes.forEach(loc => {
+                        // Create a new product object for each location to avoid issues with shared references
+                        const productCopy = { ...product };
+                        delete productCopy.locacoes; // Remove the full locacoes array from the copy
+                        itemsToRender.push({ ...productCopy, locacao: loc }); // Flatten
+                    });
+                }
             }
         });
 
