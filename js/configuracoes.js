@@ -45,7 +45,7 @@ document.addEventListener('DOMContentLoaded', function() {
                 nome: { label: "Nome do Tipo de Entrada" },
                 movimenta_estoque: { label: "Movimenta Estoque", type: 'checkbox' },
                 recalcula_custo_medio: { label: "Recalcula Custo Médio", type: 'checkbox' },
-                informa_valor_unitario: { label: "Valor obrigatório", type: 'checkbox' }
+                informa_valor_unitario: { label: "Valor Obrigatório", type: 'checkbox' }
             },
             render: (d) => `
             <td>${d.nome || ''}</td>
@@ -53,7 +53,7 @@ document.addEventListener('DOMContentLoaded', function() {
             <td>${d.recalcula_custo_medio ? 'Sim' : 'Não'}</td>
             <td>${d.informa_valor_unitario ? 'Sim' : 'Não'}</td>
         `,
-            tableHeaders: `<th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Nome</th><th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Mov. Estoque</th><th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Recalc. Custo</th><th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Informa Valor</th><th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Ações</th>`
+            tableHeaders: `<th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Nome</th><th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Mov. Estoque</th><th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Recalc. Custo</th><th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Valor Obrigatório</th><th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Ações</th>`
         },
         {
             name: "Tipos de Saída",
