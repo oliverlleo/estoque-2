@@ -185,22 +185,39 @@ document.addEventListener('DOMContentLoaded', async function() {
         const valorUnitarioInput = document.getElementById('mov-valor-unitario');
 
         if (isEntrada) {
+            // Limpa os campos de custo para qualquer produto selecionado
             costFields.forEach(fieldId => {
-                const field = document.getElementById(fieldId);
-                field.disabled = isSobra;
-                field.value = '';
+                document.getElementById(fieldId).value = '';
             });
 
-            quantField.disabled = isSobra;
-
             if (isSobra) {
-                valorUnitarioInput.value = product.valorMedio ? product.valorMedio.toFixed(2) : '0.00';
+                // Para sobras, a quantidade é sempre 1 e não pode ser alterada.
                 quantField.value = 1;
+                quantField.disabled = true;
                 quantField.placeholder = "Entrada de sobra é sempre 1 Unidade";
+
+                // Os campos de custo NÃO são desabilitados.
+                costFields.forEach(fieldId => {
+                    document.getElementById(fieldId).disabled = false;
+                });
+
+                // Preenche o valor unitário como sugestão, mas permite edição.
+                valorUnitarioInput.value = '0.00'; // Valor padrão enquanto calcula
+                if (product.originalProductId) {
+                    calcularCustoMedioProduto(product.originalProductId).then(custoMedio => {
+                        valorUnitarioInput.value = custoMedio > 0 ? custoMedio.toFixed(2) : '0.00';
+                    });
+                }
             } else {
+                // Para produtos normais, a quantidade é editável.
+                quantField.value = '';
+                quantField.disabled = false;
                 quantField.placeholder = "Quantidade";
+                costFields.forEach(fieldId => {
+                    document.getElementById(fieldId).disabled = false;
+                });
             }
-        } else {
+        } else { // Se for Saída
             costFields.forEach(fieldId => document.getElementById(fieldId).disabled = false);
             quantField.disabled = false;
             quantField.placeholder = "Quantidade";
@@ -1025,6 +1042,20 @@ document.addEventListener('DOMContentLoaded', async function() {
     });
 
     btnFecharModalCadastro.onclick = () => { cadastroProdutoModal.style.display = 'none'; };
+
+    // Adiciona a formatação para o campo de locação no modal de cadastro de produto
+    const modalLocacaoInput = document.getElementById('modal-produto-locacao');
+    IMask(modalLocacaoInput, {
+        mask: '0-L-00-L',
+        definitions: {
+            'L': {
+                mask: /[A-Z]/,
+            }
+        },
+        prepare: function (str) {
+            return str.toUpperCase();
+        },
+    });
 
     formNovoProdutoModal.addEventListener('submit', async (e) => {
         e.preventDefault();

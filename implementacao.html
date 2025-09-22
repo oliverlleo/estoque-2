@@ -70,12 +70,18 @@
                 <div class="card-body">
                     <div class="filters-container" style="display: flex; gap: 15px; align-items: flex-end; margin-bottom: 20px;">
                         <div style="flex-grow: 1;">
+                            <label for="filter-local">Local</label>
+                            <select id="filter-local" class="form-control">
+                                <option value="">Todos os Locais</option>
+                            </select>
+                        </div>
+                        <div style="flex-grow: 1;">
                             <label for="start-address">Endereçamento Inicial</label>
-                            <input type="text" id="start-address" class="form-control" placeholder="Ex: 01-A-01-A">
+                            <input type="text" id="start-address" class="form-control" placeholder="Ex: 1-A-01-B">
                         </div>
                         <div style="flex-grow: 1;">
                             <label for="end-address">Endereçamento Final</label>
-                            <input type="text" id="end-address" class="form-control" placeholder="Ex: 10-C-20-B">
+                            <input type="text" id="end-address" class="form-control" placeholder="Ex: 9-Z-99-Z">
                         </div>
                         <button id="btn-list-items" class="btn btn-primary">Listar Itens</button>
                     </div>
@@ -120,6 +126,7 @@
             </div>
         </section>
     </main>
+    <script src="https://unpkg.com/imask"></script>
     <script type="module" src="js/main.js"></script>
     <script type="module" src="js/implementacao.js"></script>
     <script type="module" src="js/global-search.js"></script>

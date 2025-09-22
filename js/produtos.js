@@ -84,15 +84,7 @@ document.addEventListener('DOMContentLoaded', async function() {
             labelProduto.style.color = '#6c757d';
 
             // Popula o dropdown de locais da sobra, se ainda não estiver populado
-            const sobraLocalSelect = document.getElementById('sobra-local');
-            if (sobraLocalSelect.options.length <= 1) { // <= 1 para contar a opção "Selecione..."
-                for (const [id, data] of Object.entries(configData.locais)) {
-                    const option = document.createElement('option');
-                    option.value = id;
-                    option.textContent = data.nome;
-                    sobraLocalSelect.appendChild(option);
-                }
-            }
+            populateSobraLocalDropdown();
         }
     });
 
@@ -134,6 +126,23 @@ document.addEventListener('DOMContentLoaded', async function() {
     locaisSnapshot.forEach(doc => {
         configData['locais'][doc.id] = doc.data();
     });
+
+    // Função dedicada para popular o dropdown de local da sobra
+    function populateSobraLocalDropdown() {
+        const sobraLocalSelect = document.getElementById('sobra-local');
+        // Só popula se os dados estiverem prontos e o dropdown estiver vazio (exceto pela primeira opção)
+        if (sobraLocalSelect.options.length <= 1 && configData.locais) {
+            for (const [id, data] of Object.entries(configData.locais)) {
+                const option = document.createElement('option');
+                option.value = id;
+                option.textContent = data.nome;
+                sobraLocalSelect.appendChild(option);
+            }
+        }
+    }
+
+    // Popula o dropdown assim que os dados são carregados
+    populateSobraLocalDropdown();
 
 
     // Populate Conversions Select
@@ -227,10 +236,23 @@ document.addEventListener('DOMContentLoaded', async function() {
 
         const locacaoInput = document.createElement('input');
         locacaoInput.type = 'text';
-        locacaoInput.placeholder = 'Locação (ex: 10-B-15-C)';
+        locacaoInput.placeholder = '1-A-01-B';
         locacaoInput.className = 'form-control locacao-input';
         locacaoInput.value = locacao;
-        locacaoInput.maxLength = 11;
+        locacaoInput.maxLength = 8;
+
+        // Apply the mask
+        IMask(locacaoInput, {
+            mask: '0-L-00-L',
+            definitions: {
+                'L': {
+                    mask: /[A-Z]/,
+                }
+            },
+            prepare: function (str) {
+                return str.toUpperCase();
+            },
+        });
 
         const localSelect = document.createElement('select');
         localSelect.className = 'form-control local-select';
@@ -257,34 +279,19 @@ document.addEventListener('DOMContentLoaded', async function() {
         locacoesContainer.appendChild(row);
     };
 
-    const formatLocacaoInput = (e) => {
-        let value = e.target.value.toUpperCase().replace(/[^A-Z0-9]/g, '');
-        let formattedValue = '';
-
-        if (value.length > 0) {
-            formattedValue += value.substring(0, 2);
-        }
-        if (value.length > 2) {
-            formattedValue += '-' + value.substring(2, 3);
-        }
-        if (value.length > 3) {
-            formattedValue += '-' + value.substring(3, 5);
-        }
-        if (value.length > 5) {
-            formattedValue += '-' + value.substring(5, 6);
-        }
-
-        e.target.value = formattedValue.substring(0, 11);
-    };
-
-    locacoesContainer.addEventListener('input', (e) => {
-        if (e.target.classList.contains('locacao-input')) {
-            formatLocacaoInput(e);
-        }
+    // Aplica a máscara de locação ao campo de sobra
+    const sobraLocacaoInput = document.getElementById('sobra-locacao');
+    IMask(sobraLocacaoInput, {
+        mask: '0-L-00-L',
+        definitions: {
+            'L': {
+                mask: /[A-Z]/,
+            }
+        },
+        prepare: function (str) {
+            return str.toUpperCase();
+        },
     });
-
-    // Formata o input de locação da sobra em tempo real
-    document.getElementById('sobra-locacao').addEventListener('input', formatLocacaoInput);
 
     btnAddLocacao.addEventListener('click', () => {
         addLocacaoRow();
@@ -305,10 +312,12 @@ document.addEventListener('DOMContentLoaded', async function() {
         selectSobraOriginal.appendChild(firstOption);
 
         productsData.forEach(product => {
-            const option = document.createElement('option');
-            option.value = product.id;
-            option.textContent = `${product.data.codigo} - ${product.data.descricao}`;
-            selectSobraOriginal.appendChild(option);
+            if (!product.data.isSobra) { // Adiciona apenas produtos que NÃO são sobras
+                const option = document.createElement('option');
+                option.value = product.id;
+                option.textContent = `${product.data.codigo} - ${product.data.descricao}`;
+                selectSobraOriginal.appendChild(option);
+            }
         });
     }
 
@@ -354,9 +363,9 @@ document.addEventListener('DOMContentLoaded', async function() {
             return;
         }
 
-        const locacaoPattern = /^[0-9]{2}-[A-Z]{1}-[0-9]{2}-[A-Z]{1}$/;
+        const locacaoPattern = /^[0-9]{1}-[A-Z]{1}-[0-9]{2}-[A-Z]{1}$/;
         if (!locacaoPattern.test(sobraLocacao)) {
-            alert(`O formato da locação "${sobraLocacao}" é inválido. Use o formato NN-L-NN-L (ex: 10-B-15-C).`);
+            alert(`O formato da locação "${sobraLocacao}" é inválido. Use o formato N-L-NN-L (ex: 1-A-02-B).`);
             return;
         }
 
@@ -382,9 +391,8 @@ document.addEventListener('DOMContentLoaded', async function() {
             });
             const custoMedioDaPecaOriginal = totalQuantityForAvg > 0 ? totalCost / totalQuantityForAvg : 0;
 
-            if (custoMedioDaPecaOriginal === 0) {
-                throw new Error('Não foi possível calcular o custo do produto original. Verifique se ele possui movimentações de entrada com custo.');
-            }
+            // O cálculo do custo médio foi removido daqui para permitir o cadastro mesmo sem custo.
+            // A lógica de custo será tratada na MOVIMENTAÇÃO de entrada da sobra.
 
             // --- ETAPA 2: Buscar a Regra de Conversão para achar a dimensão padrão ---
             if (!originalProductData.conversaoId) {
@@ -432,7 +440,8 @@ document.addEventListener('DOMContentLoaded', async function() {
                     isSobra: true,
                     valorMedio: custoProporcionalDaSobra,
                     conversaoId: null,
-                    locacoes: newLocacoes // Sobrescreve com a nova locação
+                    locacoes: newLocacoes, // Sobrescreve com a nova locação
+                    originalProductId: originalProductId // Adiciona a referência ao produto pai
                 };
                 delete newSobraProductData.id;
 
@@ -440,7 +449,7 @@ document.addEventListener('DOMContentLoaded', async function() {
                 transaction.set(newProductRef, newSobraProductData);
             });
 
-            alert(`Sobra cadastrada com sucesso! Custo proporcional calculado: R$ ${custoProporcionalDaSobra.toFixed(2)}`);
+            alert('Sobra cadastrada com sucesso!');
             formSobra.reset();
             selectSobraOriginal.dispatchEvent(new Event('change'));
 
@@ -480,7 +489,7 @@ document.addEventListener('DOMContentLoaded', async function() {
 
         const locacaoRows = locacoesContainer.querySelectorAll('.locacao-row');
         const locacoes = [];
-        const locacaoPattern = /^[0-9]{2}-[A-Z]{1}-[0-9]{2}-[A-Z]{1}$/;
+        const locacaoPattern = /^[0-9]{1}-[A-Z]{1}-[0-9]{2}-[A-Z]{1}$/;
 
         for (const row of locacaoRows) {
             const locacaoInput = row.querySelector('.locacao-input');
@@ -494,7 +503,7 @@ document.addEventListener('DOMContentLoaded', async function() {
             }
 
             if (!locacaoPattern.test(locacao)) {
-                alert(`O formato da locação "${locacao}" é inválido. Use o formato NN-L-NN-L (ex: 10-B-15-C).`);
+                alert(`O formato da locação "${locacao}" é inválido. Use o formato N-L-NN-L (ex: 1-A-02-B).`);
                 return;
             }
 
