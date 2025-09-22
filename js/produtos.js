@@ -382,9 +382,8 @@ document.addEventListener('DOMContentLoaded', async function() {
             });
             const custoMedioDaPecaOriginal = totalQuantityForAvg > 0 ? totalCost / totalQuantityForAvg : 0;
 
-            if (custoMedioDaPecaOriginal === 0) {
-                throw new Error('Não foi possível calcular o custo do produto original. Verifique se ele possui movimentações de entrada com custo.');
-            }
+            // O cálculo do custo médio foi removido daqui para permitir o cadastro mesmo sem custo.
+            // A lógica de custo será tratada na MOVIMENTAÇÃO de entrada da sobra.
 
             // --- ETAPA 2: Buscar a Regra de Conversão para achar a dimensão padrão ---
             if (!originalProductData.conversaoId) {
@@ -432,7 +431,8 @@ document.addEventListener('DOMContentLoaded', async function() {
                     isSobra: true,
                     valorMedio: custoProporcionalDaSobra,
                     conversaoId: null,
-                    locacoes: newLocacoes // Sobrescreve com a nova locação
+                    locacoes: newLocacoes, // Sobrescreve com a nova locação
+                    originalProductId: originalProductId // Adiciona a referência ao produto pai
                 };
                 delete newSobraProductData.id;
 

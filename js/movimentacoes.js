@@ -194,9 +194,17 @@ document.addEventListener('DOMContentLoaded', async function() {
             quantField.disabled = isSobra;
 
             if (isSobra) {
-                valorUnitarioInput.value = product.valorMedio ? product.valorMedio.toFixed(2) : '0.00';
+                // Zera o valor e desabilita os campos de custo
+                valorUnitarioInput.value = '0.00';
                 quantField.value = 1;
                 quantField.placeholder = "Entrada de sobra é sempre 1 Unidade";
+
+                // NOVA LÓGICA: Busca o custo médio atual do produto PAI em tempo real
+                if (product.originalProductId) {
+                    calcularCustoMedioProduto(product.originalProductId).then(custoMedio => {
+                        valorUnitarioInput.value = custoMedio > 0 ? custoMedio.toFixed(2) : '0.00';
+                    });
+                }
             } else {
                 quantField.placeholder = "Quantidade";
             }
