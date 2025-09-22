@@ -85,7 +85,7 @@ document.addEventListener('DOMContentLoaded', async function() {
 
             // Popula o dropdown de locais da sobra, se ainda não estiver populado
             const sobraLocalSelect = document.getElementById('sobra-local');
-            if (sobraLocalSelect.options.length <= 1) { // <= 1 para contar a opção "Selecione..."
+            if (sobraLocalSelect.options.length <= 1 && configData.locais) { // <= 1 para contar a opção "Selecione..."
                 for (const [id, data] of Object.entries(configData.locais)) {
                     const option = document.createElement('option');
                     option.value = id;
