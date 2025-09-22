@@ -83,8 +83,8 @@ document.addEventListener('DOMContentLoaded', async function() {
             labelProduto.style.fontWeight = 'normal';
             labelProduto.style.color = '#6c757d';
 
-            // A lógica de popular o dropdown foi movida para o bloco de carregamento de dados
-            // para evitar a condição de corrida (race condition).
+            // Popula o dropdown de locais da sobra, se ainda não estiver populado
+            populateSobraLocalDropdown();
         }
     });
 
@@ -127,14 +127,22 @@ document.addEventListener('DOMContentLoaded', async function() {
         configData['locais'][doc.id] = doc.data();
     });
 
-    // Popula o dropdown de locais da sobra assim que os dados são carregados
-    const sobraLocalSelect = document.getElementById('sobra-local');
-    for (const [id, data] of Object.entries(configData.locais)) {
-        const option = document.createElement('option');
-        option.value = id;
-        option.textContent = data.nome;
-        sobraLocalSelect.appendChild(option);
+    // Função dedicada para popular o dropdown de local da sobra
+    function populateSobraLocalDropdown() {
+        const sobraLocalSelect = document.getElementById('sobra-local');
+        // Só popula se os dados estiverem prontos e o dropdown estiver vazio (exceto pela primeira opção)
+        if (sobraLocalSelect.options.length <= 1 && configData.locais) {
+            for (const [id, data] of Object.entries(configData.locais)) {
+                const option = document.createElement('option');
+                option.value = id;
+                option.textContent = data.nome;
+                sobraLocalSelect.appendChild(option);
+            }
+        }
     }
+
+    // Popula o dropdown assim que os dados são carregados
+    populateSobraLocalDropdown();
 
 
     // Populate Conversions Select
