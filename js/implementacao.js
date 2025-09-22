@@ -94,6 +94,22 @@ document.addEventListener('DOMContentLoaded', async function() {
             });
             console.log(`Carregados ${Object.keys(tiposSaidaMap).length} tipos de saída.`);
 
+            // Fetch 'Locais' to populate the new filter dropdown
+            const locaisSnapshot = await getDocs(collection(db, 'locais'));
+            const localSelect = document.getElementById('filter-local');
+            // Add a "Todos" option first
+            const allOption = document.createElement('option');
+            allOption.value = ""; // Empty value for "All"
+            allOption.textContent = "Todos";
+            localSelect.appendChild(allOption);
+            // Populate with other locations
+            locaisSnapshot.forEach(doc => {
+                const option = document.createElement('option');
+                option.value = doc.id;
+                option.textContent = doc.data().nome;
+                localSelect.appendChild(option);
+            });
+
 
             // Find necessary movement type IDs using a robust method
             const implementacaoEntryType = Object.values(tiposEntradaMap).find(t => normalizeStr(t.nome) === 'implementacao');
@@ -259,6 +275,7 @@ document.addEventListener('DOMContentLoaded', async function() {
     btnListItems.addEventListener('click', () => {
         const startAddress = startAddressInput.value.toUpperCase().trim();
         const endAddress = endAddressInput.value.toUpperCase().trim();
+        const selectedLocalId = document.getElementById('filter-local').value;
         const addressPattern = /^\d{1}-[A-Z]-\d{2}-[A-Z]$/;
 
         if (!startAddress || !endAddress) {
@@ -275,6 +292,11 @@ document.addEventListener('DOMContentLoaded', async function() {
         allProducts.forEach(product => {
             if (product.locacoes && product.locacoes.length > 0) {
                 product.locacoes.forEach(loc => {
+                    // Filter by selected local if one is chosen
+                    if (selectedLocalId && loc.localId !== selectedLocalId) {
+                        return; // Skip this location if it doesn't match the selected local
+                    }
+
                     const currentLoc = loc.locacao.toUpperCase();
                     if (currentLoc >= startAddress && currentLoc <= endAddress) {
                         itemsToRender.push({ ...product, locacao: loc }); // Flatten
@@ -499,53 +521,6 @@ document.addEventListener('DOMContentLoaded', async function() {
         }
     });
 
-    btnListItems.addEventListener('click', () => {
-        const startAddress = startAddressInput.value.toUpperCase().trim();
-        const endAddress = endAddressInput.value.toUpperCase().trim();
-        const addressPattern = /^\d{1}-[A-Z]-\d{2}-[A-Z]$/;
-
-        if (!startAddress || !endAddress) {
-            alert("Por favor, preencha os endereçamentos inicial e final.");
-            return;
-        }
-
-        if (!addressPattern.test(startAddress) || !addressPattern.test(endAddress)) {
-            alert("O formato do endereço deve ser N-L-NN-L (Ex: 1-A-01-A).");
-            return;
-        }
-
-        let itemsToRender = [];
-        allProducts.forEach(product => {
-            if (product.locacoes && product.locacoes.length > 0) {
-                product.locacoes.forEach(loc => {
-                    const currentLoc = loc.locacao.toUpperCase();
-                    if (currentLoc >= startAddress && currentLoc <= endAddress) {
-                        itemsToRender.push({ ...product, locacao: loc }); // Flatten
-                    }
-                });
-            }
-        });
-
-        // 2. Sort the flattened list
-        itemsToRender.sort((a, b) => {
-            // Primary sort by address (locacao)
-            const locacaoA = a.locacao.locacao.toUpperCase();
-            const locacaoB = b.locacao.locacao.toUpperCase();
-            if (locacaoA < locacaoB) return -1;
-            if (locacaoA > locacaoB) return 1;
-
-            // Secondary sort by product code
-            const codigoA = a.codigo.toUpperCase();
-            const codigoB = b.codigo.toUpperCase();
-            if (codigoA < codigoB) return -1;
-            if (codigoA > codigoB) return 1;
-
-            return 0;
-        });
-
-        renderTable(itemsToRender);
-        applyFilters();
-    });
 
     filterNoQuantity.addEventListener('change', applyFilters);
     filterNoValue.addEventListener('change', applyFilters);
