@@ -45,7 +45,7 @@ document.addEventListener('DOMContentLoaded', function() {
                 nome: { label: "Nome do Tipo de Entrada" },
                 movimenta_estoque: { label: "Movimenta Estoque", type: 'checkbox' },
                 recalcula_custo_medio: { label: "Recalcula Custo Médio", type: 'checkbox' },
-                informa_valor_unitario: { label: "Informa Valor Unitário", type: 'checkbox' }
+                informa_valor_unitario: { label: "Valor obrigatório", type: 'checkbox' }
             },
             render: (d) => `
             <td>${d.nome || ''}</td>
