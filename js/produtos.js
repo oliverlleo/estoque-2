@@ -314,10 +314,12 @@ document.addEventListener('DOMContentLoaded', async function() {
         selectSobraOriginal.appendChild(firstOption);
 
         productsData.forEach(product => {
-            const option = document.createElement('option');
-            option.value = product.id;
-            option.textContent = `${product.data.codigo} - ${product.data.descricao}`;
-            selectSobraOriginal.appendChild(option);
+            if (!product.data.isSobra) { // Adiciona apenas produtos que NÃO são sobras
+                const option = document.createElement('option');
+                option.value = product.id;
+                option.textContent = `${product.data.codigo} - ${product.data.descricao}`;
+                selectSobraOriginal.appendChild(option);
+            }
         });
     }
 
