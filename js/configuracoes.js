@@ -29,7 +29,7 @@ document.addEventListener('DOMContentLoaded', function() {
             description: "Cadastre e gerencie seus fornecedores.",
             collectionName: "fornecedores",
             fields: { nome: { label: "Nome do Fornecedor" }, imposto: { label: "Imposto (ST)", type: 'number' } },
-            tableHeaders: `<th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Nome</th><th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Contatos</th><th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Marcas</th><th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Ações</th>`
+            tableHeaders: `<th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Nome</th><th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Setor</th><th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Contatos</th><th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Marcas</th><th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Ações</th>`
         },
         { name: "Grupos", id: "grupo", icon: "category", description: "Organize seus produtos em grupos.", collectionName: "grupos", fields: { nome: { label: "Nome do Grupo" } }, render: (d) => `<td>${d.nome || ''}</td>`, tableHeaders: `<th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Nome</th><th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Ações</th>` },
         { name: "Aplicações", id: "aplicacao", icon: "widgets", description: "Defina as aplicações dos produtos.", collectionName: "aplicacoes", fields: { nome: { label: "Nome da Aplicação" } }, render: (d) => `<td>${d.nome || ''}</td>`, tableHeaders: `<th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Nome</th><th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Ações</th>` },
@@ -209,14 +209,7 @@ function generateModalContent(config) {
         </div>
     `;
 
-    const tableHeadersHTML = config.id === 'fornecedor'
-        ? `
-            <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider" scope="col">Nome</th>
-            <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider" scope="col">Contatos</th>
-            <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider" scope="col">Marcas</th>
-            <th class="relative px-6 py-3" scope="col"><span class="sr-only">Ações</span></th>
-        `
-        : config.tableHeaders;
+    const tableHeadersHTML = config.tableHeaders;
 
 
     return `
@@ -275,11 +268,12 @@ function generateModalContent(config) {
             const marcasTagsContainer = modal.querySelector('#lista-marcas-tags');
             const inputBaseClasses = "w-full px-4 py-2 border border-gray-300 rounded-md focus:ring-blue-500 focus:border-blue-500 transition duration-150 ease-in-out";
 
-            addContatoField = (contato = { nome: '', telefone: '' }) => {
+            addContatoField = (contato = { nome: '', setor: '', telefone: '' }) => {
                 const contatoDiv = document.createElement('div');
                 contatoDiv.className = 'flex items-center space-x-2';
                 contatoDiv.innerHTML = `
                     <input type="text" placeholder="Nome do Contato" value="${contato.nome}" class="flex-grow ${inputBaseClasses} contato-nome">
+                    <input type="text" placeholder="Setor" value="${contato.setor}" class="flex-grow ${inputBaseClasses} contato-setor">
                     <input type="tel" placeholder="Telefone com DDD" value="${contato.telefone}" class="flex-grow ${inputBaseClasses} contato-telefone">
                     <button type="button" class="px-3 py-2 bg-red-500 text-white font-semibold rounded-md hover:bg-red-600 btn-remove-contato">
                         <span class="material-icons text-sm">delete</span>
@@ -333,9 +327,10 @@ function generateModalContent(config) {
             }
 
             if (config.id === 'fornecedor') {
-                const contatosNodes = modal.querySelectorAll('.contato-field-group');
+                const contatosNodes = modal.querySelectorAll('#lista-contatos-form .flex');
                 data.contatos = Array.from(contatosNodes).map(node => ({
                     nome: node.querySelector('.contato-nome').value.trim(),
+                    setor: node.querySelector('.contato-setor').value.trim(),
                     telefone: node.querySelector('.contato-telefone').value.trim()
                 })).filter(c => c.nome && c.telefone);
 
@@ -375,20 +370,20 @@ function generateModalContent(config) {
                 const row = document.createElement('tr');
 
                 if (config.id === 'fornecedor') {
+                    const contatos = item.data.contatos || [];
+                    const setoresHTML = contatos.length > 0 ? contatos.map(c => `<div>${c.setor || 'N/A'}</div>`).join('') : 'Nenhum setor';
+                    const contatosHTML = contatos.length > 0 ? contatos.map(c => {
+                        const telefonePuro = String(c.telefone || '').replace(/\D/g, '');
+                        const temWhatsapp = telefonePuro.length >= 11;
+                        return `<div>${c.nome}: ${formatarTelefone(c.telefone)}
+                            ${temWhatsapp ? `<a href="https://wa.me/55${telefonePuro}" target="_blank" class="text-green-500 hover:text-green-700 inline-block align-middle"><span class="material-icons text-sm">check_circle</span></a>` : ''}
+                        </div>`;
+                    }).join('') : 'Nenhum contato';
+
                     row.innerHTML = `
                         <td class="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900">${item.data.nome || ''}</td>
-                        <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
-                            ${(item.data.contatos && item.data.contatos.length > 0)
-                                ? item.data.contatos.map(c => {
-                                    const telefonePuro = String(c.telefone || '').replace(/\D/g, '');
-                                    const temWhatsapp = telefonePuro.length >= 11;
-                                    return `<div>${c.nome}: ${formatarTelefone(c.telefone)}
-                                        ${temWhatsapp ? `<a href="https://wa.me/55${telefonePuro}" target="_blank" class="text-green-500 hover:text-green-700 inline-block align-middle"><span class="material-icons text-sm">check_circle</span></a>` : ''}
-                                    </div>`;
-                                }).join('')
-                                : 'Nenhum contato'
-                            }
-                        </td>
+                        <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-500">${setoresHTML}</td>
+                        <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-500">${contatosHTML}</td>
                         <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
                             <div class="flex flex-wrap gap-1">
                             ${(item.data.marcas && item.data.marcas.length > 0)
@@ -505,15 +500,21 @@ function generateModalContent(config) {
             const row = document.createElement('tr');
 
             if (config.id === 'fornecedor') {
+                const contatos = item.data.contatos || [];
+
                 const tdNome = document.createElement('td');
                 tdNome.textContent = item.data.nome;
                 row.appendChild(tdNome);
 
+                const tdSetor = document.createElement('td');
+                tdSetor.innerHTML = contatos.length > 0 ? contatos.map(c => `<div>${c.setor || 'N/A'}</div>`).join('') : 'Nenhum setor';
+                row.appendChild(tdSetor);
+
                 const tdContatos = document.createElement('td');
-                if (item.data.contatos && item.data.contatos.length > 0) {
-                    tdContatos.innerHTML = item.data.contatos.map(c => {
+                if (contatos.length > 0) {
+                    tdContatos.innerHTML = contatos.map(c => {
                         const telefonePuro = String(c.telefone || '').replace(/\D/g, '');
-                        return `<span class="contato-item">${c.nome}: ${formatarTelefone(c.telefone)} <a href="https://wa.me/${telefonePuro}" target="_blank" title="Abrir no WhatsApp" class="whatsapp-link"><i data-feather="message-circle"></i></a></span>`;
+                        return `<span class="contato-item">${c.nome}: ${formatarTelefone(c.telefone)} <a href="https://wa.me/55${telefonePuro}" target="_blank" title="Abrir no WhatsApp" class="whatsapp-link"><i data-feather="message-circle"></i></a></span>`;
                     }).join('<br>');
                 } else {
                     tdContatos.textContent = 'Nenhum contato';
