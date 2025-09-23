@@ -27,7 +27,7 @@ document.addEventListener('DOMContentLoaded', function() {
             id: "fornecedor",
             collectionName: "fornecedores",
             fields: { nome: { label: "Nome do Fornecedor" }, imposto: { label: "Imposto (ST)", type: 'number' } },
-            tableHeaders: "<th>Nome</th><th>Contatos</th><th>Marcas</th><th>Ações</th>"
+            tableHeaders: "<th>Nome</th><th>Setor</th><th>Contatos</th><th>Marcas</th><th>Ações</th>"
         },
         { name: "Grupos", id: "grupo", collectionName: "grupos", fields: { nome: { label: "Nome do Grupo" } }, render: (d) => `<td>${d.nome || ''}</td>`, tableHeaders: "<th>Nome</th><th>Ações</th>" },
         { name: "Aplicações", id: "aplicacao", collectionName: "aplicacoes", fields: { nome: { label: "Nome da Aplicação" } }, render: (d) => `<td>${d.nome || ''}</td>`, tableHeaders: "<th>Nome</th><th>Ações</th>" },
@@ -202,11 +202,12 @@ document.addEventListener('DOMContentLoaded', function() {
             const btnAddMarca = modal.querySelector('#btn-add-marca');
             const marcasTagsContainer = modal.querySelector('#lista-marcas-tags');
 
-            const addContatoField = (contato = { nome: '', telefone: '' }) => {
+            const addContatoField = (contato = { nome: '', telefone: '', setor: '' }) => {
                 const contatoDiv = document.createElement('div');
                 contatoDiv.className = 'contato-field-group';
                 contatoDiv.innerHTML = `
                     <input type="text" placeholder="Nome do Contato" value="${contato.nome}" class="form-control contato-nome">
+                    <input type="text" placeholder="Setor" value="${contato.setor}" class="form-control contato-setor">
                     <input type="tel" placeholder="Telefone (só números com DDD)" value="${contato.telefone}" class="form-control contato-telefone">
                     <button type="button" class="btn btn-danger btn-remove-contato">Remover</button>
                 `;
@@ -260,6 +261,7 @@ document.addEventListener('DOMContentLoaded', function() {
                 const contatosNodes = modal.querySelectorAll('.contato-field-group');
                 data.contatos = Array.from(contatosNodes).map(node => ({
                     nome: node.querySelector('.contato-nome').value.trim(),
+                    setor: node.querySelector('.contato-setor').value.trim(),
                     telefone: node.querySelector('.contato-telefone').value.trim()
                 })).filter(c => c.nome && c.telefone);
 
@@ -303,6 +305,16 @@ document.addEventListener('DOMContentLoaded', function() {
                     const tdNome = document.createElement('td');
                     tdNome.textContent = item.data.nome;
                     row.appendChild(tdNome);
+
+                    // Célula Setor
+                    const tdSetor = document.createElement('td');
+                    if (item.data.contatos && item.data.contatos.length > 0) {
+                        const setores = [...new Set(item.data.contatos.map(c => c.setor).filter(s => s))];
+                        tdSetor.textContent = setores.join(', ');
+                    } else {
+                        tdSetor.textContent = 'N/A';
+                    }
+                    row.appendChild(tdSetor);
 
                     // Célula Contatos
                     const tdContatos = document.createElement('td');
@@ -377,6 +389,7 @@ document.addEventListener('DOMContentLoaded', function() {
                             contatoDiv.className = 'contato-field-group';
                             contatoDiv.innerHTML = `
                                 <input type="text" placeholder="Nome do Contato" value="${c.nome || ''}" class="form-control contato-nome">
+                                <input type="text" placeholder="Setor" value="${c.setor || ''}" class="form-control contato-setor">
                                 <input type="tel" placeholder="Telefone (só números com DDD)" value="${c.telefone || ''}" class="form-control contato-telefone">
                                 <button type="button" class="btn btn-danger btn-remove-contato">Remover</button>
                             `;
