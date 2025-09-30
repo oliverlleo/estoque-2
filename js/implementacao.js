@@ -246,6 +246,29 @@ document.addEventListener('DOMContentLoaded', async function() {
             qtdeInput.addEventListener('input', (e) => {
                 setPendingQtde(key, e.target.value);
             });
+
+            // Add keydown event listener for Enter key
+            qtdeInput.addEventListener('keydown', (e) => {
+                if (e.key === 'Enter') {
+                    e.preventDefault(); // Prevent default form submission or moving to the next field in the same row
+
+                    const currentRow = e.target.closest('tr');
+                    let nextRow = currentRow.nextElementSibling;
+
+                    // Skip hidden rows
+                    while (nextRow && nextRow.style.display === 'none') {
+                        nextRow = nextRow.nextElementSibling;
+                    }
+
+                    if (nextRow) {
+                        const nextQtdeInput = nextRow.querySelector('.qtde-input');
+                        if (nextQtdeInput) {
+                            nextQtdeInput.focus();
+                            nextQtdeInput.select(); // Optional: select the content of the next input
+                        }
+                    }
+                }
+            });
         });
     }
 
