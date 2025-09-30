@@ -827,7 +827,7 @@ document.addEventListener('DOMContentLoaded', async function() {
                 <td><input type="text" class="form-control" value="${cProd}" disabled></td>
                 <td><input type="text" class="form-control" value="${descricaoSistema}" disabled></td>
                 <td><input type="text" class="form-control" value="${uCom}" disabled></td>
-                <td><input type="number" step="any" class="form-control" value="${parseFloat(item.querySelector('qCom')?.textContent || 0)}"></td>
+                <td><input type="number" step="any" class="form-control qtde-input" value="${parseFloat(item.querySelector('qCom')?.textContent || 0)}"></td>
                 <td><input type="number" step="any" class="form-control" value="${parseFloat(item.querySelector('vUnCom')?.textContent || 0)}"></td>
                 <td><input type="number" step="any" class="form-control" value="${parseFloat(item.querySelector('vICMS')?.textContent || 0)}"></td>
                 <td><input type="number" step="any" class="form-control" value="${parseFloat(item.querySelector('vIPI')?.textContent || 0)}"></td>
@@ -837,6 +837,24 @@ document.addEventListener('DOMContentLoaded', async function() {
             `;
         });
     }
+
+    xmlProductsTableBody.addEventListener('keydown', (e) => {
+        if (e.key === 'Enter' && e.target.classList.contains('qtde-input')) {
+            e.preventDefault(); // Impede o comportamento padrão (como submeter um formulário)
+
+            const currentInput = e.target;
+            const currentRow = currentInput.closest('tr');
+            const nextRow = currentRow.nextElementSibling;
+
+            if (nextRow) {
+                const nextQtdeInput = nextRow.querySelector('.qtde-input');
+                if (nextQtdeInput) {
+                    nextQtdeInput.focus();
+                    nextQtdeInput.select(); // Seleciona o texto no campo para facilitar a edição
+                }
+            }
+        }
+    });
 
     btnConfirmarXmlImport.addEventListener('click', async () => {
         const nf = document.getElementById('xml-nfe-numero').value;
