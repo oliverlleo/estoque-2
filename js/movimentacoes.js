@@ -808,14 +808,7 @@ document.addEventListener('DOMContentLoaded', async function() {
             }
 
             let locacaoDropdownHtml = `<select class="form-control locacao-select" required ${!produtoNoSistema ? 'disabled' : ''}>`;
-            if (produtoNoSistema && produtoNoSistema.locacoes) {
-                locacaoDropdownHtml += '<option value="">Selecione...</option>';
-                produtoNoSistema.locacoes.forEach(loc => {
-                    locacaoDropdownHtml += `<option value="${loc.locacao}">${loc.locacao}</option>`;
-                });
-            } else {
-                locacaoDropdownHtml += '<option value="">Nenhuma</option>';
-            }
+            locacaoDropdownHtml += '<option value="">Selecione um Local...</option>';
             locacaoDropdownHtml += `</select>`;
 
             let localDropdownHtml = `<select class="form-control local-select" required ${!produtoNoSistema ? 'disabled' : ''}>`;
@@ -849,6 +842,25 @@ document.addEventListener('DOMContentLoaded', async function() {
             `;
         });
     }
+
+    xmlProductsTableBody.addEventListener('change', (e) => {
+        if (e.target.classList.contains('local-select')) {
+            const row = e.target.closest('tr');
+            const localId = e.target.value;
+            const productId = row.dataset.productId;
+            const product = productsMap[productId];
+            const locacaoSelect = row.querySelector('.locacao-select');
+
+            locacaoSelect.innerHTML = '<option value="">Selecione...</option>'; // Limpa opções
+
+            if (product && product.locacoes && localId) {
+                const filteredLocacoes = product.locacoes.filter(loc => loc.localId === localId);
+                filteredLocacoes.forEach(loc => {
+                    locacaoSelect.innerHTML += `<option value="${loc.locacao}">${loc.locacao}</option>`;
+                });
+            }
+        }
+    });
 
     btnConfirmarXmlImport.addEventListener('click', async () => {
         const nf = document.getElementById('xml-nfe-numero').value;
