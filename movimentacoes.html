@@ -54,9 +54,26 @@
         #xml-import-modal .modal-content {
             max-width: 2160px !important;
         }
-        #xml-products-table th:nth-child(2), #xml-products-table td:nth-child(2) {
-            width: 20%;
+        #xml-products-table {
+            table-layout: fixed;
+            width: 100%;
         }
+        #xml-products-table th, #xml-products-table td {
+            overflow: hidden;
+            text-overflow: ellipsis;
+            white-space: nowrap;
+        }
+        #xml-products-table th:nth-child(1) { width: 10%; } /* Código */
+        #xml-products-table th:nth-child(2) { width: 25%; } /* Descrição */
+        #xml-products-table th:nth-child(3) { width: 5%; }  /* UN */
+        #xml-products-table th:nth-child(4) { width: 5%; }  /* Qtde */
+        #xml-products-table th:nth-child(5) { width: 8%; }  /* Vlr Unit */
+        #xml-products-table th:nth-child(6) { width: 8%; }  /* ICMS */
+        #xml-products-table th:nth-child(7) { width: 8%; }  /* IPI */
+        #xml-products-table th:nth-child(8) { width: 8%; }  /* Frete */
+        #xml-products-table th:nth-child(9) { width: 10%; } /* Local */
+        #xml-products-table th:nth-child(10) { width: 10%; }/* Locação */
+        #xml-products-table th:nth-child(11) { width: 5%; } /* Ação */
     </style>
 </head>
 <body class="flex h-screen">
