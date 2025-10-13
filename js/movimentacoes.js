@@ -807,20 +807,35 @@ document.addEventListener('DOMContentLoaded', async function() {
                 acaoHtml = `<button class="btn btn-edit btn-cadastrar-produto" data-dados='${JSON.stringify(dadosDoXml)}'>Cadastrar</button>`;
             }
 
-            let locacaoDropdownHtml = `<select class="form-control locacao-select" required ${!produtoNoSistema ? 'disabled' : ''}>`;
-            locacaoDropdownHtml += '<option value="">Primeiro selecione um Local...</option>';
-            locacaoDropdownHtml += `</select>`;
-
             let localDropdownHtml = `<select class="form-control local-select" required ${!produtoNoSistema ? 'disabled' : ''}>`;
-            if (produtoNoSistema && configData.locais) {
+            let locacaoDropdownHtml = `<select class="form-control locacao-select" required ${!produtoNoSistema ? 'disabled' : ''}>`;
+
+            if (produtoNoSistema && produtoNoSistema.locacoes && produtoNoSistema.locacoes.length > 0) {
+                const primeiraLocacao = produtoNoSistema.locacoes[0];
+                const primeiroLocalId = primeiraLocacao.localId;
+
+                // Popula Local e pré-seleciona o primeiro
                 localDropdownHtml += '<option value="">Selecione...</option>';
                 for (const [id, data] of Object.entries(configData.locais)) {
-                    localDropdownHtml += `<option value="${id}">${data.nome}</option>`;
+                    const isSelected = id === primeiroLocalId ? 'selected' : '';
+                    localDropdownHtml += `<option value="${id}" ${isSelected}>${data.nome}</option>`;
                 }
+
+                // Filtra e popula Locação baseado no primeiro local
+                const locacoesDoPrimeiroLocal = produtoNoSistema.locacoes.filter(l => l.localId === primeiroLocalId);
+                locacaoDropdownHtml += '<option value="">Selecione...</option>';
+                locacoesDoPrimeiroLocal.forEach(loc => {
+                    // Pré-seleciona a primeira locação da lista filtrada
+                    const isSelected = loc.locacao === primeiraLocacao.locacao ? 'selected' : '';
+                    locacaoDropdownHtml += `<option value="${loc.locacao}" ${isSelected}>${loc.locacao}</option>`;
+                });
+
             } else {
                 localDropdownHtml += '<option value="">Nenhum</option>';
+                locacaoDropdownHtml += '<option value="">Nenhuma</option>';
             }
             localDropdownHtml += `</select>`;
+            locacaoDropdownHtml += `</select>`;
 
             const row = xmlProductsTableBody.insertRow();
             if (!produtoNoSistema) row.style.backgroundColor = '#ffdddd';
