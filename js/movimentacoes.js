@@ -365,7 +365,7 @@ document.addEventListener('DOMContentLoaded', async function() {
         btnTransferencia.style.display = isEntrada ? 'none' : 'inline-block';
 
         if (isEntrada) {
-            entradaFields.forEach(el => el.style.display = '');
+            entradaFields.forEach(el => el.style.display = 'flex');
             saidaFields.forEach(el => el.style.display = 'none');
             btnMovimentacao.textContent = 'Confirmar Entrada';
             btnMovimentacao.className = 'btn btn-success';
@@ -375,7 +375,7 @@ document.addEventListener('DOMContentLoaded', async function() {
             document.getElementById('toggle-label-saida').style.color = '#6c757d';
         } else {
             entradaFields.forEach(el => el.style.display = 'none');
-            saidaFields.forEach(el => el.style.display = '');
+            saidaFields.forEach(el => el.style.display = 'flex');
             btnMovimentacao.textContent = 'Confirmar Saída';
             btnMovimentacao.className = 'btn btn-danger';
             document.getElementById('toggle-label-saida').style.fontWeight = 'bold';
