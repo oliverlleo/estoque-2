@@ -32,20 +32,23 @@
             width: 100%;
         }
         .form-row .search-container {
-            flex: 2 1 300px; /* Cresce mais, base maior */
+            flex: 3 1 400px; /* Aumenta a base e a capacidade de crescer */
         }
         .form-row .desc-field {
-            flex: 3 1 400px; /* Cresce ainda mais, base maior */
+            flex: 2 1 300px;
+        }
+        #mov-local, #mov-locacao {
+            flex: 1 1 100px; /* Reduz a base para 50% */
         }
         .form-row .auto-filled-field {
             white-space: nowrap;
             padding-bottom: 5px;
         }
         .form-row .form-control {
-            flex: 1 1 auto; /* Permite que os campos cresçam e encolham */
+            flex: 1 1 auto;
         }
-        .form-row #mov-observacao-entrada, .form-row #mov-observacao-saida {
-            flex: 2 1 200px; /* Dá mais espaço para observações */
+        #mov-observacao-entrada, #mov-observacao-saida {
+            width: 100%; /* Ocupa a linha inteira */
         }
     </style>
 </head>
@@ -137,12 +140,14 @@
                             <input type="number" id="mov-icms" placeholder="ICMS Total" step="0.01" class="form-control entrada-field">
                             <input type="number" id="mov-ipi" placeholder="IPI Total" step="0.01" class="form-control entrada-field">
                             <input type="number" id="mov-frete" placeholder="Frete Total" step="0.01" class="form-control entrada-field">
-                            <input type="text" id="mov-observacao-entrada" placeholder="Observação" class="form-control entrada-field">
 
                             <!-- Campos de Saída -->
                             <select id="mov-tipo-saida" class="form-control saida-field" style="display: none;"><option value="">Tipo de Saída...</option></select>
                             <input type="text" id="mov-requisitante" placeholder="Requisitante" class="form-control saida-field" style="display: none;">
                             <select id="mov-obra" class="form-control saida-field" style="display: none;"><option value="">Selecione a Obra...</option></select>
+                        </div>
+                        <div class="form-row">
+                            <input type="text" id="mov-observacao-entrada" placeholder="Observação" class="form-control entrada-field">
                             <input type="text" id="mov-observacao-saida" placeholder="Observação" class="form-control saida-field" style="display: none;">
                         </div>
                         <button type="submit" id="btn-movimentacao" class="btn" style="width: 100%; margin-top: 20px;">Confirmar</button>
