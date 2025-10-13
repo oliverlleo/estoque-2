@@ -361,6 +361,9 @@ document.addEventListener('DOMContentLoaded', async function() {
         const entradaFields = document.querySelectorAll('.entrada-field');
         const saidaFields = document.querySelectorAll('.saida-field');
 
+        btnImportarXml.style.display = isEntrada ? 'inline-block' : 'none';
+        btnTransferencia.style.display = isEntrada ? 'none' : 'inline-block';
+
         if (isEntrada) {
             entradaFields.forEach(el => el.style.display = '');
             saidaFields.forEach(el => el.style.display = 'none');
