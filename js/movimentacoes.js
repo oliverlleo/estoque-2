@@ -807,40 +807,10 @@ document.addEventListener('DOMContentLoaded', async function() {
                 acaoHtml = `<button class="btn btn-edit btn-cadastrar-produto" data-dados='${JSON.stringify(dadosDoXml)}'>Cadastrar</button>`;
             }
 
-            let localDropdownHtml = `<select class="form-control local-select" required ${!produtoNoSistema ? 'disabled' : ''}>`;
-            let locacaoDropdownHtml = `<select class="form-control locacao-select" required ${!produtoNoSistema ? 'disabled' : ''}>`;
-
-            if (produtoNoSistema && produtoNoSistema.locacoes && produtoNoSistema.locacoes.length > 0) {
-                const primeiraLocacao = produtoNoSistema.locacoes[0];
-                const primeiroLocalId = primeiraLocacao.localId;
-
-                // Popula Local e pré-seleciona o primeiro
-                localDropdownHtml += '<option value="">Selecione...</option>';
-                for (const [id, data] of Object.entries(configData.locais)) {
-                    const isSelected = id === primeiroLocalId ? 'selected' : '';
-                    localDropdownHtml += `<option value="${id}" ${isSelected}>${data.nome}</option>`;
-                }
-
-                // Filtra e popula Locação baseado no primeiro local
-                const locacoesDoPrimeiroLocal = produtoNoSistema.locacoes.filter(l => l.localId === primeiroLocalId);
-                locacaoDropdownHtml += '<option value="">Selecione...</option>';
-                locacoesDoPrimeiroLocal.forEach(loc => {
-                    // Pré-seleciona a primeira locação da lista filtrada
-                    const isSelected = loc.locacao === primeiraLocacao.locacao ? 'selected' : '';
-                    locacaoDropdownHtml += `<option value="${loc.locacao}" ${isSelected}>${loc.locacao}</option>`;
-                });
-
-            } else {
-                localDropdownHtml += '<option value="">Nenhum</option>';
-                locacaoDropdownHtml += '<option value="">Nenhuma</option>';
-            }
-            localDropdownHtml += `</select>`;
-            locacaoDropdownHtml += `</select>`;
-
             const row = xmlProductsTableBody.insertRow();
             if (!produtoNoSistema) row.style.backgroundColor = '#ffdddd';
             row.dataset.productId = produtoIdSistema;
-            row.dataset.unidadeCompra = uCom; // Salva a unidade da nota
+            row.dataset.unidadeCompra = uCom;
 
             row.innerHTML = `
                 <td><input type="text" class="form-control" value="${cProd}" disabled></td>
@@ -851,10 +821,39 @@ document.addEventListener('DOMContentLoaded', async function() {
                 <td><input type="number" step="any" class="form-control" value="0"></td>
                 <td><input type="number" step="any" class="form-control" value="${parseFloat(item.querySelector('vIPI')?.textContent || 0)}"></td>
                 <td><input type="number" step="any" class="form-control" value="${freteRateado.toFixed(2)}"></td>
-                <td>${localDropdownHtml}</td>
-                <td>${locacaoDropdownHtml}</td>
+                <td><select class="form-control local-select" required ${!produtoNoSistema ? 'disabled' : ''}><option value="">Nenhum</option></select></td>
+                <td><select class="form-control locacao-select" required ${!produtoNoSistema ? 'disabled' : ''}><option value="">Nenhuma</option></select></td>
                 <td>${acaoHtml}</td>
             `;
+
+            if (produtoNoSistema) {
+                const localSelect = row.querySelector('.local-select');
+                const locacaoSelect = row.querySelector('.locacao-select');
+                localSelect.innerHTML = '<option value="">Selecione...</option>';
+
+                // Popula o dropdown de locais
+                for (const [id, data] of Object.entries(configData.locais)) {
+                    localSelect.innerHTML += `<option value="${id}">${data.nome}</option>`;
+                }
+
+                // Lógica de pré-seleção
+                if (produtoNoSistema.locacoes && produtoNoSistema.locacoes.length > 0) {
+                    const primeiraLocacao = produtoNoSistema.locacoes[0];
+                    const primeiroLocalId = primeiraLocacao.localId;
+
+                    localSelect.value = primeiroLocalId;
+
+                    // Dispara o evento change manualmente para acionar o filtro de locações
+                    localSelect.dispatchEvent(new Event('change', { bubbles: true }));
+
+                    // Aguarda a atualização do DOM e então seleciona a primeira locação
+                    setTimeout(() => {
+                        if (locacaoSelect.options.length > 1) { // Verifica se há opções válidas
+                           locacaoSelect.value = primeiraLocacao.locacao;
+                        }
+                    }, 0);
+                }
+            }
         });
     }
 
