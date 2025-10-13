@@ -488,21 +488,23 @@ document.addEventListener('DOMContentLoaded', async function() {
             const locacao = locacaoInput.value.toUpperCase();
             const localId = localSelect.value;
 
-            if (!locacao || !localId) {
-                alert('Todas as locações devem ter um código e um local selecionado. Remova as linhas não utilizadas.');
+            if (locacao && !localId) {
+                alert('Se um código de locação é fornecido, um local deve ser selecionado.');
                 return;
             }
 
-            if (!locacaoPattern.test(locacao)) {
+            if (locacao && !locacaoPattern.test(locacao)) {
                 alert(`O formato da locação "${locacao}" é inválido. Use o formato NN-L-NN-L (ex: 10-B-15-C).`);
                 return;
             }
 
-            locacoes.push({
-                locacao: locacao,
-                localId: localId,
-                estoque: 0 // Estoque inicial é sempre 0 ao cadastrar
-            });
+            if (locacao && localId) {
+                locacoes.push({
+                    locacao: locacao,
+                    localId: localId,
+                    estoque: 0 // Estoque inicial é sempre 0 ao cadastrar
+                });
+            }
         }
 
         const product = {

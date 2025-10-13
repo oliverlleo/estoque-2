@@ -828,7 +828,7 @@ document.addEventListener('DOMContentLoaded', async function() {
                 <td><input type="text" class="form-control" value="${descricaoSistema}" disabled></td>
                 <td><input type="text" class="form-control" value="${uCom}" disabled></td>
                 <td><input type="number" step="any" class="form-control" value="${parseFloat(item.querySelector('qCom')?.textContent || 0)}"></td>
-                <td><input type="number" step="any" class="form-control" value="${parseFloat(item.querySelector('vUnCom')?.textContent || 0)}"></td>
+                <td><input type="number" step="any" class="form-control" value="${parseFloat(item.querySelector('vUnCom')?.textContent || 0)}" disabled></td>
                 <td><input type="number" step="any" class="form-control" value="${parseFloat(item.querySelector('vICMS')?.textContent || 0)}"></td>
                 <td><input type="number" step="any" class="form-control" value="${parseFloat(item.querySelector('vIPI')?.textContent || 0)}"></td>
                 <td><input type="number" step="any" class="form-control" value="${freteRateado.toFixed(2)}"></td>
@@ -873,7 +873,7 @@ document.addEventListener('DOMContentLoaded', async function() {
                 try {
                     const quantidadeInformada = parseFloat(row.cells[3].querySelector('input').value);
                     const valorUnitario = parseFloat(row.cells[4].querySelector('input').value);
-                    const icms = parseFloat(row.cells[5].querySelector('input').value) || 0;
+                    const icms = 0;
                     const ipi = parseFloat(row.cells[6].querySelector('input').value) || 0;
                     const frete = parseFloat(row.cells[7].querySelector('input').value) || 0;
 
@@ -906,7 +906,7 @@ document.addEventListener('DOMContentLoaded', async function() {
                         }
 
                         // 2. Lógica de Custo Total
-                        let custoTotalEntrada = (quantidadeInformada * valorUnitario) + icms + ipi + frete;
+                        let custoTotalEntrada = (quantidadeInformada * valorUnitario) + ipi + frete;
                         // ... (outras lógicas de custo, se houver)
 
                         // 3. Atualiza Estoque na Locação Correta
