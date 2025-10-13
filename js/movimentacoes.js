@@ -358,12 +358,12 @@ document.addEventListener('DOMContentLoaded', async function() {
 
     function handleToggleChange() {
         const isEntrada = toggle.checked;
-        btnImportarXml.style.display = isEntrada ? 'inline-block' : 'none';
-        btnTransferencia.style.display = isEntrada ? 'none' : 'inline-block';
-        entradaFields.forEach(el => el.style.display = isEntrada ? '' : 'none');
-        saidaFields.forEach(el => el.style.display = isEntrada ? 'none' : '');
+        const entradaFields = document.querySelectorAll('.entrada-field');
+        const saidaFields = document.querySelectorAll('.saida-field');
 
         if (isEntrada) {
+            entradaFields.forEach(el => el.style.display = '');
+            saidaFields.forEach(el => el.style.display = 'none');
             btnMovimentacao.textContent = 'Confirmar Entrada';
             btnMovimentacao.className = 'btn btn-success';
             document.getElementById('toggle-label-entrada').style.fontWeight = 'bold';
@@ -371,6 +371,8 @@ document.addEventListener('DOMContentLoaded', async function() {
             document.getElementById('toggle-label-saida').style.fontWeight = 'normal';
             document.getElementById('toggle-label-saida').style.color = '#6c757d';
         } else {
+            entradaFields.forEach(el => el.style.display = 'none');
+            saidaFields.forEach(el => el.style.display = '');
             btnMovimentacao.textContent = 'Confirmar Saída';
             btnMovimentacao.className = 'btn btn-danger';
             document.getElementById('toggle-label-saida').style.fontWeight = 'bold';
