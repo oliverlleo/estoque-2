@@ -246,6 +246,7 @@ document.addEventListener('DOMContentLoaded', async function() {
                     quantidade: quantidadeDisplay?.toString() || '',
                     nf: mov.nf || '',
                     valor_unitario: (mov.valor_unitario || 0).toString(),
+                    icms: (mov.icms || 0).toString(),
                     ipi: (mov.ipi || 0).toString(),
                     frete: (mov.frete || 0).toString(),
                     custoUnitario: custoUnitario > 0 ? custoUnitario.toFixed(2) : '0.00',
@@ -321,6 +322,7 @@ document.addEventListener('DOMContentLoaded', async function() {
             const row = document.createElement('tr');
             const searchData = mov._search_data;
             const valorUnitarioFmt = mov.valor_unitario ? parseFloat(mov.valor_unitario).toFixed(2) : '-';
+            const icmsFmt = mov.icms ? parseFloat(mov.icms).toFixed(2) : '-';
             const ipiFmt = mov.ipi ? parseFloat(mov.ipi).toFixed(2) : '-';
             const freteFmt = mov.frete ? parseFloat(mov.frete).toFixed(2) : '-';
             const custoUnitarioFmt = mov.custoUnitario > 0 ? mov.custoUnitario.toFixed(2) : '-';
@@ -339,6 +341,7 @@ document.addEventListener('DOMContentLoaded', async function() {
                 <td>${searchData.quantidade}</td>
                 <td>${searchData.nf || '-'}</td>
                 <td>${valorUnitarioFmt}</td>
+                <td title="${icmsTitle}">${icmsFmt}</td>
                 <td title="${ipiTitle}">${ipiFmt}</td>
                 <td title="${freteTitle}">${freteFmt}</td>
                 <td>${custoUnitarioFmt}</td>
@@ -825,7 +828,8 @@ document.addEventListener('DOMContentLoaded', async function() {
                 <td><input type="text" class="form-control" value="${descricaoSistema}" disabled></td>
                 <td><input type="text" class="form-control" value="${uCom}" disabled></td>
                 <td><input type="number" step="any" class="form-control" value="${parseFloat(item.querySelector('qCom')?.textContent || 0)}"></td>
-                <td><input type="number" step="any" class="form-control" value="${parseFloat(item.querySelector('vUnCom')?.textContent || 0)}" disabled></td>
+                <td><input type="number" step="any" class="form-control" value="${parseFloat(item.querySelector('vUnCom')?.textContent || 0)}"></td>
+                <td><input type="number" step="any" class="form-control" value="0"></td>
                 <td><input type="number" step="any" class="form-control" value="${parseFloat(item.querySelector('vIPI')?.textContent || 0)}"></td>
                 <td><input type="number" step="any" class="form-control" value="${freteRateado.toFixed(2)}"></td>
                 <td>${locacaoDropdownHtml}</td>
@@ -869,8 +873,9 @@ document.addEventListener('DOMContentLoaded', async function() {
                 try {
                     const quantidadeInformada = parseFloat(row.cells[3].querySelector('input').value);
                     const valorUnitario = parseFloat(row.cells[4].querySelector('input').value);
-                    const ipi = parseFloat(row.cells[5].querySelector('input').value) || 0;
-                    const frete = parseFloat(row.cells[6].querySelector('input').value) || 0;
+                    const icms = parseFloat(row.cells[5].querySelector('input').value) || 0;
+                    const ipi = parseFloat(row.cells[6].querySelector('input').value) || 0;
+                    const frete = parseFloat(row.cells[7].querySelector('input').value) || 0;
 
                     if (isNaN(quantidadeInformada) || quantidadeInformada <= 0 || isNaN(valorUnitario) || !locacaoSelecionada) {
                         throw new Error("Dados inválidos ou locação não selecionada.");
@@ -901,7 +906,7 @@ document.addEventListener('DOMContentLoaded', async function() {
                         }
 
                         // 2. Lógica de Custo Total
-                        let custoTotalEntrada = (quantidadeInformada * valorUnitario) + ipi + frete;
+                        let custoTotalEntrada = (quantidadeInformada * valorUnitario) + icms + ipi + frete;
                         // ... (outras lógicas de custo, se houver)
 
                         // 3. Atualiza Estoque na Locação Correta
@@ -924,6 +929,7 @@ document.addEventListener('DOMContentLoaded', async function() {
                             data: serverTimestamp(),
                             nf: nf,
                             valor_unitario: valorUnitario,
+                            icms: icms,
                             ipi: ipi,
                             frete: frete,
                             observacao: `Importado via XML da NF-e ${nf}`,
