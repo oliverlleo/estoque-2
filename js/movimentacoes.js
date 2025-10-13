@@ -125,14 +125,14 @@ document.addEventListener('DOMContentLoaded', async function() {
     function updateProductInfo() {
         const productId = document.getElementById('mov-produto-id').value;
         const product = productsMap[productId];
+        const localSelect = document.getElementById('mov-local');
         const locacaoSelect = document.getElementById('mov-locacao');
         const isEntrada = document.getElementById('movement-toggle').checked;
 
-        // Limpa e desabilita o select de locação
-        locacaoSelect.innerHTML = '<option value="">Selecione a Locação...</option>';
+        localSelect.innerHTML = '<option value="">Local...</option>';
+        locacaoSelect.innerHTML = '<option value="">Locação...</option>';
+        localSelect.disabled = true;
         locacaoSelect.disabled = true;
-
-        // Esconde o display de estoque antigo
         document.getElementById('mov-estoque-display-wrapper').style.display = 'none';
 
         if (product) {
@@ -141,21 +141,24 @@ document.addEventListener('DOMContentLoaded', async function() {
             document.getElementById('mov-un-display').textContent = product.un;
 
             if (product.locacoes && product.locacoes.length > 0) {
-                product.locacoes.forEach(loc => {
-                    const option = document.createElement('option');
-                    option.value = loc.locacao; // Usar o código da locação como valor
+                const uniqueLocalIds = [...new Set(product.locacoes.map(loc => loc.localId))];
 
-                    let text = loc.locacao;
-                    if (!isEntrada) { // Se for SAÍDA, mostra o estoque
-                        text += ` (Estoque: ${loc.estoque || 0})`;
+                localSelect.innerHTML = '<option value="">Selecione o Local...</option>';
+                uniqueLocalIds.forEach(localId => {
+                    const localData = configData.locais[localId];
+                    if (localData) {
+                        localSelect.innerHTML += `<option value="${localId}">${localData.nome}</option>`;
                     }
-                    option.textContent = text;
-                    locacaoSelect.appendChild(option);
                 });
-                locacaoSelect.disabled = false;
+                localSelect.disabled = false;
+
+                // Auto-select first local and trigger change to filter locacao
+                if (uniqueLocalIds.length > 0) {
+                    localSelect.value = uniqueLocalIds[0];
+                    localSelect.dispatchEvent(new Event('change'));
+                }
             }
         } else {
-            // Limpa os campos se nenhum produto for selecionado
             document.getElementById('mov-codigo-display').textContent = '-';
             document.getElementById('mov-descricao-display').textContent = '-';
             document.getElementById('mov-un-display').textContent = '-';
@@ -379,6 +382,37 @@ document.addEventListener('DOMContentLoaded', async function() {
         toggleObraRequirement();
         toggleValorUnitarioRequirement();
     }
+
+    const localSelect = document.getElementById('mov-local');
+
+    localSelect.addEventListener('change', () => {
+        const productId = document.getElementById('mov-produto-id').value;
+        const product = productsMap[productId];
+        const locacaoSelect = document.getElementById('mov-locacao');
+        const localId = localSelect.value;
+        const isEntrada = document.getElementById('movement-toggle').checked;
+
+        locacaoSelect.innerHTML = '<option value="">Locação...</option>';
+        locacaoSelect.disabled = true;
+
+        if (product && product.locacoes && localId) {
+            const filteredLocacoes = product.locacoes.filter(loc => loc.localId === localId);
+
+            if (filteredLocacoes.length > 0) {
+                filteredLocacoes.forEach(loc => {
+                    let text = loc.locacao;
+                    if (!isEntrada) {
+                        text += ` (Estoque: ${loc.estoque || 0})`;
+                    }
+                    locacaoSelect.innerHTML += `<option value="${loc.locacao}">${text}</option>`;
+                });
+                locacaoSelect.disabled = false;
+
+                // Auto-select first locacao in the filtered list
+                locacaoSelect.value = filteredLocacoes[0].locacao;
+            }
+        }
+    });
 
     toggle.addEventListener('change', handleToggleChange);
     document.getElementById('mov-tipo-entrada').addEventListener('change', toggleObraRequirement);
