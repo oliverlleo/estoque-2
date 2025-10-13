@@ -808,7 +808,7 @@ document.addEventListener('DOMContentLoaded', async function() {
             }
 
             let locacaoDropdownHtml = `<select class="form-control locacao-select" required ${!produtoNoSistema ? 'disabled' : ''}>`;
-            locacaoDropdownHtml += '<option value="">Selecione um Local...</option>';
+            locacaoDropdownHtml += '<option value="">Primeiro selecione um Local...</option>';
             locacaoDropdownHtml += `</select>`;
 
             let localDropdownHtml = `<select class="form-control local-select" required ${!produtoNoSistema ? 'disabled' : ''}>`;
@@ -858,6 +858,32 @@ document.addEventListener('DOMContentLoaded', async function() {
                 filteredLocacoes.forEach(loc => {
                     locacaoSelect.innerHTML += `<option value="${loc.locacao}">${loc.locacao}</option>`;
                 });
+            }
+        }
+    });
+
+    xmlProductsTableBody.addEventListener('change', (e) => {
+        if (e.target.classList.contains('local-select')) {
+            const row = e.target.closest('tr');
+            const localId = e.target.value;
+            const productId = row.dataset.productId;
+            const product = productsMap[productId];
+            const locacaoSelect = row.querySelector('.locacao-select');
+
+            locacaoSelect.innerHTML = ''; // Limpa completamente as opções
+
+            if (product && product.locacoes && localId) {
+                const filteredLocacoes = product.locacoes.filter(loc => loc.localId === localId);
+                if (filteredLocacoes.length > 0) {
+                    locacaoSelect.innerHTML = '<option value="">Selecione...</option>';
+                    filteredLocacoes.forEach(loc => {
+                        locacaoSelect.innerHTML += `<option value="${loc.locacao}">${loc.locacao}</option>`;
+                    });
+                } else {
+                    locacaoSelect.innerHTML = '<option value="">Nenhuma locação encontrada</option>';
+                }
+            } else {
+                locacaoSelect.innerHTML = '<option value="">Selecione um Local...</option>';
             }
         }
     });
