@@ -807,7 +807,7 @@ document.addEventListener('DOMContentLoaded', async function() {
                 acaoHtml = `<button class="btn btn-edit btn-cadastrar-produto" data-dados='${JSON.stringify(dadosDoXml)}'>Cadastrar</button>`;
             }
 
-            let locacaoDropdownHtml = `<select class="form-control" required ${!produtoNoSistema ? 'disabled' : ''}>`;
+            let locacaoDropdownHtml = `<select class="form-control locacao-select" required ${!produtoNoSistema ? 'disabled' : ''}>`;
             if (produtoNoSistema && produtoNoSistema.locacoes) {
                 locacaoDropdownHtml += '<option value="">Selecione...</option>';
                 produtoNoSistema.locacoes.forEach(loc => {
@@ -817,6 +817,17 @@ document.addEventListener('DOMContentLoaded', async function() {
                 locacaoDropdownHtml += '<option value="">Nenhuma</option>';
             }
             locacaoDropdownHtml += `</select>`;
+
+            let localDropdownHtml = `<select class="form-control local-select" required ${!produtoNoSistema ? 'disabled' : ''}>`;
+            if (produtoNoSistema && configData.locais) {
+                localDropdownHtml += '<option value="">Selecione...</option>';
+                for (const [id, data] of Object.entries(configData.locais)) {
+                    localDropdownHtml += `<option value="${id}">${data.nome}</option>`;
+                }
+            } else {
+                localDropdownHtml += '<option value="">Nenhum</option>';
+            }
+            localDropdownHtml += `</select>`;
 
             const row = xmlProductsTableBody.insertRow();
             if (!produtoNoSistema) row.style.backgroundColor = '#ffdddd';
@@ -832,6 +843,7 @@ document.addEventListener('DOMContentLoaded', async function() {
                 <td><input type="number" step="any" class="form-control" value="0"></td>
                 <td><input type="number" step="any" class="form-control" value="${parseFloat(item.querySelector('vIPI')?.textContent || 0)}"></td>
                 <td><input type="number" step="any" class="form-control" value="${freteRateado.toFixed(2)}"></td>
+                <td>${localDropdownHtml}</td>
                 <td>${locacaoDropdownHtml}</td>
                 <td>${acaoHtml}</td>
             `;
@@ -867,7 +879,8 @@ document.addEventListener('DOMContentLoaded', async function() {
                 const productId = row.dataset.productId;
                 if (!productId) continue; // Pula não cadastrados
 
-                const locacaoSelecionada = row.cells[8].querySelector('select').value;
+                const localId = row.cells[8].querySelector('select').value;
+                const locacaoSelecionada = row.cells[9].querySelector('select').value;
                 const unidadeCompra = row.dataset.unidadeCompra;
 
                 try {
@@ -877,8 +890,8 @@ document.addEventListener('DOMContentLoaded', async function() {
                     const ipi = parseFloat(row.cells[6].querySelector('input').value) || 0;
                     const frete = parseFloat(row.cells[7].querySelector('input').value) || 0;
 
-                    if (isNaN(quantidadeInformada) || quantidadeInformada <= 0 || isNaN(valorUnitario) || !locacaoSelecionada) {
-                        throw new Error("Dados inválidos ou locação não selecionada.");
+                    if (isNaN(quantidadeInformada) || quantidadeInformada <= 0 || isNaN(valorUnitario) || !locacaoSelecionada || !localId) {
+                        throw new Error("Dados inválidos ou local/locação não selecionada.");
                     }
 
                     await runTransaction(db, async (transaction) => {
@@ -911,9 +924,9 @@ document.addEventListener('DOMContentLoaded', async function() {
 
                         // 3. Atualiza Estoque na Locação Correta
                         const locacoes = productData.locacoes || [];
-                        const locacaoIndex = locacoes.findIndex(l => l.locacao === locacaoSelecionada);
+                        const locacaoIndex = locacoes.findIndex(l => l.locacao === locacaoSelecionada && l.localId === localId);
                         if (locacaoIndex === -1) {
-                            throw new Error(`Locação '${locacaoSelecionada}' não encontrada para o produto.`);
+                            throw new Error(`A combinação de Local e Locação ('${locacaoSelecionada}') não foi encontrada para o produto.`);
                         }
                         locacoes[locacaoIndex].estoque = (locacoes[locacaoIndex].estoque || 0) + quantidadeParaEstoque;
                         transaction.update(productRef, { locacoes: locacoes });
@@ -925,6 +938,7 @@ document.addEventListener('DOMContentLoaded', async function() {
                             tipo: 'entrada',
                             productId,
                             locacao: locacaoSelecionada,
+                            localId: localId,
                             un_compra: unidadeCompra, // SALVA A UNIDADE DA NOTA
                             data: serverTimestamp(),
                             nf: nf,
