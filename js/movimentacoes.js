@@ -983,9 +983,16 @@ document.addEventListener('DOMContentLoaded', async function() {
     formNovoProdutoModal.addEventListener('submit', async (e) => {
         e.preventDefault();
 
-        const locacao = document.getElementById('modal-produto-locacao').value;
-        const localId = document.getElementById('modal-produto-local').value;
+        const locacaoInput = document.getElementById('modal-produto-locacao');
+        const localSelect = document.getElementById('modal-produto-local');
+        const locacao = locacaoInput.value;
+        const localId = localSelect.value;
         const locacoes = [];
+
+        if (locacao && !localId) {
+            alert('Se um código de locação é fornecido, um local deve ser selecionado.');
+            return;
+        }
 
         // Apenas adiciona a locação se ambos os campos estiverem preenchidos
         if (locacao && localId) {
