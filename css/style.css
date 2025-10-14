@@ -814,7 +814,8 @@ input:checked + .slider:before {
 }
 
 /* Estilos para a lista de Tags de Marcas */
-#lista-marcas-tags, .table td {
+#lista-marcas-tags,
+.table-fornecedores td:nth-child(3) { /* Aplica flexbox apenas à coluna 'Marcas' da tabela de fornecedores */
     display: flex;
     flex-wrap: wrap;
     gap: 8px;
