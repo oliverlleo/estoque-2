@@ -8,57 +8,6 @@
     <script src="https://cdn.jsdelivr.net/npm/feather-icons/dist/feather.min.js"></script>
     <link href="https://cdnjs.cloudflare.com/ajax/libs/tailwindcss/2.2.19/tailwind.min.css" rel="stylesheet">
     <link href="https://fonts.googleapis.com/icon?family=Material+Icons" rel="stylesheet">
-    <style>
-        /*
-         * FINAL ATTEMPT: Forceful CSS Override
-         * Using !important to ensure these styles take precedence over any conflictingheaders-row
-         * rules from the main stylesheet or dynamically applied styles.
-        */
-        #entrada-fields-container .form-control {
-            display: inline-block !important;
-            width: auto !important; /* Allow flex properties to control width */
-            flex-shrink: 1 !important; /* Allow fields to shrink if needed */
-            min-width: 90px !important; /* Prevent fields from becoming too small */
-        }
-        #entrada-fields-container #mov-observacao-entrada {
-            min-width: 180px !important; /* Give observation field a larger minimum width */
-            flex-grow: 1 !important; /* Ensure it grows to fill space */
-        }
-        .form-row {
-            display: flex;
-            flex-wrap: nowrap; /* Garante que não haja quebra de linha */
-            gap: 10px;
-            align-items: flex-end;
-            width: 100%;
-            margin-bottom: 15px; /* Adiciona espaçamento vertical */
-        }
-        .form-row .search-container {
-            flex: 3 1 400px; /* Aumenta a base e a capacidade de crescer */
-        }
-        .form-row .desc-field {
-            flex: 2 1 300px;
-        }
-        #mov-local, #mov-locacao {
-            flex: 1 1 100px; /* Reduz a base para 50% */
-        }
-        .form-row .auto-filled-field {
-            white-space: nowrap;
-            padding-bottom: 5px;
-        }
-        .form-row .form-control {
-            flex: 1 1 auto;
-        }
-        #mov-observacao-entrada, #mov-observacao-saida {
-            width: 100%; /* Ocupa a linha inteira */
-        }
-        #xml-import-modal .modal-content {
-            max-width: 2160px !important;
-        }
-        #xml-products-table {
-            table-layout: fixed;
-            width: 100%;
-        }
-    </style>
 </head>
 <body class="flex h-screen">
     <aside class="w-64 bg-gray-800 text-white flex flex-col">
