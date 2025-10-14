@@ -857,6 +857,36 @@ document.addEventListener('DOMContentLoaded', async function() {
         reader.readAsText(file);
     });
 
+    // Event listener para os dropdowns de Local na tabela de importação
+    xmlProductsTableBody.addEventListener('change', (e) => {
+        if (e.target.classList.contains('xml-local-select')) {
+            const row = e.target.closest('tr');
+            const productId = row.dataset.productId;
+            const selectedLocalId = e.target.value;
+            const locacaoSelect = row.querySelector('.xml-locacao-select');
+            const product = productsMap[productId];
+
+            locacaoSelect.innerHTML = '<option value="">Carregando...</option>';
+
+            if (product && selectedLocalId) {
+                const locacoesFiltradas = product.locacoes.filter(l => l.localId === selectedLocalId);
+                locacaoSelect.innerHTML = '<option value="">Selecione...</option>';
+                locacoesFiltradas.forEach(loc => {
+                    locacaoSelect.innerHTML += `<option value="${loc.locacao}">${loc.locacao}</option>`;
+                });
+
+                // Pre-seleciona a primeira locação
+                if (locacaoSelect.options.length > 1) {
+                    locacaoSelect.selectedIndex = 1;
+                }
+
+            } else {
+                locacaoSelect.innerHTML = '<option value="">Selecione o Local...</option>';
+            }
+        }
+    });
+
+
     function parseNFeXML(xmlText) {
         const parser = new DOMParser();
         const xmlDoc = parser.parseFromString(xmlText, "text/xml");
@@ -882,21 +912,27 @@ document.addEventListener('DOMContentLoaded', async function() {
                 acaoHtml = `<button class="btn btn-edit btn-cadastrar-produto" data-dados='${JSON.stringify(dadosDoXml)}'>Cadastrar</button>`;
             }
 
-            let locacaoDropdownHtml = `<select class="form-control" required ${!produtoNoSistema ? 'disabled' : ''}>`;
+            // Prepara dropdown de Local
+            let localDropdownHtml = `<select class="form-control xml-local-select" required ${!produtoNoSistema ? 'disabled' : ''}>`;
             if (produtoNoSistema && produtoNoSistema.locacoes) {
-                locacaoDropdownHtml += '<option value="">Selecione...</option>';
-                produtoNoSistema.locacoes.forEach(loc => {
-                    locacaoDropdownHtml += `<option value="${loc.locacao}">${loc.locacao}</option>`;
+                const locaisUnicos = [...new Set(produtoNoSistema.locacoes.map(l => l.localId))];
+                localDropdownHtml += '<option value="">Selecione...</option>';
+                locaisUnicos.forEach(localId => {
+                    const localNome = configData.locais[localId]?.nome || 'Desconhecido';
+                    localDropdownHtml += `<option value="${localId}">${localNome}</option>`;
                 });
             } else {
-                locacaoDropdownHtml += '<option value="">Nenhuma</option>';
+                localDropdownHtml += '<option value="">Nenhum</option>';
             }
-            locacaoDropdownHtml += `</select>`;
+            localDropdownHtml += `</select>`;
+
+            // Prepara dropdown de Locação (inicialmente vazio)
+            let locacaoDropdownHtml = `<select class="form-control xml-locacao-select" required ${!produtoNoSistema ? 'disabled' : ''}><option value="">Selecione o Local...</option></select>`;
 
             const row = xmlProductsTableBody.insertRow();
             if (!produtoNoSistema) row.style.backgroundColor = '#ffdddd';
             row.dataset.productId = produtoIdSistema;
-            row.dataset.unidadeCompra = uCom; // Salva a unidade da nota
+            row.dataset.unidadeCompra = uCom;
 
             row.innerHTML = `
                 <td><input type="text" class="form-control" value="${cProd}" disabled></td>
@@ -904,12 +940,22 @@ document.addEventListener('DOMContentLoaded', async function() {
                 <td><input type="text" class="form-control" value="${uCom}" disabled></td>
                 <td><input type="number" step="any" class="form-control" value="${parseFloat(item.querySelector('qCom')?.textContent || 0)}"></td>
                 <td><input type="number" step="any" class="form-control" value="${parseFloat(item.querySelector('vUnCom')?.textContent || 0)}"></td>
-                <td><input type="number" step="any" class="form-control" value="${parseFloat(item.querySelector('vICMS')?.textContent || 0)}"></td>
+                <td><input type="number" step="any" class="form-control" value="0"></td>
                 <td><input type="number" step="any" class="form-control" value="${parseFloat(item.querySelector('vIPI')?.textContent || 0)}"></td>
                 <td><input type="number" step="any" class="form-control" value="${freteRateado.toFixed(2)}"></td>
+                <td>${localDropdownHtml}</td>
                 <td>${locacaoDropdownHtml}</td>
                 <td>${acaoHtml}</td>
             `;
+        });
+
+        // Pre-seleciona o primeiro local e locação para cada linha
+        xmlProductsTableBody.querySelectorAll('tr').forEach(row => {
+            const localSelect = row.querySelector('.xml-local-select');
+            if (localSelect && localSelect.options.length > 1) {
+                localSelect.selectedIndex = 1; // Seleciona a primeira opção válida
+                localSelect.dispatchEvent(new Event('change', { bubbles: true })); // Dispara o evento para popular a locação
+            }
         });
     }
 
@@ -929,9 +975,9 @@ document.addEventListener('DOMContentLoaded', async function() {
         for (const row of rows) {
              const productId = row.dataset.productId;
              if (!productId) continue; // Pula não cadastrados
-             const locacaoSelect = row.cells[8].querySelector('select');
+             const locacaoSelect = row.cells[9].querySelector('select'); // Índice da célula de locação agora é 9
              if (!locacaoSelect || !locacaoSelect.value) {
-                 alert(`Por favor, selecione uma locação para todos os produtos cadastrados (Código: ${row.cells[0].querySelector('input').value}).`);
+                 alert(`Por favor, selecione local e locação para todos os produtos cadastrados (Código: ${row.cells[0].querySelector('input').value}).`);
                  return;
              }
         }
@@ -942,7 +988,7 @@ document.addEventListener('DOMContentLoaded', async function() {
                 const productId = row.dataset.productId;
                 if (!productId) continue; // Pula não cadastrados
 
-                const locacaoSelecionada = row.cells[8].querySelector('select').value;
+                const locacaoSelecionada = row.cells[9].querySelector('select').value; // Índice da célula de locação agora é 9
                 const unidadeCompra = row.dataset.unidadeCompra;
 
                 try {
