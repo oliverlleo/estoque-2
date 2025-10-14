@@ -967,8 +967,8 @@ input:checked + .slider:before {
 /* 2. Aplica um layout de Grid para a tabela de produtos da NF-e */
 #xml-products-table tr {
     display: grid;
-    /* Definição das 10 colunas: Descrição (1.2fr) para equilibrar o espaço. */
-    grid-template-columns: 150px 1.2fr 80px 80px 100px 100px 100px 120px 150px 120px;
+    /* Definição das 10 colunas: 'Descrição' e 'Grupo' são flexíveis para distribuir o espaço. */
+    grid-template-columns: 150px 2fr 80px 80px 100px 100px 100px 120px 1fr 120px;
     gap: 10px;
     align-items: center;
     border-bottom: 1px solid #dee2e6;
