@@ -887,11 +887,24 @@ document.addEventListener('DOMContentLoaded', async function() {
     });
 
 
-    function parseNFeXML(xmlText) {
+    async function parseNFeXML(xmlText) {
         const parser = new DOMParser();
         const xmlDoc = parser.parseFromString(xmlText, "text/xml");
         xmlProductsTableBody.innerHTML = '';
-        inputNfeNumero.value = xmlDoc.querySelector('nNF')?.textContent || '';
+        const nfeNumero = xmlDoc.querySelector('nNF')?.textContent || '';
+        inputNfeNumero.value = nfeNumero;
+
+        if (nfeNumero) {
+            const q = query(collection(db, 'movimentacoes'), where("nf", "==", nfeNumero), where("tipo", "==", "entrada"));
+            const querySnapshot = await getDocs(q);
+            if (!querySnapshot.empty) {
+                showInfoModal(`A NF-e de número ${nfeNumero} já foi importada anteriormente e não pode ser processada novamente.`);
+                xmlFileInput.value = ''; // Limpa o input de arquivo
+                inputNfeNumero.value = ''; // Limpa o campo do número da NF
+                return; // Interrompe a execução
+            }
+        }
+
         const totalFrete = parseFloat(xmlDoc.querySelector('ICMSTot vFrete')?.textContent || 0);
         const totalProdutos = parseFloat(xmlDoc.querySelector('ICMSTot vProd')?.textContent || 0);
         const items = xmlDoc.querySelectorAll('det');
