@@ -1153,14 +1153,31 @@ document.addEventListener('DOMContentLoaded', async function() {
                 linhaAtualParaAtualizar.style.backgroundColor = '#d4edda';
                 linhaAtualParaAtualizar.cells[1].querySelector('input').value = novoProduto.descricao;
 
-                // Célula de Ação (10ª célula, index 9)
-                const acaoCell = linhaAtualParaAtualizar.cells[9];
-                acaoCell.innerHTML = '<span class="text-success">Cadastrado!</span>';
+                // Célula de Ação (11ª célula, index 10)
+                const acaoCell = linhaAtualParaAtualizar.cells[10];
+                acaoCell.innerHTML = '<span class="text-success" style="color: green; font-weight: bold;">Cadastrado!</span>';
 
-                // Célula de Locação (9ª célula, index 8)
-                const locacaoCell = linhaAtualParaAtualizar.cells[8];
+                // Célula de Local (9ª célula, index 8) e Locação (10ª célula, index 9)
+                const localCell = linhaAtualParaAtualizar.cells[8];
+                const locacaoCell = linhaAtualParaAtualizar.cells[9];
+
+                // Atualiza o dropdown de Local
+                const newLocalSelect = document.createElement('select');
+                newLocalSelect.className = 'form-control xml-local-select';
+                newLocalSelect.required = true;
+                let localOptionsHtml = '<option value="">Selecione...</option>';
+                const locaisUnicos = [...new Set(novoProduto.locacoes.map(l => l.localId))];
+                locaisUnicos.forEach(localId => {
+                    const localNome = configData.locais[localId]?.nome || 'Desconhecido';
+                    localOptionsHtml += `<option value="${localId}">${localNome}</option>`;
+                });
+                newLocalSelect.innerHTML = localOptionsHtml;
+                localCell.innerHTML = '';
+                localCell.appendChild(newLocalSelect);
+
+                // Atualiza o dropdown de Locação
                 const newLocacaoSelect = document.createElement('select');
-                newLocacaoSelect.className = 'form-control';
+                newLocacaoSelect.className = 'form-control xml-locacao-select';
                 newLocacaoSelect.required = true;
 
                 let optionsHtml = '<option value="">Selecione...</option>';
