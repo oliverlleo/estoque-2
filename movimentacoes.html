@@ -10,21 +10,13 @@
     <link href="https://cdnjs.cloudflare.com/ajax/libs/tailwindcss/2.2.19/tailwind.min.css" rel="stylesheet">
     <link href="https://fonts.googleapis.com/icon?family=Material+Icons" rel="stylesheet">
     <style>
-        /*
-         * FINAL ATTEMPT: Forceful CSS Override
-         * Using !important to ensure these styles take precedence over any conflictingheaders-row
-         * rules from the main stylesheet or dynamically applied styles.
-        */
         #entrada-fields-container .form-control,
         #saida-fields-container .form-control {
-            width: auto !important; /* Allow flex properties to control width */
-            flex-shrink: 1 !important; /* Allow fields to shrink if needed */
-            min-width: 90px !important; /* Prevent fields from becoming too small */
+            flex: 1 1 90px; /* flex-grow: 1, flex-shrink: 1, flex-basis: 90px */
         }
         #entrada-fields-container #mov-observacao-entrada,
         #saida-fields-container #mov-observacao-saida {
-            min-width: 180px !important; /* Give observation field a larger minimum width */
-            flex-grow: 1 !important; /* Ensure it grows to fill space */
+            flex: 2 1 180px; /* Observacao pode crescer mais e tem uma base maior */
         }
     </style>
 </head>
@@ -121,7 +113,7 @@
                             </div>
 
                             <!-- Container para Campos de ENTRADA -->
-                            <div id="entrada-fields-container" style="grid-column: 1 / -1; display: flex; flex-direction: row; gap: 10px; align-items: flex-end; flex-wrap: nowrap;">
+                            <div id="entrada-fields-container" style="grid-column: 1 / -1; display: flex; flex-wrap: nowrap; gap: 10px; align-items: flex-end;">
                                 <select id="mov-tipo-entrada" class="form-control"><option value="">Tipo de Entrada...</option></select>
                                 <input type="text" id="mov-nf" placeholder="Nº Nota Fiscal" class="form-control">
                                 <input type="number" id="mov-valor-unitario" placeholder="Valor Unitário" step="0.01" class="form-control">
@@ -132,7 +124,7 @@
                             </div>
 
                             <!-- Container para Campos de SAÍDA -->
-                            <div id="saida-fields-container" style="grid-column: 1 / -1; display: none; flex-direction: row; gap: 10px; align-items: flex-end; flex-wrap: nowrap;">
+                            <div id="saida-fields-container" style="grid-column: 1 / -1; display: flex; flex-wrap: nowrap; gap: 10px; align-items: flex-end;">
                                 <select id="mov-tipo-saida" class="form-control"><option value="">Tipo de Saída...</option></select>
                                 <input type="text" id="mov-requisitante" placeholder="Requisitante" class="form-control">
                                 <select id="mov-obra" class="form-control"><option value="">Selecione a Obra...</option></select>
