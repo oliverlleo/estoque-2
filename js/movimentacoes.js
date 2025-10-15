@@ -122,15 +122,53 @@ document.addEventListener('DOMContentLoaded', async function() {
         }
     }
 
+    const localSelect = document.getElementById('mov-local');
+    const locacaoSelect = document.getElementById('mov-locacao');
+
+    function populateLocacoes(product, selectedLocalId) {
+        const isEntrada = document.getElementById('movement-toggle').checked;
+        locacaoSelect.innerHTML = '<option value="">Carregando...</option>';
+
+        if (product && selectedLocalId) {
+            const locacoesFiltradas = product.locacoes.filter(l => l.localId === selectedLocalId);
+            locacaoSelect.innerHTML = '<option value="">Selecione...</option>';
+            locacoesFiltradas.forEach(loc => {
+                const option = document.createElement('option');
+                option.value = loc.locacao;
+                let text = loc.locacao;
+                 if (!isEntrada) {
+                    text += ` (Estoque: ${loc.estoque || 0})`;
+                }
+                option.textContent = text;
+                locacaoSelect.appendChild(option);
+            });
+            locacaoSelect.disabled = false;
+            // Pre-seleciona a primeira locação
+            if (locacaoSelect.options.length > 1) {
+                locacaoSelect.selectedIndex = 1;
+            }
+        } else {
+            locacaoSelect.innerHTML = '<option value="">Selecione o Local...</option>';
+            locacaoSelect.disabled = true;
+        }
+    }
+
+    localSelect.addEventListener('change', () => {
+        const productId = document.getElementById('mov-produto-id').value;
+        const product = productsMap[productId];
+        populateLocacoes(product, localSelect.value);
+    });
+
     async function updateProductInfo() {
         const productId = document.getElementById('mov-produto-id').value;
         const product = productsMap[productId];
-        const locacaoSelect = document.getElementById('mov-locacao');
         const isEntrada = document.getElementById('movement-toggle').checked;
         const unitSelect = document.getElementById('mov-unidade-selecao');
 
         // Reset fields
-        locacaoSelect.innerHTML = '<option value="">Selecione a Locação...</option>';
+        localSelect.innerHTML = '<option value="">Local...</option>';
+        localSelect.disabled = true;
+        locacaoSelect.innerHTML = '<option value="">Locação...</option>';
         locacaoSelect.disabled = true;
         unitSelect.innerHTML = '';
         unitSelect.style.display = 'none';
@@ -141,22 +179,24 @@ document.addEventListener('DOMContentLoaded', async function() {
             document.getElementById('mov-descricao-display').textContent = product.descricao;
             document.getElementById('mov-un-display').textContent = product.un;
 
-            // Populate locations
+            // Populate locais
             if (product.locacoes && product.locacoes.length > 0) {
-                product.locacoes.forEach(loc => {
-                    const option = document.createElement('option');
-                    option.value = loc.locacao;
-                    let text = loc.locacao;
-                    if (!isEntrada) {
-                        text += ` (Estoque: ${loc.estoque || 0})`;
-                    }
-                    option.textContent = text;
-                    locacaoSelect.appendChild(option);
+                const locaisUnicos = [...new Set(product.locacoes.map(l => l.localId))];
+                localSelect.innerHTML = '<option value="">Selecione...</option>';
+                locaisUnicos.forEach(localId => {
+                    const localNome = configData.locais[localId]?.nome || 'Desconhecido';
+                    localSelect.innerHTML += `<option value="${localId}">${localNome}</option>`;
                 });
-                locacaoSelect.disabled = false;
+                localSelect.disabled = false;
+
+                // Pre-seleciona o primeiro local e dispara a populacao de locacoes
+                if (localSelect.options.length > 1) {
+                    localSelect.selectedIndex = 1;
+                    populateLocacoes(product, localSelect.value);
+                }
             }
 
-            // --- NEW FEATURE: Handle Unit Selection Dropdown ---
+            // --- Handle Unit Selection Dropdown ---
             if (isEntrada && product.conversaoId && configData.conversoes[product.conversaoId]) {
                 const conversao = configData.conversoes[product.conversaoId];
                 const purchaseUnit = conversao.medida_compra;
