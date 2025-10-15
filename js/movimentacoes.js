@@ -454,8 +454,10 @@ document.addEventListener('DOMContentLoaded', async function() {
         const isEntrada = toggle.checked;
         btnImportarXml.style.display = isEntrada ? 'inline-block' : 'none';
         btnTransferencia.style.display = isEntrada ? 'none' : 'inline-block';
-        entradaFields.forEach(el => el.style.display = isEntrada ? '' : 'none');
-        saidaFields.forEach(el => el.style.display = isEntrada ? 'none' : '');
+
+        // CORREÇÃO: Usar 'flex' para garantir o layout correto quando visível
+        entradaFields.forEach(el => el.style.display = isEntrada ? 'flex' : 'none');
+        saidaFields.forEach(el => el.style.display = isEntrada ? 'none' : 'flex');
 
         if (isEntrada) {
             btnMovimentacao.textContent = 'Confirmar Entrada';
