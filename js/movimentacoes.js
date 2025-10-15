@@ -489,10 +489,10 @@ document.addEventListener('DOMContentLoaded', async function() {
         const isEntrada = toggle.checked;
         const productId = document.getElementById('mov-produto-id').value;
         const locacaoSelecionada = document.getElementById('mov-locacao').value;
-        const quantidade = parseFloat(document.getElementById('mov-quantidade').value);
+        const quantidade = parseFloat(document.getElementById(isEntrada ? 'mov-quantidade' : 'mov-quantidade-saida').value);
 
         if (!productId || !locacaoSelecionada || isNaN(quantidade) || quantidade <= 0) {
-            alert('Por favor, preencha o produto, a locação e a quantidade corretamente.');
+            alert('Por favor, preencha o produto, local, locação e quantidade corretamente.');
             return;
         }
 
