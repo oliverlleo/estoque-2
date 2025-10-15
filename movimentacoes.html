@@ -15,13 +15,15 @@
          * Using !important to ensure these styles take precedence over any conflictingheaders-row
          * rules from the main stylesheet or dynamically applied styles.
         */
-        #entrada-fields-container .form-control {
+        #entrada-fields-container .form-control,
+        #saida-fields-container .form-control {
             display: inline-block !important;
             width: auto !important; /* Allow flex properties to control width */
             flex-shrink: 1 !important; /* Allow fields to shrink if needed */
             min-width: 90px !important; /* Prevent fields from becoming too small */
         }
-        #entrada-fields-container #mov-observacao-entrada {
+        #entrada-fields-container #mov-observacao-entrada,
+        #saida-fields-container #mov-observacao-saida {
             min-width: 180px !important; /* Give observation field a larger minimum width */
             flex-grow: 1 !important; /* Ensure it grows to fill space */
         }
@@ -131,13 +133,11 @@
                             </div>
 
                             <!-- Container para Campos de SAÍDA -->
-                            <div id="saida-fields-container" style="grid-column: 1 / -1; display: none; flex-direction: column; gap: 10px;">
-                                <div style="display: flex; gap: 10px;">
-                                    <select id="mov-tipo-saida" class="form-control"><option value="">Tipo de Saída...</option></select>
-                                    <input type="text" id="mov-requisitante" placeholder="Requisitante" class="form-control">
-                                    <select id="mov-obra" class="form-control"><option value="">Selecione a Obra...</option></select>
-                                    <input type="text" id="mov-observacao-saida" placeholder="Observação" class="form-control" style="flex-grow: 1;">
-                                </div>
+                            <div id="saida-fields-container" style="grid-column: 1 / -1; display: none; flex-direction: row; gap: 10px; flex-wrap: nowrap;">
+                                <select id="mov-tipo-saida" class="form-control"><option value="">Tipo de Saída...</option></select>
+                                <input type="text" id="mov-requisitante" placeholder="Requisitante" class="form-control">
+                                <select id="mov-obra" class="form-control"><option value="">Selecione a Obra...</option></select>
+                                <input type="text" id="mov-observacao-saida" placeholder="Observação" class="form-control">
                             </div>
                         </div>
                         <button type="submit" id="btn-movimentacao" class="btn" style="width: 100%; margin-top: 20px;">Confirmar</button>
