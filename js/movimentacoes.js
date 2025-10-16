@@ -838,23 +838,25 @@ document.addEventListener('DOMContentLoaded', async function() {
         });
     }
 
-    xmlProductsTableBody.addEventListener('keydown', (e) => {
-        if (e.key === 'Enter' && e.target.classList.contains('qtde-input')) {
-            e.preventDefault(); // Impede o comportamento padrão (como submeter um formulário)
+    if (xmlProductsTableBody) {
+        xmlProductsTableBody.addEventListener('keydown', (e) => {
+            if (e.key === 'Enter' && e.target.classList.contains('qtde-input')) {
+                e.preventDefault(); // Impede o comportamento padrão (como submeter um formulário)
 
-            const currentInput = e.target;
-            const currentRow = currentInput.closest('tr');
-            const nextRow = currentRow.nextElementSibling;
+                const currentInput = e.target;
+                const currentRow = currentInput.closest('tr');
+                const nextRow = currentRow.nextElementSibling;
 
-            if (nextRow) {
-                const nextQtdeInput = nextRow.querySelector('.qtde-input');
-                if (nextQtdeInput) {
-                    nextQtdeInput.focus();
-                    nextQtdeInput.select(); // Seleciona o texto no campo para facilitar a edição
+                if (nextRow) {
+                    const nextQtdeInput = nextRow.querySelector('.qtde-input');
+                    if (nextQtdeInput) {
+                        nextQtdeInput.focus();
+                        nextQtdeInput.select(); // Seleciona o texto no campo para facilitar a edição
+                    }
                 }
             }
-        }
-    });
+        });
+    }
 
     btnConfirmarXmlImport.addEventListener('click', async () => {
         const nf = document.getElementById('xml-nfe-numero').value;
