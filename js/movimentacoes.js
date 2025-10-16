@@ -782,6 +782,26 @@ document.addEventListener('DOMContentLoaded', async function() {
         reader.readAsText(file);
     });
 
+    function updateTotalValue() {
+        const rows = document.querySelectorAll('#xml-products-table tbody tr');
+        let total = 0;
+        rows.forEach(row => {
+            const quantity = parseFloat(row.cells[3].querySelector('input').value) || 0;
+            const unitValue = parseFloat(row.cells[4].querySelector('input').value) || 0;
+            const icms = parseFloat(row.cells[5].querySelector('input').value) || 0;
+            const ipi = parseFloat(row.cells[6].querySelector('input').value) || 0;
+            const frete = parseFloat(row.cells[7].querySelector('input').value) || 0;
+            total += (quantity * unitValue) + icms + ipi + frete;
+        });
+        document.getElementById('xml-total-value').textContent = `Valor Total: R$ ${total.toFixed(2).replace('.', ',')}`;
+    }
+
+    xmlProductsTableBody.addEventListener('input', (e) => {
+        if (e.target.tagName === 'INPUT' && e.target.type === 'number') {
+            updateTotalValue();
+        }
+    });
+
     function parseNFeXML(xmlText) {
         const parser = new DOMParser();
         const xmlDoc = parser.parseFromString(xmlText, "text/xml");
@@ -836,6 +856,7 @@ document.addEventListener('DOMContentLoaded', async function() {
                 <td>${acaoHtml}</td>
             `;
         });
+        updateTotalValue();
     }
 
     btnConfirmarXmlImport.addEventListener('click', async () => {
