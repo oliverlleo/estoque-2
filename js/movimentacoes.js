@@ -1041,6 +1041,7 @@ document.addEventListener('DOMContentLoaded', async function() {
     }
 
     btnConfirmarXmlImport.addEventListener('click', async () => {
+        const loader = document.getElementById('xml-import-loader');
         const nf = document.getElementById('xml-nfe-numero').value;
         const rows = document.querySelectorAll('#xml-products-table tbody tr');
         let sucessoCount = 0;
@@ -1065,6 +1066,9 @@ document.addEventListener('DOMContentLoaded', async function() {
 
 
         if (confirm(`Confirmar a entrada de ${rows.length} item(ns) da NF-e ${nf}?`)) {
+            loader.style.display = 'block'; // Mostra o loader
+            btnConfirmarXmlImport.disabled = true; // Desabilita o botão
+
             for (const row of rows) {
                 const productId = row.dataset.productId;
                 if (!productId) continue; // Pula não cadastrados
@@ -1165,6 +1169,8 @@ document.addEventListener('DOMContentLoaded', async function() {
 
             xmlProductsTableBody.innerHTML = '';
             xmlImportModal.style.display = 'none';
+            loader.style.display = 'none'; // Esconde o loader
+            btnConfirmarXmlImport.disabled = false; // Reabilita o botão
         }
     });
 
