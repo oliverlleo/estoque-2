@@ -1032,7 +1032,7 @@ document.addEventListener('DOMContentLoaded', async function() {
             }
 
             // Prepara dropdown de Local
-            let localDropdownHtml = `<select class="form-control xml-local-select" required ${!produtoNoSistema ? 'disabled' : ''}>`;
+            let localDropdownHtml = `<select class="form-control xml-local-select" ${!produtoNoSistema ? 'disabled' : ''}>`;
             if (produtoNoSistema && produtoNoSistema.locacoes) {
                 const locaisUnicos = [...new Set(produtoNoSistema.locacoes.map(l => l.localId))];
                 localDropdownHtml += '<option value="">Local...</option>';
@@ -1046,7 +1046,7 @@ document.addEventListener('DOMContentLoaded', async function() {
             localDropdownHtml += `</select>`;
 
             // Prepara dropdown de Locação (inicialmente vazio)
-            let locacaoDropdownHtml = `<select class="form-control xml-locacao-select" required ${!produtoNoSistema ? 'disabled' : ''}><option value="">Locação...</option></select>`;
+            let locacaoDropdownHtml = `<select class="form-control xml-locacao-select" ${!produtoNoSistema ? 'disabled' : ''}><option value="">Locação...</option></select>`;
 
             const row = xmlProductsTableBody.insertRow();
             if (!produtoNoSistema) row.style.backgroundColor = '#ffdddd';
@@ -1092,16 +1092,6 @@ document.addEventListener('DOMContentLoaded', async function() {
             return alert("Não há produtos para importar.");
         }
 
-        // Validação prévia
-        for (const row of rows) {
-             const productId = row.dataset.productId;
-             if (!productId) continue; // Pula não cadastrados
-             const locacaoSelect = row.cells[9].querySelector('select'); // Índice da célula de locação agora é 9
-             if (!locacaoSelect || !locacaoSelect.value) {
-                 alert(`Por favor, selecione local e locação para todos os produtos cadastrados (Código: ${row.cells[0].querySelector('input').value}).`);
-                 return;
-             }
-        }
 
 
         if (confirm(`Confirmar a entrada de ${rows.length} item(ns) da NF-e ${nf}?`)) {
@@ -1122,8 +1112,8 @@ document.addEventListener('DOMContentLoaded', async function() {
                     const ipi = parseFloat(row.cells[6].querySelector('input').value) || 0;
                     const frete = parseFloat(row.cells[7].querySelector('input').value) || 0;
 
-                    if (isNaN(quantidadeInformada) || quantidadeInformada <= 0 || isNaN(valorUnitario) || !locacaoSelecionada) {
-                        throw new Error("Dados inválidos ou locação não selecionada.");
+                    if (isNaN(quantidadeInformada) || quantidadeInformada <= 0 || isNaN(valorUnitario)) {
+                        throw new Error("Dados de quantidade ou valor inválidos.");
                     }
 
                     await runTransaction(db, async (transaction) => {
@@ -1154,14 +1144,16 @@ document.addEventListener('DOMContentLoaded', async function() {
                         let custoTotalEntrada = (quantidadeInformada * valorUnitario) + icms + ipi + frete;
                         // ... (outras lógicas de custo, se houver)
 
-                        // 3. Atualiza Estoque na Locação Correta
-                        const locacoes = productData.locacoes || [];
-                        const locacaoIndex = locacoes.findIndex(l => l.locacao === locacaoSelecionada);
-                        if (locacaoIndex === -1) {
-                            throw new Error(`Locação '${locacaoSelecionada}' não encontrada para o produto.`);
+                        // 3. Atualiza Estoque na Locação Correta (se selecionada)
+                        if (locacaoSelecionada) {
+                            const locacoes = productData.locacoes || [];
+                            const locacaoIndex = locacoes.findIndex(l => l.locacao === locacaoSelecionada);
+                            if (locacaoIndex === -1) {
+                                throw new Error(`Locação '${locacaoSelecionada}' não encontrada para o produto.`);
+                            }
+                            locacoes[locacaoIndex].estoque = (locacoes[locacaoIndex].estoque || 0) + quantidadeParaEstoque;
+                            transaction.update(productRef, { locacoes: locacoes });
                         }
-                        locacoes[locacaoIndex].estoque = (locacoes[locacaoIndex].estoque || 0) + quantidadeParaEstoque;
-                        transaction.update(productRef, { locacoes: locacoes });
 
 
                         // 4. Cria o Registro de Movimentação
