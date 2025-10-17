@@ -233,12 +233,28 @@
                             <label for="filtro-obs">Observação</label>
                             <input type="text" id="filtro-obs" placeholder="Filtrar por Obs...." class="form-control" data-column="observacao">
                         </div>
+                        <div>
+                            <label for="filtro-nf">Nº NF</label>
+                            <input type="text" id="filtro-nf" placeholder="Filtrar por Nº NF..." class="form-control" data-column="nf">
+                        </div>
+                        <div>
+                            <label for="filtro-fornecedor">Fornecedor</label>
+                            <select id="filtro-fornecedor" class="form-control" data-column="fornecedorId">
+                                <option value="">Todos</option>
+                                <!-- Options will be populated by JS -->
+                            </select>
+                        </div>
                     </div>
                 </div>
             </div>
 
             <div class="card">
-                <div class="card-header"><h3>Histórico de Movimentações</h3></div>
+                <div class="card-header" style="display: flex; justify-content: space-between; align-items: center;">
+                    <h3>Histórico de Movimentações</h3>
+                    <div id="total-custo-container" style="font-weight: bold; font-size: 1.1em;">
+                        Total: <span id="total-custo-valor">R$ 0,00</span>
+                    </div>
+                </div>
                 <div class="card-body">
                     <div class="table-wrapper">
                         <table id="table-movimentacoes" class="table">
@@ -257,6 +273,7 @@
                                     <th data-column="ipi">IPI Total</th>
                                     <th data-column="frete">Frete Total</th>
                                     <th data-column="custoUnitario">Custo Médio Unit.</th>
+                                    <th data-column="custoTotal">Custo Total</th>
                                     <th data-column="requisitante">Requisitante</th>
                                     <th data-column="obraId">Obra</th>
                                     <th data-column="observacao">Obs.</th>

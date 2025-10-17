@@ -313,9 +313,12 @@ document.addEventListener('DOMContentLoaded', async function() {
             const quantidadeDisplay = isXmlImport ? mov.quantidade_compra : mov.quantidade;
             const unidadeDisplay = mov.un_compra || product.un;
 
+            const custoTotal = custoUnitario * mov.quantidade;
+
             const processedMov = {
                 ...mov,
                 custoUnitario: custoUnitario,
+                custoTotal: custoTotal,
                 icmsUnit: icmsUnit,
                 ipiUnit: ipiUnit,
                 freteUnit: freteUnit,
@@ -333,9 +336,11 @@ document.addEventListener('DOMContentLoaded', async function() {
                     ipi: (mov.ipi || 0).toString(),
                     frete: (mov.frete || 0).toString(),
                     custoUnitario: custoUnitario > 0 ? custoUnitario.toFixed(2) : '0.00',
+                    custoTotal: mov.custoTotal > 0 ? mov.custoTotal.toFixed(2) : '0.00',
                     requisitante: mov.requisitante || '',
                     obraId: configData.obras?.[mov.obraId]?.nome || '',
-                    observacao: mov.observacao || ''
+                    observacao: mov.observacao || '',
+                    fornecedorId: product.fornecedorId || ''
                 }
             };
             return processedMov;
@@ -368,12 +373,26 @@ document.addEventListener('DOMContentLoaded', async function() {
                 // Pula as chaves de data que já foram tratadas
                 if (column === 'data-inicio' || column === 'data-fim') continue;
 
-                const filterValue = filterState[column]?.toLowerCase();
+                const filterValue = filterState[column];
                 if (!filterValue) continue;
 
-                const cellValue = mov._search_data[column]?.toLowerCase();
-                if (cellValue === undefined || !cellValue.includes(filterValue)) {
-                    return false;
+                const lowerCaseFilterValue = filterValue.toLowerCase();
+                const cellValue = mov._search_data[column];
+
+                if (column === 'fornecedorId') {
+                    if (cellValue !== filterValue) {
+                        return false;
+                    }
+                } else if (column === 'nf') {
+                    const lowerCaseCellValue = cellValue?.toLowerCase();
+                    if (lowerCaseCellValue === undefined || !lowerCaseCellValue.includes(lowerCaseFilterValue)) {
+                        return false;
+                    }
+                } else {
+                    const lowerCaseCellValue = cellValue?.toLowerCase();
+                    if (lowerCaseCellValue === undefined || !lowerCaseCellValue.includes(lowerCaseFilterValue)) {
+                        return false;
+                    }
                 }
             }
             return true;
@@ -386,7 +405,7 @@ document.addEventListener('DOMContentLoaded', async function() {
                 valA = a.data ? a.data.toMillis() : 0;
                 valB = b.data ? b.data.toMillis() : 0;
             }
-            const numericColumns = ['quantidade', 'valor_unitario', 'icms', 'ipi', 'frete', 'custoUnitario'];
+            const numericColumns = ['quantidade', 'valor_unitario', 'icms', 'ipi', 'frete', 'custoUnitario', 'custoTotal'];
             if (numericColumns.includes(sortState.column)) {
                 valA = parseFloat(valA) || 0;
                 valB = parseFloat(valB) || 0;
@@ -401,7 +420,13 @@ document.addEventListener('DOMContentLoaded', async function() {
 
     function renderTable(data) {
         tableBody.innerHTML = '';
+        let totalCusto = 0;
+
         data.forEach(mov => {
+            if (mov.custoTotal && mov.custoTotal > 0) {
+                totalCusto += mov.custoTotal;
+            }
+
             const row = document.createElement('tr');
             const searchData = mov._search_data;
             const product = productsMap[mov.productId] || {};
@@ -423,6 +448,7 @@ document.addEventListener('DOMContentLoaded', async function() {
             const ipiFmt = mov.ipi ? parseFloat(mov.ipi).toFixed(2) : '-';
             const freteFmt = mov.frete ? parseFloat(mov.frete).toFixed(2) : '-';
             const custoUnitarioFmt = mov.custoUnitario > 0 ? mov.custoUnitario.toFixed(2) : '-';
+            const custoTotalFmt = mov.custoTotal > 0 ? mov.custoTotal.toFixed(2) : '-';
 
             const icmsTitle = mov.icmsUnit > 0 ? `Valor Unit.: ${mov.icmsUnit.toFixed(2)}` : '';
             const ipiTitle = mov.ipiUnit > 0 ? `Valor Unit.: ${mov.ipiUnit.toFixed(2)}` : '';
@@ -442,12 +468,15 @@ document.addEventListener('DOMContentLoaded', async function() {
                 <td title="${ipiTitle}">${ipiFmt}</td>
                 <td title="${freteTitle}">${freteFmt}</td>
                 <td>${custoUnitarioFmt}</td>
+                <td>${custoTotalFmt}</td>
                 <td>${searchData.requisitante || '-'}</td>
                 <td>${searchData.obraId || '-'}</td>
                 <td>${searchData.observacao || '-'}</td>
             `;
             tableBody.appendChild(row);
         });
+
+        document.getElementById('total-custo-valor').textContent = totalCusto.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' });
     }
 
     async function handleToggleChange() {
@@ -1434,6 +1463,14 @@ document.addEventListener('DOMContentLoaded', async function() {
         Object.values(configData.obras || {}).forEach(obra => {
             filtroObra.innerHTML += `<option value="${obra.nome}">${obra.nome}</option>`;
         });
+
+        // Popula Fornecedores
+        const filtroFornecedor = document.getElementById('filtro-fornecedor');
+        filtroFornecedor.innerHTML = '<option value="">Todos</option>';
+        for (const fornecedorId in configData.fornecedores) {
+            const fornecedor = configData.fornecedores[fornecedorId];
+            filtroFornecedor.innerHTML += `<option value="${fornecedorId}">${fornecedor.nome}</option>`;
+        }
     }
 
     // Listener para produtos em tempo real
