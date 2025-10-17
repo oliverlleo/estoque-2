@@ -79,6 +79,7 @@ document.addEventListener('DOMContentLoaded', async function() {
     let allMovements = [];
     let initialDataLoaded = false;
     let originalTipoSaidaWidth = 0;
+    let originalQuantidadeWidth = 0;
 
     // --- Table State ---
     let sortState = { column: 'data', direction: 'desc' };
@@ -458,11 +459,6 @@ document.addEventListener('DOMContentLoaded', async function() {
     async function handleToggleChange() {
         const isEntrada = toggle.checked;
         const tipoSaidaSelect = document.getElementById('mov-tipo-saida');
-        const requisitanteInput = document.getElementById('mov-requisitante');
-        const obraSaidaSelect = document.getElementById('mov-obra');
-        const observacaoSaidaInput = document.getElementById('mov-observacao-saida');
-        const tipoEntradaSelect = document.getElementById('mov-tipo-entrada');
-
 
         btnImportarXml.style.display = isEntrada ? 'inline-block' : 'none';
         btnTransferencia.style.display = isEntrada ? 'none' : 'inline-block';
@@ -479,11 +475,8 @@ document.addEventListener('DOMContentLoaded', async function() {
             document.getElementById('toggle-label-saida').style.color = '#6c757d';
 
             // Reset styles for Saída fields when switching to Entrada
-            quantidadeContainer.style.flexGrow = '';
-            requisitanteInput.style.flexGrow = '';
-            obraSaidaSelect.style.flexGrow = '';
-            observacaoSaidaInput.style.flexGrow = ''; // Resets to the inline style
-            tipoSaidaSelect.style.flexBasis = '';
+            quantidadeContainer.style.width = '';
+            tipoSaidaSelect.style.width = '';
 
         } else {
             saidaFieldsInnerContainer.prepend(quantidadeContainer);
@@ -494,18 +487,12 @@ document.addEventListener('DOMContentLoaded', async function() {
             document.getElementById('toggle-label-entrada').style.fontWeight = 'normal';
             document.getElementById('toggle-label-entrada').style.color = '#6c757d';
 
-            // Apply custom styles for Saída view ONLY
-            quantidadeContainer.style.flexGrow = '2';
-            requisitanteInput.style.flexGrow = '1';
-            obraSaidaSelect.style.flexGrow = '1';
-            observacaoSaidaInput.style.flexGrow = '1';
-
-            // Set basis to 70% of the 'Tipo de Entrada' field's width as the baseline
-            const tipoEntradaWidth = tipoEntradaSelect.offsetWidth;
-            if (tipoEntradaWidth > 0) {
-                 tipoSaidaSelect.style.flexBasis = `${tipoEntradaWidth * 0.7}px`;
-            } else {
-                 tipoSaidaSelect.style.flexBasis = '112px'; // Fallback: 160px * 0.7
+            // Apply direct, literal styles to Saída view ONLY
+            if (originalQuantidadeWidth > 0) {
+                quantidadeContainer.style.width = `${originalQuantidadeWidth * 2}px`;
+            }
+            if (originalTipoSaidaWidth > 0) {
+                tipoSaidaSelect.style.width = `${originalTipoSaidaWidth * 0.7}px`;
             }
         }
         await updateProductInfo();
@@ -1502,6 +1489,7 @@ document.addEventListener('DOMContentLoaded', async function() {
 
         const tipoSaidaSelect = document.getElementById('mov-tipo-saida');
         originalTipoSaidaWidth = tipoSaidaSelect.offsetWidth;
+        originalQuantidadeWidth = quantidadeContainer.offsetWidth;
 
         // Exibe o formulário que estava oculto por padrão
         document.getElementById('movement-wrapper').style.display = 'block';
