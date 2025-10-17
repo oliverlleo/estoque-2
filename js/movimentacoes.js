@@ -1519,31 +1519,33 @@ document.addEventListener('DOMContentLoaded', async function() {
 async function atualizarCustoMedioProduto(produtoId) {
     if (!produtoId) return;
 
-    // A busca aqui foi corrigida para usar 'produtoId', a variável que a função recebe.
-    // Este era o ponto do erro.
-    const q = query(
-        collection(db, 'movimentacoes'),
-        where("productId", "==", produtoId), // <-- CORRIGIDO AQUI
-        where("tipo", "==", "entrada")
-    );
+    const q = query(collection(db, 'movimentacoes'), where("productId", "==", produtoId));
     const movementsSnapshot = await getDocs(q);
-
-    let totalCost = 0;
-    let totalQuantityForAvg = 0;
-
+    const productMovements = [];
     movementsSnapshot.forEach(doc => {
-        const mov = doc.data();
-        if (mov.custo_total_entrada && mov.custo_total_entrada > 0) {
-            if (mov.quantidade > 0) {
-                totalCost += mov.custo_total_entrada;
-                totalQuantityForAvg += mov.quantidade;
-            }
+        productMovements.push(doc.data());
+    });
+
+    // Ordena as movimentações por data para o cálculo correto do custo médio
+    productMovements.sort((a, b) => a.data.toMillis() - b.data.toMillis());
+
+    let totalQuantity = 0;
+    let totalCost = 0;
+
+    productMovements.forEach(mov => {
+        if (mov.tipo === 'entrada' && mov.custo_total_entrada) {
+            totalCost += mov.custo_total_entrada;
+            totalQuantity += mov.quantidade;
+        } else if (mov.tipo === 'saida') {
+            const currentAvgCost = totalQuantity > 0 ? totalCost / totalQuantity : 0;
+            totalCost -= mov.quantidade * currentAvgCost;
+            totalQuantity -= mov.quantidade;
         }
     });
 
-    const novoCustoMedio = totalQuantityForAvg > 0 ? totalCost / totalQuantityForAvg : 0;
+    const novoCustoMedio = totalQuantity > 0 ? totalCost / totalQuantity : 0;
     const productRef = doc(db, 'produtos', produtoId);
     await setDoc(productRef, { valorMedio: novoCustoMedio }, { merge: true });
 
-    console.log(`Custo médio do produto ${produtoId} atualizado para ${novoCustoMedio.toFixed(2)}`);
+    console.log(`Custo médio do produto ${produtoId} atualizado para ${novoCustoMedio.toFixed(3)}`);
 }
