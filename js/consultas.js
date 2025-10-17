@@ -110,7 +110,7 @@ document.addEventListener('DOMContentLoaded', async function() {
                 <td>${item.estoque || 0}</td>
                 <td>${item.quantidadeReservada || 0}</td>
                 <td>${item.un}</td>
-                <td>${(item.valorMedio || 0).toFixed(2)}</td>
+                <td>${(item.valorMedio || 0).toFixed(3)}</td>
                 <td>${(item.valorTotalEstoque || 0).toFixed(2)}</td>
                 <td>${item.local}</td>
             `;
