@@ -250,9 +250,9 @@ document.addEventListener('DOMContentLoaded', async function() {
                     if (productSnap.exists() && productSnap.data().originalProductId) {
                         const originalProductId = productSnap.data().originalProductId;
                         const custoMedio = await calcularCustoMedioProduto(originalProductId);
-                        valorUnitarioInput.value = custoMedio > 0 ? custoMedio.toFixed(2) : '0.00';
+                        valorUnitarioInput.value = custoMedio > 0 ? custoMedio.toFixed(3) : '0.000';
                     } else {
-                        valorUnitarioInput.value = '0.00';
+                        valorUnitarioInput.value = '0.000';
                         console.warn(`Sobra ${productId} não tem um originalProductId ou não foi encontrada.`);
                     }
                 } catch (error) {
@@ -335,7 +335,7 @@ document.addEventListener('DOMContentLoaded', async function() {
                     icms: (mov.icms || 0).toString(),
                     ipi: (mov.ipi || 0).toString(),
                     frete: (mov.frete || 0).toString(),
-                    custoUnitario: custoUnitario > 0 ? custoUnitario.toFixed(2) : '0.00',
+                    custoUnitario: custoUnitario > 0 ? custoUnitario.toFixed(3) : '0.000',
                     custoTotal: mov.custoTotal > 0 ? mov.custoTotal.toFixed(2) : '0.00',
                     requisitante: mov.requisitante || '',
                     obraId: configData.obras?.[mov.obraId]?.nome || '',
@@ -443,11 +443,11 @@ document.addEventListener('DOMContentLoaded', async function() {
                 quantidadeCellHtml = Number(mov.quantidade).toLocaleString('pt-BR');
             }
 
-            const valorUnitarioFmt = mov.valor_unitario ? parseFloat(mov.valor_unitario).toFixed(2) : '-';
+            const valorUnitarioFmt = mov.valor_unitario ? parseFloat(mov.valor_unitario).toFixed(3) : '-';
             const icmsFmt = mov.icms ? parseFloat(mov.icms).toFixed(2) : '-';
             const ipiFmt = mov.ipi ? parseFloat(mov.ipi).toFixed(2) : '-';
             const freteFmt = mov.frete ? parseFloat(mov.frete).toFixed(2) : '-';
-            const custoUnitarioFmt = mov.custoUnitario > 0 ? mov.custoUnitario.toFixed(2) : '-';
+            const custoUnitarioFmt = mov.custoUnitario > 0 ? mov.custoUnitario.toFixed(3) : '-';
             const custoTotalFmt = mov.custoTotal > 0 ? mov.custoTotal.toFixed(2) : '-';
 
             const icmsTitle = mov.icmsUnit > 0 ? `Valor Unit.: ${mov.icmsUnit.toFixed(2)}` : '';
@@ -1048,7 +1048,7 @@ document.addEventListener('DOMContentLoaded', async function() {
                 <td><input type="text" class="form-control" value="${descricaoSistema}" disabled></td>
                 <td><input type="text" class="form-control" value="${uCom}" disabled></td>
                 <td><input type="number" step="any" class="form-control" value="${parseFloat(item.querySelector('qCom')?.textContent || 0)}"></td>
-                <td><input type="number" step="any" class="form-control" value="${parseFloat(item.querySelector('vUnCom')?.textContent || 0)}"></td>
+                <td><input type="number" step="0.001" class="form-control" value="${parseFloat(item.querySelector('vUnCom')?.textContent || 0)}"></td>
                 <td><input type="number" step="any" class="form-control" value="0"></td>
                 <td><input type="number" step="any" class="form-control" value="${parseFloat(item.querySelector('vIPI')?.textContent || 0)}"></td>
                 <td><input type="number" step="any" class="form-control" value="${freteRateado.toFixed(2)}"></td>
