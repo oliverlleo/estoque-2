@@ -475,8 +475,8 @@ document.addEventListener('DOMContentLoaded', async function() {
             document.getElementById('toggle-label-saida').style.color = '#6c757d';
 
             // Reset styles when switching to Entrada
-            quantidadeInput.style.flexGrow = '1';
-            tipoSaidaSelect.style.flexBasis = 'auto';
+            quantidadeContainer.style.flexGrow = '1';
+            tipoSaidaSelect.style.flexBasis = ''; // Reset to default
 
         } else {
             saidaFieldsInnerContainer.prepend(quantidadeContainer);
@@ -488,8 +488,9 @@ document.addEventListener('DOMContentLoaded', async function() {
             document.getElementById('toggle-label-entrada').style.color = '#6c757d';
 
             // Apply custom styles for Saída
-            quantidadeInput.style.flexGrow = '2';
-            tipoSaidaSelect.style.flexBasis = '112px';
+            quantidadeContainer.style.flexGrow = '2';
+            const tipoSaidaWidth = tipoSaidaSelect.offsetWidth;
+            tipoSaidaSelect.style.flexBasis = `${tipoSaidaWidth * 0.7}px`;
         }
         await updateProductInfo();
         toggleObraRequirement();
