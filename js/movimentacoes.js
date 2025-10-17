@@ -131,7 +131,7 @@ document.addEventListener('DOMContentLoaded', async function() {
 
         if (product && selectedLocalId) {
             const locacoesFiltradas = product.locacoes.filter(l => l.localId === selectedLocalId);
-            locacaoSelect.innerHTML = '<option value="">Selecione...</option>';
+            locacaoSelect.innerHTML = '<option value="">Locação...</option>';
             locacoesFiltradas.forEach(loc => {
                 const option = document.createElement('option');
                 option.value = loc.locacao;
@@ -182,7 +182,7 @@ document.addEventListener('DOMContentLoaded', async function() {
             // Populate locais
             if (product.locacoes && product.locacoes.length > 0) {
                 const locaisUnicos = [...new Set(product.locacoes.map(l => l.localId))];
-                localSelect.innerHTML = '<option value="">Selecione...</option>';
+                localSelect.innerHTML = '<option value="">Local...</option>';
                 locaisUnicos.forEach(localId => {
                     const localNome = configData.locais[localId]?.nome || 'Desconhecido';
                     localSelect.innerHTML += `<option value="${localId}">${localNome}</option>`;
@@ -728,9 +728,9 @@ document.addEventListener('DOMContentLoaded', async function() {
         const product = productsMap[productId];
 
         // Limpa e desabilita os selects de locação
-        transfOrigemSelect.innerHTML = '<option value="">Selecione a origem...</option>';
+        transfOrigemSelect.innerHTML = '<option value="">Origem...</option>';
         transfOrigemSelect.disabled = true;
-        transfDestinoSelect.innerHTML = '<option value="">Selecione o destino...</option>';
+        transfDestinoSelect.innerHTML = '<option value="">Destino...</option>';
         transfDestinoSelect.disabled = true;
         document.getElementById('transf-estoque-origem-display').textContent = '0';
         document.getElementById('transf-codigo-display').textContent = '-';
@@ -780,7 +780,7 @@ document.addEventListener('DOMContentLoaded', async function() {
 
         // Filtra o select de destino para não mostrar a origem
         const destino = transfDestinoSelect.value;
-        transfDestinoSelect.innerHTML = '<option value="">Selecione o destino...</option>';
+        transfDestinoSelect.innerHTML = '<option value="">Destino...</option>';
         product.locacoes.forEach(loc => {
             if (loc.locacao !== origem) {
                 const option = document.createElement('option');
@@ -937,7 +937,7 @@ document.addEventListener('DOMContentLoaded', async function() {
 
             if (product && selectedLocalId) {
                 const locacoesFiltradas = product.locacoes.filter(l => l.localId === selectedLocalId);
-                locacaoSelect.innerHTML = '<option value="">Selecione...</option>';
+                locacaoSelect.innerHTML = '<option value="">Locação...</option>';
                 locacoesFiltradas.forEach(loc => {
                     locacaoSelect.innerHTML += `<option value="${loc.locacao}">${loc.locacao}</option>`;
                 });
@@ -948,7 +948,7 @@ document.addEventListener('DOMContentLoaded', async function() {
                 }
 
             } else {
-                locacaoSelect.innerHTML = '<option value="">Selecione o Local...</option>';
+                locacaoSelect.innerHTML = '<option value="">Locação...</option>';
             }
         }
     });
@@ -996,7 +996,7 @@ document.addEventListener('DOMContentLoaded', async function() {
             let localDropdownHtml = `<select class="form-control xml-local-select" required ${!produtoNoSistema ? 'disabled' : ''}>`;
             if (produtoNoSistema && produtoNoSistema.locacoes) {
                 const locaisUnicos = [...new Set(produtoNoSistema.locacoes.map(l => l.localId))];
-                localDropdownHtml += '<option value="">Selecione...</option>';
+                localDropdownHtml += '<option value="">Local...</option>';
                 locaisUnicos.forEach(localId => {
                     const localNome = configData.locais[localId]?.nome || 'Desconhecido';
                     localDropdownHtml += `<option value="${localId}">${localNome}</option>`;
@@ -1007,7 +1007,7 @@ document.addEventListener('DOMContentLoaded', async function() {
             localDropdownHtml += `</select>`;
 
             // Prepara dropdown de Locação (inicialmente vazio)
-            let locacaoDropdownHtml = `<select class="form-control xml-locacao-select" required ${!produtoNoSistema ? 'disabled' : ''}><option value="">Selecione o Local...</option></select>`;
+            let locacaoDropdownHtml = `<select class="form-control xml-locacao-select" required ${!produtoNoSistema ? 'disabled' : ''}><option value="">Locação...</option></select>`;
 
             const row = xmlProductsTableBody.insertRow();
             if (!produtoNoSistema) row.style.backgroundColor = '#ffdddd';
@@ -1252,7 +1252,7 @@ document.addEventListener('DOMContentLoaded', async function() {
                 const newLocalSelect = document.createElement('select');
                 newLocalSelect.className = 'form-control xml-local-select';
                 newLocalSelect.required = true;
-                let localOptionsHtml = '<option value="">Selecione...</option>';
+                let localOptionsHtml = '<option value="">Local...</option>';
                 const locaisUnicos = [...new Set(novoProduto.locacoes.map(l => l.localId))];
                 locaisUnicos.forEach(localId => {
                     const localNome = configData.locais[localId]?.nome || 'Desconhecido';
@@ -1267,7 +1267,7 @@ document.addEventListener('DOMContentLoaded', async function() {
                 newLocacaoSelect.className = 'form-control xml-locacao-select';
                 newLocacaoSelect.required = true;
 
-                let optionsHtml = '<option value="">Selecione...</option>';
+                let optionsHtml = '<option value="">Locação...</option>';
                 if (novoProduto.locacoes && novoProduto.locacoes.length > 0) {
                     novoProduto.locacoes.forEach(loc => {
                         optionsHtml += `<option value="${loc.locacao}">${loc.locacao}</option>`;
@@ -1297,19 +1297,19 @@ document.addEventListener('DOMContentLoaded', async function() {
         const obraSelect = document.getElementById('mov-obra');
 
 
-        configData.tipos_entrada = await loadConfigToSelect(tipoEntradaSelect, 'tipos_entrada', 'nome');
-        configData.tipos_saida = await loadConfigToSelect(tipoSaidaSelect, 'tipos_saida', 'nome');
-        configData.obras = await loadConfigToSelect(obraSelect, 'obras', 'nome');
+        configData.tipos_entrada = await loadConfigToSelect(tipoEntradaSelect, 'tipos_entrada', 'nome', 'Tipo de Entrada...');
+        configData.tipos_saida = await loadConfigToSelect(tipoSaidaSelect, 'tipos_saida', 'nome', 'Tipo de Saída...');
+        configData.obras = await loadConfigToSelect(obraSelect, 'obras', 'nome', 'Obra...');
         configData.fornecedores = await loadConfigToMap('fornecedores');
         configData.grupos = await loadConfigToMap('grupos');
         configData.conversoes = await loadConfigToMap('conversoes');
         configData.locais = await loadConfigToMap('locais');
     }
 
-    async function loadConfigToSelect(selectElement, collectionName, field) {
+    async function loadConfigToSelect(selectElement, collectionName, field, placeholder = 'Selecione...') {
         const snapshot = await getDocs(collection(db, collectionName));
         const items = {};
-        selectElement.innerHTML = `<option value="">Selecione...</option>`;
+        selectElement.innerHTML = `<option value="">${placeholder}</option>`;
         snapshot.forEach(doc => {
             items[doc.id] = doc.data();
             selectElement.innerHTML += `<option value="${doc.id}">${doc.data()[field]}</option>`;

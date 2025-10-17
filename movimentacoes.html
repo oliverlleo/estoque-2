@@ -168,7 +168,7 @@
                                 <div style="display: flex; gap: 10px;">
                                     <select id="mov-tipo-saida" class="form-control"><option value="">Tipo de Saída...</option></select>
                                     <input type="text" id="mov-requisitante" placeholder="Requisitante" class="form-control">
-                                    <select id="mov-obra" class="form-control"><option value="">Selecione a Obra...</option></select>
+                                    <select id="mov-obra" class="form-control"><option value="">Obra...</option></select>
                                     <input type="text" id="mov-observacao-saida" placeholder="Observação" class="form-control" style="flex-grow: 1;">
                                 </div>
                             </div>
@@ -282,7 +282,7 @@
                         <div style="grid-column: 1 / -1;">
                             <label for="transf-produto">Selecione o Produto</label>
                             <select id="transf-produto" required class="form-control">
-                                <option value="">Selecione...</option>
+                                <option value="">Produto...</option>
                             </select>
                         </div>
                         <p class="auto-filled-field"><strong>Código:</strong> <span id="transf-codigo-display">-</span></p>
@@ -290,7 +290,7 @@
                         <div>
                             <label for="transf-locacao-origem">Locação de Origem</label>
                             <select id="transf-locacao-origem" required class="form-control" disabled>
-                                <option value="">Selecione a origem...</option>
+                                <option value="">Origem...</option>
                             </select>
                         </div>
                         <p class="auto-filled-field"><strong>Estoque na Origem:</strong> <span id="transf-estoque-origem-display">0</span></p>
@@ -301,7 +301,7 @@
                         <div>
                             <label for="transf-locacao-destino">Locação de Destino</label>
                             <select id="transf-locacao-destino" required class="form-control" disabled>
-                                <option value="">Selecione o destino...</option>
+                                <option value="">Destino...</option>
                             </select>
                         </div>
                     </div>
@@ -376,11 +376,11 @@
                     <input type="text" id="modal-produto-descricao" placeholder="Descrição" required class="form-control" style="grid-column: span 2;">
                     <input type="text" id="modal-produto-un" placeholder="UN Estocável" required class="form-control">
                     <input type="text" id="modal-produto-cor" placeholder="Cor" class="form-control">
-                    <select id="modal-produto-local" required class="form-control"><option value="">Selecione o Local...</option></select>
+                    <select id="modal-produto-local" required class="form-control"><option value="">Local...</option></select>
                     <input type="text" id="modal-produto-locacao" placeholder="Locação (Ex: Corredor A)" class="form-control">
-                    <select id="modal-produto-conversao" class="form-control"><option value="">Nenhuma conversão</option></select>
-                    <select id="modal-produto-fornecedor" required class="form-control"><option value="">Selecione o Fornecedor...</option></select>
-                    <select id="modal-produto-grupo" required class="form-control"><option value="">Selecione o Grupo...</option></select>
+                    <select id="modal-produto-conversao" class="form-control"><option value="">Conversão...</option></select>
+                    <select id="modal-produto-fornecedor" required class="form-control"><option value="">Fornecedor...</option></select>
+                    <select id="modal-produto-grupo" required class="form-control"><option value="">Grupo...</option></select>
                     <button type="submit" class="btn btn-success" style="grid-column: 1 / -1;">Salvar Produto</button>
                 </form>
             </div>
