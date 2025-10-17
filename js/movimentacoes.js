@@ -461,6 +461,8 @@ document.addEventListener('DOMContentLoaded', async function() {
         const requisitanteInput = document.getElementById('mov-requisitante');
         const obraSaidaSelect = document.getElementById('mov-obra');
         const observacaoSaidaInput = document.getElementById('mov-observacao-saida');
+        const tipoEntradaSelect = document.getElementById('mov-tipo-entrada');
+
 
         btnImportarXml.style.display = isEntrada ? 'inline-block' : 'none';
         btnTransferencia.style.display = isEntrada ? 'none' : 'inline-block';
@@ -496,8 +498,15 @@ document.addEventListener('DOMContentLoaded', async function() {
             quantidadeContainer.style.flexGrow = '2';
             requisitanteInput.style.flexGrow = '1';
             obraSaidaSelect.style.flexGrow = '1';
-            observacaoSaidaInput.style.flexGrow = '1'; // Keep its original grow property
-            tipoSaidaSelect.style.flexBasis = '112px'; // 160px * 0.7 = 112px
+            observacaoSaidaInput.style.flexGrow = '1';
+
+            // Set basis to 70% of the 'Tipo de Entrada' field's width as the baseline
+            const tipoEntradaWidth = tipoEntradaSelect.offsetWidth;
+            if (tipoEntradaWidth > 0) {
+                 tipoSaidaSelect.style.flexBasis = `${tipoEntradaWidth * 0.7}px`;
+            } else {
+                 tipoSaidaSelect.style.flexBasis = '112px'; // Fallback: 160px * 0.7
+            }
         }
         await updateProductInfo();
         toggleObraRequirement();
