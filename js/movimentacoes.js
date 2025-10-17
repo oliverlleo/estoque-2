@@ -1066,7 +1066,7 @@ document.addEventListener('DOMContentLoaded', async function() {
 
 
         if (confirm(`Confirmar a entrada de ${rows.length} item(ns) da NF-e ${nf}?`)) {
-            loader.style.display = 'block'; // Mostra o loader
+            loader.style.display = 'flex'; // Mostra o loader
             btnConfirmarXmlImport.disabled = true; // Desabilita o botão
 
             for (const row of rows) {
