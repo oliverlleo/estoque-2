@@ -892,11 +892,38 @@ document.addEventListener('DOMContentLoaded', async function() {
     xmlFileInput.addEventListener('change', (event) => {
         const file = event.target.files[0];
         if (!file) return;
+
+        // Limpa o valor total ao carregar um novo arquivo
+        document.getElementById('xml-total-value').textContent = 'R$ 0,00';
+
         const reader = new FileReader();
         reader.onload = (e) => parseNFeXML(e.target.result);
         reader.readAsText(file);
     });
 
+    function updateTotalValue() {
+        const rows = document.querySelectorAll('#xml-products-table tbody tr');
+        let totalValue = 0;
+
+        rows.forEach(row => {
+            const quantity = parseFloat(row.cells[3].querySelector('input').value) || 0;
+            const unitValue = parseFloat(row.cells[4].querySelector('input').value) || 0;
+            const icms = parseFloat(row.cells[5].querySelector('input').value) || 0;
+            const ipi = parseFloat(row.cells[6].querySelector('input').value) || 0;
+            const frete = parseFloat(row.cells[7].querySelector('input').value) || 0;
+
+            totalValue += (quantity * unitValue) + icms + ipi + frete;
+        });
+
+        document.getElementById('xml-total-value').textContent = totalValue.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' });
+    }
+
+    xmlProductsTableBody.addEventListener('input', (e) => {
+        // Atualiza o valor total se qualquer input dentro da tabela for modificado
+        if (e.target.tagName === 'INPUT') {
+            updateTotalValue();
+        }
+    });
     // Event listener para os dropdowns de Local na tabela de importação
     xmlProductsTableBody.addEventListener('change', (e) => {
         if (e.target.classList.contains('xml-local-select')) {
@@ -1010,6 +1037,7 @@ document.addEventListener('DOMContentLoaded', async function() {
                 localSelect.dispatchEvent(new Event('change', { bubbles: true })); // Dispara o evento para popular a locação
             }
         });
+        updateTotalValue(); // Calcula o valor total inicial
     }
 
     btnConfirmarXmlImport.addEventListener('click', async () => {
