@@ -884,6 +884,9 @@ document.addEventListener('DOMContentLoaded', async function() {
 
 
         if (confirm(`Confirmar a entrada de ${rows.length} item(ns) da NF-e ${nf}?`)) {
+            btnConfirmarXmlImport.classList.add('loading');
+            btnConfirmarXmlImport.disabled = true;
+
             for (const row of rows) {
                 const productId = row.dataset.productId;
                 if (!productId) continue; // Pula não cadastrados
@@ -984,6 +987,8 @@ document.addEventListener('DOMContentLoaded', async function() {
 
             xmlProductsTableBody.innerHTML = '';
             xmlImportModal.style.display = 'none';
+            btnConfirmarXmlImport.classList.remove('loading');
+            btnConfirmarXmlImport.disabled = false;
         }
     });
 
