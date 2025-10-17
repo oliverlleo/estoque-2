@@ -314,9 +314,16 @@ document.addEventListener('DOMContentLoaded', async function() {
             const unidadeDisplay = mov.un_compra || product.un;
 
             const custoTotal = custoUnitario * mov.quantidade;
+            let valorUnitEstoque = 0;
+            if (mov.tipo === 'entrada' && product.conversaoId && configData.conversoes[product.conversaoId]) {
+                const conversao = configData.conversoes[product.conversaoId];
+                const fator_qtd_compra = parseFloat(String(conversao.qtd_compra).replace(',', '.'));
+                valorUnitEstoque = fator_qtd_compra * (mov.valor_unitario || 0);
+            }
 
             const processedMov = {
                 ...mov,
+                valorUnitEstoque: valorUnitEstoque,
                 custoUnitario: custoUnitario,
                 custoTotal: custoTotal,
                 icmsUnit: icmsUnit,
@@ -332,6 +339,7 @@ document.addEventListener('DOMContentLoaded', async function() {
                     quantidade: quantidadeDisplay?.toString() || '',
                     nf: mov.nf || '',
                     valor_unitario: (mov.valor_unitario || 0).toString(),
+                    valor_unit_estoque: (mov.valorUnitEstoque || 0).toString(),
                     icms: (mov.icms || 0).toString(),
                     ipi: (mov.ipi || 0).toString(),
                     frete: (mov.frete || 0).toString(),
@@ -444,6 +452,7 @@ document.addEventListener('DOMContentLoaded', async function() {
             }
 
             const valorUnitarioFmt = mov.valor_unitario ? parseFloat(mov.valor_unitario).toFixed(3) : '-';
+            const valorUnitEstoqueFmt = mov.valorUnitEstoque > 0 ? mov.valorUnitEstoque.toFixed(2) : '-';
             const icmsFmt = mov.icms ? parseFloat(mov.icms).toFixed(2) : '-';
             const ipiFmt = mov.ipi ? parseFloat(mov.ipi).toFixed(2) : '-';
             const freteFmt = mov.frete ? parseFloat(mov.frete).toFixed(2) : '-';
@@ -464,6 +473,7 @@ document.addEventListener('DOMContentLoaded', async function() {
                 <td>${quantidadeCellHtml}</td>
                 <td>${searchData.nf || '-'}</td>
                 <td>${valorUnitarioFmt}</td>
+                <td>${valorUnitEstoqueFmt}</td>
                 <td title="${icmsTitle}">${icmsFmt}</td>
                 <td title="${ipiTitle}">${ipiFmt}</td>
                 <td title="${freteTitle}">${freteFmt}</td>
