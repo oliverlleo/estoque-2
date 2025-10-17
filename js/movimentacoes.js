@@ -78,6 +78,7 @@ document.addEventListener('DOMContentLoaded', async function() {
     let configData = {};
     let allMovements = [];
     let initialDataLoaded = false;
+    let originalTipoSaidaWidth = 0;
 
     // --- Table State ---
     let sortState = { column: 'data', direction: 'desc' };
@@ -489,8 +490,9 @@ document.addEventListener('DOMContentLoaded', async function() {
 
             // Apply custom styles for Saída
             quantidadeContainer.style.flexGrow = '2';
-            const tipoSaidaWidth = tipoSaidaSelect.offsetWidth;
-            tipoSaidaSelect.style.flexBasis = `${tipoSaidaWidth * 0.7}px`;
+            if (originalTipoSaidaWidth > 0) {
+                tipoSaidaSelect.style.flexBasis = `${originalTipoSaidaWidth * 0.7}px`;
+            }
         }
         await updateProductInfo();
         toggleObraRequirement();
@@ -1483,6 +1485,10 @@ document.addEventListener('DOMContentLoaded', async function() {
         updateTable();
         popularDropdownsCadastroModal();
         popularFiltros(); // Popula os filtros
+
+        const tipoSaidaSelect = document.getElementById('mov-tipo-saida');
+        originalTipoSaidaWidth = tipoSaidaSelect.offsetWidth;
+
         // Exibe o formulário que estava oculto por padrão
         document.getElementById('movement-wrapper').style.display = 'block';
     });
