@@ -314,7 +314,12 @@ document.addEventListener('DOMContentLoaded', async function() {
             const unidadeDisplay = mov.un_compra || product.un;
 
             const custoTotal = custoUnitario * mov.quantidade;
-            const valorUnitEstoque = (mov.tipo === 'entrada' && mov.quantidade_compra) ? mov.quantidade_compra * (mov.valor_unitario || 0) : 0;
+            let valorUnitEstoque = 0;
+            if (mov.tipo === 'entrada' && product.conversaoId && configData.conversoes[product.conversaoId]) {
+                const conversao = configData.conversoes[product.conversaoId];
+                const fator_qtd_compra = parseFloat(String(conversao.qtd_compra).replace(',', '.'));
+                valorUnitEstoque = fator_qtd_compra * (mov.valor_unitario || 0);
+            }
 
             const processedMov = {
                 ...mov,
