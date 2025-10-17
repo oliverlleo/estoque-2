@@ -456,6 +456,9 @@ document.addEventListener('DOMContentLoaded', async function() {
 
     async function handleToggleChange() {
         const isEntrada = toggle.checked;
+        const quantidadeInput = document.getElementById('mov-quantidade');
+        const tipoSaidaSelect = document.getElementById('mov-tipo-saida');
+
         btnImportarXml.style.display = isEntrada ? 'inline-block' : 'none';
         btnTransferencia.style.display = isEntrada ? 'none' : 'inline-block';
         entradaFieldsContainer.style.display = isEntrada ? 'flex' : 'none';
@@ -470,6 +473,11 @@ document.addEventListener('DOMContentLoaded', async function() {
             document.getElementById('toggle-label-entrada').style.color = '#198754';
             document.getElementById('toggle-label-saida').style.fontWeight = 'normal';
             document.getElementById('toggle-label-saida').style.color = '#6c757d';
+
+            // Reset styles when switching to Entrada
+            quantidadeInput.style.flexGrow = '1';
+            tipoSaidaSelect.style.flexBasis = 'auto';
+
         } else {
             saidaFieldsInnerContainer.prepend(quantidadeContainer);
             btnMovimentacao.textContent = 'Confirmar Saída';
@@ -478,6 +486,10 @@ document.addEventListener('DOMContentLoaded', async function() {
             document.getElementById('toggle-label-saida').style.color = '#dc3545';
             document.getElementById('toggle-label-entrada').style.fontWeight = 'normal';
             document.getElementById('toggle-label-entrada').style.color = '#6c757d';
+
+            // Apply custom styles for Saída
+            quantidadeInput.style.flexGrow = '2';
+            tipoSaidaSelect.style.flexBasis = '110px';
         }
         await updateProductInfo();
         toggleObraRequirement();
