@@ -489,7 +489,7 @@ document.addEventListener('DOMContentLoaded', async function() {
 
             // Apply custom styles for Saída
             quantidadeInput.style.flexGrow = '2';
-            tipoSaidaSelect.style.flexBasis = '110px';
+            tipoSaidaSelect.style.flexBasis = '112px';
         }
         await updateProductInfo();
         toggleObraRequirement();
