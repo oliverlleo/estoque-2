@@ -457,14 +457,15 @@ document.addEventListener('DOMContentLoaded', async function() {
 
     async function handleToggleChange() {
         const isEntrada = toggle.checked;
-        const quantidadeInput = document.getElementById('mov-quantidade');
         const tipoSaidaSelect = document.getElementById('mov-tipo-saida');
+        const requisitanteInput = document.getElementById('mov-requisitante');
+        const obraSaidaSelect = document.getElementById('mov-obra');
+        const observacaoSaidaInput = document.getElementById('mov-observacao-saida');
 
         btnImportarXml.style.display = isEntrada ? 'inline-block' : 'none';
         btnTransferencia.style.display = isEntrada ? 'none' : 'inline-block';
         entradaFieldsContainer.style.display = isEntrada ? 'flex' : 'none';
         document.getElementById('saida-fields-container').style.display = isEntrada ? 'none' : 'flex';
-
 
         if (isEntrada) {
             entradaFieldsContainer.prepend(quantidadeContainer);
@@ -475,9 +476,12 @@ document.addEventListener('DOMContentLoaded', async function() {
             document.getElementById('toggle-label-saida').style.fontWeight = 'normal';
             document.getElementById('toggle-label-saida').style.color = '#6c757d';
 
-            // Reset styles when switching to Entrada
-            quantidadeContainer.style.flexGrow = '1';
-            tipoSaidaSelect.style.flexBasis = ''; // Reset to default
+            // Reset styles for Saída fields when switching to Entrada
+            quantidadeContainer.style.flexGrow = '';
+            requisitanteInput.style.flexGrow = '';
+            obraSaidaSelect.style.flexGrow = '';
+            observacaoSaidaInput.style.flexGrow = ''; // Resets to the inline style
+            tipoSaidaSelect.style.flexBasis = '';
 
         } else {
             saidaFieldsInnerContainer.prepend(quantidadeContainer);
@@ -488,11 +492,12 @@ document.addEventListener('DOMContentLoaded', async function() {
             document.getElementById('toggle-label-entrada').style.fontWeight = 'normal';
             document.getElementById('toggle-label-entrada').style.color = '#6c757d';
 
-            // Apply custom styles for Saída
+            // Apply custom styles for Saída view ONLY
             quantidadeContainer.style.flexGrow = '2';
-            if (originalTipoSaidaWidth > 0) {
-                tipoSaidaSelect.style.flexBasis = `${originalTipoSaidaWidth * 0.7}px`;
-            }
+            requisitanteInput.style.flexGrow = '1';
+            obraSaidaSelect.style.flexGrow = '1';
+            observacaoSaidaInput.style.flexGrow = '1'; // Keep its original grow property
+            tipoSaidaSelect.style.flexBasis = '112px'; // 160px * 0.7 = 112px
         }
         await updateProductInfo();
         toggleObraRequirement();
