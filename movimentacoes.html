@@ -25,6 +25,39 @@
             min-width: 180px !important; /* Give observation field a larger minimum width */
             flex-grow: 1 !important; /* Ensure it grows to fill space */
         }
+        .loader {
+            border: 5px solid #f3f3f3;
+            border-radius: 50%;
+            border-top: 5px solid #3498db;
+            width: 50px;
+            height: 50px;
+            animation: spin 1s linear infinite;
+        }
+        @keyframes spin {
+            0% { transform: rotate(0deg); }
+            100% { transform: rotate(360deg); }
+        }
+        #xml-import-loader {
+            display: none; /* Hidden by default */
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background-color: rgba(255, 255, 255, 0.8); /* Semi-transparent white overlay */
+            z-index: 1050; /* Ensure it's on top */
+            display: none;
+            justify-content: center;
+            align-items: center;
+            flex-direction: column;
+            gap: 15px;
+            border-radius: 10px; /* Match modal border-radius */
+        }
+        #xml-import-loader .loader-message {
+            font-size: 1.2em;
+            font-weight: bold;
+            color: #333;
+        }
     </style>
 </head>
 <body class="flex h-screen">
@@ -135,7 +168,7 @@
                                 <div style="display: flex; gap: 10px;">
                                     <select id="mov-tipo-saida" class="form-control"><option value="">Tipo de Saída...</option></select>
                                     <input type="text" id="mov-requisitante" placeholder="Requisitante" class="form-control">
-                                    <select id="mov-obra" class="form-control"><option value="">Selecione a Obra...</option></select>
+                                    <select id="mov-obra" class="form-control"><option value="">Obra...</option></select>
                                     <input type="text" id="mov-observacao-saida" placeholder="Observação" class="form-control" style="flex-grow: 1;">
                                 </div>
                             </div>
@@ -249,7 +282,7 @@
                         <div style="grid-column: 1 / -1;">
                             <label for="transf-produto">Selecione o Produto</label>
                             <select id="transf-produto" required class="form-control">
-                                <option value="">Selecione...</option>
+                                <option value="">Produto...</option>
                             </select>
                         </div>
                         <p class="auto-filled-field"><strong>Código:</strong> <span id="transf-codigo-display">-</span></p>
@@ -257,7 +290,7 @@
                         <div>
                             <label for="transf-locacao-origem">Locação de Origem</label>
                             <select id="transf-locacao-origem" required class="form-control" disabled>
-                                <option value="">Selecione a origem...</option>
+                                <option value="">Origem...</option>
                             </select>
                         </div>
                         <p class="auto-filled-field"><strong>Estoque na Origem:</strong> <span id="transf-estoque-origem-display">0</span></p>
@@ -268,7 +301,7 @@
                         <div>
                             <label for="transf-locacao-destino">Locação de Destino</label>
                             <select id="transf-locacao-destino" required class="form-control" disabled>
-                                <option value="">Selecione o destino...</option>
+                                <option value="">Destino...</option>
                             </select>
                         </div>
                     </div>
@@ -295,10 +328,17 @@
                 <h3>Importar Produtos da NF-e (XML)</h3>
                 <span class="close-button" id="xml-modal-close">&times;</span>
             </div>
-            <div id="xml-modal-body" class="modal-body">
-                <div style="display: flex; gap: 20px; margin-bottom: 20px;">
+            <div id="xml-modal-body" class="modal-body" style="position: relative;">
+                <div id="xml-import-loader">
+                    <div class="loader"></div>
+                    <div class="loader-message">Aguarde...</div>
+                </div>
+                <div style="display: flex; gap: 20px; margin-bottom: 20px; align-items: center;">
                     <input type="file" id="xml-file-input" accept=".xml" class="form-control" style="flex-grow: 1;">
                     <input type="text" id="xml-nfe-numero" placeholder="Nº da Nota Fiscal" class="form-control" style="max-width: 200px;">
+                    <div style="font-weight: bold; font-size: 1.1em;">
+                        Valor Total: <span id="xml-total-value">R$ 0,00</span>
+                    </div>
                 </div>
                 <div class="table-wrapper">
                     <table id="xml-products-table" class="table">
@@ -336,11 +376,11 @@
                     <input type="text" id="modal-produto-descricao" placeholder="Descrição" required class="form-control" style="grid-column: span 2;">
                     <input type="text" id="modal-produto-un" placeholder="UN Estocável" required class="form-control">
                     <input type="text" id="modal-produto-cor" placeholder="Cor" class="form-control">
-                    <select id="modal-produto-local" required class="form-control"><option value="">Selecione o Local...</option></select>
+                    <select id="modal-produto-local" required class="form-control"><option value="">Local...</option></select>
                     <input type="text" id="modal-produto-locacao" placeholder="Locação (Ex: Corredor A)" class="form-control">
-                    <select id="modal-produto-conversao" class="form-control"><option value="">Nenhuma conversão</option></select>
-                    <select id="modal-produto-fornecedor" required class="form-control"><option value="">Selecione o Fornecedor...</option></select>
-                    <select id="modal-produto-grupo" required class="form-control"><option value="">Selecione o Grupo...</option></select>
+                    <select id="modal-produto-conversao" class="form-control"><option value="">Conversão...</option></select>
+                    <select id="modal-produto-fornecedor" required class="form-control"><option value="">Fornecedor...</option></select>
+                    <select id="modal-produto-grupo" required class="form-control"><option value="">Grupo...</option></select>
                     <button type="submit" class="btn btn-success" style="grid-column: 1 / -1;">Salvar Produto</button>
                 </form>
             </div>
