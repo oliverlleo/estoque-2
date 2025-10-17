@@ -62,8 +62,12 @@ document.addEventListener('DOMContentLoaded', async function() {
     let linhaAtualParaAtualizar = null; // Guarda a referência da linha da tabela
 
     // --- Campos do Formulário ---
+    const entradaFieldsContainer = document.getElementById('entrada-fields-container');
+    const saidaFieldsInnerContainer = document.getElementById('saida-fields-inner-container');
+    const quantidadeContainer = document.getElementById('mov-quantidade-container');
+
     const entradaFields = [
-        document.getElementById('entrada-fields-container')
+        entradaFieldsContainer
     ];
     const saidaFields = [
         document.getElementById('saida-fields-container')
@@ -454,10 +458,12 @@ document.addEventListener('DOMContentLoaded', async function() {
         const isEntrada = toggle.checked;
         btnImportarXml.style.display = isEntrada ? 'inline-block' : 'none';
         btnTransferencia.style.display = isEntrada ? 'none' : 'inline-block';
-        entradaFields.forEach(el => el.style.display = isEntrada ? '' : 'none');
-        saidaFields.forEach(el => el.style.display = isEntrada ? 'none' : '');
+        entradaFieldsContainer.style.display = isEntrada ? 'flex' : 'none';
+        document.getElementById('saida-fields-container').style.display = isEntrada ? 'none' : 'flex';
+
 
         if (isEntrada) {
+            entradaFieldsContainer.prepend(quantidadeContainer);
             btnMovimentacao.textContent = 'Confirmar Entrada';
             btnMovimentacao.className = 'btn btn-success';
             document.getElementById('toggle-label-entrada').style.fontWeight = 'bold';
@@ -465,6 +471,7 @@ document.addEventListener('DOMContentLoaded', async function() {
             document.getElementById('toggle-label-saida').style.fontWeight = 'normal';
             document.getElementById('toggle-label-saida').style.color = '#6c757d';
         } else {
+            saidaFieldsInnerContainer.prepend(quantidadeContainer);
             btnMovimentacao.textContent = 'Confirmar Saída';
             btnMovimentacao.className = 'btn btn-danger';
             document.getElementById('toggle-label-saida').style.fontWeight = 'bold';
