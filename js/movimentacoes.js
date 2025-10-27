@@ -29,6 +29,7 @@ async function calcularCustoMedioProduto(produtoId) {
 
 
 document.addEventListener('DOMContentLoaded', async function() {
+    const loadingOverlay = document.getElementById('loading-overlay');
     // Lógica para fechar o modal de informação
     const infoModal = document.getElementById('info-modal');
     const infoModalClose = document.getElementById('info-modal-close');
@@ -462,17 +463,17 @@ document.addEventListener('DOMContentLoaded', async function() {
                 quantidadeCellHtml = Number(mov.quantidade).toLocaleString('pt-BR');
             }
 
-            const valorUnitarioFmt = mov.valor_unitario ? parseFloat(mov.valor_unitario).toFixed(3) : '-';
-            const valorUnitEstoqueFmt = mov.valorUnitEstoque > 0 ? mov.valorUnitEstoque.toFixed(2) : '-';
-            const icmsFmt = mov.icms ? parseFloat(mov.icms).toFixed(2) : '-';
-            const ipiFmt = mov.ipi ? parseFloat(mov.ipi).toFixed(2) : '-';
-            const freteFmt = mov.frete ? parseFloat(mov.frete).toFixed(2) : '-';
-            const custoUnitarioFmt = mov.custoUnitario > 0 ? mov.custoUnitario.toFixed(3) : '-';
-            const custoTotalFmt = mov.custoTotal > 0 ? mov.custoTotal.toFixed(2) : '-';
+            const valorUnitarioFmt = mov.valor_unitario ? parseFloat(mov.valor_unitario).toFixed(3).replace('.', ',') : '-';
+            const valorUnitEstoqueFmt = mov.valorUnitEstoque > 0 ? mov.valorUnitEstoque.toFixed(2).replace('.', ',') : '-';
+            const icmsFmt = mov.icms ? parseFloat(mov.icms).toFixed(2).replace('.', ',') : '-';
+            const ipiFmt = mov.ipi ? parseFloat(mov.ipi).toFixed(2).replace('.', ',') : '-';
+            const freteFmt = mov.frete ? parseFloat(mov.frete).toFixed(2).replace('.', ',') : '-';
+            const custoUnitarioFmt = mov.custoUnitario > 0 ? mov.custoUnitario.toFixed(3).replace('.', ',') : '-';
+            const custoTotalFmt = mov.custoTotal > 0 ? mov.custoTotal.toFixed(2).replace('.', ',') : '-';
 
-            const icmsTitle = mov.icmsUnit > 0 ? `Valor Unit.: ${mov.icmsUnit.toFixed(2)}` : '';
-            const ipiTitle = mov.ipiUnit > 0 ? `Valor Unit.: ${mov.ipiUnit.toFixed(2)}` : '';
-            const freteTitle = mov.freteUnit > 0 ? `Valor Unit.: ${mov.freteUnit.toFixed(2)}` : '';
+            const icmsTitle = mov.icmsUnit > 0 ? `Valor Unit.: ${mov.icmsUnit.toFixed(2).replace('.', ',')}` : '';
+            const ipiTitle = mov.ipiUnit > 0 ? `Valor Unit.: ${mov.ipiUnit.toFixed(2).replace('.', ',')}` : '';
+            const freteTitle = mov.freteUnit > 0 ? `Valor Unit.: ${mov.freteUnit.toFixed(2).replace('.', ',')}` : '';
 
             row.innerHTML = `
                 <td>${searchData.data}</td>
@@ -591,6 +592,9 @@ document.addEventListener('DOMContentLoaded', async function() {
                                 const fator_qtd_padrao = parseFloat(String(regra.qtd_padrao).replace(',', '.'));
                                 if (fator_qtd_compra > 0) {
                                     quantidadeParaEstoque = (quantidade / fator_qtd_compra) * fator_qtd_padrao;
+                                    if (quantidadeParaEstoque % 1 !== 0) {
+                                        throw new Error("A conversão de unidade resultou em um valor fracionado (" + quantidadeParaEstoque.toFixed(3) + "). Apenas números inteiros são permitidos na entrada de estoque.");
+                                    }
                                 }
                             }
                         }
@@ -1164,13 +1168,17 @@ document.addEventListener('DOMContentLoaded', async function() {
 
         // Validação prévia
         for (const row of rows) {
-             const productId = row.dataset.productId;
-             if (!productId) continue; // Pula não cadastrados
-             const locacaoSelect = row.cells[9].querySelector('select'); // Índice da célula de locação agora é 9
-             if (!locacaoSelect || !locacaoSelect.value) {
-                 alert(`Por favor, selecione local e locação para todos os produtos cadastrados (Código: ${row.cells[0].querySelector('input').value}).`);
-                 return;
-             }
+            const productId = row.dataset.productId;
+            if (!productId) continue; // Pula não cadastrados
+
+            const localSelect = row.cells[8].querySelector('select');
+            const locacaoSelect = row.cells[9].querySelector('select');
+            const codigoProduto = row.cells[0].querySelector('input').value;
+
+            if (localSelect && localSelect.value && (!locacaoSelect || !locacaoSelect.value)) {
+                alert(`Para o produto ${codigoProduto}, ao selecionar um Local, a Locação também deve ser selecionada.`);
+                return; // Interrompe a importação
+            }
         }
 
 
@@ -1216,6 +1224,10 @@ document.addEventListener('DOMContentLoaded', async function() {
                                 const fator_qtd_padrao = parseFloat(String(regra.qtd_padrao).replace(',', '.'));
                                 if (fator_qtd_compra > 0) {
                                     quantidadeParaEstoque = (quantidadeInformada / fator_qtd_compra) * fator_qtd_padrao;
+                                    // Validação de número inteiro
+                                    if (quantidadeParaEstoque % 1 !== 0) {
+                                        throw new Error("A conversão de unidade resultou em um valor fracionado. Apenas números inteiros são permitidos.");
+                                    }
                                 }
                             }
                         }
@@ -1224,14 +1236,20 @@ document.addEventListener('DOMContentLoaded', async function() {
                         let custoTotalEntrada = (quantidadeInformada * valorUnitario) + icms + ipi + frete;
                         // ... (outras lógicas de custo, se houver)
 
-                        // 3. Atualiza Estoque na Locação Correta
-                        const locacoes = productData.locacoes || [];
-                        const locacaoIndex = locacoes.findIndex(l => l.locacao === locacaoSelecionada);
-                        if (locacaoIndex === -1) {
-                            throw new Error(`Locação '${locacaoSelecionada}' não encontrada para o produto.`);
+                        // 3. Atualiza Estoque na Locação Correta ou no Estoque Geral
+                        if (locacaoSelecionada) {
+                            const locacoes = productData.locacoes || [];
+                            const locacaoIndex = locacoes.findIndex(l => l.locacao === locacaoSelecionada);
+                            if (locacaoIndex === -1) {
+                                throw new Error(`Locação '${locacaoSelecionada}' não encontrada para o produto.`);
+                            }
+                            locacoes[locacaoIndex].estoque = (locacoes[locacaoIndex].estoque || 0) + quantidadeParaEstoque;
+                            transaction.update(productRef, { locacoes: locacoes });
+                        } else {
+                            // Se não houver locação, atualiza o estoque geral
+                            const novoEstoque = (productData.estoque || 0) + quantidadeParaEstoque;
+                            transaction.update(productRef, { estoque: novoEstoque });
                         }
-                        locacoes[locacaoIndex].estoque = (locacoes[locacaoIndex].estoque || 0) + quantidadeParaEstoque;
-                        transaction.update(productRef, { locacoes: locacoes });
 
 
                         // 4. Cria o Registro de Movimentação
@@ -1582,6 +1600,7 @@ document.addEventListener('DOMContentLoaded', async function() {
         popularFiltros(); // Popula os filtros
         // Exibe o formulário que estava oculto por padrão
         document.getElementById('movement-wrapper').style.display = 'block';
+        loadingOverlay.style.display = 'none'; // Esconde o loader
     });
 });
 
