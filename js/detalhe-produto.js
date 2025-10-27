@@ -8,6 +8,7 @@ document.addEventListener('DOMContentLoaded', async function() {
     const descricaoEl = document.getElementById('produto-descricao');
     const fornecedorEl = document.getElementById('produto-fornecedor');
     const corEl = document.getElementById('produto-cor');
+    const custoMedioEl = document.getElementById('produto-custo-medio');
     const locacaoCompletaEl = document.getElementById('locacao-completa');
     const locacaoEstoqueEl = document.getElementById('locacao-estoque');
     const estoqueTotalTextoEl = document.getElementById('estoque-total-texto');
@@ -91,6 +92,9 @@ document.addEventListener('DOMContentLoaded', async function() {
         descricaoEl.style.cursor = 'pointer';
         descricaoEl.title = 'Clique para ver as sobras deste produto';
         corEl.textContent = pData.cor || 'N/A';
+
+        const valorMedio = pData.valorMedio || 0;
+        custoMedioEl.textContent = valorMedio.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' });
 
         const fornecedorNome = configData.fornecedores[pData.fornecedorId]?.nome || 'Desconhecido';
         fornecedorEl.textContent = fornecedorNome;
