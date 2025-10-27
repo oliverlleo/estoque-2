@@ -125,6 +125,15 @@ document.addEventListener('DOMContentLoaded', async function() {
     const localSelect = document.getElementById('mov-local');
     const locacaoSelect = document.getElementById('mov-locacao');
 
+    function updateLocacaoRequirement() {
+        const localValue = localSelect.value;
+        if (localValue) {
+            locacaoSelect.required = true;
+        } else {
+            locacaoSelect.required = false;
+        }
+    }
+
     function populateLocacoes(product, selectedLocalId) {
         const isEntrada = document.getElementById('movement-toggle').checked;
         locacaoSelect.innerHTML = '<option value="">Carregando...</option>';
@@ -151,12 +160,14 @@ document.addEventListener('DOMContentLoaded', async function() {
             locacaoSelect.innerHTML = '<option value="">Selecione o Local...</option>';
             locacaoSelect.disabled = true;
         }
+        updateLocacaoRequirement();
     }
 
     localSelect.addEventListener('change', () => {
         const productId = document.getElementById('mov-produto-id').value;
         const product = productsMap[productId];
         populateLocacoes(product, localSelect.value);
+        updateLocacaoRequirement();
     });
 
     async function updateProductInfo() {
@@ -204,8 +215,8 @@ document.addEventListener('DOMContentLoaded', async function() {
 
                 if (purchaseUnit && standardUnit) {
                     unitSelect.innerHTML = `
-                        <option value="${purchaseUnit}">${purchaseUnit}</option>
                         <option value="${standardUnit}">${standardUnit}</option>
+                        <option value="${purchaseUnit}">${purchaseUnit}</option>
                     `;
                     unitSelect.style.display = 'inline-block';
                 }
@@ -528,10 +539,23 @@ document.addEventListener('DOMContentLoaded', async function() {
         const locacaoSelecionada = document.getElementById('mov-locacao').value;
         const quantidade = parseFloat(document.getElementById('mov-quantidade').value);
 
-        if (!productId || !locacaoSelecionada || isNaN(quantidade) || quantidade <= 0) {
-            alert('Por favor, preencha o produto, a locação e a quantidade corretamente.');
-            return;
+        if (isEntrada) {
+            if (!productId || isNaN(quantidade) || quantidade <= 0) {
+                alert('Por favor, preencha o produto e a quantidade corretamente.');
+                return;
+            }
+            const localSelecionado = document.getElementById('mov-local').value;
+            if (localSelecionado && !locacaoSelecionada) {
+                alert('Ao selecionar um Local, a Locação se torna obrigatória.');
+                return;
+            }
+        } else { // Saída ou Transferência
+             if (!productId || !locacaoSelecionada || isNaN(quantidade) || quantidade <= 0) {
+                alert('Para saídas, o produto, a locação e a quantidade são obrigatórios.');
+                return;
+            }
         }
+
 
         if (isEntrada) {
             const tipoEntradaId = document.getElementById('mov-tipo-entrada').value;
@@ -547,12 +571,7 @@ document.addEventListener('DOMContentLoaded', async function() {
                     if (!productDoc.exists()) { throw new Error("Produto não encontrado!"); }
 
                     const productData = productDoc.data();
-                    const locacoes = productData.locacoes || [];
-                    const locacaoIndex = locacoes.findIndex(l => l.locacao === locacaoSelecionada);
-
-                    if (locacaoIndex === -1) {
-                        throw new Error("Locação selecionada não encontrada no produto.");
-                    }
+                    let locacoes = productData.locacoes || [];
 
                     // Lógica de conversão condicional
                     const conversaoId = productData.conversaoId;
@@ -581,8 +600,17 @@ document.addEventListener('DOMContentLoaded', async function() {
                     const tipoEntradaConfig = configData.tipos_entrada[tipoEntradaId];
 
                     if (tipoEntradaConfig && tipoEntradaConfig.movimenta_estoque == true) {
-                        locacoes[locacaoIndex].estoque = (locacoes[locacaoIndex].estoque || 0) + quantidadeParaEstoque;
-                        transaction.update(productRef, { locacoes: locacoes });
+                        if (locacaoSelecionada) {
+                            const locacaoIndex = locacoes.findIndex(l => l.locacao === locacaoSelecionada);
+                             if (locacaoIndex === -1) {
+                                throw new Error("Locação selecionada não encontrada no produto.");
+                            }
+                            locacoes[locacaoIndex].estoque = (locacoes[locacaoIndex].estoque || 0) + quantidadeParaEstoque;
+                            transaction.update(productRef, { locacoes: locacoes });
+                        } else {
+                            const novoEstoque = (productData.estoque || 0) + quantidadeParaEstoque;
+                            transaction.update(productRef, { estoque: novoEstoque });
+                        }
                     }
 
                     // Cálculo de custo (mantido)
@@ -732,6 +760,7 @@ document.addEventListener('DOMContentLoaded', async function() {
         }
     });
 
+
     // --- LÓGICA PARA TRANSFERÊNCIA DE ESTOQUE ---
     const transferenciaModal = document.getElementById('transferencia-modal');
     const btnTransferencia = document.getElementById('btn-transferencia');
@@ -779,27 +808,42 @@ document.addEventListener('DOMContentLoaded', async function() {
             document.getElementById('transf-codigo-display').textContent = product.codigo;
             document.getElementById('transf-descricao-display').textContent = product.descricao;
 
+            // Popula locações de ORIGEM (apenas com estoque)
             if (product.locacoes && product.locacoes.length > 0) {
-                // Popula locações de ORIGEM (apenas com estoque)
                 product.locacoes.forEach(loc => {
                     if (loc.estoque > 0) {
+                        const localNome = configData.locais[loc.localId]?.nome || 'Desconhecido';
                         const option = document.createElement('option');
                         option.value = loc.locacao;
-                        option.textContent = `${loc.locacao} (Estoque: ${loc.estoque})`;
+                        option.textContent = `${loc.locacao} (${localNome}) (Estoque: ${loc.estoque})`;
                         transfOrigemSelect.appendChild(option);
                     }
                 });
+            }
 
-                // Popula locações de DESTINO (todas)
-                product.locacoes.forEach(loc => {
+            // Adiciona a opção "Sem Origem" se houver estoque sem locação
+            if (product.estoque > 0) {
+                const option = document.createElement('option');
+                option.value = 'sem_origem';
+                option.textContent = `Sem Origem (Estoque: ${product.estoque})`;
+                transfOrigemSelect.appendChild(option);
+            }
+
+            // Popula locações de DESTINO (todas)
+            if (product.locacoes && product.locacoes.length > 0) {
+                 product.locacoes.forEach(loc => {
+                    const localNome = configData.locais[loc.localId]?.nome || 'Desconhecido';
                     const option = document.createElement('option');
                     option.value = loc.locacao;
-                    option.textContent = loc.locacao;
+                    option.textContent = `${loc.locacao} (${localNome})`;
                     transfDestinoSelect.appendChild(option);
                 });
-
-                transfOrigemSelect.disabled = false;
                 transfDestinoSelect.disabled = false;
+            }
+
+            // Habilita o select de origem se houver alguma opção
+            if (transfOrigemSelect.options.length > 1) {
+                transfOrigemSelect.disabled = false;
             }
         }
     });
@@ -809,25 +853,34 @@ document.addEventListener('DOMContentLoaded', async function() {
         const productId = transfProdutoSelect.value;
         const product = productsMap[productId];
         const origem = transfOrigemSelect.value;
+        const estoqueDisplay = document.getElementById('transf-estoque-origem-display');
 
         if (product && origem) {
-            const locacaoData = product.locacoes.find(l => l.locacao === origem);
-            document.getElementById('transf-estoque-origem-display').textContent = locacaoData ? locacaoData.estoque : '0';
+            if (origem === 'sem_origem') {
+                estoqueDisplay.textContent = product.estoque || '0';
+            } else {
+                const locacaoData = product.locacoes.find(l => l.locacao === origem);
+                estoqueDisplay.textContent = locacaoData ? locacaoData.estoque : '0';
+            }
         } else {
-            document.getElementById('transf-estoque-origem-display').textContent = '0';
+            estoqueDisplay.textContent = '0';
         }
 
         // Filtra o select de destino para não mostrar a origem
         const destino = transfDestinoSelect.value;
         transfDestinoSelect.innerHTML = '<option value="">Destino...</option>';
-        product.locacoes.forEach(loc => {
-            if (loc.locacao !== origem) {
+        if (product && product.locacoes) {
+            product.locacoes.forEach(loc => {
+                // Se a origem for uma locação, não a mostre no destino
+                if (origem !== 'sem_origem' && loc.locacao === origem) {
+                    return;
+                }
                 const option = document.createElement('option');
                 option.value = loc.locacao;
                 option.textContent = loc.locacao;
                 transfDestinoSelect.appendChild(option);
-            }
-        });
+            });
+        }
         // Restaura a seleção se possível
         if (destino && destino !== origem) {
             transfDestinoSelect.value = destino;
@@ -848,65 +901,80 @@ document.addEventListener('DOMContentLoaded', async function() {
             alert('Por favor, preencha todos os campos corretamente.');
             return;
         }
-        if (origem === destino) {
+         if (origem === destino) {
             alert('A locação de origem e destino não podem ser as mesmas.');
             return;
         }
+
         const product = productsMap[productId];
-        const locacaoOrigemData = product.locacoes.find(l => l.locacao === origem);
-        if (!locacaoOrigemData || locacaoOrigemData.estoque < quantidade) {
-            alert(`Quantidade a transferir excede o estoque disponível na origem (${locacaoOrigemData.estoque || 0}).`);
-            return;
+        // Validação de estoque
+        if (origem === 'sem_origem') {
+            if ((product.estoque || 0) < quantidade) {
+                alert(`Quantidade a transferir excede o estoque disponível Sem Origem (${product.estoque || 0}).`);
+                return;
+            }
+        } else {
+            const locacaoOrigemData = product.locacoes.find(l => l.locacao === origem);
+            if (!locacaoOrigemData || locacaoOrigemData.estoque < quantidade) {
+                alert(`Quantidade a transferir excede o estoque disponível na origem (${locacaoOrigemData.estoque || 0}).`);
+                return;
+            }
         }
+
 
         try {
             await runTransaction(db, async (transaction) => {
                 const productRef = doc(db, 'produtos', productId);
                 const productDoc = await transaction.get(productRef);
-                if (!productDoc.exists()) {
-                    throw new Error('Produto não encontrado no banco de dados.');
-                }
+                if (!productDoc.exists()) throw new Error('Produto não encontrado.');
 
                 const pData = productDoc.data();
                 const locacoes = pData.locacoes || [];
-                const origemIndex = locacoes.findIndex(l => l.locacao === origem);
                 const destinoIndex = locacoes.findIndex(l => l.locacao === destino);
+                if (destinoIndex === -1) throw new Error('Locação de destino não encontrada.');
 
-                if (origemIndex === -1 || destinoIndex === -1) {
-                    throw new Error('Locação de origem ou destino não encontrada.');
+                if (origem === 'sem_origem') {
+                    // Re-valida o estoque sem origem dentro da transação
+                    if ((pData.estoque || 0) < quantidade) {
+                        throw new Error('Estoque Sem Origem insuficiente. A transação foi cancelada.');
+                    }
+                    const novoEstoqueSemOrigem = (pData.estoque || 0) - quantidade;
+                    locacoes[destinoIndex].estoque = (locacoes[destinoIndex].estoque || 0) + quantidade;
+                    transaction.update(productRef, {
+                        estoque: novoEstoqueSemOrigem,
+                        locacoes: locacoes
+                    });
+                } else {
+                    const origemIndex = locacoes.findIndex(l => l.locacao === origem);
+                    if (origemIndex === -1) throw new Error('Locação de origem não encontrada.');
+
+                    // Re-valida o estoque da locação dentro da transação
+                    if ((locacoes[origemIndex].estoque || 0) < quantidade) {
+                        throw new Error('Estoque na origem insuficiente. A transação foi cancelada.');
+                    }
+                    locacoes[origemIndex].estoque -= quantidade;
+                    locacoes[destinoIndex].estoque = (locacoes[destinoIndex].estoque || 0) + quantidade;
+                    transaction.update(productRef, { locacoes: locacoes });
                 }
 
-                // Re-valida o estoque dentro da transação
-                if (locacoes[origemIndex].estoque < quantidade) {
-                    throw new Error('Estoque insuficiente na origem. A transação foi cancelada.');
-                }
-
-                // Realiza a transferência
-                locacoes[origemIndex].estoque -= quantidade;
-                locacoes[destinoIndex].estoque += quantidade;
-
-                transaction.update(productRef, { locacoes: locacoes });
-
-                // Cria um registro de movimentação
+                const observacao = `Transferência de ${origem.replace('_', ' ')} para ${destino}.`;
                 const movementRef = doc(collection(db, 'movimentacoes'));
                 transaction.set(movementRef, {
                     tipo: 'transferencia',
                     productId,
                     quantidade,
                     data: serverTimestamp(),
-                    observacao: `Transferência da locação ${origem} para ${destino}.`
+                    observacao: observacao
                 });
             });
 
             alert('Transferência realizada com sucesso!');
-
             // Atualiza o mapa local para refletir a mudança (FORMA ROBUSTA)
             const productRef = doc(db, 'produtos', productId);
             const updatedDoc = await getDoc(productRef);
             if (updatedDoc.exists()) {
                 productsMap[productId] = { id: productId, ...updatedDoc.data() };
             }
-
             formTransferencia.reset();
             transferenciaModal.style.display = 'none';
             await updateProductInfo(); // Atualiza a info do produto principal se estiver selecionado
@@ -985,9 +1053,11 @@ document.addEventListener('DOMContentLoaded', async function() {
                 if (locacaoSelect.options.length > 1) {
                     locacaoSelect.selectedIndex = 1;
                 }
+                locacaoSelect.required = true;
 
             } else {
                 locacaoSelect.innerHTML = '<option value="">Locação...</option>';
+                locacaoSelect.required = false;
             }
         }
     });
@@ -1032,7 +1102,7 @@ document.addEventListener('DOMContentLoaded', async function() {
             }
 
             // Prepara dropdown de Local
-            let localDropdownHtml = `<select class="form-control xml-local-select" required ${!produtoNoSistema ? 'disabled' : ''}>`;
+            let localDropdownHtml = `<select class="form-control xml-local-select" ${!produtoNoSistema ? 'disabled' : ''}>`;
             if (produtoNoSistema && produtoNoSistema.locacoes) {
                 const locaisUnicos = [...new Set(produtoNoSistema.locacoes.map(l => l.localId))];
                 localDropdownHtml += '<option value="">Local...</option>';
@@ -1046,7 +1116,7 @@ document.addEventListener('DOMContentLoaded', async function() {
             localDropdownHtml += `</select>`;
 
             // Prepara dropdown de Locação (inicialmente vazio)
-            let locacaoDropdownHtml = `<select class="form-control xml-locacao-select" required ${!produtoNoSistema ? 'disabled' : ''}><option value="">Locação...</option></select>`;
+            let locacaoDropdownHtml = `<select class="form-control xml-locacao-select" ${!produtoNoSistema ? 'disabled' : ''}><option value="">Locação...</option></select>`;
 
             const row = xmlProductsTableBody.insertRow();
             if (!produtoNoSistema) row.style.backgroundColor = '#ffdddd';

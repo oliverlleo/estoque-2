@@ -303,6 +303,18 @@ document.addEventListener('DOMContentLoaded', async function() {
         }
     });
 
+    locacoesContainer.addEventListener('change', (e) => {
+        if (e.target.classList.contains('local-select')) {
+            const row = e.target.closest('.locacao-row');
+            const locacaoInput = row.querySelector('.locacao-input');
+            if (e.target.value) {
+                locacaoInput.required = true;
+            } else {
+                locacaoInput.required = false;
+            }
+        }
+    });
+
     // --- FIM DA LÓGICA DE LOCAÇÕES ---
 
     function populateSobraSelect() {
