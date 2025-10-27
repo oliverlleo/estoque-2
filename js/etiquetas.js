@@ -39,7 +39,7 @@ function processarEtiquetas() {
 
         etiquetaDiv.innerHTML = `
             <div class="etiqueta-main">
-                <div class="qr-code" id="qr-${produto.id}"></div>
+                <div class="qr-code" id="qr-${produto.labelId}"></div>
                 <div class="produto-info">
                     <div class="descricao-produto">${pData.descricao || ''}</div>
                     <div class="detalhe-produto">${pData.cor || 'N/A'}</div>
@@ -56,8 +56,8 @@ function processarEtiquetas() {
         `;
         container.appendChild(etiquetaDiv);
 
-        const url = `${window.location.origin}/detalhe-produto.html?id=${produto.id}`;
-        new QRCode(document.getElementById(`qr-${produto.id}`), {
+        const url = `${window.location.origin}/detalhe-produto.html?id=${produto.productId}`;
+        new QRCode(document.getElementById(`qr-${produto.labelId}`), {
             text: url,
             width: 120, // A largura do QR code deve ser ajustada para o espaço disponível
             height: 120,

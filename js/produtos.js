@@ -718,26 +718,36 @@ document.addEventListener('DOMContentLoaded', async function() {
 
         const idsSelecionados = Array.from(checkboxesMarcados).map(cb => cb.dataset.id);
 
-        // Filtra os dados dos produtos com base nos IDs selecionados
+        // Filtra os dados dos produtos e expande com base na localização
         const dadosParaEtiqueta = productsData
             .filter(product => idsSelecionados.includes(product.id))
-            .map(product => {
+            .flatMap(product => {
                 const pData = product.data;
                 const fornecedorNome = configData.fornecedores[pData.fornecedorId]?.nome || 'N/A';
-                let locacaoCompleta = 'N/A';
-                if (pData.locacoes && pData.locacoes.length > 0) {
-                    locacaoCompleta = pData.locacoes.map(loc => {
-                        const localNome = configData.locais[loc.localId]?.nome || 'Local desconhecido';
-                        return `${loc.locacao} (${localNome})`;
-                    }).join(', ');
+
+                // Se não houver locações, gera uma etiqueta padrão com "N/A"
+                if (!pData.locacoes || pData.locacoes.length === 0) {
+                    return [{
+                        labelId: `${product.id}-0`, // ID único para a etiqueta
+                        productId: product.id,      // ID original do produto
+                        data: pData,
+                        enderecamento: 'N/A',
+                        fornecedor: fornecedorNome
+                    }];
                 }
 
-                return {
-                    id: product.id,
-                    data: pData,
-                    enderecamento: locacaoCompleta,
-                    fornecedor: fornecedorNome
-                };
+                // Se houver locações, cria uma etiqueta para cada uma
+                return pData.locacoes.map((loc, index) => {
+                    const localNome = configData.locais[loc.localId]?.nome || 'Local desconhecido';
+                    const locacaoCompleta = `${loc.locacao} (${localNome})`;
+                    return {
+                        labelId: `${product.id}-${index}`, // ID único para a etiqueta
+                        productId: product.id,         // ID original do produto
+                        data: pData,
+                        enderecamento: locacaoCompleta,
+                        fornecedor: fornecedorNome
+                    };
+                });
             });
 
         if (dadosParaEtiqueta.length > 0) {
