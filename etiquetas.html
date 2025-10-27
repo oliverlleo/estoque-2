@@ -18,20 +18,50 @@
             background-color: white; padding: 10px; border-radius: 5px; box-shadow: 0 2px 5px rgba(0,0,0,0.2);
         }
         .controls button { font-size: 16px; padding: 10px 20px; cursor: pointer; }
+        .format-controls { margin-top: 10px; }
+        .format-controls button { font-size: 14px; padding: 8px 15px; }
+        .format-controls button.active { background-color: #007bff; color: white; }
 
         /* ESTRUTURA RÍGIDA DA ETIQUETA */
-        .etiqueta {
+        .etiqueta-container {
             background-color: white;
             width: 100mm;
             height: 50mm;
-            padding: 4mm;
-            box-sizing: border-box;
+            page-break-after: always;
             border: 1px dashed #ccc;
             margin: 20px auto;
             display: flex;
-            flex-direction: column;
-            overflow: hidden; /* Garante que nada vaze para fora */
         }
+
+        .etiqueta {
+            padding: 4mm;
+            box-sizing: border-box;
+            display: flex;
+            flex-direction: column;
+            overflow: hidden;
+            width: 100%;
+            height: 100%;
+        }
+
+        /* Formato 50x25: Duas etiquetas lado a lado */
+        .formato-50x25 .etiqueta-container {
+            flex-wrap: wrap;
+            height: 50mm; /* A altura do container ainda é 50mm */
+            align-content: flex-start;
+        }
+        .formato-50x25 .etiqueta {
+            width: 50mm;
+            height: 25mm;
+            padding: 2mm;
+            border: 1px solid #eee; /* Borda mais fina para as internas */
+        }
+        .formato-50x25 .etiqueta-main { gap: 1.5mm; }
+        .formato-50x25 .qr-code { width: 18mm; }
+        .formato-50x25 .qr-code canvas, .formato-50x25 .qr-code img { max-width: 100%; height: auto; }
+        .formato-50x25 .descricao-produto { font-size: 8pt; margin-bottom: 0.5mm; }
+        .formato-50x25 .detalhe-produto { font-size: 7pt; }
+        .formato-50x25 .codigo-produto { font-size: 9pt; padding: 1px 2px; }
+        .formato-50x25 .etiqueta-footer { font-size: 9pt; padding-top: 1mm; margin-top: 1mm; border-top-width: 2px; }
         .etiqueta-main {
             display: flex;
             gap: 3mm;
@@ -120,6 +150,10 @@
 <body>
     <div class="controls">
         <button onclick="window.print()">Imprimir Etiquetas</button>
+        <div class="format-controls">
+            <button id="btn-formato-100x50" class="active">Tamanho 50x100</button>
+            <button id="btn-formato-50x25">Tamanho 50x25</button>
+        </div>
     </div>
     <div id="etiquetas-container">
         </div>
