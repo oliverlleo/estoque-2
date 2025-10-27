@@ -215,8 +215,8 @@ document.addEventListener('DOMContentLoaded', async function() {
 
                 if (purchaseUnit && standardUnit) {
                     unitSelect.innerHTML = `
-                        <option value="${purchaseUnit}">${purchaseUnit}</option>
                         <option value="${standardUnit}">${standardUnit}</option>
+                        <option value="${purchaseUnit}">${purchaseUnit}</option>
                     `;
                     unitSelect.style.display = 'inline-block';
                 }
