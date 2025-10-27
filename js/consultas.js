@@ -107,11 +107,11 @@ document.addEventListener('DOMContentLoaded', async function() {
                 <td>${item.codigo}</td>
                 <td>${item.descricao}</td>
                 <td>${item.cor}</td>
-                <td>${item.estoque || 0}</td>
-                <td>${item.quantidadeReservada || 0}</td>
+                <td>${(item.estoque || 0).toString().replace('.', ',')}</td>
+                <td>${(item.quantidadeReservada || 0).toString().replace('.', ',')}</td>
                 <td>${item.un}</td>
-                <td>${(item.valorMedio || 0).toFixed(3)}</td>
-                <td>${(item.valorTotalEstoque || 0).toFixed(2)}</td>
+                <td>${(item.valorMedio || 0).toFixed(3).replace('.', ',')}</td>
+                <td>${(item.valorTotalEstoque || 0).toFixed(2).replace('.', ',')}</td>
                 <td>${item.local}</td>
             `;
             tableBody.appendChild(row);

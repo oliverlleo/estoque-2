@@ -462,17 +462,17 @@ document.addEventListener('DOMContentLoaded', async function() {
                 quantidadeCellHtml = Number(mov.quantidade).toLocaleString('pt-BR');
             }
 
-            const valorUnitarioFmt = mov.valor_unitario ? parseFloat(mov.valor_unitario).toFixed(3) : '-';
-            const valorUnitEstoqueFmt = mov.valorUnitEstoque > 0 ? mov.valorUnitEstoque.toFixed(2) : '-';
-            const icmsFmt = mov.icms ? parseFloat(mov.icms).toFixed(2) : '-';
-            const ipiFmt = mov.ipi ? parseFloat(mov.ipi).toFixed(2) : '-';
-            const freteFmt = mov.frete ? parseFloat(mov.frete).toFixed(2) : '-';
-            const custoUnitarioFmt = mov.custoUnitario > 0 ? mov.custoUnitario.toFixed(3) : '-';
-            const custoTotalFmt = mov.custoTotal > 0 ? mov.custoTotal.toFixed(2) : '-';
+            const valorUnitarioFmt = mov.valor_unitario ? parseFloat(mov.valor_unitario).toFixed(3).replace('.', ',') : '-';
+            const valorUnitEstoqueFmt = mov.valorUnitEstoque > 0 ? mov.valorUnitEstoque.toFixed(2).replace('.', ',') : '-';
+            const icmsFmt = mov.icms ? parseFloat(mov.icms).toFixed(2).replace('.', ',') : '-';
+            const ipiFmt = mov.ipi ? parseFloat(mov.ipi).toFixed(2).replace('.', ',') : '-';
+            const freteFmt = mov.frete ? parseFloat(mov.frete).toFixed(2).replace('.', ',') : '-';
+            const custoUnitarioFmt = mov.custoUnitario > 0 ? mov.custoUnitario.toFixed(3).replace('.', ',') : '-';
+            const custoTotalFmt = mov.custoTotal > 0 ? mov.custoTotal.toFixed(2).replace('.', ',') : '-';
 
-            const icmsTitle = mov.icmsUnit > 0 ? `Valor Unit.: ${mov.icmsUnit.toFixed(2)}` : '';
-            const ipiTitle = mov.ipiUnit > 0 ? `Valor Unit.: ${mov.ipiUnit.toFixed(2)}` : '';
-            const freteTitle = mov.freteUnit > 0 ? `Valor Unit.: ${mov.freteUnit.toFixed(2)}` : '';
+            const icmsTitle = mov.icmsUnit > 0 ? `Valor Unit.: ${mov.icmsUnit.toFixed(2).replace('.', ',')}` : '';
+            const ipiTitle = mov.ipiUnit > 0 ? `Valor Unit.: ${mov.ipiUnit.toFixed(2).replace('.', ',')}` : '';
+            const freteTitle = mov.freteUnit > 0 ? `Valor Unit.: ${mov.freteUnit.toFixed(2).replace('.', ',')}` : '';
 
             row.innerHTML = `
                 <td>${searchData.data}</td>
