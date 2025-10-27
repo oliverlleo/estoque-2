@@ -36,8 +36,7 @@
             display: flex;
             gap: 3mm;
             flex: 1; /* Ocupa todo o espaço vertical disponível */
-            min-height: 0; /* Correção para flexbox em alguns navegadores */
-            margin-bottom: 2mm; /* Adicione esta linha para criar o espaço */
+            min-height: 0;
         }
         .qr-code {
             width: 38mm;
@@ -47,69 +46,59 @@
             justify-content: center;
         }
         .produto-info {
-            flex: 1; /* Ocupa o restante da largura */
+            flex: 1;
             display: flex;
             flex-direction: column;
-            min-width: 0; /* Correção para flexbox */
+            min-width: 0;
         }
 
-        .info-bloco {
-            display: flex;
-            align-items: center;
+        /* Classes de conteúdo específicas */
+        .descricao-produto {
+            font-size: 12pt;
+            font-weight: bold;
+            line-height: 1.2;
             text-transform: uppercase;
+            margin-bottom: 1mm;
+            overflow: hidden;
         }
-        .info-bloco .header {
-            background-color: #333;
-            color: white;
+
+        .detalhe-produto {
+             font-size: 10pt;
+             line-height: 1.2;
+             text-transform: uppercase;
+        }
+
+        .codigo-container {
+            margin-top: auto; /* Empurra para o final do espaço disponível */
+            padding-top: 1mm;
+        }
+
+        .codigo-produto {
+            font-size: 14pt;
             font-weight: bold;
-            padding: 4px 8px;
-            font-size: 10pt;
+            white-space: nowrap;
+            background-color: #333 !important;
+            color: white !important;
             text-align: center;
-            flex-shrink: 0;
+            padding: 4px 8px;
+            width: 100%;
+            box-sizing: border-box;
         }
-        .info-bloco .valor {
-            font-weight: bold;
-            padding-left: 10px;
-            white-space: normal; /* Permite quebra de linha */
-            overflow: hidden; /* Esconde o estouro */
-            line-height: 1.1;
-        }
-
-        .info-bloco.produto {
-            flex-direction: column;
-            align-items: stretch;
-            flex-shrink: 1;
-            flex-grow: 1;
-            min-height: 0;
-            margin-bottom: 2mm;
-        }
-        .info-bloco.produto .header { font-size: 12pt; text-align: left; }
-        .info-bloco.produto .valor { font-size: 16pt; padding-left: 0; padding-top: 2px; }
-
-        .info-bloco.codigo, .info-bloco.codigo-padrao {
-            margin-top: 1.5mm;
-        }
-        .info-bloco.codigo .header, .info-bloco.codigo-padrao .header { width: 90px; }
-        .info-bloco.codigo .valor, .info-bloco.codigo-padrao .valor { font-size: 16pt; white-space: nowrap; }
 
         .etiqueta-footer {
             text-align: center;
             font-weight: bold;
-            font-size: 12pt;
+            font-size: 14pt;
             border-top: 3px solid black;
             padding-top: 1.5mm;
-            margin-top: auto; /* Empurra para o rodapé */
+            margin-top: 2mm; /* Espaçamento entre o corpo e o rodapé */
             flex-shrink: 0;
         }
 
         /* ESTILOS DE IMPRESSÃO */
         @media print {
             body { background-color: white; padding: 0; margin: 0; }
-
-            /* 1. Força o botão a desaparecer, sem chance de erro */
-            .controls {
-                display: none !important;
-            }
+            .controls { display: none !important; }
 
             .etiqueta {
                 margin: 0;
@@ -120,9 +109,7 @@
                 page-break-after: avoid;
             }
 
-            /* 2. Força os fundos pretos a serem impressos */
-            .info-bloco .header {
-                background-color: #333 !important;
+            .codigo-produto {
                 print-color-adjust: exact;
                 -webkit-print-color-adjust: exact;
             }
