@@ -8,10 +8,9 @@ document.addEventListener('DOMContentLoaded', async function() {
     const descricaoEl = document.getElementById('produto-descricao');
     const fornecedorEl = document.getElementById('produto-fornecedor');
     const corEl = document.getElementById('produto-cor');
-    const locacaoLocalEl = document.getElementById('locacao-local');
-    const locacaoCodigoEl = document.getElementById('locacao-codigo');
+    const locacaoCompletaEl = document.getElementById('locacao-completa');
     const locacaoEstoqueEl = document.getElementById('locacao-estoque');
-    const estoqueTotalLink = document.getElementById('estoque-total-link');
+    const estoqueTotalTextoEl = document.getElementById('estoque-total-texto');
 
     const btnAbrirModalBaixa = document.getElementById('btn-abrir-modal-baixa');
     const baixaModal = document.getElementById('baixa-modal');
@@ -32,7 +31,7 @@ document.addEventListener('DOMContentLoaded', async function() {
         const params = new URLSearchParams(window.location.search);
         return {
             productId: params.get('id'),
-            locacaoId: params.get('locId') // Novo parâmetro
+            locacaoId: params.get('locId')
         };
     };
 
@@ -68,7 +67,6 @@ document.addEventListener('DOMContentLoaded', async function() {
 
         currentProduct = { id: productSnap.id, ...productSnap.data() };
 
-        // Encontra a locação específica baseada no locId da URL
         if (locacaoId) {
             currentLocacao = currentProduct.locacoes?.find(l => l.locacao === locacaoId) || null;
         }
@@ -89,19 +87,17 @@ document.addEventListener('DOMContentLoaded', async function() {
 
         if (currentLocacao) {
             const localNome = configData.locais[currentLocacao.localId]?.nome || 'Desconhecido';
-            locacaoLocalEl.textContent = localNome;
-            locacaoCodigoEl.textContent = currentLocacao.locacao;
+            locacaoCompletaEl.textContent = `${currentLocacao.locacao} (${localNome})`;
             locacaoEstoqueEl.textContent = `${currentLocacao.estoque || 0} ${pData.un}`;
         } else {
-            locacaoLocalEl.textContent = 'N/A';
-            locacaoCodigoEl.textContent = 'N/A';
+            locacaoCompletaEl.textContent = 'N/A';
             locacaoEstoqueEl.textContent = 'N/A';
         }
 
         const totalEstoqueLocacoes = pData.locacoes?.reduce((sum, loc) => sum + (loc.estoque || 0), 0) || 0;
         const estoqueSemOrigem = pData.estoque || 0;
         const estoqueTotal = totalEstoqueLocacoes + estoqueSemOrigem;
-        estoqueTotalLink.textContent = `${estoqueTotal} ${pData.un}`;
+        estoqueTotalTextoEl.textContent = `${estoqueTotal} ${pData.un}`;
     }
 
     async function setupModalForm() {
@@ -147,7 +143,7 @@ document.addEventListener('DOMContentLoaded', async function() {
     });
     closeModalBtn.addEventListener('click', () => baixaModal.style.display = 'none');
 
-    estoqueTotalLink.addEventListener('click', (e) => {
+    estoqueTotalTextoEl.addEventListener('click', (e) => {
         e.preventDefault();
         let html = '<ul style="list-style: none; padding: 0;">';
         const pData = currentProduct;
@@ -206,7 +202,6 @@ document.addEventListener('DOMContentLoaded', async function() {
 
                 transaction.update(productRef, { locacoes: updatedLocacoes });
 
-                // Registrar movimentação
                 const movementData = {
                     tipo: 'saida',
                     productId: currentProduct.id,
