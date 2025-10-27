@@ -15,10 +15,11 @@ document.addEventListener('DOMContentLoaded', async function() {
 
     async function fetchDataAndCalculate() {
         // 1. Busca todas as fontes de dados necessárias em paralelo.
-        const [productsSnapshot, locaisSnapshot, movementsSnapshot] = await Promise.all([
+        const [productsSnapshot, locaisSnapshot, movementsSnapshot, conversoesSnapshot] = await Promise.all([
             getDocs(query(collection(db, 'produtos'), where("arquivado", "!=", true))),
             getDocs(collection(db, 'locais')),
-            getDocs(query(collection(db, 'movimentacoes'), where("tipo", "==", "reserva")))
+        getDocs(query(collection(db, 'movimentacoes'))), // Busca todas as movimentações
+            getDocs(collection(db, 'conversoes'))
         ]);
 
         const locais = {};
@@ -26,21 +27,52 @@ document.addEventListener('DOMContentLoaded', async function() {
             locais[doc.id] = doc.data();
         });
 
-        // 2. Calcula a quantidade total reservada para cada produto.
-        const reservasMap = {};
+        const conversoesMap = {};
+        conversoesSnapshot.forEach(doc => {
+            conversoesMap[doc.id] = doc.data();
+        });
+
+        // 2. Processa todas as movimentações para calcular o custo médio e as reservas.
+        const movementsByProduct = {};
         movementsSnapshot.forEach(doc => {
             const mov = doc.data();
-            reservasMap[mov.productId] = (reservasMap[mov.productId] || 0) + mov.quantidade;
+            if (!movementsByProduct[mov.productId]) {
+                movementsByProduct[mov.productId] = [];
+            }
+            movementsByProduct[mov.productId].push(mov);
         });
 
         // 3. Mapeia os dados do produto e calcula os valores derivados.
         consolidatedData = productsSnapshot.docs.map(productDoc => {
             const product = productDoc.data();
             const productId = productDoc.id;
+            const productMovements = movementsByProduct[productId] || [];
+
+            // Ordena as movimentações por data para o cálculo correto do custo médio
+            productMovements.sort((a, b) => a.data.toMillis() - b.data.toMillis());
+
+            let totalQuantity = 0;
+            let totalCost = 0;
+            let averageCost = 0;
+            let reservedQuantity = 0;
+
+            productMovements.forEach(mov => {
+                if (mov.tipo === 'entrada' && mov.custo_total_entrada) {
+                    totalCost += mov.custo_total_entrada;
+                    totalQuantity += mov.quantidade;
+                } else if (mov.tipo === 'saida') {
+                    const currentAvgCost = totalQuantity > 0 ? totalCost / totalQuantity : 0;
+                    totalCost -= mov.quantidade * currentAvgCost;
+                    totalQuantity -= mov.quantidade;
+                } else if (mov.tipo === 'reserva') {
+                    reservedQuantity += mov.quantidade;
+                }
+            });
+
+            averageCost = totalQuantity > 0 ? totalCost / totalQuantity : 0;
 
             let estoqueAtual = 0;
             let locacaoCompleta = 'N/A';
-
             if (product.locacoes && Array.isArray(product.locacoes)) {
                 estoqueAtual = product.locacoes.reduce((acc, loc) => acc + (loc.estoque || 0), 0);
                 if (product.locacoes.length > 0) {
@@ -51,17 +83,13 @@ document.addEventListener('DOMContentLoaded', async function() {
                 }
             }
 
-            const quantidadeReservada = reservasMap[productId] || 0;
-            const valorMedio = product.valorMedio || 0;
-            const valorTotalEstoque = estoqueAtual * valorMedio;
-
             return {
                 ...product,
                 estoque: estoqueAtual,
-                cor: product.cor || '-', // Adiciona o campo cor
-                quantidadeReservada: quantidadeReservada, // Adiciona o campo de reserva
-                valorMedio,
-                valorTotalEstoque,
+                cor: product.cor || '-',
+                quantidadeReservada: reservedQuantity,
+                valorMedio: averageCost,
+                valorTotalEstoque: estoqueAtual * averageCost,
                 local: locacaoCompleta
             };
         });
@@ -82,7 +110,7 @@ document.addEventListener('DOMContentLoaded', async function() {
                 <td>${item.estoque || 0}</td>
                 <td>${item.quantidadeReservada || 0}</td>
                 <td>${item.un}</td>
-                <td>${(item.valorMedio || 0).toFixed(2)}</td>
+                <td>${(item.valorMedio || 0).toFixed(3)}</td>
                 <td>${(item.valorTotalEstoque || 0).toFixed(2)}</td>
                 <td>${item.local}</td>
             `;

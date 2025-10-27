@@ -122,17 +122,56 @@ document.addEventListener('DOMContentLoaded', async function() {
         }
     }
 
-    function updateProductInfo() {
+    const localSelect = document.getElementById('mov-local');
+    const locacaoSelect = document.getElementById('mov-locacao');
+
+    function populateLocacoes(product, selectedLocalId) {
+        const isEntrada = document.getElementById('movement-toggle').checked;
+        locacaoSelect.innerHTML = '<option value="">Carregando...</option>';
+
+        if (product && selectedLocalId) {
+            const locacoesFiltradas = product.locacoes.filter(l => l.localId === selectedLocalId);
+            locacaoSelect.innerHTML = '<option value="">Locação...</option>';
+            locacoesFiltradas.forEach(loc => {
+                const option = document.createElement('option');
+                option.value = loc.locacao;
+                let text = loc.locacao;
+                 if (!isEntrada) {
+                    text += ` (Estoque: ${loc.estoque || 0})`;
+                }
+                option.textContent = text;
+                locacaoSelect.appendChild(option);
+            });
+            locacaoSelect.disabled = false;
+            // Pre-seleciona a primeira locação
+            if (locacaoSelect.options.length > 1) {
+                locacaoSelect.selectedIndex = 1;
+            }
+        } else {
+            locacaoSelect.innerHTML = '<option value="">Selecione o Local...</option>';
+            locacaoSelect.disabled = true;
+        }
+    }
+
+    localSelect.addEventListener('change', () => {
         const productId = document.getElementById('mov-produto-id').value;
         const product = productsMap[productId];
-        const locacaoSelect = document.getElementById('mov-locacao');
+        populateLocacoes(product, localSelect.value);
+    });
+
+    async function updateProductInfo() {
+        const productId = document.getElementById('mov-produto-id').value;
+        const product = productsMap[productId];
         const isEntrada = document.getElementById('movement-toggle').checked;
+        const unitSelect = document.getElementById('mov-unidade-selecao');
 
-        // Limpa e desabilita o select de locação
-        locacaoSelect.innerHTML = '<option value="">Selecione a Locação...</option>';
+        // Reset fields
+        localSelect.innerHTML = '<option value="">Local...</option>';
+        localSelect.disabled = true;
+        locacaoSelect.innerHTML = '<option value="">Locação...</option>';
         locacaoSelect.disabled = true;
-
-        // Esconde o display de estoque antigo
+        unitSelect.innerHTML = '';
+        unitSelect.style.display = 'none';
         document.getElementById('mov-estoque-display-wrapper').style.display = 'none';
 
         if (product) {
@@ -140,22 +179,41 @@ document.addEventListener('DOMContentLoaded', async function() {
             document.getElementById('mov-descricao-display').textContent = product.descricao;
             document.getElementById('mov-un-display').textContent = product.un;
 
+            // Populate locais
             if (product.locacoes && product.locacoes.length > 0) {
-                product.locacoes.forEach(loc => {
-                    const option = document.createElement('option');
-                    option.value = loc.locacao; // Usar o código da locação como valor
-
-                    let text = loc.locacao;
-                    if (!isEntrada) { // Se for SAÍDA, mostra o estoque
-                        text += ` (Estoque: ${loc.estoque || 0})`;
-                    }
-                    option.textContent = text;
-                    locacaoSelect.appendChild(option);
+                const locaisUnicos = [...new Set(product.locacoes.map(l => l.localId))];
+                localSelect.innerHTML = '<option value="">Local...</option>';
+                locaisUnicos.forEach(localId => {
+                    const localNome = configData.locais[localId]?.nome || 'Desconhecido';
+                    localSelect.innerHTML += `<option value="${localId}">${localNome}</option>`;
                 });
-                locacaoSelect.disabled = false;
+                localSelect.disabled = false;
+
+                // Pre-seleciona o primeiro local e dispara a populacao de locacoes
+                if (localSelect.options.length > 1) {
+                    localSelect.selectedIndex = 1;
+                    populateLocacoes(product, localSelect.value);
+                }
             }
+
+            // --- Handle Unit Selection Dropdown ---
+            if (isEntrada && product.conversaoId && configData.conversoes[product.conversaoId]) {
+                const conversao = configData.conversoes[product.conversaoId];
+                const purchaseUnit = conversao.medida_compra;
+                const standardUnit = conversao.medida_padrao;
+
+                if (purchaseUnit && standardUnit) {
+                    unitSelect.innerHTML = `
+                        <option value="${purchaseUnit}">${purchaseUnit}</option>
+                        <option value="${standardUnit}">${standardUnit}</option>
+                    `;
+                    unitSelect.style.display = 'inline-block';
+                }
+            }
+            // --- END OF NEW FEATURE ---
+
         } else {
-            // Limpa os campos se nenhum produto for selecionado
+            // Clear fields if no product is selected
             document.getElementById('mov-codigo-display').textContent = '-';
             document.getElementById('mov-descricao-display').textContent = '-';
             document.getElementById('mov-un-display').textContent = '-';
@@ -167,26 +225,51 @@ document.addEventListener('DOMContentLoaded', async function() {
         const valorUnitarioInput = document.getElementById('mov-valor-unitario');
 
         if (isEntrada) {
-            // Desabilita/habilita todos os campos de custo com base em isSobra
+            // Limpa os campos de custo para qualquer produto selecionado
             costFields.forEach(fieldId => {
-                const field = document.getElementById(fieldId);
-                field.disabled = isSobra;
-                field.value = ''; // Limpa todos para começar
+                document.getElementById(fieldId).value = '';
             });
 
-            quantField.disabled = isSobra;
-
             if (isSobra) {
-                // Se for sobra, preenche o valor unitário com o valor médio e fixa a quantidade em 1
-                valorUnitarioInput.value = product.valorMedio ? product.valorMedio.toFixed(2) : '0.00';
+                // Para sobras, a quantidade é sempre 1 e não pode ser alterada.
                 quantField.value = 1;
+                quantField.disabled = true;
                 quantField.placeholder = "Entrada de sobra é sempre 1 Unidade";
+
+                // Os campos de custo NÃO são desabilitados.
+                costFields.forEach(fieldId => {
+                    document.getElementById(fieldId).disabled = false;
+                });
+
+                // Preenche o valor unitário como sugestão, mas permite edição.
+                valorUnitarioInput.value = '...'; // Valor padrão enquanto calcula
+                try {
+                    // **BUG FIX**: Fetch the full product document to get the originalProductId
+                    const productRef = doc(db, "produtos", productId);
+                    const productSnap = await getDoc(productRef);
+                    if (productSnap.exists() && productSnap.data().originalProductId) {
+                        const originalProductId = productSnap.data().originalProductId;
+                        const custoMedio = await calcularCustoMedioProduto(originalProductId);
+                        valorUnitarioInput.value = custoMedio > 0 ? custoMedio.toFixed(3) : '0.000';
+                    } else {
+                        valorUnitarioInput.value = '0.000';
+                        console.warn(`Sobra ${productId} não tem um originalProductId ou não foi encontrada.`);
+                    }
+                } catch (error) {
+                    console.error("Erro ao buscar custo médio da sobra:", error);
+                    valorUnitarioInput.value = '0.00';
+                }
+
             } else {
-                // Se não for sobra, reabilita os campos e reseta o placeholder de quantidade
+                // Para produtos normais, a quantidade é editável.
+                quantField.value = '';
+                quantField.disabled = false;
                 quantField.placeholder = "Quantidade";
+                costFields.forEach(fieldId => {
+                    document.getElementById(fieldId).disabled = false;
+                });
             }
-        } else {
-            // Se for SAÍDA, todos os campos de custo e quantidade são habilitados
+        } else { // Se for Saída
             costFields.forEach(fieldId => document.getElementById(fieldId).disabled = false);
             quantField.disabled = false;
             quantField.placeholder = "Quantidade";
@@ -228,11 +311,21 @@ document.addEventListener('DOMContentLoaded', async function() {
             }
 
             const quantidadeDisplay = isXmlImport ? mov.quantidade_compra : mov.quantidade;
-            const unidadeDisplay = isXmlImport ? mov.un_compra : product.un;
+            const unidadeDisplay = mov.un_compra || product.un;
+
+            const custoTotal = custoUnitario * mov.quantidade;
+            let valorUnitEstoque = 0;
+            if (mov.tipo === 'entrada' && product.conversaoId && configData.conversoes[product.conversaoId]) {
+                const conversao = configData.conversoes[product.conversaoId];
+                const fator_qtd_compra = parseFloat(String(conversao.qtd_compra).replace(',', '.'));
+                valorUnitEstoque = fator_qtd_compra * (mov.valor_unitario || 0);
+            }
 
             const processedMov = {
                 ...mov,
+                valorUnitEstoque: valorUnitEstoque,
                 custoUnitario: custoUnitario,
+                custoTotal: custoTotal,
                 icmsUnit: icmsUnit,
                 ipiUnit: ipiUnit,
                 freteUnit: freteUnit,
@@ -246,13 +339,16 @@ document.addEventListener('DOMContentLoaded', async function() {
                     quantidade: quantidadeDisplay?.toString() || '',
                     nf: mov.nf || '',
                     valor_unitario: (mov.valor_unitario || 0).toString(),
+                    valor_unit_estoque: (mov.valorUnitEstoque || 0).toString(),
                     icms: (mov.icms || 0).toString(),
                     ipi: (mov.ipi || 0).toString(),
                     frete: (mov.frete || 0).toString(),
-                    custoUnitario: custoUnitario > 0 ? custoUnitario.toFixed(2) : '0.00',
+                    custoUnitario: custoUnitario > 0 ? custoUnitario.toFixed(3) : '0.000',
+                    custoTotal: mov.custoTotal > 0 ? mov.custoTotal.toFixed(2) : '0.00',
                     requisitante: mov.requisitante || '',
                     obraId: configData.obras?.[mov.obraId]?.nome || '',
-                    observacao: mov.observacao || ''
+                    observacao: mov.observacao || '',
+                    fornecedorId: product.fornecedorId || ''
                 }
             };
             return processedMov;
@@ -285,12 +381,26 @@ document.addEventListener('DOMContentLoaded', async function() {
                 // Pula as chaves de data que já foram tratadas
                 if (column === 'data-inicio' || column === 'data-fim') continue;
 
-                const filterValue = filterState[column]?.toLowerCase();
+                const filterValue = filterState[column];
                 if (!filterValue) continue;
 
-                const cellValue = mov._search_data[column]?.toLowerCase();
-                if (cellValue === undefined || !cellValue.includes(filterValue)) {
-                    return false;
+                const lowerCaseFilterValue = filterValue.toLowerCase();
+                const cellValue = mov._search_data[column];
+
+                if (column === 'fornecedorId') {
+                    if (cellValue !== filterValue) {
+                        return false;
+                    }
+                } else if (column === 'nf') {
+                    const lowerCaseCellValue = cellValue?.toLowerCase();
+                    if (lowerCaseCellValue === undefined || !lowerCaseCellValue.includes(lowerCaseFilterValue)) {
+                        return false;
+                    }
+                } else {
+                    const lowerCaseCellValue = cellValue?.toLowerCase();
+                    if (lowerCaseCellValue === undefined || !lowerCaseCellValue.includes(lowerCaseFilterValue)) {
+                        return false;
+                    }
                 }
             }
             return true;
@@ -303,7 +413,7 @@ document.addEventListener('DOMContentLoaded', async function() {
                 valA = a.data ? a.data.toMillis() : 0;
                 valB = b.data ? b.data.toMillis() : 0;
             }
-            const numericColumns = ['quantidade', 'valor_unitario', 'icms', 'ipi', 'frete', 'custoUnitario'];
+            const numericColumns = ['quantidade', 'valor_unitario', 'icms', 'ipi', 'frete', 'custoUnitario', 'custoTotal'];
             if (numericColumns.includes(sortState.column)) {
                 valA = parseFloat(valA) || 0;
                 valB = parseFloat(valB) || 0;
@@ -318,14 +428,36 @@ document.addEventListener('DOMContentLoaded', async function() {
 
     function renderTable(data) {
         tableBody.innerHTML = '';
+        let totalCusto = 0;
+
         data.forEach(mov => {
+            if (mov.custoTotal && mov.custoTotal > 0) {
+                totalCusto += mov.custoTotal;
+            }
+
             const row = document.createElement('tr');
             const searchData = mov._search_data;
-            const valorUnitarioFmt = mov.valor_unitario ? parseFloat(mov.valor_unitario).toFixed(2) : '-';
+            const product = productsMap[mov.productId] || {};
+            const standardUnit = product.un || '';
+
+            let quantidadeCellHtml = '';
+            // Use toFixed to avoid floating point comparison issues
+            const qtyCompra = mov.quantidade_compra ? Number(mov.quantidade_compra).toFixed(4) : null;
+            const qtyEstoque = mov.quantidade ? Number(mov.quantidade).toFixed(4) : null;
+
+            if (mov.tipo === 'entrada' && qtyCompra && mov.un_compra && qtyCompra !== qtyEstoque) {
+                quantidadeCellHtml = `${Number(mov.quantidade_compra).toLocaleString('pt-BR')} ${mov.un_compra} <span style="color: red; font-weight: bold;">&rarr;</span> ${Number(mov.quantidade).toLocaleString('pt-BR', { minimumFractionDigits: 3, maximumFractionDigits: 3 })} ${standardUnit}`;
+            } else {
+                quantidadeCellHtml = Number(mov.quantidade).toLocaleString('pt-BR');
+            }
+
+            const valorUnitarioFmt = mov.valor_unitario ? parseFloat(mov.valor_unitario).toFixed(3) : '-';
+            const valorUnitEstoqueFmt = mov.valorUnitEstoque > 0 ? mov.valorUnitEstoque.toFixed(2) : '-';
             const icmsFmt = mov.icms ? parseFloat(mov.icms).toFixed(2) : '-';
             const ipiFmt = mov.ipi ? parseFloat(mov.ipi).toFixed(2) : '-';
             const freteFmt = mov.frete ? parseFloat(mov.frete).toFixed(2) : '-';
-            const custoUnitarioFmt = mov.custoUnitario > 0 ? mov.custoUnitario.toFixed(2) : '-';
+            const custoUnitarioFmt = mov.custoUnitario > 0 ? mov.custoUnitario.toFixed(3) : '-';
+            const custoTotalFmt = mov.custoTotal > 0 ? mov.custoTotal.toFixed(2) : '-';
 
             const icmsTitle = mov.icmsUnit > 0 ? `Valor Unit.: ${mov.icmsUnit.toFixed(2)}` : '';
             const ipiTitle = mov.ipiUnit > 0 ? `Valor Unit.: ${mov.ipiUnit.toFixed(2)}` : '';
@@ -338,22 +470,26 @@ document.addEventListener('DOMContentLoaded', async function() {
                 <td>${searchData.codigo || 'N/A'}</td>
                 <td>${searchData.descricao || 'Produto não encontrado'}</td>
                 <td>${searchData.un || 'N/A'}</td>
-                <td>${searchData.quantidade}</td>
+                <td>${quantidadeCellHtml}</td>
                 <td>${searchData.nf || '-'}</td>
                 <td>${valorUnitarioFmt}</td>
+                <td>${valorUnitEstoqueFmt}</td>
                 <td title="${icmsTitle}">${icmsFmt}</td>
                 <td title="${ipiTitle}">${ipiFmt}</td>
                 <td title="${freteTitle}">${freteFmt}</td>
                 <td>${custoUnitarioFmt}</td>
+                <td>${custoTotalFmt}</td>
                 <td>${searchData.requisitante || '-'}</td>
                 <td>${searchData.obraId || '-'}</td>
                 <td>${searchData.observacao || '-'}</td>
             `;
             tableBody.appendChild(row);
         });
+
+        document.getElementById('total-custo-valor').textContent = totalCusto.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' });
     }
 
-    function handleToggleChange() {
+    async function handleToggleChange() {
         const isEntrada = toggle.checked;
         btnImportarXml.style.display = isEntrada ? 'inline-block' : 'none';
         btnTransferencia.style.display = isEntrada ? 'none' : 'inline-block';
@@ -375,7 +511,7 @@ document.addEventListener('DOMContentLoaded', async function() {
             document.getElementById('toggle-label-entrada').style.fontWeight = 'normal';
             document.getElementById('toggle-label-entrada').style.color = '#6c757d';
         }
-        updateProductInfo();
+        await updateProductInfo();
         toggleObraRequirement();
         toggleValorUnitarioRequirement();
     }
@@ -398,6 +534,11 @@ document.addEventListener('DOMContentLoaded', async function() {
         }
 
         if (isEntrada) {
+            const tipoEntradaId = document.getElementById('mov-tipo-entrada').value;
+            if (!tipoEntradaId) {
+                alert('Por favor, selecione o Tipo de Entrada.');
+                return;
+            }
             // LÓGICA DE ENTRADA NORMAL (a lógica de sobra foi ignorada por enquanto)
             try {
                 await runTransaction(db, async (transaction) => {
@@ -413,18 +554,25 @@ document.addEventListener('DOMContentLoaded', async function() {
                         throw new Error("Locação selecionada não encontrada no produto.");
                     }
 
-                    // Lógica de conversão (mantida)
+                    // Lógica de conversão condicional
                     const conversaoId = productData.conversaoId;
                     let quantidadeParaEstoque = quantidade;
+
                     if (conversaoId) {
                         const conversaoRef = doc(db, 'conversoes', conversaoId);
-                        const conversaoDoc = await transaction.get(conversaoRef); // Usar transaction.get
+                        const conversaoDoc = await transaction.get(conversaoRef);
                         if (conversaoDoc.exists()) {
                             const regra = conversaoDoc.data();
-                            const fator_qtd_compra = parseFloat(String(regra.qtd_compra).replace(',', '.'));
-                            const fator_qtd_padrao = parseFloat(String(regra.qtd_padrao).replace(',', '.'));
-                            if (fator_qtd_compra > 0) {
-                                quantidadeParaEstoque = (quantidade / fator_qtd_compra) * fator_qtd_padrao;
+                            const selectedUnit = document.getElementById('mov-unidade-selecao').value;
+                            const purchaseUnit = regra.medida_compra;
+
+                            // Only run conversion if the selected unit is the purchase unit
+                            if (selectedUnit === purchaseUnit) {
+                                const fator_qtd_compra = parseFloat(String(regra.qtd_compra).replace(',', '.'));
+                                const fator_qtd_padrao = parseFloat(String(regra.qtd_padrao).replace(',', '.'));
+                                if (fator_qtd_compra > 0) {
+                                    quantidadeParaEstoque = (quantidade / fator_qtd_compra) * fator_qtd_padrao;
+                                }
                             }
                         }
                     }
@@ -445,11 +593,13 @@ document.addEventListener('DOMContentLoaded', async function() {
                     let custoTotalEntrada = (quantidade * valorUnitario) + icms + ipi + frete;
 
                     // Criação do documento de movimentação
+                    const selectedUnit = document.getElementById('mov-unidade-selecao').value;
                     const movementRef = doc(collection(db, 'movimentacoes'));
                     const movementData = {
                         tipo: 'entrada',
                         productId,
                         locacao: locacaoSelecionada, // Campo novo
+                        un_compra: selectedUnit || productData.un, // Salva a unidade de compra selecionada
                         data: serverTimestamp(),
                         tipo_entradaId: tipoEntradaId,
                         nf: document.getElementById('mov-nf').value,
@@ -488,6 +638,10 @@ document.addEventListener('DOMContentLoaded', async function() {
             }
         } else { // Saída
             const tipoSaidaId = document.getElementById('mov-tipo-saida').value;
+            if (!tipoSaidaId) {
+                alert('Por favor, selecione o Tipo de Saída.');
+                return;
+            }
             const tipoSaidaConfig = configData.tipos_saida[tipoSaidaId];
 
             if (tipoSaidaConfig && tipoSaidaConfig.reservar_estoque == true) {
@@ -613,9 +767,9 @@ document.addEventListener('DOMContentLoaded', async function() {
         const product = productsMap[productId];
 
         // Limpa e desabilita os selects de locação
-        transfOrigemSelect.innerHTML = '<option value="">Selecione a origem...</option>';
+        transfOrigemSelect.innerHTML = '<option value="">Origem...</option>';
         transfOrigemSelect.disabled = true;
-        transfDestinoSelect.innerHTML = '<option value="">Selecione o destino...</option>';
+        transfDestinoSelect.innerHTML = '<option value="">Destino...</option>';
         transfDestinoSelect.disabled = true;
         document.getElementById('transf-estoque-origem-display').textContent = '0';
         document.getElementById('transf-codigo-display').textContent = '-';
@@ -665,7 +819,7 @@ document.addEventListener('DOMContentLoaded', async function() {
 
         // Filtra o select de destino para não mostrar a origem
         const destino = transfDestinoSelect.value;
-        transfDestinoSelect.innerHTML = '<option value="">Selecione o destino...</option>';
+        transfDestinoSelect.innerHTML = '<option value="">Destino...</option>';
         product.locacoes.forEach(loc => {
             if (loc.locacao !== origem) {
                 const option = document.createElement('option');
@@ -755,7 +909,7 @@ document.addEventListener('DOMContentLoaded', async function() {
 
             formTransferencia.reset();
             transferenciaModal.style.display = 'none';
-            updateProductInfo(); // Atualiza a info do produto principal se estiver selecionado
+            await updateProductInfo(); // Atualiza a info do produto principal se estiver selecionado
         } catch (error) {
             console.error("Erro na transferência de estoque:", error);
             alert(`Erro ao realizar a transferência: ${error.message}`);
@@ -777,16 +931,86 @@ document.addEventListener('DOMContentLoaded', async function() {
     xmlFileInput.addEventListener('change', (event) => {
         const file = event.target.files[0];
         if (!file) return;
+
+        // Limpa o valor total ao carregar um novo arquivo
+        document.getElementById('xml-total-value').textContent = 'R$ 0,00';
+
         const reader = new FileReader();
         reader.onload = (e) => parseNFeXML(e.target.result);
         reader.readAsText(file);
     });
 
-    function parseNFeXML(xmlText) {
+    function updateTotalValue() {
+        const rows = document.querySelectorAll('#xml-products-table tbody tr');
+        let totalValue = 0;
+
+        rows.forEach(row => {
+            const quantity = parseFloat(row.cells[3].querySelector('input').value) || 0;
+            const unitValue = parseFloat(row.cells[4].querySelector('input').value) || 0;
+            const icms = parseFloat(row.cells[5].querySelector('input').value) || 0;
+            const ipi = parseFloat(row.cells[6].querySelector('input').value) || 0;
+            const frete = parseFloat(row.cells[7].querySelector('input').value) || 0;
+
+            totalValue += (quantity * unitValue) + icms + ipi + frete;
+        });
+
+        document.getElementById('xml-total-value').textContent = totalValue.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' });
+    }
+
+    xmlProductsTableBody.addEventListener('input', (e) => {
+        // Atualiza o valor total se qualquer input dentro da tabela for modificado
+        if (e.target.tagName === 'INPUT') {
+            updateTotalValue();
+        }
+    });
+    // Event listener para os dropdowns de Local na tabela de importação
+    xmlProductsTableBody.addEventListener('change', (e) => {
+        if (e.target.classList.contains('xml-local-select')) {
+            const row = e.target.closest('tr');
+            const productId = row.dataset.productId;
+            const selectedLocalId = e.target.value;
+            const locacaoSelect = row.querySelector('.xml-locacao-select');
+            const product = productsMap[productId];
+
+            locacaoSelect.innerHTML = '<option value="">Carregando...</option>';
+
+            if (product && selectedLocalId) {
+                const locacoesFiltradas = product.locacoes.filter(l => l.localId === selectedLocalId);
+                locacaoSelect.innerHTML = '<option value="">Locação...</option>';
+                locacoesFiltradas.forEach(loc => {
+                    locacaoSelect.innerHTML += `<option value="${loc.locacao}">${loc.locacao}</option>`;
+                });
+
+                // Pre-seleciona a primeira locação
+                if (locacaoSelect.options.length > 1) {
+                    locacaoSelect.selectedIndex = 1;
+                }
+
+            } else {
+                locacaoSelect.innerHTML = '<option value="">Locação...</option>';
+            }
+        }
+    });
+
+
+    async function parseNFeXML(xmlText) {
         const parser = new DOMParser();
         const xmlDoc = parser.parseFromString(xmlText, "text/xml");
         xmlProductsTableBody.innerHTML = '';
-        inputNfeNumero.value = xmlDoc.querySelector('nNF')?.textContent || '';
+        const nfeNumero = xmlDoc.querySelector('nNF')?.textContent || '';
+        inputNfeNumero.value = nfeNumero;
+
+        if (nfeNumero) {
+            const q = query(collection(db, 'movimentacoes'), where("nf", "==", nfeNumero), where("tipo", "==", "entrada"));
+            const querySnapshot = await getDocs(q);
+            if (!querySnapshot.empty) {
+                showInfoModal(`A NF-e de número ${nfeNumero} já foi importada anteriormente e não pode ser processada novamente.`);
+                xmlFileInput.value = ''; // Limpa o input de arquivo
+                inputNfeNumero.value = ''; // Limpa o campo do número da NF
+                return; // Interrompe a execução
+            }
+        }
+
         const totalFrete = parseFloat(xmlDoc.querySelector('ICMSTot vFrete')?.textContent || 0);
         const totalProdutos = parseFloat(xmlDoc.querySelector('ICMSTot vProd')?.textContent || 0);
         const items = xmlDoc.querySelectorAll('det');
@@ -807,38 +1031,56 @@ document.addEventListener('DOMContentLoaded', async function() {
                 acaoHtml = `<button class="btn btn-edit btn-cadastrar-produto" data-dados='${JSON.stringify(dadosDoXml)}'>Cadastrar</button>`;
             }
 
-            let locacaoDropdownHtml = `<select class="form-control" required ${!produtoNoSistema ? 'disabled' : ''}>`;
+            // Prepara dropdown de Local
+            let localDropdownHtml = `<select class="form-control xml-local-select" required ${!produtoNoSistema ? 'disabled' : ''}>`;
             if (produtoNoSistema && produtoNoSistema.locacoes) {
-                locacaoDropdownHtml += '<option value="">Selecione...</option>';
-                produtoNoSistema.locacoes.forEach(loc => {
-                    locacaoDropdownHtml += `<option value="${loc.locacao}">${loc.locacao}</option>`;
+                const locaisUnicos = [...new Set(produtoNoSistema.locacoes.map(l => l.localId))];
+                localDropdownHtml += '<option value="">Local...</option>';
+                locaisUnicos.forEach(localId => {
+                    const localNome = configData.locais[localId]?.nome || 'Desconhecido';
+                    localDropdownHtml += `<option value="${localId}">${localNome}</option>`;
                 });
             } else {
-                locacaoDropdownHtml += '<option value="">Nenhuma</option>';
+                localDropdownHtml += '<option value="">Nenhum</option>';
             }
-            locacaoDropdownHtml += `</select>`;
+            localDropdownHtml += `</select>`;
+
+            // Prepara dropdown de Locação (inicialmente vazio)
+            let locacaoDropdownHtml = `<select class="form-control xml-locacao-select" required ${!produtoNoSistema ? 'disabled' : ''}><option value="">Locação...</option></select>`;
 
             const row = xmlProductsTableBody.insertRow();
             if (!produtoNoSistema) row.style.backgroundColor = '#ffdddd';
             row.dataset.productId = produtoIdSistema;
-            row.dataset.unidadeCompra = uCom; // Salva a unidade da nota
+            row.dataset.unidadeCompra = uCom;
 
             row.innerHTML = `
                 <td><input type="text" class="form-control" value="${cProd}" disabled></td>
                 <td><input type="text" class="form-control" value="${descricaoSistema}" disabled></td>
                 <td><input type="text" class="form-control" value="${uCom}" disabled></td>
                 <td><input type="number" step="any" class="form-control" value="${parseFloat(item.querySelector('qCom')?.textContent || 0)}"></td>
-                <td><input type="number" step="any" class="form-control" value="${parseFloat(item.querySelector('vUnCom')?.textContent || 0)}"></td>
-                <td><input type="number" step="any" class="form-control" value="${parseFloat(item.querySelector('vICMS')?.textContent || 0)}"></td>
+                <td><input type="number" step="0.001" class="form-control" value="${parseFloat(item.querySelector('vUnCom')?.textContent || 0)}"></td>
+                <td><input type="number" step="any" class="form-control" value="0"></td>
                 <td><input type="number" step="any" class="form-control" value="${parseFloat(item.querySelector('vIPI')?.textContent || 0)}"></td>
                 <td><input type="number" step="any" class="form-control" value="${freteRateado.toFixed(2)}"></td>
+                <td>${localDropdownHtml}</td>
                 <td>${locacaoDropdownHtml}</td>
                 <td>${acaoHtml}</td>
             `;
         });
+
+        // Pre-seleciona o primeiro local e locação para cada linha
+        xmlProductsTableBody.querySelectorAll('tr').forEach(row => {
+            const localSelect = row.querySelector('.xml-local-select');
+            if (localSelect && localSelect.options.length > 1) {
+                localSelect.selectedIndex = 1; // Seleciona a primeira opção válida
+                localSelect.dispatchEvent(new Event('change', { bubbles: true })); // Dispara o evento para popular a locação
+            }
+        });
+        updateTotalValue(); // Calcula o valor total inicial
     }
 
     btnConfirmarXmlImport.addEventListener('click', async () => {
+        const loader = document.getElementById('xml-import-loader');
         const nf = document.getElementById('xml-nfe-numero').value;
         const rows = document.querySelectorAll('#xml-products-table tbody tr');
         let sucessoCount = 0;
@@ -854,20 +1096,23 @@ document.addEventListener('DOMContentLoaded', async function() {
         for (const row of rows) {
              const productId = row.dataset.productId;
              if (!productId) continue; // Pula não cadastrados
-             const locacaoSelect = row.cells[8].querySelector('select');
+             const locacaoSelect = row.cells[9].querySelector('select'); // Índice da célula de locação agora é 9
              if (!locacaoSelect || !locacaoSelect.value) {
-                 alert(`Por favor, selecione uma locação para todos os produtos cadastrados (Código: ${row.cells[0].querySelector('input').value}).`);
+                 alert(`Por favor, selecione local e locação para todos os produtos cadastrados (Código: ${row.cells[0].querySelector('input').value}).`);
                  return;
              }
         }
 
 
         if (confirm(`Confirmar a entrada de ${rows.length} item(ns) da NF-e ${nf}?`)) {
+            loader.style.display = 'flex'; // Mostra o loader
+            btnConfirmarXmlImport.disabled = true; // Desabilita o botão
+
             for (const row of rows) {
                 const productId = row.dataset.productId;
                 if (!productId) continue; // Pula não cadastrados
 
-                const locacaoSelecionada = row.cells[8].querySelector('select').value;
+                const locacaoSelecionada = row.cells[9].querySelector('select').value; // Índice da célula de locação agora é 9
                 const unidadeCompra = row.dataset.unidadeCompra;
 
                 try {
@@ -963,6 +1208,8 @@ document.addEventListener('DOMContentLoaded', async function() {
 
             xmlProductsTableBody.innerHTML = '';
             xmlImportModal.style.display = 'none';
+            loader.style.display = 'none'; // Esconde o loader
+            btnConfirmarXmlImport.disabled = false; // Reabilita o botão
         }
     });
 
@@ -979,6 +1226,20 @@ document.addEventListener('DOMContentLoaded', async function() {
     });
 
     btnFecharModalCadastro.onclick = () => { cadastroProdutoModal.style.display = 'none'; };
+
+    // Adiciona a formatação para o campo de locação no modal de cadastro de produto
+    const modalLocacaoInput = document.getElementById('modal-produto-locacao');
+    IMask(modalLocacaoInput, {
+        mask: '0-L-00-L',
+        definitions: {
+            'L': {
+                mask: /[A-Z]/,
+            }
+        },
+        prepare: function (str) {
+            return str.toUpperCase();
+        },
+    });
 
     formNovoProdutoModal.addEventListener('submit', async (e) => {
         e.preventDefault();
@@ -1018,17 +1279,34 @@ document.addEventListener('DOMContentLoaded', async function() {
                 linhaAtualParaAtualizar.style.backgroundColor = '#d4edda';
                 linhaAtualParaAtualizar.cells[1].querySelector('input').value = novoProduto.descricao;
 
-                // Célula de Ação (10ª célula, index 9)
-                const acaoCell = linhaAtualParaAtualizar.cells[9];
-                acaoCell.innerHTML = '<span class="text-success">Cadastrado!</span>';
+                // Célula de Ação (11ª célula, index 10)
+                const acaoCell = linhaAtualParaAtualizar.cells[10];
+                acaoCell.innerHTML = '<span class="text-success" style="color: green; font-weight: bold;">Cadastrado!</span>';
 
-                // Célula de Locação (9ª célula, index 8)
-                const locacaoCell = linhaAtualParaAtualizar.cells[8];
+                // Célula de Local (9ª célula, index 8) e Locação (10ª célula, index 9)
+                const localCell = linhaAtualParaAtualizar.cells[8];
+                const locacaoCell = linhaAtualParaAtualizar.cells[9];
+
+                // Atualiza o dropdown de Local
+                const newLocalSelect = document.createElement('select');
+                newLocalSelect.className = 'form-control xml-local-select';
+                newLocalSelect.required = true;
+                let localOptionsHtml = '<option value="">Local...</option>';
+                const locaisUnicos = [...new Set(novoProduto.locacoes.map(l => l.localId))];
+                locaisUnicos.forEach(localId => {
+                    const localNome = configData.locais[localId]?.nome || 'Desconhecido';
+                    localOptionsHtml += `<option value="${localId}">${localNome}</option>`;
+                });
+                newLocalSelect.innerHTML = localOptionsHtml;
+                localCell.innerHTML = '';
+                localCell.appendChild(newLocalSelect);
+
+                // Atualiza o dropdown de Locação
                 const newLocacaoSelect = document.createElement('select');
-                newLocacaoSelect.className = 'form-control';
+                newLocacaoSelect.className = 'form-control xml-locacao-select';
                 newLocacaoSelect.required = true;
 
-                let optionsHtml = '<option value="">Selecione...</option>';
+                let optionsHtml = '<option value="">Locação...</option>';
                 if (novoProduto.locacoes && novoProduto.locacoes.length > 0) {
                     novoProduto.locacoes.forEach(loc => {
                         optionsHtml += `<option value="${loc.locacao}">${loc.locacao}</option>`;
@@ -1058,19 +1336,19 @@ document.addEventListener('DOMContentLoaded', async function() {
         const obraSelect = document.getElementById('mov-obra');
 
 
-        configData.tipos_entrada = await loadConfigToSelect(tipoEntradaSelect, 'tipos_entrada', 'nome');
-        configData.tipos_saida = await loadConfigToSelect(tipoSaidaSelect, 'tipos_saida', 'nome');
-        configData.obras = await loadConfigToSelect(obraSelect, 'obras', 'nome');
+        configData.tipos_entrada = await loadConfigToSelect(tipoEntradaSelect, 'tipos_entrada', 'nome', 'Tipo de Entrada...');
+        configData.tipos_saida = await loadConfigToSelect(tipoSaidaSelect, 'tipos_saida', 'nome', 'Tipo de Saída...');
+        configData.obras = await loadConfigToSelect(obraSelect, 'obras', 'nome', 'Obra...');
         configData.fornecedores = await loadConfigToMap('fornecedores');
         configData.grupos = await loadConfigToMap('grupos');
         configData.conversoes = await loadConfigToMap('conversoes');
         configData.locais = await loadConfigToMap('locais');
     }
 
-    async function loadConfigToSelect(selectElement, collectionName, field) {
+    async function loadConfigToSelect(selectElement, collectionName, field, placeholder = 'Selecione...') {
         const snapshot = await getDocs(collection(db, collectionName));
         const items = {};
-        selectElement.innerHTML = `<option value="">Selecione...</option>`;
+        selectElement.innerHTML = `<option value="">${placeholder}</option>`;
         snapshot.forEach(doc => {
             items[doc.id] = doc.data();
             selectElement.innerHTML += `<option value="${doc.id}">${doc.data()[field]}</option>`;
@@ -1138,7 +1416,7 @@ document.addEventListener('DOMContentLoaded', async function() {
     productSearchInput.addEventListener('focus', showAndFilterProducts);
     productSearchInput.addEventListener('input', showAndFilterProducts);
 
-    productResultsDiv.addEventListener('click', (e) => {
+    productResultsDiv.addEventListener('click', async (e) => {
         if (e.target.classList.contains('search-result-item')) {
             const productId = e.target.dataset.id;
             const product = productsMap[productId];
@@ -1149,7 +1427,7 @@ document.addEventListener('DOMContentLoaded', async function() {
             productResultsDiv.innerHTML = '';
             productResultsDiv.style.display = 'none';
 
-            updateProductInfo(); // Chama a função para atualizar o resto do formulário
+            await updateProductInfo(); // Chama a função para atualizar o resto do formulário
         }
     });
 
@@ -1195,6 +1473,14 @@ document.addEventListener('DOMContentLoaded', async function() {
         Object.values(configData.obras || {}).forEach(obra => {
             filtroObra.innerHTML += `<option value="${obra.nome}">${obra.nome}</option>`;
         });
+
+        // Popula Fornecedores
+        const filtroFornecedor = document.getElementById('filtro-fornecedor');
+        filtroFornecedor.innerHTML = '<option value="">Todos</option>';
+        for (const fornecedorId in configData.fornecedores) {
+            const fornecedor = configData.fornecedores[fornecedorId];
+            filtroFornecedor.innerHTML += `<option value="${fornecedorId}">${fornecedor.nome}</option>`;
+        }
     }
 
     // Listener para produtos em tempo real
@@ -1233,31 +1519,33 @@ document.addEventListener('DOMContentLoaded', async function() {
 async function atualizarCustoMedioProduto(produtoId) {
     if (!produtoId) return;
 
-    // A busca aqui foi corrigida para usar 'produtoId', a variável que a função recebe.
-    // Este era o ponto do erro.
-    const q = query(
-        collection(db, 'movimentacoes'),
-        where("productId", "==", produtoId), // <-- CORRIGIDO AQUI
-        where("tipo", "==", "entrada")
-    );
+    const q = query(collection(db, 'movimentacoes'), where("productId", "==", produtoId));
     const movementsSnapshot = await getDocs(q);
-
-    let totalCost = 0;
-    let totalQuantityForAvg = 0;
-
+    const productMovements = [];
     movementsSnapshot.forEach(doc => {
-        const mov = doc.data();
-        if (mov.custo_total_entrada && mov.custo_total_entrada > 0) {
-            if (mov.quantidade > 0) {
-                totalCost += mov.custo_total_entrada;
-                totalQuantityForAvg += mov.quantidade;
-            }
+        productMovements.push(doc.data());
+    });
+
+    // Ordena as movimentações por data para o cálculo correto do custo médio
+    productMovements.sort((a, b) => a.data.toMillis() - b.data.toMillis());
+
+    let totalQuantity = 0;
+    let totalCost = 0;
+
+    productMovements.forEach(mov => {
+        if (mov.tipo === 'entrada' && mov.custo_total_entrada) {
+            totalCost += mov.custo_total_entrada;
+            totalQuantity += mov.quantidade;
+        } else if (mov.tipo === 'saida') {
+            const currentAvgCost = totalQuantity > 0 ? totalCost / totalQuantity : 0;
+            totalCost -= mov.quantidade * currentAvgCost;
+            totalQuantity -= mov.quantidade;
         }
     });
 
-    const novoCustoMedio = totalQuantityForAvg > 0 ? totalCost / totalQuantityForAvg : 0;
+    const novoCustoMedio = totalQuantity > 0 ? totalCost / totalQuantity : 0;
     const productRef = doc(db, 'produtos', produtoId);
     await setDoc(productRef, { valorMedio: novoCustoMedio }, { merge: true });
 
-    console.log(`Custo médio do produto ${produtoId} atualizado para ${novoCustoMedio.toFixed(2)}`);
+    console.log(`Custo médio do produto ${produtoId} atualizado para ${novoCustoMedio.toFixed(3)}`);
 }

@@ -36,22 +36,37 @@ async function atualizarCustoMedioProduto(produtoId) {
 
 
 document.addEventListener('DOMContentLoaded', async function() {
-    console.log("Página de Implementação carregada.");
+    console.log("Página de Inventario carregada.");
+
 
     // DOM Elements
     const startAddressInput = document.getElementById('start-address');
     const endAddressInput = document.getElementById('end-address');
+    const maskOptions = {
+        mask: '0-L-00-L',
+        definitions: {
+            'L': {
+                mask: /[A-Z]/,
+            }
+        },
+        prepare: str => str.toUpperCase(),
+    };
+    IMask(startAddressInput, maskOptions);
+    IMask(endAddressInput, maskOptions);
     const btnListItems = document.getElementById('btn-list-items');
     const tableBody = document.querySelector('#table-implementacao tbody');
     const filterNoQuantity = document.getElementById('filter-no-quantity');
     const filterNoValue = document.getElementById('filter-no-value');
+    const filterHideUpdated = document.getElementById('filter-hide-updated');
     const btnConfirmMovement = document.getElementById('btn-confirm-movement');
 
     let allProducts = [];
     let implementationMovements = {};
-    let tiposEntradaMap = {}; // Armazena as configurações dos tipos de entrada
+    let tiposEntradaMap = {};
+    let tiposSaidaMap = {}; // Armazena as configurações dos tipos de saída
 
     // --- DATA FETCHING ---
+    const normalizeStr = (str) => str ? str.toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g, "") : "";
 
     async function fetchAllData() {
         btnListItems.disabled = true;
@@ -63,7 +78,7 @@ document.addEventListener('DOMContentLoaded', async function() {
             allProducts = productsSnapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
             console.log(`Carregados ${allProducts.length} produtos.`);
 
-            // Fetch 'Tipos de Entrada' configuration first
+            // Fetch 'Tipos de Entrada' configuration
             const tiposEntradaSnapshot = await getDocs(collection(db, 'tipos_entrada'));
             tiposEntradaMap = {};
             tiposEntradaSnapshot.forEach(doc => {
@@ -71,27 +86,77 @@ document.addEventListener('DOMContentLoaded', async function() {
             });
             console.log(`Carregados ${Object.keys(tiposEntradaMap).length} tipos de entrada.`);
 
-            // Now, find the 'Implementação' type ID to query movements
-            const implementacaoEntryType = Object.values(tiposEntradaMap).find(
-                type => type.nome.toLowerCase() === 'implementação'
-            );
+            // Fetch 'Tipos de Saída' configuration
+            const tiposSaidaSnapshot = await getDocs(collection(db, 'tipos_saida'));
+            tiposSaidaMap = {};
+            tiposSaidaSnapshot.forEach(doc => {
+                tiposSaidaMap[doc.id] = { id: doc.id, ...doc.data() };
+            });
+            console.log(`Carregados ${Object.keys(tiposSaidaMap).length} tipos de saída.`);
 
-            implementationMovements = {};
+            // Fetch 'Locais' to populate the new filter dropdown
+            const locaisSnapshot = await getDocs(collection(db, 'locais'));
+            const localSelect = document.getElementById('filter-local');
+            // Add a "Todos" option first
+            const allOption = document.createElement('option');
+            allOption.value = ""; // Empty value for "All"
+            allOption.textContent = "Todos";
+            localSelect.appendChild(allOption);
+            // Populate with other locations
+            locaisSnapshot.forEach(doc => {
+                const option = document.createElement('option');
+                option.value = doc.id;
+                option.textContent = doc.data().nome;
+                localSelect.appendChild(option);
+            });
+
+
+            // Find necessary movement type IDs using a robust method
+            const implementacaoEntryType = Object.values(tiposEntradaMap).find(t => normalizeStr(t.nome) === 'implementacao');
+            const inventarioEntryType = Object.values(tiposEntradaMap).find(t => normalizeStr(t.nome) === 'inventario');
+            const inventarioExitType = Object.values(tiposSaidaMap).find(t => normalizeStr(t.nome) === 'inventario');
+
+            // Reset and fetch all relevant movements
+            implementationMovements = {}; // This will now be a map of keys to arrays of movements
+
+            const queries = [];
             if (implementacaoEntryType) {
-                const movQuery = query(collection(db, 'movimentacoes'), where("tipo_entradaId", "==", implementacaoEntryType.id));
-                const movementsSnapshot = await getDocs(movQuery);
-
-                movementsSnapshot.docs.forEach(doc => {
-                    const mov = doc.data();
-                    if (mov.productId && mov.locacao) {
-                        const key = `${mov.productId}-${mov.locacao}`;
-                        implementationMovements[key] = { id: doc.id, ...mov };
-                    }
-                });
-                console.log(`Carregados ${Object.keys(implementationMovements).length} movimentos de implementação.`);
+                queries.push(getDocs(query(collection(db, 'movimentacoes'), where("tipo_entradaId", "==", implementacaoEntryType.id))));
             } else {
-                console.warn('O tipo de entrada "Implementação" não foi encontrado. A tela pode não funcionar como esperado.');
+                console.warn("Tipo de entrada 'Implementação' não encontrado.");
             }
+            if (inventarioEntryType) {
+                queries.push(getDocs(query(collection(db, 'movimentacoes'), where("tipo_entradaId", "==", inventarioEntryType.id))));
+            } else {
+                console.warn("Tipo de entrada 'Inventário' não encontrado.");
+            }
+            if (inventarioExitType) {
+                queries.push(getDocs(query(collection(db, 'movimentacoes'), where("tipo_saidaId", "==", inventarioExitType.id))));
+            } else {
+                console.warn("Tipo de saída 'Inventário' não encontrado.");
+            }
+
+            const snapshots = await Promise.all(queries);
+
+            const allRelevantMovements = [];
+            snapshots.forEach(snapshot => {
+                snapshot.forEach(doc => {
+                    allRelevantMovements.push({ id: doc.id, ...doc.data() });
+                });
+            });
+
+            // Group movements by product-location key for easy lookup in renderTable
+            allRelevantMovements.forEach(mov => {
+                if (mov.productId && mov.locacao) {
+                    const key = `${mov.productId}-${mov.locacao}`;
+                    if (!implementationMovements[key]) {
+                        implementationMovements[key] = [];
+                    }
+                    implementationMovements[key].push(mov);
+                }
+            });
+
+            console.log(`Carregados ${allRelevantMovements.length} movimentos de inventário/implementação.`);
 
         } catch (error) {
             console.error("Erro ao buscar dados:", error);
@@ -103,89 +168,132 @@ document.addEventListener('DOMContentLoaded', async function() {
         }
     }
 
-    // --- RENDERING (sem alterações) ---
-    function renderTable(products) {
+    // --- RENDERING (REBUILT) ---
+    function renderTable(items) {
         tableBody.innerHTML = '';
 
-        if (products.length === 0) {
-            tableBody.innerHTML = '<tr><td colspan="8" style="text-align:center;">Nenhum item encontrado para o range de endereçamento informado.</td></tr>';
+        if (items.length === 0) {
+            tableBody.innerHTML = '<tr><td colspan="10" style="text-align:center;">Nenhum item encontrado para o range de endereçamento informado.</td></tr>';
             return;
         }
 
-        products.forEach(product => {
-            if (product.locacoes && product.locacoes.length > 0) {
-                product.locacoes.forEach(loc => {
-                    const key = `${product.id}-${loc.locacao}`;
-                    const existingMovement = implementationMovements[key];
+        const getPendingQtde = (key) => localStorage.getItem(`pending_qtde_${key}`);
+        const setPendingQtde = (key, value) => {
+            if (value === '' || value === null || value === undefined) {
+                localStorage.removeItem(`pending_qtde_${key}`);
+            } else {
+                localStorage.setItem(`pending_qtde_${key}`, value);
+            }
+        };
 
-                    const row = document.createElement('tr');
-                    row.dataset.productId = product.id;
-                    row.dataset.locacao = loc.locacao;
-                    row.dataset.localId = loc.localId;
+        items.forEach(item => {
+            const product = item;
+            const loc = item.locacao;
+            const key = `${product.id}-${loc.locacao}`;
 
-                    let quantityInputHtml, valueInputHtml, icmsInputHtml, ipiInputHtml, freteInputHtml;
+            const row = document.createElement('tr');
+            row.dataset.productId = product.id;
+            row.dataset.locacao = loc.locacao;
+            row.dataset.localId = loc.localId;
 
-                    if (existingMovement) {
-                        // Item JÁ IMPLEMENTADO nesta locação específica
-                        row.dataset.movementId = existingMovement.id;
-                        row.classList.add('implemented');
-                        quantityInputHtml = `<input type="number" class="form-control quantity-input" value="${existingMovement.quantidade}" disabled title="Quantidade já implementada.">`;
-                        valueInputHtml = `<input type="number" class="form-control value-input" value="${existingMovement.valor_unitario || ''}" min="0" step="0.01">`;
-                        icmsInputHtml = `<input type="number" class="form-control icms-input" value="${existingMovement.icms || ''}" min="0" step="0.01">`;
-                        ipiInputHtml = `<input type="number" class="form-control ipi-input" value="${existingMovement.ipi || ''}" min="0" step="0.01">`;
-                        freteInputHtml = `<input type="number" class="form-control frete-input" value="${existingMovement.frete || ''}" min="0" step="0.01">`;
-                    } else {
-                        // Item NÃO IMPLEMENTADO - busca por dados de custo de outras implementações do mesmo produto
-                        const allMovementsForThisProduct = Object.values(implementationMovements)
-                            .filter(m => m.productId === product.id && m.data)
-                            .sort((a, b) => b.data.toMillis() - a.data.toMillis());
+            const saldoAtual = loc.estoque || 0;
+            const pendingQtde = getPendingQtde(key);
 
-                        let suggestedData = { valor_unitario: '', icms: '', ipi: '', frete: '' };
-                        if (allMovementsForThisProduct.length > 0) {
-                            suggestedData = allMovementsForThisProduct[0];
-                        }
+            // --- Status Column Logic ---
+            let statusCellHtml = '';
+            const movementsForItem = implementationMovements[key] || [];
+            if (movementsForItem.length > 0) {
+                movementsForItem.sort((a, b) => b.data.toMillis() - a.data.toMillis());
+                const lastMovement = movementsForItem[0];
+                if (lastMovement.data) {
+                    const lastUpdateDate = lastMovement.data.toDate().toLocaleString('pt-BR');
+                    statusCellHtml = `<span style="color: #28a745; font-weight: bold;">Atualizado</span><br><small>${lastUpdateDate}</small>`;
+                }
+            }
 
-                        quantityInputHtml = `<input type="number" class="form-control quantity-input" min="0" step="any">`;
-                        valueInputHtml = `<input type="number" class="form-control value-input" value="${suggestedData.valor_unitario || ''}" min="0" step="0.01" title="Valor sugerido da última implementação deste produto">`;
-                        icmsInputHtml = `<input type="number" class="form-control icms-input" value="${suggestedData.icms || ''}" min="0" step="0.01" title="ICMS sugerido da última implementação deste produto">`;
-                        ipiInputHtml = `<input type="number" class="form-control ipi-input" value="${suggestedData.ipi || ''}" min="0" step="0.01" title="IPI sugerido da última implementação deste produto">`;
-                        freteInputHtml = `<input type="number" class="form-control frete-input" value="${suggestedData.frete || ''}" min="0" step="0.01" title="Frete sugerido da última implementação deste produto">`;
+            // --- Find suggested values for cost fields ---
+            const allMovementsForThisProduct = Object.values(implementationMovements).flat().filter(m => m.productId === product.id && m.tipo === 'entrada' && m.custo_total_entrada > 0 && m.data).sort((a, b) => b.data.toMillis() - a.data.toMillis());
+            let suggestedData = { valor_unitario: '', icms: '', ipi: '', frete: '' };
+            if (allMovementsForThisProduct.length > 0) {
+                suggestedData = allMovementsForThisProduct[0];
+            }
+
+            // New logic: Lock cost fields if a suggestion exists
+            const areCostFieldsDisabled = !!suggestedData.valor_unitario;
+            const disabledAttribute = areCostFieldsDisabled ? 'disabled' : '';
+
+            const qtdeInputHtml = `<input type="number" class="form-control qtde-input" value="${pendingQtde || ''}" min="0" step="any" placeholder="Nova Qtde">`;
+            const valueInputHtml = `<input type="number" class="form-control value-input" value="${suggestedData.valor_unitario || ''}" min="0" step="0.01" title="Valor sugerido da última implementação deste produto" ${disabledAttribute}>`;
+            const icmsInputHtml = `<input type="number" class="form-control icms-input" value="${suggestedData.icms || ''}" min="0" step="0.01" title="ICMS sugerido da última implementação deste produto" ${disabledAttribute}>`;
+            const ipiInputHtml = `<input type="number" class="form-control ipi-input" value="${suggestedData.ipi || ''}" min="0" step="0.01" title="IPI sugerido da última implementação deste produto" ${disabledAttribute}>`;
+            const freteInputHtml = `<input type="number" class="form-control frete-input" value="${suggestedData.frete || ''}" min="0" step="0.01" title="Frete sugerido da última implementação deste produto" ${disabledAttribute}>`;
+
+            row.innerHTML = `
+                <td>${product.codigo}</td>
+                <td>${product.descricao}</td>
+                <td>${loc.locacao}</td>
+                <td class="saldo-atual">${saldoAtual}</td>
+                <td>${qtdeInputHtml}</td>
+                <td>${valueInputHtml}</td>
+                <td>${icmsInputHtml}</td>
+                <td>${ipiInputHtml}</td>
+                <td>${freteInputHtml}</td>
+                <td>${statusCellHtml}</td>
+            `;
+            tableBody.appendChild(row);
+
+            const qtdeInput = row.querySelector('.qtde-input');
+            qtdeInput.addEventListener('input', (e) => {
+                setPendingQtde(key, e.target.value);
+            });
+
+            // Add keydown event listener for Enter key
+            qtdeInput.addEventListener('keydown', (e) => {
+                if (e.key === 'Enter') {
+                    e.preventDefault(); // Prevent default form submission or moving to the next field in the same row
+
+                    const currentRow = e.target.closest('tr');
+                    let nextRow = currentRow.nextElementSibling;
+
+                    // Skip hidden rows
+                    while (nextRow && nextRow.style.display === 'none') {
+                        nextRow = nextRow.nextElementSibling;
                     }
 
-                    row.innerHTML = `
-                        <td>${product.codigo}</td>
-                        <td>${product.descricao}</td>
-                        <td>${loc.locacao}</td>
-                        <td>${quantityInputHtml}</td>
-                        <td>${valueInputHtml}</td>
-                        <td>${icmsInputHtml}</td>
-                        <td>${ipiInputHtml}</td>
-                        <td>${freteInputHtml}</td>
-                    `;
-                    tableBody.appendChild(row);
-                });
-            }
+                    if (nextRow) {
+                        const nextQtdeInput = nextRow.querySelector('.qtde-input');
+                        if (nextQtdeInput) {
+                            nextQtdeInput.focus();
+                            nextQtdeInput.select(); // Optional: select the content of the next input
+                        }
+                    }
+                }
+            });
         });
     }
 
 
-    // --- EVENT LISTENERS & FILTERS (sem alterações) ---
+    // --- EVENT LISTENERS & FILTERS (REBUILT) ---
     function applyFilters() {
         const noQuantityChecked = filterNoQuantity.checked;
         const noValueChecked = filterNoValue.checked;
+        const hideUpdatedChecked = filterHideUpdated.checked;
 
         document.querySelectorAll('#table-implementacao tbody tr').forEach(row => {
             if (!row.dataset.productId) return;
 
-            const quantityInput = row.querySelector('.quantity-input');
+            const quantityInput = row.querySelector('.qtde-input');
             const valueInput = row.querySelector('.value-input');
+            const statusCell = row.cells[9]; // 10th column
 
-            const hasQuantity = quantityInput.value && parseFloat(quantityInput.value) > 0;
-            const hasValue = valueInput.value && parseFloat(valueInput.value) > 0;
+            const hasQuantity = quantityInput && quantityInput.value && parseFloat(quantityInput.value) > 0;
+            const hasValue = valueInput && valueInput.value && parseFloat(valueInput.value) > 0;
+            const isUpdated = statusCell && statusCell.innerHTML.includes('Atualizado');
 
             let shouldShow = true;
             if (noQuantityChecked && hasQuantity) shouldShow = false;
             if (noValueChecked && hasValue) shouldShow = false;
+            if (hideUpdatedChecked && isUpdated) shouldShow = false;
 
             row.style.display = shouldShow ? '' : 'none';
         });
@@ -194,27 +302,60 @@ document.addEventListener('DOMContentLoaded', async function() {
     btnListItems.addEventListener('click', () => {
         const startAddress = startAddressInput.value.toUpperCase().trim();
         const endAddress = endAddressInput.value.toUpperCase().trim();
+        const selectedLocalId = document.getElementById('filter-local').value;
+        const addressPattern = /^\d{1}-[A-Z]-\d{2}-[A-Z]$/;
 
         if (!startAddress || !endAddress) {
             alert("Por favor, preencha os endereçamentos inicial e final.");
             return;
         }
 
-        const filteredProducts = allProducts.map(p => {
-            if (!p.locacoes || p.locacoes.length === 0) return null;
+        if (!addressPattern.test(startAddress) || !addressPattern.test(endAddress)) {
+            alert("O formato do endereço deve ser N-L-NN-L (Ex: 1-A-01-A).");
+            return;
+        }
 
-            const validLocacoes = p.locacoes.filter(loc => {
-                const currentLoc = loc.locacao.toUpperCase();
-                return currentLoc >= startAddress && currentLoc <= endAddress;
-            });
+        let itemsToRender = [];
+        allProducts.forEach(product => {
+            if (product.locacoes && product.locacoes.length > 0) {
+                // First, filter locations based on the criteria
+                const matchingLocacoes = product.locacoes.filter(loc => {
+                    const currentLoc = loc.locacao.toUpperCase();
+                    const isInAddressRange = currentLoc >= startAddress && currentLoc <= endAddress;
+                    const matchesLocal = !selectedLocalId || loc.localId === selectedLocalId;
+                    return isInAddressRange && matchesLocal;
+                });
 
-            if (validLocacoes.length > 0) {
-                return { ...p, locacoes: validLocacoes };
+                // Then, if there are any matching locations, add them to the render list
+                if (matchingLocacoes.length > 0) {
+                    matchingLocacoes.forEach(loc => {
+                        // Create a new product object for each location to avoid issues with shared references
+                        const productCopy = { ...product };
+                        delete productCopy.locacoes; // Remove the full locacoes array from the copy
+                        itemsToRender.push({ ...productCopy, locacao: loc }); // Flatten
+                    });
+                }
             }
-            return null;
-        }).filter(p => p !== null);
+        });
 
-        renderTable(filteredProducts);
+        // 2. Sort the flattened list
+        itemsToRender.sort((a, b) => {
+            // Primary sort by address (locacao)
+            const locacaoA = a.locacao.locacao.toUpperCase();
+            const locacaoB = b.locacao.locacao.toUpperCase();
+            if (locacaoA < locacaoB) return -1;
+            if (locacaoA > locacaoB) return 1;
+
+            // Secondary sort by product code
+            const codigoA = a.codigo.toUpperCase();
+            const codigoB = b.codigo.toUpperCase();
+            if (codigoA < codigoB) return -1;
+            if (codigoA > codigoB) return 1;
+
+            return 0;
+        });
+
+        renderTable(itemsToRender);
         applyFilters();
     });
 
@@ -227,17 +368,27 @@ document.addEventListener('DOMContentLoaded', async function() {
             return;
         }
 
-        // 1. Encontrar o tipo de entrada "Implementação"
+        // --- Find necessary movement types ---
         const implementacaoEntryType = Object.values(tiposEntradaMap).find(
             type => type.nome.toLowerCase() === 'implementação'
         );
+        const inventarioEntryType = Object.values(tiposEntradaMap).find(
+            type => type.nome.toLowerCase() === 'inventário'
+        );
+        const inventarioExitType = Object.values(tiposSaidaMap).find(
+            type => type.nome.toLowerCase() === 'inventário'
+        );
 
         if (!implementacaoEntryType) {
-            alert('Erro Crítico: O tipo de entrada "Implementação" não foi encontrado nas configurações. Por favor, vá em "Configurações -> Tipos de Entrada" e crie um com o nome exato "Implementação".');
+            alert('Erro Crítico: O tipo de entrada "Implementação" não foi encontrado. Crie-o em "Configurações -> Tipos de Entrada".');
+            return;
+        }
+        if (!inventarioEntryType || !inventarioExitType) {
+            alert('Erro Crítico: O tipo de movimento "Inventário" não foi encontrado. Crie-o em "Configurações -> Tipos de Entrada" e "Tipos de Saída".');
             return;
         }
 
-        if (!confirm(`Confirmar as alterações para os itens visíveis?`)) {
+        if (!confirm(`Confirmar as alterações para os ${rowsToProcess.length} itens visíveis?`)) {
             return;
         }
 
@@ -245,114 +396,150 @@ document.addEventListener('DOMContentLoaded', async function() {
         btnConfirmMovement.textContent = 'Processando...';
 
         const productsToUpdateCost = new Set();
+        const keysToClearFromStorage = [];
 
         try {
-            // Pré-busca de todas as regras de conversão para evitar leituras dentro do loop da transação
             const conversoesSnapshot = await getDocs(collection(db, 'conversoes'));
             const conversoesMap = new Map();
             conversoesSnapshot.forEach(doc => conversoesMap.set(doc.id, doc.data()));
 
             await runTransaction(db, async (transaction) => {
-                const productsToUpdateStock = new Map();
+                const productsToUpdate = new Map();
 
+                // Pre-fetch all product data needed for the transaction
                 for (const row of rowsToProcess) {
-                    const quantityInput = row.querySelector('.quantity-input');
-                    const isNewImplementation = !quantityInput.disabled && parseFloat(quantityInput.value) > 0;
-
-                    if (isNewImplementation) {
-                        const productId = row.dataset.productId;
-                        if (!productsToUpdateStock.has(productId)) {
-                            const productRef = doc(db, 'produtos', productId);
-                            const productDoc = await transaction.get(productRef);
-                            if (!productDoc.exists()) throw new Error(`Produto com ID ${productId} não encontrado.`);
-                            productsToUpdateStock.set(productId, { ...productDoc.data(), locacoes: JSON.parse(JSON.stringify(productDoc.data().locacoes)) });
-                        }
+                    const productId = row.dataset.productId;
+                    if (productId && !productsToUpdate.has(productId)) {
+                        const productRef = doc(db, 'produtos', productId);
+                        const productDoc = await transaction.get(productRef);
+                        if (!productDoc.exists()) throw new Error(`Produto com ID ${productId} não encontrado.`);
+                        // Deep copy locacoes to avoid mutation issues
+                        const productData = { ...productDoc.data(), locacoes: JSON.parse(JSON.stringify(productDoc.data().locacoes)) };
+                        productsToUpdate.set(productId, productData);
                     }
                 }
 
                 for (const row of rowsToProcess) {
-                    const quantityInput = row.querySelector('.quantity-input');
-                    const quantity = parseFloat(quantityInput.value) || 0;
-                    const isAlreadyImplemented = quantityInput.disabled;
+                    const qtdeInput = row.querySelector('.qtde-input');
+                    if (!qtdeInput || !qtdeInput.value) {
+                        continue; // Skip if no quantity is entered
+                    }
+
                     const productId = row.dataset.productId;
+                    const locacaoStr = row.dataset.locacao;
+                    const saldoAtual = parseFloat(row.querySelector('.saldo-atual').textContent) || 0;
+                    const qtde = parseFloat(qtdeInput.value);
+                    const valorUnit = parseFloat(row.querySelector('.value-input').value) || 0;
 
-                    const value = parseFloat(row.querySelector('.value-input').value) || 0;
-                    const icms = parseFloat(row.querySelector('.icms-input').value) || 0;
-                    const ipi = parseFloat(row.querySelector('.ipi-input').value) || 0;
-                    const frete = parseFloat(row.querySelector('.frete-input').value) || 0;
+                    const productData = productsToUpdate.get(productId);
+                    if (!productData) continue;
 
-                    if (isAlreadyImplemented) {
-                        const movementId = row.dataset.movementId;
-                        if (movementId) {
-                            const movementRef = doc(db, 'movimentacoes', movementId);
-                            const custoTotal = (quantity * value) + icms + ipi + frete;
-                            transaction.update(movementRef, {
-                                valor_unitario: value,
-                                icms: icms,
-                                ipi: ipi,
-                                frete: frete,
-                                custo_total_entrada: custoTotal,
-                                data_atualizacao: serverTimestamp()
-                            });
-                            productsToUpdateCost.add(productId);
-                        }
-                    } else if (quantity > 0) {
-                        const locacaoStr = row.dataset.locacao;
-                        const productData = productsToUpdateStock.get(productId);
+                    const locacaoIndex = productData.locacoes.findIndex(l => l.locacao === locacaoStr);
+                    if (locacaoIndex === -1) throw new Error(`Locação ${locacaoStr} não encontrada no produto ${productData.codigo}.`);
 
-                        let quantidadeParaEstoque = quantity;
-                        let quantidadeCompra = quantity;
+                    const key = `${productId}-${locacaoStr}`;
 
-                        if (productData.conversaoId && conversoesMap.has(productData.conversaoId)) {
-                            const regra = conversoesMap.get(productData.conversaoId);
-                            const fator_qtd_compra = parseFloat(String(regra.qtd_compra).replace(',', '.'));
-                            const fator_qtd_padrao = parseFloat(String(regra.qtd_padrao).replace(',', '.'));
-                            if (fator_qtd_compra > 0) {
-                                quantidadeParaEstoque = (quantity / fator_qtd_compra) * fator_qtd_padrao;
-                            }
+                    // --- LOGIC IMPLEMENTATION ---
+
+                    if (saldoAtual === 0) {
+                        // Scenario 1: Initial Implementation
+                        if (valorUnit <= 0) {
+                            // Don't process, but keep qtde in localStorage
+                            continue;
                         }
 
-                        const custoTotal = (quantidadeCompra * value) + icms + ipi + frete;
+                        // BUG FIX: The conversion logic was incorrectly applied during initial implementation.
+                        // The user enters the quantity and value in the standard unit on this screen,
+                        // so no conversion should take place.
+                        const quantidade = qtde; // Use qtde directly from the input
 
-                        const locacaoIndex = productData.locacoes.findIndex(l => l.locacao === locacaoStr);
-                        if (locacaoIndex === -1) throw new Error(`Locação ${locacaoStr} não encontrada no produto ${productData.codigo}.`);
+                        const icms = parseFloat(row.querySelector('.icms-input').value) || 0;
+                        const ipi = parseFloat(row.querySelector('.ipi-input').value) || 0;
+                        const frete = parseFloat(row.querySelector('.frete-input').value) || 0;
+                        const custoTotal = (quantidade * valorUnit) + icms + ipi + frete;
 
+                        // Update stock
                         if (implementacaoEntryType.movimenta_estoque) {
-                            productData.locacoes[locacaoIndex].estoque = (productData.locacoes[locacaoIndex].estoque || 0) + quantidadeParaEstoque;
+                            productData.locacoes[locacaoIndex].estoque = quantidade;
                         }
 
+                        // Create movement
                         const newMovementRef = doc(collection(db, 'movimentacoes'));
-                        const movementData = {
+                        transaction.set(newMovementRef, {
                             productId: productId,
                             tipo: 'entrada',
                             tipo_entradaId: implementacaoEntryType.id,
-                            quantidade: quantidadeParaEstoque,
-                            quantidade_compra: quantidadeCompra,
+                            quantidade: quantidade, // This is the quantity in the standard unit
+                            quantidade_compra: quantidade, // For consistency, as no conversion happened
                             locacao: locacaoStr,
                             data: serverTimestamp(),
-                            observacao: `Implementação via tela de implementação.`,
-                            valor_unitario: value,
-                            icms: icms,
-                            ipi: ipi,
-                            frete: frete,
+                            observacao: `Inventário inicial.`,
+                            valor_unitario: valorUnit,
+                            icms, ipi, frete,
                             custo_total_entrada: custoTotal
-                        };
-                        transaction.set(newMovementRef, movementData);
-                        productsToUpdateCost.add(productId);
-                    }
-                }
+                        });
 
-                for (const [productId, productData] of productsToUpdateStock.entries()) {
+                        productsToUpdateCost.add(productId);
+                        keysToClearFromStorage.push(key);
+
+                    } else {
+                        // Scenario 2: Inventory Adjustment
+                        const diff = qtde - saldoAtual;
+                        if (diff === 0) {
+                            keysToClearFromStorage.push(key); // Clear storage if user sets qtde to current saldo
+                            continue;
+                        }
+
+                        // Update stock
+                        productData.locacoes[locacaoIndex].estoque = qtde;
+
+                        // Create adjustment movement (no cost)
+                        const newMovementRef = doc(collection(db, 'movimentacoes'));
+                        if (diff > 0) {
+                            // Positive adjustment -> ENTRADA
+                            transaction.set(newMovementRef, {
+                                productId,
+                                tipo: 'entrada',
+                                tipo_entradaId: inventarioEntryType.id,
+                                quantidade: diff,
+                                locacao: locacaoStr,
+                                data: serverTimestamp(),
+                                observacao: `Ajuste de inventário (Entrada). Saldo anterior: ${saldoAtual}.`
+                            });
+                        } else {
+                            // Negative adjustment -> SAIDA
+                            transaction.set(newMovementRef, {
+                                productId,
+                                tipo: 'saida',
+                                tipo_saidaId: inventarioExitType.id,
+                                quantidade: Math.abs(diff),
+                                locacao: locacaoStr,
+                                data: serverTimestamp(),
+                                observacao: `Ajuste de inventário (Saída). Saldo anterior: ${saldoAtual}.`
+                            });
+                        }
+                        keysToClearFromStorage.push(key);
+                    }
+                } // End of row loop
+
+                // Commit all product updates
+                for (const [productId, productData] of productsToUpdate.entries()) {
                     const productRef = doc(db, 'produtos', productId);
                     transaction.update(productRef, { locacoes: productData.locacoes });
                 }
-            });
+            }); // End of transaction
 
-            if (implementacaoEntryType.recalcula_custo_medio) {
-                console.log("Recalculando custo médio para produtos afetados...");
+            // --- Post-Transaction Operations ---
+
+            // Recalculate average cost only for affected products
+            if (productsToUpdateCost.size > 0 && implementacaoEntryType.recalcula_custo_medio) {
+                console.log("Recalculando custo médio para produtos de implementação...");
                 const costUpdatePromises = Array.from(productsToUpdateCost).map(id => atualizarCustoMedioProduto(id));
                 await Promise.all(costUpdatePromises);
             }
+
+            // Clear localStorage for processed items
+            keysToClearFromStorage.forEach(key => localStorage.removeItem(`pending_qtde_${key}`));
 
             alert("Operação concluída com sucesso! Os dados serão atualizados.");
             await fetchAllData();
@@ -367,8 +554,10 @@ document.addEventListener('DOMContentLoaded', async function() {
         }
     });
 
+
     filterNoQuantity.addEventListener('change', applyFilters);
     filterNoValue.addEventListener('change', applyFilters);
+    filterHideUpdated.addEventListener('change', applyFilters);
 
     fetchAllData();
 });

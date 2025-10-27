@@ -17,7 +17,6 @@ function adjustFontSizeToFit(element) {
 function processarEtiquetas() {
     const container = document.getElementById('etiquetas-container');
     const dadosJSON = localStorage.getItem('etiquetasParaImprimir');
-    const fornecedoresJSON = localStorage.getItem('fornecedoresParaEtiqueta');
 
     if (!dadosJSON) {
         container.innerHTML = '<p>Nenhum dado de etiqueta encontrado. Por favor, gere as etiquetas a partir da página de produtos.</p>';
@@ -25,7 +24,6 @@ function processarEtiquetas() {
     }
 
     const produtos = JSON.parse(dadosJSON);
-    const fornecedores = fornecedoresJSON ? JSON.parse(fornecedoresJSON) : {};
 
     // Limpa o container antes de adicionar novas etiquetas
     container.innerHTML = '';
@@ -33,9 +31,8 @@ function processarEtiquetas() {
     // 1. CRIA TODOS OS ELEMENTOS HTML PRIMEIRO
     produtos.forEach(produto => {
         const pData = produto.data;
+        const fornecedor = produto.fornecedor || 'N/A';
         const enderecamento = produto.enderecamento || 'N/A';
-        const fornecedorNome = pData.fornecedorId ? (fornecedores[pData.fornecedorId]?.nome || 'N/A') : 'N/A';
-
 
         const etiquetaDiv = document.createElement('div');
         etiquetaDiv.className = 'etiqueta';
@@ -44,17 +41,12 @@ function processarEtiquetas() {
             <div class="etiqueta-main">
                 <div class="qr-code" id="qr-${produto.id}"></div>
                 <div class="produto-info">
-                    <div class="info-bloco produto">
-                        <div class="valor">${pData.descricao || ''}</div>
-                    </div>
-                     <div class="info-bloco cor">
-                        <div class="valor">${pData.cor || ''}</div>
-                    </div>
-                    <div class="info-bloco fornecedor">
-                        <div class="valor">${fornecedorNome}</div>
-                    </div>
-                    <div class="info-bloco codigo">
-                        <div class="valor">${pData.codigo || ''}</div>
+                    <div class="descricao-produto">${pData.descricao || ''}</div>
+                    <div class="detalhe-produto">${pData.cor || 'N/A'}</div>
+                    <div class="detalhe-produto">${fornecedor}</div>
+
+                    <div class="codigo-container">
+                       <div class="codigo-produto">${pData.codigo || ''}</div>
                     </div>
                 </div>
             </div>
@@ -67,7 +59,7 @@ function processarEtiquetas() {
         const url = `${window.location.origin}/detalhe-produto.html?id=${produto.id}`;
         new QRCode(document.getElementById(`qr-${produto.id}`), {
             text: url,
-            width: 120,
+            width: 120, // A largura do QR code deve ser ajustada para o espaço disponível
             height: 120,
             correctLevel: QRCode.CorrectLevel.H
         });
@@ -75,7 +67,7 @@ function processarEtiquetas() {
 
     // 2. PEDE AO NAVEGADOR PARA EXECUTAR O AJUSTE ANTES DA PRÓXIMA RENDERIZAÇÃO
     requestAnimationFrame(() => {
-        const elementosParaAjustar = document.querySelectorAll('.info-bloco .valor');
+        const elementosParaAjustar = document.querySelectorAll('.descricao-produto');
         elementosParaAjustar.forEach(el => {
             adjustFontSizeToFit(el);
         });

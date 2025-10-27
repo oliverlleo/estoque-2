@@ -100,7 +100,7 @@ document.addEventListener('DOMContentLoaded', () => {
     function renderTopObrasChart(products, movements, obras, obraId) {
         destroyChart('chart-top-obras');
         const chartEl = document.getElementById('chart-top-obras');
-        const titleEl = chartEl.parentElement.querySelector('h3');
+        const titleEl = chartEl.closest('.card').querySelector('h3');
         let labels = [], data = [], chartTitle = '', chartLabel = '', backgroundColor = '';
 
         if (obraId === 'todos') {

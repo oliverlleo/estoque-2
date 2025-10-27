@@ -61,7 +61,7 @@ body {
 
 /* Main Content */
 .main-content {
-    padding: 30px;
+    padding: 30px 30px 30px 12px;
     display: flex;
     flex-direction: column;
 }
@@ -132,6 +132,10 @@ body {
     font-size: 1rem;
     border-radius: 0.25rem;
     cursor: pointer;
+}
+
+.btn-primary {
+    background-color: #0d6efd;
 }
 
 .btn-success {
@@ -967,8 +971,8 @@ input:checked + .slider:before {
 /* 2. Aplica um layout de Grid para a tabela de produtos da NF-e */
 #xml-products-table tr {
     display: grid;
-    /* Definição das 10 colunas: Descrição (1.8fr) ocupa o maior espaço. */
-    grid-template-columns: 150px 1.8fr 80px 80px 100px 100px 100px 120px 150px 120px;
+    /* Definição das 11 colunas: Descrição (2fr) ocupa o maior espaço. */
+    grid-template-columns: 120px 2fr 60px 80px 100px 80px 80px 100px 140px 140px 110px;
     gap: 10px;
     align-items: center;
     border-bottom: 1px solid #dee2e6;
