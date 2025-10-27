@@ -755,6 +755,7 @@ document.addEventListener('DOMContentLoaded', async function() {
                     return {
                         labelId: `${product.id}-${index}`, // ID único para a etiqueta
                         productId: product.id,         // ID original do produto
+                        locacaoId: loc.locacao,        // <<< ADICIONADO
                         data: pData,
                         enderecamento: locacaoCompleta,
                         fornecedor: fornecedorNome

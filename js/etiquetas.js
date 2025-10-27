@@ -56,7 +56,10 @@ function processarEtiquetas() {
         `;
         container.appendChild(etiquetaDiv);
 
-        const url = `${window.location.origin}/detalhe-produto.html?id=${produto.productId}`;
+        let url = `${window.location.origin}/detalhe-produto.html?id=${produto.productId}`;
+        if (produto.locacaoId) {
+            url += `&locId=${produto.locacaoId}`;
+        }
         new QRCode(document.getElementById(`qr-${produto.labelId}`), {
             text: url,
             width: 120, // A largura do QR code deve ser ajustada para o espaço disponível

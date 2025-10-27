@@ -268,14 +268,23 @@
         </header>
         <section id="product-details-content" class="content">
             <div class="card">
-                <div class="card-body" id="details-container">
-                    <p>Carregando dados do produto...</p>
+                 <div class="card-body" id="details-container">
+                    <!-- Conteúdo será preenchido por JS -->
+                     <p><strong>Código:</strong> <span id="produto-codigo">Carregando...</span></p>
+                     <p><strong>Descrição:</strong> <span id="produto-descricao">Carregando...</span></p>
+                     <p><strong>Fornecedor:</strong> <span id="produto-fornecedor">Carregando...</span></p>
+                     <p><strong>Cor:</strong> <span id="produto-cor">Carregando...</span></p>
+                     <hr>
+                     <p><strong>Locação:</strong> <span id="locacao-completa">Carregando...</span></p>
+                     <p><strong>Estoque na Locação:</strong> <span id="locacao-estoque">Carregando...</span></p>
+                     <p><strong>Estoque Total:</strong> <span id="estoque-total-texto" style="cursor: pointer;">Carregando...</span></p>
                 </div>
             </div>
-            <button id="btn-abrir-modal-baixa" class="btn btn-danger">Dar Baixa no Estoque</button>
+            <button id="btn-abrir-modal-baixa" class="btn btn-danger">Dar Baixa desta Locação</button>
         </section>
     </main>
 
+    <!-- Modal de Baixa (já existente) -->
     <div id="baixa-modal" class="modal">
         <div class="modal-content">
             <div class="modal-header">
@@ -289,6 +298,20 @@
                     </div>
                     <button type="submit" id="btn-confirmar-baixa" class="btn btn-danger">Confirmar Saída</button>
                 </form>
+            </div>
+        </div>
+    </div>
+
+    <!-- NOVO MODAL: Detalhes do Estoque Total -->
+    <div id="estoque-total-modal" class="modal">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h3>Distribuição do Estoque Total</h3>
+                <span id="estoque-total-modal-close" class="close-button">&times;</span>
+            </div>
+            <div class="modal-body" id="estoque-total-modal-body">
+                <!-- Conteúdo dinâmico da distribuição de estoque será inserido aqui pelo JS -->
+                <p>Carregando distribuição...</p>
             </div>
         </div>
     </div>
