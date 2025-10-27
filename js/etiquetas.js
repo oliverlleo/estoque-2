@@ -76,8 +76,6 @@ function processarEtiquetas() {
         });
     });
 
-    // Limpa o localStorage
-    localStorage.removeItem('etiquetasParaImprimir');
 }
 
 // Inicia o processo quando a página carregar
