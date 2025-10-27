@@ -64,6 +64,7 @@ body {
     padding: 30px 30px 30px 12px;
     display: flex;
     flex-direction: column;
+    position: relative; /* Adicionado para ser o contêiner de referência do loader */
 }
 
 .main-content header h1 {
