@@ -731,6 +731,7 @@ document.addEventListener('DOMContentLoaded', async function() {
 
         if (dadosParaEtiqueta.length > 0) {
             localStorage.setItem('etiquetasParaImprimir', JSON.stringify(dadosParaEtiqueta));
+            localStorage.setItem('fornecedoresParaEtiqueta', JSON.stringify(configData.fornecedores));
             window.open('etiquetas.html', '_blank');
         }
     });

@@ -83,14 +83,25 @@
             min-height: 0;
             margin-bottom: 2mm;
         }
-        .info-bloco.produto .header { font-size: 12pt; text-align: left; }
-        .info-bloco.produto .valor { font-size: 16pt; padding-left: 0; padding-top: 2px; }
+        .info-bloco.produto .valor { font-size: 12pt; padding-left: 0; padding-top: 2px; }
 
-        .info-bloco.codigo, .info-bloco.codigo-padrao {
-            margin-top: 1.5mm;
+        .info-bloco.cor .valor, .info-bloco.fornecedor .valor {
+            font-size: 10pt;
+            padding-left: 0;
         }
-        .info-bloco.codigo .header, .info-bloco.codigo-padrao .header { width: 90px; }
-        .info-bloco.codigo .valor, .info-bloco.codigo-padrao .valor { font-size: 16pt; white-space: nowrap; }
+
+        .info-bloco.codigo {
+            margin-top: 1.5mm;
+            background-color: #333;
+            color: white;
+            text-align: center;
+        }
+        .info-bloco.codigo .valor {
+            font-size: 16pt;
+            white-space: nowrap;
+            padding: 4px 8px;
+            width: 100%;
+        }
 
         .etiqueta-footer {
             text-align: center;

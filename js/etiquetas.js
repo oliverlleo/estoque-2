@@ -17,6 +17,7 @@ function adjustFontSizeToFit(element) {
 function processarEtiquetas() {
     const container = document.getElementById('etiquetas-container');
     const dadosJSON = localStorage.getItem('etiquetasParaImprimir');
+    const fornecedoresJSON = localStorage.getItem('fornecedoresParaEtiqueta');
 
     if (!dadosJSON) {
         container.innerHTML = '<p>Nenhum dado de etiqueta encontrado. Por favor, gere as etiquetas a partir da página de produtos.</p>';
@@ -24,6 +25,7 @@ function processarEtiquetas() {
     }
 
     const produtos = JSON.parse(dadosJSON);
+    const fornecedores = fornecedoresJSON ? JSON.parse(fornecedoresJSON) : {};
 
     // Limpa o container antes de adicionar novas etiquetas
     container.innerHTML = '';
@@ -32,6 +34,8 @@ function processarEtiquetas() {
     produtos.forEach(produto => {
         const pData = produto.data;
         const enderecamento = produto.enderecamento || 'N/A';
+        const fornecedorNome = pData.fornecedorId ? (fornecedores[pData.fornecedorId]?.nome || 'N/A') : 'N/A';
+
 
         const etiquetaDiv = document.createElement('div');
         etiquetaDiv.className = 'etiqueta';
@@ -41,17 +45,21 @@ function processarEtiquetas() {
                 <div class="qr-code" id="qr-${produto.id}"></div>
                 <div class="produto-info">
                     <div class="info-bloco produto">
-                        <div class="header">PRODUTO</div>
                         <div class="valor">${pData.descricao || ''}</div>
                     </div>
+                     <div class="info-bloco cor">
+                        <div class="valor">${pData.cor || ''}</div>
+                    </div>
+                    <div class="info-bloco fornecedor">
+                        <div class="valor">${fornecedorNome}</div>
+                    </div>
                     <div class="info-bloco codigo">
-                        <div class="header">CÓDIGO</div>
                         <div class="valor">${pData.codigo || ''}</div>
                     </div>
                 </div>
             </div>
             <div class="etiqueta-footer">
-                LOCAÇÃO: ${enderecamento}
+                ${enderecamento}
             </div>
         `;
         container.appendChild(etiquetaDiv);
