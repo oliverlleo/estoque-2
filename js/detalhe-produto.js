@@ -1,5 +1,5 @@
 import { db } from './firebase-config.js';
-import { collection, getDocs, doc, runTransaction, serverTimestamp, getDoc, addDoc } from "https://www.gstatic.com/firebasejs/9.6.1/firebase-firestore.js";
+import { collection, getDocs, doc, runTransaction, serverTimestamp, getDoc, addDoc, query, where } from "https://www.gstatic.com/firebasejs/9.6.1/firebase-firestore.js";
 
 document.addEventListener('DOMContentLoaded', async function() {
     // --- ELEMENTOS DO DOM ---
@@ -21,9 +21,17 @@ document.addEventListener('DOMContentLoaded', async function() {
     const estoqueTotalModalClose = document.getElementById('estoque-total-modal-close');
     const estoqueTotalModalBody = document.getElementById('estoque-total-modal-body');
 
+    // Elementos para o novo modal de sobras
+    const sobrasModal = document.getElementById('sobras-modal');
+    const sobrasModalClose = document.getElementById('sobras-modal-close');
+    const sobrasModalBody = document.getElementById('sobras-modal-body');
+    const sobrasSearchInput = document.getElementById('sobra-search-input');
+    const sobrasListContainer = document.getElementById('sobras-list-container');
+
     let currentProduct = null;
     let currentLocacao = null;
     let configData = {};
+    let sobrasData = []; // Para armazenar os dados das sobras e filtrar localmente
 
     // --- LÓGICA PRINCIPAL ---
 
@@ -80,6 +88,8 @@ document.addEventListener('DOMContentLoaded', async function() {
 
         codigoEl.textContent = pData.codigo;
         descricaoEl.textContent = pData.descricao;
+        descricaoEl.style.cursor = 'pointer';
+        descricaoEl.title = 'Clique para ver as sobras deste produto';
         corEl.textContent = pData.cor || 'N/A';
 
         const fornecedorNome = configData.fornecedores[pData.fornecedorId]?.nome || 'Desconhecido';
@@ -134,6 +144,70 @@ document.addEventListener('DOMContentLoaded', async function() {
 
     // --- EVENT LISTENERS ---
 
+    const renderSobras = (sobras) => {
+        if (sobras.length === 0) {
+            sobrasListContainer.innerHTML = '<p>Nenhuma sobra encontrada com o critério informado.</p>';
+            return;
+        }
+
+        let html = '<ul style="list-style: none; padding: 0;">';
+        sobras.forEach(sobra => {
+            const medida = sobra.medida_sobra || 'N/A';
+
+            let locacoesHtml = 'Sem locação definida';
+            if (sobra.locacoes && sobra.locacoes.length > 0) {
+                locacoesHtml = sobra.locacoes.map(loc => {
+                    const localNome = configData.locais[loc.localId]?.nome || 'Desconhecido';
+                    const estoque = loc.estoque || 0;
+                    return `${loc.locacao} (${localNome}) - <strong>Estoque: ${estoque} ${sobra.un}</strong>`;
+                }).join('<br>');
+            }
+
+            html += `<li style="padding: 10px 0; border-bottom: 1px solid var(--border-color);">
+                        <strong>Código:</strong> ${sobra.codigo} <br>
+                        <strong>Medida:</strong> ${medida} ${sobra.un} <br>
+                        <strong>Locações:</strong><br>${locacoesHtml}
+                     </li>`;
+        });
+        html += '</ul>';
+        sobrasListContainer.innerHTML = html;
+    };
+
+    descricaoEl.addEventListener('click', async () => {
+        if (!currentProduct || !currentProduct.id) return;
+
+        sobrasSearchInput.value = '';
+        sobrasModal.style.display = 'block';
+        sobrasListContainer.innerHTML = '<p>Buscando sobras...</p>';
+
+        try {
+            const q = query(collection(db, "produtos"), where("originalProductId", "==", currentProduct.id), where("isSobra", "==", true));
+            const querySnapshot = await getDocs(q);
+
+            sobrasData = querySnapshot.docs.map(doc => doc.data());
+
+            if (sobrasData.length === 0) {
+                sobrasListContainer.innerHTML = '<p>Nenhuma sobra encontrada para este produto.</p>';
+            } else {
+                renderSobras(sobrasData);
+            }
+
+        } catch (error) {
+            console.error("Erro ao buscar sobras:", error);
+            sobrasListContainer.innerHTML = '<p style="color: red;">Ocorreu um erro ao buscar as sobras.</p>';
+        }
+    });
+
+    sobrasSearchInput.addEventListener('input', (e) => {
+        const searchTerm = e.target.value.toLowerCase();
+        const filteredSobras = sobrasData.filter(sobra =>
+            (sobra.medida_sobra || '').toLowerCase().includes(searchTerm)
+        );
+        renderSobras(filteredSobras);
+    });
+
+    sobrasModalClose.addEventListener('click', () => sobrasModal.style.display = 'none');
+
     btnAbrirModalBaixa.addEventListener('click', () => {
         if (!currentLocacao) {
             alert("Não é possível dar baixa pois nenhuma locação específica foi identificada pela etiqueta.");
@@ -173,6 +247,7 @@ document.addEventListener('DOMContentLoaded', async function() {
     window.addEventListener('click', (event) => {
         if (event.target == baixaModal) baixaModal.style.display = 'none';
         if (event.target == estoqueTotalModal) estoqueTotalModal.style.display = 'none';
+        if (event.target == sobrasModal) sobrasModal.style.display = 'none';
     });
 
     formBaixa.addEventListener('submit', async (e) => {
