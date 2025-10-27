@@ -761,24 +761,6 @@ document.addEventListener('DOMContentLoaded', async function() {
     });
 
 
-    // --- Lógica do Modal de Cadastro de Produto ---
-    const cadastroProdutoModal = document.getElementById('cadastro-produto-modal');
-    const formNovoProdutoModal = document.getElementById('form-novo-produto-modal');
-    const btnFecharModalCadastro = document.getElementById('cadastro-produto-modal-close');
-    let linhaAtualParaAtualizar = null; // Guarda a referência da linha da tabela
-
-    // Adiciona um listener para o campo de local no modal de cadastro
-    const modalLocalSelect = document.getElementById('modal-produto-local');
-    const modalLocacaoInput = document.getElementById('modal-produto-locacao');
-
-    modalLocalSelect.addEventListener('change', () => {
-        if (modalLocalSelect.value) {
-            modalLocacaoInput.required = true;
-        } else {
-            modalLocacaoInput.required = false;
-        }
-    });
-
     // --- LÓGICA PARA TRANSFERÊNCIA DE ESTOQUE ---
     const transferenciaModal = document.getElementById('transferencia-modal');
     const btnTransferencia = document.getElementById('btn-transferencia');
