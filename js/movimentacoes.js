@@ -29,6 +29,7 @@ async function calcularCustoMedioProduto(produtoId) {
 
 
 document.addEventListener('DOMContentLoaded', async function() {
+    const loadingOverlay = document.getElementById('loading-overlay');
     // Lógica para fechar o modal de informação
     const infoModal = document.getElementById('info-modal');
     const infoModalClose = document.getElementById('info-modal-close');
@@ -1599,6 +1600,7 @@ document.addEventListener('DOMContentLoaded', async function() {
         popularFiltros(); // Popula os filtros
         // Exibe o formulário que estava oculto por padrão
         document.getElementById('movement-wrapper').style.display = 'block';
+        loadingOverlay.style.display = 'none'; // Esconde o loader
     });
 });
 
