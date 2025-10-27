@@ -812,9 +812,10 @@ document.addEventListener('DOMContentLoaded', async function() {
             if (product.locacoes && product.locacoes.length > 0) {
                 product.locacoes.forEach(loc => {
                     if (loc.estoque > 0) {
+                        const localNome = configData.locais[loc.localId]?.nome || 'Desconhecido';
                         const option = document.createElement('option');
                         option.value = loc.locacao;
-                        option.textContent = `${loc.locacao} (Estoque: ${loc.estoque})`;
+                        option.textContent = `${loc.locacao} (${localNome}) (Estoque: ${loc.estoque})`;
                         transfOrigemSelect.appendChild(option);
                     }
                 });
@@ -831,9 +832,10 @@ document.addEventListener('DOMContentLoaded', async function() {
             // Popula locações de DESTINO (todas)
             if (product.locacoes && product.locacoes.length > 0) {
                  product.locacoes.forEach(loc => {
+                    const localNome = configData.locais[loc.localId]?.nome || 'Desconhecido';
                     const option = document.createElement('option');
                     option.value = loc.locacao;
-                    option.textContent = loc.locacao;
+                    option.textContent = `${loc.locacao} (${localNome})`;
                     transfDestinoSelect.appendChild(option);
                 });
                 transfDestinoSelect.disabled = false;
