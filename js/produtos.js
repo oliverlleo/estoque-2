@@ -723,18 +723,20 @@ document.addEventListener('DOMContentLoaded', async function() {
             .filter(product => idsSelecionados.includes(product.id))
             .map(product => {
                 const pData = product.data;
-                let locacaoCompleta = 'N/A';
+                const fornecedorNome = configData.fornecedores[pData.fornecedorId]?.nome || 'N/A';
+
+                let enderecamentoCompleto = 'N/A';
                 if (pData.locacoes && pData.locacoes.length > 0) {
-                    locacaoCompleta = pData.locacoes.map(loc => {
-                        const localNome = configData.locais[loc.localId]?.nome || 'Local desconhecido';
-                        return `${loc.locacao} (${localNome})`;
-                    }).join(', ');
+                    // Acessa a primeira locação do array
+                    const primeiraLocacao = pData.locacoes[0];
+                    const localNome = configData.locais[primeiraLocacao.localId]?.nome || 'Desconhecido';
+                    enderecamentoCompleto = `${localNome}: ${primeiraLocacao.locacao}`;
                 }
 
                 return {
                     id: product.id,
-                    data: pData,
-                    enderecamento: locacaoCompleta
+                    data: { ...pData, fornecedorNome: fornecedorNome },
+                    enderecamento: enderecamentoCompleto
                 };
             });
 

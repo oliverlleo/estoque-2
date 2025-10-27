@@ -53,44 +53,36 @@
             min-width: 0; /* Correção para flexbox */
         }
 
-        .info-bloco {
+        .produto-info {
             display: flex;
-            align-items: center;
+            flex-direction: column;
+            justify-content: space-between; /* Distribui o espaço */
+            flex-grow: 1;
+            padding-left: 3mm;
+        }
+        .produto-descricao {
+            font-size: 12pt; /* Tamanho da fonte ainda mais diminuído */
+            font-weight: bold;
+            text-transform: uppercase;
+            line-height: 1.2;
+            text-align: left;
+            flex-grow: 1; /* Ocupa o máximo de espaço vertical */
+        }
+        .produto-cor, .produto-fornecedor {
+            font-size: 10pt;
+            font-weight: bold;
             text-transform: uppercase;
         }
-        .info-bloco .header {
-            background-color: #333;
+        .produto-codigo {
+            background-color: black;
             color: white;
+            font-size: 16pt;
             font-weight: bold;
-            padding: 4px 8px;
-            font-size: 10pt;
             text-align: center;
-            flex-shrink: 0;
+            padding: 2mm 0;
+            margin-top: 2mm;
+            width: 100%; /* Ocupa toda a largura da coluna de informações */
         }
-        .info-bloco .valor {
-            font-weight: bold;
-            padding-left: 10px;
-            white-space: normal; /* Permite quebra de linha */
-            overflow: hidden; /* Esconde o estouro */
-            line-height: 1.1;
-        }
-
-        .info-bloco.produto {
-            flex-direction: column;
-            align-items: stretch;
-            flex-shrink: 1;
-            flex-grow: 1;
-            min-height: 0;
-            margin-bottom: 2mm;
-        }
-        .info-bloco.produto .header { font-size: 12pt; text-align: left; }
-        .info-bloco.produto .valor { font-size: 16pt; padding-left: 0; padding-top: 2px; }
-
-        .info-bloco.codigo, .info-bloco.codigo-padrao {
-            margin-top: 1.5mm;
-        }
-        .info-bloco.codigo .header, .info-bloco.codigo-padrao .header { width: 90px; }
-        .info-bloco.codigo .valor, .info-bloco.codigo-padrao .valor { font-size: 16pt; white-space: nowrap; }
 
         .etiqueta-footer {
             text-align: center;
