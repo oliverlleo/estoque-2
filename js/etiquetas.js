@@ -134,7 +134,7 @@ function processarEtiquetas() {
     }
 
     requestAnimationFrame(() => {
-        document.querySelectorAll('.descricao-produto').forEach(el => adjustFontSizeToFit(el));
+        document.querySelectorAll('.descricao-produto, .codigo-produto, .locacao-produto').forEach(el => adjustFontSizeToFit(el));
     });
 }
 
