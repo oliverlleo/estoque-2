@@ -46,7 +46,6 @@
             display: flex;
             align-items: center;
             justify-content: center;
-            margin-top: 2mm;
         }
         .produto-info {
             flex: 1;
@@ -119,7 +118,7 @@
             display: flex; /* Changed from column to row */
             flex-direction: row;
             overflow: hidden;
-            gap: 1.5mm; /* Space between QR code and info */
+            gap: 0.5mm; /* Space between QR code and info */
         }
 
         /* Aplica as margens e espaçamento para caber em 106mm.
@@ -134,12 +133,13 @@
         }
 
         .etiqueta-50x25 .qr-code {
-            width: 18mm; /* Adjust width to maintain aspect ratio */
-            height: 18mm; /* Match the parent's height minus padding */
+            width: 19.8mm; /* Adjust width to maintain aspect ratio */
+            height: 19.8mm; /* Match the parent's height minus padding */
             flex-shrink: 0;
             display: flex;
             align-items: center;
             justify-content: center;
+            margin-top: 1mm;
         }
         .etiqueta-50x25 .qr-code img {
             width: 100%;
