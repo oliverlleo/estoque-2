@@ -121,10 +121,11 @@
             gap: 1.5mm; /* Space between QR code and info */
         }
 
-        /* Aplica as margens e espaçamento */
+        /* Aplica as margens e espaçamento para caber em 106mm.
+           (1.5mm margem esq) + (50mm etiq1) + (3mm vão) + (50mm etiq2) + (1.5mm margem dir) = 106mm */
         .etiqueta-50x25:first-child {
-            margin-left: 0.5mm;
-            margin-right: 1mm;
+            margin-left: 1.5mm;
+            margin-right: 3mm; /* Espaço entre as etiquetas */
         }
 
         .etiqueta-50x25:last-child {
