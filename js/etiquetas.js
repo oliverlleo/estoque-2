@@ -60,14 +60,18 @@ function render50x25(produto, side) {
     const labelId = `${produto.labelId}-${side}`;
 
     const subEtiqueta = document.createElement('div');
-    subEtiqueta.className = 'sub-etiqueta';
+    subEtiqueta.className = 'etiqueta-50x25';
     subEtiqueta.innerHTML = `
-        <div class="qr-code" id="qr-${labelId}"></div>
-        <div class="descricao-produto">${pData.descricao || ''}</div>
-        <div class="detalhe-produto">${pData.cor || 'N/A'}</div>
-        <div class="detalhe-produto">${fornecedor}</div>
-        <div class="codigo-container">
-           <div class="codigo-produto">${pData.codigo || ''}</div>
+        <div class="etiqueta-main">
+            <div class="qr-code" id="qr-${labelId}"></div>
+            <div class="produto-info">
+                <div class="descricao-produto">${pData.descricao || ''}</div>
+                <div class="detalhe-produto">${pData.cor || 'N/A'}</div>
+                <div class="detalhe-produto">${fornecedor}</div>
+                <div class="codigo-container">
+                   <div class="codigo-produto">${pData.codigo || ''}</div>
+                </div>
+            </div>
         </div>
         <div class="etiqueta-footer">${enderecamento}</div>
     `;
@@ -77,7 +81,6 @@ function render50x25(produto, side) {
         url += `&locId=${produto.locacaoId}`;
     }
 
-    // Return the element and the data needed to create the QRCode after appending
     return { element: subEtiqueta, qrId: `qr-${labelId}`, qrUrl: url };
 }
 
@@ -99,38 +102,35 @@ function processarEtiquetas() {
         const qrCodeJobs = [];
         for (let i = 0; i < produtos.length; i += 2) {
             const etiquetaPai = document.createElement('div');
-            etiquetaPai.className = 'etiqueta-50x25';
+            etiquetaPai.className = 'etiqueta-50x25-container';
 
-            // Left sub-label
             const leftData = render50x25(produtos[i], 'left');
             etiquetaPai.appendChild(leftData.element);
-            qrCodeJobs.push({ id: leftData.qrId, url: leftData.qrUrl });
+            qrCodeJobs.push({ id: leftData.qrId, url: leftData.qrUrl, size: 60 });
 
-            // Right sub-label (if exists)
             if (i + 1 < produtos.length) {
                 const rightData = render50x25(produtos[i + 1], 'right');
                 etiquetaPai.appendChild(rightData.element);
-                qrCodeJobs.push({ id: rightData.qrId, url: rightData.qrUrl });
+                qrCodeJobs.push({ id: rightData.qrId, url: rightData.qrUrl, size: 60 });
             }
             container.appendChild(etiquetaPai);
         }
 
-        // Generate QR codes after elements are in the DOM
         qrCodeJobs.forEach(job => {
             new QRCode(document.getElementById(job.id), {
-                text: job.url, width: 50, height: 50, correctLevel: QRCode.CorrectLevel.H
+                text: job.url, width: job.size, height: job.size, correctLevel: QRCode.CorrectLevel.H
             });
         });
     }
 
     requestAnimationFrame(() => {
-        const elementosParaAjustar = document.querySelectorAll('.descricao-produto');
-        elementosParaAjustar.forEach(el => adjustFontSizeToFit(el));
+        document.querySelectorAll('.descricao-produto').forEach(el => adjustFontSizeToFit(el));
     });
 }
 
 function setFormat(format) {
     currentFormat = format;
+    document.body.className = `format-${format}`;
     document.getElementById('btn-50x100').classList.toggle('active', format === '50x100');
     document.getElementById('btn-50x25').classList.toggle('active', format === '50x25');
     processarEtiquetas();
@@ -139,5 +139,5 @@ function setFormat(format) {
 document.addEventListener('DOMContentLoaded', () => {
     document.getElementById('btn-50x100').addEventListener('click', () => setFormat('50x100'));
     document.getElementById('btn-50x25').addEventListener('click', () => setFormat('50x25'));
-    processarEtiquetas();
+    setFormat(currentFormat); // Initialize with default format
 });
