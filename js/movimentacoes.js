@@ -8,23 +8,31 @@ import { collection, addDoc, getDocs, onSnapshot, runTransaction, doc, serverTim
 
 // Adicione esta função em js/movimentacoes.js
 async function calcularCustoMedioProduto(produtoId) {
-    const q = query(collection(db, 'movimentacoes'), where("productId", "==", produtoId));
+    const q = query(collection(db, 'movimentacoes'), where("productId", "==", produtoId), orderBy("data", "asc"));
     const movementsSnapshot = await getDocs(q);
-    const productMovements = [];
-    movementsSnapshot.forEach(doc => {
-        productMovements.push(doc.data());
-    });
 
-    const entryMovements = productMovements.filter(m => m.tipo === 'entrada' && (m.custo_total_entrada || 0) > 0);
+    let totalQuantity = 0;
     let totalCost = 0;
-    let totalQuantityForAvg = 0;
 
-    entryMovements.forEach(m => {
-        totalCost += m.custo_total_entrada;
-        totalQuantityForAvg += m.quantidade;
+    movementsSnapshot.forEach(doc => {
+        const mov = doc.data();
+        if (mov.tipo === 'entrada') {
+            totalCost += mov.custo_total_entrada || 0;
+            totalQuantity += mov.quantidade || 0;
+        } else if (mov.tipo === 'saida') {
+            const currentAvgCost = totalQuantity > 0 ? totalCost / totalQuantity : 0;
+            totalCost -= (mov.quantidade || 0) * currentAvgCost;
+            totalQuantity -= mov.quantidade || 0;
+        }
+        // Ignora outros tipos como 'transferencia', 'reserva', etc., pois não afetam o custo.
     });
 
-    return totalQuantityForAvg > 0 ? totalCost / totalQuantityForAvg : 0;
+    // Garante que o custo total não seja negativo se o estoque chegar a zero ou ficar negativo
+    if (totalQuantity <= 0) {
+        totalCost = 0;
+    }
+
+    return totalQuantity > 0 ? totalCost / totalQuantity : 0;
 }
 
 
