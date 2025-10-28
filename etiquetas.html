@@ -149,8 +149,8 @@
         .etiqueta-50x25 .codigo-container {
             margin-top: auto; /* Push to the bottom */
             display: flex;
-            justify-content: space-between;
-            align-items: center;
+            flex-direction: column; /* Stack vertically */
+            align-items: flex-start; /* Align to the left */
             border-top: none; /* Remove the old footer line */
         }
         .etiqueta-50x25 .codigo-produto {
@@ -159,10 +159,16 @@
             background-color: #333 !important;
             color: white !important;
             padding: 1px 3px;
+            margin-bottom: 0.5mm; /* Space between code and location */
+            width: 100%; /* Make the background full width */
+            text-align: center;
+            box-sizing: border-box;
         }
         .etiqueta-50x25 .enderecamento-produto {
             font-size: 8pt;
             font-weight: bold;
+            width: 100%; /* Make it full width */
+            text-align: center; /* Center the text */
         }
 
 
