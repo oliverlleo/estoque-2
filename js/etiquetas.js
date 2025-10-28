@@ -1,16 +1,19 @@
 let currentFormat = '50x100'; // '50x100' or '50x25'
 
 function adjustFontSizeToFit(element) {
+    // Reset font size to inherit from CSS to get the baseline
     element.style.fontSize = '';
 
-    const isOverflowing = () => element.scrollHeight > element.clientHeight || element.scrollWidth > element.clientWidth;
+    const parentWidth = element.clientWidth;
+    const scrollWidth = element.scrollWidth;
 
-    if (isOverflowing()) {
-        let currentSize = parseFloat(window.getComputedStyle(element).fontSize);
-        while (isOverflowing() && currentSize > 4) {
-            currentSize -= 1;
-            element.style.fontSize = currentSize + 'px';
-        }
+    if (scrollWidth > parentWidth) {
+        const currentSize = parseFloat(window.getComputedStyle(element).fontSize);
+        // Calculate the ideal font size directly
+        const newSize = Math.floor((currentSize * parentWidth / scrollWidth) * 0.95); // 0.95 buffer
+
+        // Enforce a minimum font size
+        element.style.fontSize = Math.max(newSize, 4) + 'px';
     }
 }
 
@@ -72,7 +75,7 @@ function render50x25(produto, side) {
     subEtiqueta.className = 'etiqueta-50x25';
     subEtiqueta.innerHTML = `
         <div class="etiqueta-main">
-            <div class="qr-code" id="qr-${labelId}"></div>
+            <div class="qr-code"></div>
             <div class="produto-info">
                 <div class="descricao-produto">${pData.descricao || ''}</div>
                 <div class="detalhe-produto">${pData.cor || 'N/A'}</div>
@@ -94,7 +97,7 @@ function render50x25(produto, side) {
     return { element: subEtiqueta, qrId: `qr-${labelId}`, qrUrl: url };
 }
 
-function processarEtiquetas() {
+async function processarEtiquetas() {
     const container = document.getElementById('etiquetas-container');
     const dadosJSON = localStorage.getItem('etiquetasParaImprimir');
 
@@ -107,34 +110,79 @@ function processarEtiquetas() {
     container.innerHTML = '';
 
     if (currentFormat === '50x100') {
+        // For the 50x100, the QR code generation is synchronous enough
         produtos.forEach(produto => render50x100(produto));
-    } else if (currentFormat === '50x25') {
-        const qrCodeJobs = [];
-        for (let i = 0; i < produtos.length; i += 2) {
-            const etiquetaPai = document.createElement('div');
-            etiquetaPai.className = 'etiqueta-50x25-container';
-
-            const leftData = render50x25(produtos[i], 'left');
-            etiquetaPai.appendChild(leftData.element);
-            qrCodeJobs.push({ id: leftData.qrId, url: leftData.qrUrl, size: 256 });
-
-            if (i + 1 < produtos.length) {
-                const rightData = render50x25(produtos[i + 1], 'right');
-                etiquetaPai.appendChild(rightData.element);
-                qrCodeJobs.push({ id: rightData.qrId, url: rightData.qrUrl, size: 256 });
-            }
-            container.appendChild(etiquetaPai);
-        }
-
-        qrCodeJobs.forEach(job => {
-            new QRCode(document.getElementById(job.id), {
-                text: job.url, width: job.size, height: job.size, correctLevel: QRCode.CorrectLevel.H
-            });
+        // We still need to adjust fonts here as well
+        requestAnimationFrame(() => {
+            document.querySelectorAll('.descricao-produto').forEach(el => adjustFontSizeToFit(el));
         });
+        return; // Exit here for the 50x100 format
     }
 
+    // --- Logic for 50x25 format ---
+    const qrCodePromises = [];
+    const elementsToProcess = [];
+
+    for (let i = 0; i < produtos.length; i += 2) {
+        const etiquetaPai = document.createElement('div');
+        etiquetaPai.className = 'etiqueta-50x25-container';
+
+        const produto1 = produtos[i];
+        if (produto1) {
+            const { element, qrUrl } = render50x25(produto1, 'left');
+            etiquetaPai.appendChild(element);
+            elementsToProcess.push(element);
+            qrCodePromises.push(generateQrCode(element, qrUrl));
+        }
+
+        const produto2 = produtos[i + 1];
+        if (produto2) {
+            const { element, qrUrl } = render50x25(produto2, 'right');
+            etiquetaPai.appendChild(element);
+            elementsToProcess.push(element);
+            qrCodePromises.push(generateQrCode(element, qrUrl));
+        }
+
+        container.appendChild(etiquetaPai);
+    }
+
+    // Wait for all QR codes to be rendered
+    await Promise.all(qrCodePromises);
+
+    // Now that the layout is stable, adjust font sizes
     requestAnimationFrame(() => {
-        document.querySelectorAll('.descricao-produto, .codigo-produto, .locacao-produto').forEach(el => adjustFontSizeToFit(el));
+        elementsToProcess.forEach(element => {
+            element.querySelectorAll('.descricao-produto, .codigo-produto, .locacao-produto').forEach(el => {
+                adjustFontSizeToFit(el);
+            });
+        });
+    });
+}
+
+function generateQrCode(element, url) {
+    return new Promise((resolve) => {
+        const qrCodeContainer = element.querySelector('.qr-code');
+        new QRCode(qrCodeContainer, {
+            text: url,
+            width: 256,
+            height: 256,
+            correctLevel: QRCode.CorrectLevel.H,
+        });
+
+        // Use a MutationObserver to wait for the <img> to be added
+        const observer = new MutationObserver((mutationsList, obs) => {
+            for(const mutation of mutationsList) {
+                if (mutation.type === 'childList' && mutation.addedNodes.length > 0) {
+                    const img = qrCodeContainer.querySelector('img');
+                    if (img) {
+                        obs.disconnect(); // Stop observing
+                        resolve();
+                        return;
+                    }
+                }
+            }
+        });
+        observer.observe(qrCodeContainer, { childList: true });
     });
 }
 
