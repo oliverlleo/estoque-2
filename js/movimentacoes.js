@@ -243,10 +243,10 @@ document.addEventListener('DOMContentLoaded', async function() {
             });
 
             if (isSobra) {
-                // Para sobras, a quantidade é sempre 1 e não pode ser alterada.
-                quantField.value = 1;
-                quantField.disabled = true;
-                quantField.placeholder = "Entrada de sobra é sempre 1 Unidade";
+                // Para sobras, a quantidade é editável.
+                quantField.value = '';
+                quantField.disabled = false;
+                quantField.placeholder = "Quantidade";
 
                 // Os campos de custo NÃO são desabilitados.
                 costFields.forEach(fieldId => {
