@@ -17,10 +17,12 @@
             position: fixed; top: 10px; left: 10px; z-index: 100;
             background-color: white; padding: 10px; border-radius: 5px; box-shadow: 0 2px 5px rgba(0,0,0,0.2);
         }
-        .controls button { font-size: 16px; padding: 10px 20px; cursor: pointer; }
+        .controls button { font-size: 16px; padding: 10px 20px; cursor: pointer; border: 1px solid #ccc; background-color: #f0f0f0; }
+        .controls button.active { background-color: #007bff; color: white; border-color: #007bff; }
+        .format-options { margin-top: 10px; }
 
         /* ESTRUTURA RÍGIDA DA ETIQUETA */
-        .etiqueta {
+        .etiqueta-50x100 {
             background-color: white;
             width: 100mm;
             height: 50mm;
@@ -96,11 +98,44 @@
         }
 
         /* ESTILOS DE IMPRESSÃO */
+        .etiqueta-50x25 {
+            background-color: white;
+            width: 100mm;
+            height: 50mm;
+            padding: 2mm;
+            box-sizing: border-box;
+            border: 1px dashed #ccc;
+            margin: 20px auto;
+            display: flex;
+            justify-content: space-between;
+            align-items: stretch;
+        }
+
+        .etiqueta-50x25 .sub-etiqueta {
+            width: 49mm;
+            height: 46mm;
+            border: 1px solid #eee;
+            box-sizing: border-box;
+            padding: 2mm;
+            display: flex;
+            flex-direction: column;
+            overflow: hidden;
+        }
+
+        .etiqueta-50x25 .qr-code { width: 15mm; height: 15mm; margin: 0 auto 1mm; }
+        .etiqueta-50x25 .qr-code img { width: 100%; height: 100%; }
+        .etiqueta-50x25 .descricao-produto { font-size: 8pt; text-align: center; }
+        .etiqueta-50x25 .detalhe-produto { font-size: 7pt; text-align: center; }
+        .etiqueta-50x25 .codigo-produto { font-size: 9pt; padding: 2px 4px; }
+        .etiqueta-50x25 .etiqueta-footer { font-size: 9pt; border-top: 2px solid black; padding-top: 1mm; margin-top: auto; }
+
+
+        /* ESTILOS DE IMPRESSÃO */
         @media print {
             body { background-color: white; padding: 0; margin: 0; }
             .controls { display: none !important; }
 
-            .etiqueta {
+            .etiqueta-50x100, .etiqueta-50x25 {
                 margin: 0;
                 border: none;
                 page-break-after: always;
@@ -120,6 +155,10 @@
 <body>
     <div class="controls">
         <button onclick="window.print()">Imprimir Etiquetas</button>
+        <div class="format-options">
+            <button id="btn-50x100" class="active">Tamanho 50x100</button>
+            <button id="btn-50x25">Tamanho 50x25</button>
+        </div>
     </div>
     <div id="etiquetas-container">
         </div>
