@@ -82,8 +82,7 @@ function render50x25(produto, side) {
                 <div class="detalhe-produto">${fornecedor}</div>
                 <div class="codigo-container">
                    <div class="codigo-produto">${pData.codigo || ''}</div>
-                   <div class="locacao-produto">${locacao}</div>
-                   <div class="local-produto">${local}</div>
+                   <div class="locacao-produto">${locacao} ${local}</div>
                 </div>
             </div>
         </div>
