@@ -281,6 +281,11 @@ document.addEventListener('DOMContentLoaded', async function() {
                         const tamanhoSobra = parseFloat(String(sobraData.medida_sobra).replace(',', '.'));
                         const tamanhoBarraInteira = parseFloat(String(conversao.qtd_padrao).replace(',', '.'));
 
+                        console.log('--- Cálculo Custo Sobra ---');
+                        console.log('Tamanho da Sobra (medida_sobra):', tamanhoSobra);
+                        console.log('Tamanho da Barra Inteira (qtd_padrao):', tamanhoBarraInteira);
+                        console.log('Custo Médio do Original:', custoMedioOriginal);
+
                         if (isNaN(tamanhoSobra) || isNaN(tamanhoBarraInteira) || tamanhoBarraInteira === 0) {
                              throw new Error('Valores de medida da sobra ou da barra inteira são inválidos.');
                         }
