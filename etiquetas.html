@@ -144,9 +144,9 @@
             width: 100%;
             height: 100%;
         }
-        .etiqueta-50x25 .produto-info { text-align: left; flex: 1; display: flex; flex-direction: column; }
-        .etiqueta-50x25 .descricao-produto { font-size: 8pt; font-weight: bold; margin-bottom: 0.5mm; }
-        .etiqueta-50x25 .detalhe-produto { font-size: 7pt; }
+        .etiqueta-50x25 .produto-info { text-align: left; flex: 1; display: flex; flex-direction: column; overflow: hidden; min-width: 0;}
+        .etiqueta-50x25 .descricao-produto { font-size: 7pt; font-weight: bold; margin-bottom: 0.5mm; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+        .etiqueta-50x25 .detalhe-produto { font-size: 6pt; }
         .etiqueta-50x25 .codigo-container {
             margin-top: auto; /* Push to the bottom */
             display: flex;
@@ -155,8 +155,9 @@
             border-top: none; /* Remove the old footer line */
         }
         .etiqueta-50x25 .codigo-produto {
-            font-size: 8pt;
+            font-size: 7pt;
             font-weight: bold;
+            background-color: transparent !important;
             color: black !important;
             padding: 1px 3px;
             margin-bottom: 0.5mm; /* Space between code and location */
@@ -164,16 +165,20 @@
             text-align: center;
             box-sizing: border-box;
             white-space: nowrap;
+            overflow: hidden;
+            text-overflow: ellipsis;
         }
         .etiqueta-50x25 .locacao-produto {
-            font-size: 7pt;
+            font-size: 6pt;
             font-weight: bold;
             width: 100%;
             text-align: center;
             white-space: nowrap;
+            overflow: hidden;
+            text-overflow: ellipsis;
         }
         .etiqueta-50x25 .local-produto {
-            font-size: 6pt; /* Smaller font size */
+            font-size: 5pt; /* Smaller font size */
             width: 100%;
             text-align: center;
         }
