@@ -59,6 +59,15 @@ function render50x25(produto, side) {
     const enderecamento = produto.enderecamento || 'N/A';
     const labelId = `${produto.labelId}-${side}`;
 
+    // Split the enderecamento string
+    const match = enderecamento.match(/([^(]+)\s*(\(.*\))/);
+    let locacao = enderecamento;
+    let local = '';
+    if (match) {
+        locacao = match[1].trim();
+        local = match[2].trim();
+    }
+
     const subEtiqueta = document.createElement('div');
     subEtiqueta.className = 'etiqueta-50x25';
     subEtiqueta.innerHTML = `
@@ -70,7 +79,8 @@ function render50x25(produto, side) {
                 <div class="detalhe-produto">${fornecedor}</div>
                 <div class="codigo-container">
                    <div class="codigo-produto">${pData.codigo || ''}</div>
-                   <div class="enderecamento-produto">${enderecamento}</div>
+                   <div class="locacao-produto">${locacao}</div>
+                   <div class="local-produto">${local}</div>
                 </div>
             </div>
         </div>
