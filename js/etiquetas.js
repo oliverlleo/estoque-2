@@ -70,10 +70,10 @@ function render50x25(produto, side) {
                 <div class="detalhe-produto">${fornecedor}</div>
                 <div class="codigo-container">
                    <div class="codigo-produto">${pData.codigo || ''}</div>
+                   <div class="enderecamento-produto">${enderecamento}</div>
                 </div>
             </div>
         </div>
-        <div class="etiqueta-footer">${enderecamento}</div>
     `;
 
     let url = `${window.location.origin}/detalhe-produto.html?id=${produto.productId}`;
@@ -106,12 +106,12 @@ function processarEtiquetas() {
 
             const leftData = render50x25(produtos[i], 'left');
             etiquetaPai.appendChild(leftData.element);
-            qrCodeJobs.push({ id: leftData.qrId, url: leftData.qrUrl, size: 60 });
+            qrCodeJobs.push({ id: leftData.qrId, url: leftData.qrUrl, size: 256 });
 
             if (i + 1 < produtos.length) {
                 const rightData = render50x25(produtos[i + 1], 'right');
                 etiquetaPai.appendChild(rightData.element);
-                qrCodeJobs.push({ id: rightData.qrId, url: rightData.qrUrl, size: 60 });
+                qrCodeJobs.push({ id: rightData.qrId, url: rightData.qrUrl, size: 256 });
             }
             container.appendChild(etiquetaPai);
         }
