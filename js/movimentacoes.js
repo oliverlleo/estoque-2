@@ -299,69 +299,66 @@ document.addEventListener('DOMContentLoaded', async function() {
             });
 
             if (isSobra) {
-                // Para sobras, a quantidade agora é editável.
+                // 1. Garante que o campo de quantidade seja editável para sobras, conforme solicitado.
                 quantField.value = '';
                 quantField.disabled = false;
                 quantField.placeholder = "Quantidade da Sobra";
 
-                // Os campos de custo NÃO são desabilitados.
                 costFields.forEach(fieldId => {
                     document.getElementById(fieldId).disabled = false;
                 });
 
-                // Preenche o valor unitário como sugestão, mas permite edição.
-                valorUnitarioInput.value = '...'; // Valor padrão enquanto calcula
+                valorUnitarioInput.value = '...'; // Placeholder enquanto calcula
+
                 try {
-                    const productRef = doc(db, "produtos", productId);
-                    const productSnap = await getDoc(productRef);
-                    const productData = productSnap.data();
-
-                    if (productSnap.exists() && productData.originalProductId) {
-                        const originalProductId = productData.originalProductId;
-
-                        // Busca o produto original para obter a conversão
-                        const originalProductRef = doc(db, "produtos", originalProductId);
-                        const originalProductSnap = await getDoc(originalProductRef);
-
-                        if (originalProductSnap.exists()) {
-                            const originalProductData = originalProductSnap.data();
-                            const custoMedioDinamico = await calcularCustoMedioPonderado(originalProductId);
-                            let conversaoEncontrada = false;
-
-                            if (originalProductData.conversaoId) {
-                                const conversaoRef = doc(db, "conversoes", originalProductData.conversaoId);
-                                const conversaoSnap = await getDoc(conversaoRef);
-
-                                if (conversaoSnap.exists()) {
-                                    const conversao = conversaoSnap.data();
-                                    const medidaPadrao = parseFloat(String(conversao.qtd_padrao).replace(',', '.'));
-
-                                    if (medidaPadrao > 0) {
-                                        const custoProporcional = custoMedioDinamico / medidaPadrao;
-                                        valorUnitarioInput.value = custoProporcional.toFixed(3);
-                                        conversaoEncontrada = true; // SUCESSO!
-                                    }
-                                }
-                            }
-
-                            // Se a conversão não foi encontrada ou falhou, exibe um erro claro.
-                            if (!conversaoEncontrada) {
-                                valorUnitarioInput.value = '0.000';
-                                showInfoModal(`ERRO: Não foi possível calcular o valor da sobra. Verifique se o produto principal (${originalProductData.codigo}) tem uma regra de conversão válida com uma 'Unidade Padrão (valor)' maior que zero.`);
-                            }
-                        } else {
-                             valorUnitarioInput.value = '0.000';
-                             console.warn(`Produto original com ID ${originalProductId} não foi encontrado.`);
-                        }
-                    } else {
-                        valorUnitarioInput.value = '0.000';
-                        console.warn(`Sobra ${productId} não tem um originalProductId ou não foi encontrada.`);
+                    // Passo 1: Obter o ID do Produto-Pai.
+                    const sobraDocSnap = await getDoc(doc(db, "produtos", productId));
+                    if (!sobraDocSnap.exists() || !sobraDocSnap.data().originalProductId) {
+                        throw new Error(`Sobra com ID ${productId} não encontrada ou não possui referência ao produto original.`);
                     }
-                } catch (error) {
-                    console.error("Erro ao buscar custo médio da sobra:", error);
-                    valorUnitarioInput.value = '0.00';
-                }
+                    const originalProductId = sobraDocSnap.data().originalProductId;
 
+                    // Passo 2: Calcular o Custo Médio Ponderado do Pai.
+                    const custoMedioPonderadoPai = await calcularCustoMedioPonderado(originalProductId);
+
+                    // Passo 3: Obter a Quantidade Padrão (divisor) da Regra de Conversão do Pai.
+                    const paiDocSnap = await getDoc(doc(db, "produtos", originalProductId));
+                    if (!paiDocSnap.exists()) {
+                        throw new Error(`Produto principal com ID ${originalProductId} não foi encontrado.`);
+                    }
+                    const originalProductData = paiDocSnap.data();
+                    const conversaoId = originalProductData.conversaoId;
+
+                    if (!conversaoId) {
+                        valorUnitarioInput.value = '0.000';
+                        showInfoModal(`ERRO: Não foi possível calcular o valor da sobra. O produto principal (${originalProductData.codigo}) não possui uma regra de conversão associada.`);
+                        return; // Stop execution for this part.
+                    }
+
+                    const conversaoDocSnap = await getDoc(doc(db, "conversoes", conversaoId));
+                    if (!conversaoDocSnap.exists() || !conversaoDocSnap.data().qtd_padrao) {
+                        valorUnitarioInput.value = '0.000';
+                        showInfoModal(`ERRO: A regra de conversão associada ao produto principal (${originalProductData.codigo}) não foi encontrada ou não possui um valor para 'Unidade Padrão (valor)' [qtd_padrao].`);
+                        return; // Stop execution.
+                    }
+
+                    const qtd_padrao = parseFloat(String(conversaoDocSnap.data().qtd_padrao).replace(',', '.'));
+
+                    if (qtd_padrao <= 0) {
+                        valorUnitarioInput.value = '0.000';
+                        showInfoModal(`ERRO: O valor 'Unidade Padrão (valor)' [qtd_padrao] na regra de conversão do produto principal (${originalProductData.codigo}) deve ser maior que zero.`);
+                        return;
+                    }
+
+                    // Passo 4: Executar o Cálculo Final e Atualizar o Campo.
+                    const valorSugerido = custoMedioPonderadoPai / qtd_padrao;
+                    valorUnitarioInput.value = valorSugerido.toFixed(3);
+
+                } catch (error) {
+                    console.error("Erro detalhado ao calcular valor da sobra:", error);
+                    valorUnitarioInput.value = '0.000';
+                    showInfoModal(`Ocorreu um erro inesperado ao calcular o valor da sobra: ${error.message}`);
+                }
             } else {
                 // Para produtos normais, a quantidade é editável.
                 quantField.value = '';
@@ -1553,10 +1550,15 @@ document.addEventListener('DOMContentLoaded', async function() {
 
         for (const [selectId, data] of Object.entries(selects)) {
             const select = document.getElementById(selectId);
-            while (select.options.length > 1) select.remove(1);
-            for (const [id, item] of Object.entries(selects)) {
+            // Limpa as opções existentes, exceto o placeholder
+            while (select.options.length > 1) {
+                select.remove(1);
+            }
+            // Itera sobre os dados corretos para este select
+            for (const [id, item] of Object.entries(data)) {
                 const option = document.createElement('option');
                 option.value = id;
+                // Acessa a propriedade de nome correta do item
                 option.textContent = item.nome || item.nome_regra || 'N/A';
                 select.appendChild(option);
             }
