@@ -268,27 +268,24 @@ document.addEventListener('DOMContentLoaded', async function() {
                             throw new Error(`Produto original com ID ${originalProductId} não encontrado no cache local.`);
                         }
 
-                        // 1. Obter o custo médio mais recente do produto original
                         const custoMedioOriginal = originalProduct.valorMedio || 0;
 
-                        // 2. Obter a regra de conversão para achar o tamanho padrão
                         if (!originalProduct.conversaoId) {
-                            throw new Error('O produto original não possui regra de conversão.');
+                            throw new Error('O produto original não possui regra de conversão para determinar o tamanho total.');
                         }
                         const conversao = configData.conversoes[originalProduct.conversaoId];
                         if (!conversao) {
                             throw new Error(`Regra de conversão com ID ${originalProduct.conversaoId} não encontrada.`);
                         }
 
-                        // 3. Obter os tamanhos e calcular o valor proporcional
                         const tamanhoSobra = parseFloat(String(sobraData.medida_sobra).replace(',', '.'));
-                        const tamanhoPadrao = parseFloat(String(conversao.qtd_padrao).replace(',', '.'));
+                        const tamanhoBarraInteira = parseFloat(String(conversao.qtd_padrao).replace(',', '.'));
 
-                        if (isNaN(tamanhoSobra) || isNaN(tamanhoPadrao) || tamanhoPadrao === 0) {
-                             throw new Error('Valores de medida inválidos para cálculo proporcional.');
+                        if (isNaN(tamanhoSobra) || isNaN(tamanhoBarraInteira) || tamanhoBarraInteira === 0) {
+                             throw new Error('Valores de medida da sobra ou da barra inteira são inválidos.');
                         }
 
-                        const valorProporcional = (tamanhoSobra / tamanhoPadrao) * custoMedioOriginal;
+                        const valorProporcional = (tamanhoSobra / tamanhoBarraInteira) * custoMedioOriginal;
                         valorUnitarioInput.value = valorProporcional.toFixed(3);
 
                     } else {
