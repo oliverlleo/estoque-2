@@ -243,10 +243,10 @@ document.addEventListener('DOMContentLoaded', async function() {
             });
 
             if (isSobra) {
-                // Para sobras, a quantidade é sempre 1 e não pode ser alterada.
-                quantField.value = 1;
-                quantField.disabled = true;
-                quantField.placeholder = "Entrada de sobra é sempre 1 Unidade";
+                // Para sobras, a quantidade agora é editável.
+                quantField.value = '';
+                quantField.disabled = false;
+                quantField.placeholder = "Quantidade da Sobra";
 
                 // Os campos de custo NÃO são desabilitados.
                 costFields.forEach(fieldId => {
@@ -256,13 +256,43 @@ document.addEventListener('DOMContentLoaded', async function() {
                 // Preenche o valor unitário como sugestão, mas permite edição.
                 valorUnitarioInput.value = '...'; // Valor padrão enquanto calcula
                 try {
-                    // **BUG FIX**: Fetch the full product document to get the originalProductId
                     const productRef = doc(db, "produtos", productId);
                     const productSnap = await getDoc(productRef);
-                    if (productSnap.exists() && productSnap.data().originalProductId) {
-                        const originalProductId = productSnap.data().originalProductId;
-                        const custoMedio = await calcularCustoMedioProduto(originalProductId);
-                        valorUnitarioInput.value = custoMedio > 0 ? custoMedio.toFixed(3) : '0.000';
+                    const productData = productSnap.data();
+
+                    if (productSnap.exists() && productData.originalProductId) {
+                        const originalProductId = productData.originalProductId;
+
+                        // Busca o produto original para obter o custo médio e a conversão
+                        const originalProductRef = doc(db, "produtos", originalProductId);
+                        const originalProductSnap = await getDoc(originalProductRef);
+
+                        if (originalProductSnap.exists()) {
+                            const originalProductData = originalProductSnap.data();
+                            const custoMedioOriginal = originalProductData.valorMedio || 0;
+
+                            // Verifica se há uma regra de conversão associada ao produto original
+                            if (originalProductData.conversaoId && configData.conversoes[originalProductData.conversaoId]) {
+                                const conversao = configData.conversoes[originalProductData.conversaoId];
+                                const medidaPadrao = parseFloat(String(conversao.qtd_padrao).replace(',', '.'));
+
+                                // O custo da sobra é o custo médio do produto original dividido pela medida padrão da conversão
+                                if (medidaPadrao > 0) {
+                                    const custoProporcional = custoMedioOriginal / medidaPadrao;
+                                    valorUnitarioInput.value = custoProporcional.toFixed(3);
+                                } else {
+                                    valorUnitarioInput.value = '0.000'; // Evita divisão por zero
+                                    console.warn(`A medida padrão para a conversão ${originalProductData.conversaoId} é zero.`);
+                                }
+                            } else {
+                                // Se não houver conversão, usa o custo médio do produto original como fallback
+                                valorUnitarioInput.value = custoMedioOriginal.toFixed(3);
+                                console.warn(`Produto original ${originalProductId} não possui regra de conversão válida.`);
+                            }
+                        } else {
+                             valorUnitarioInput.value = '0.000';
+                             console.warn(`Produto original com ID ${originalProductId} não foi encontrado.`);
+                        }
                     } else {
                         valorUnitarioInput.value = '0.000';
                         console.warn(`Sobra ${productId} não tem um originalProductId ou não foi encontrada.`);
