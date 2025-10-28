@@ -133,6 +133,21 @@ function setFormat(format) {
     document.body.className = `format-${format}`;
     document.getElementById('btn-50x100').classList.toggle('active', format === '50x100');
     document.getElementById('btn-50x25').classList.toggle('active', format === '50x25');
+
+    // Remove a folha de estilo de impressão dinâmica, se existir
+    const dynamicStyle = document.getElementById('dynamic-print-style');
+    if (dynamicStyle) {
+        dynamicStyle.remove();
+    }
+
+    // Adiciona a folha de estilo de impressão correta para o formato 50x25
+    if (format === '50x25') {
+        const style = document.createElement('style');
+        style.id = 'dynamic-print-style';
+        style.innerHTML = `@media print { @page { size: 100mm 25mm; margin: 0; } }`;
+        document.head.appendChild(style);
+    }
+
     processarEtiquetas();
 }
 

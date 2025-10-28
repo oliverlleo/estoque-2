@@ -155,11 +155,9 @@
             body.format-50x25 .etiqueta-50x100 { display: none; }
         }
 
-        @media print {
-           @page { size: 100mm 50mm; margin: 0; }
-           body.format-50x25 {
-                @page { size: 100mm 25mm; margin: 0; }
-           }
+        @page {
+            size: 100mm 50mm;
+            margin: 0;
         }
     </style>
 </head>
