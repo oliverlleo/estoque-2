@@ -144,7 +144,7 @@ function setFormat(format) {
     if (format === '50x25') {
         const style = document.createElement('style');
         style.id = 'dynamic-print-style';
-        style.innerHTML = `@media print { @page { size: 100mm 25mm; margin: 0; } }`;
+        style.innerHTML = `@media print { @page { size: 106mm 25mm; margin: 0; } }`;
         document.head.appendChild(style);
     }
 

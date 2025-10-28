@@ -99,26 +99,35 @@
 
         /* ESTILOS DE IMPRESSÃO */
         .etiqueta-50x25-container {
-            width: 100mm;
+            width: 106mm;
             height: 25mm;
             display: flex;
-            justify-content: space-between;
+            justify-content: flex-start; /* Alinha as etiquetas à esquerda */
             align-items: stretch;
             border: 1px dashed #ccc;
             margin: 20px auto;
-            padding: 1mm;
+            padding: 0; /* O padding será controlado pelas margens */
             box-sizing: border-box;
         }
 
         .etiqueta-50x25 {
-            width: 48.5mm;
-            height: 23mm;
+            width: 50mm;
+            height: 25mm;
             box-sizing: border-box;
             padding: 1.5mm;
             display: flex;
             flex-direction: column;
             overflow: hidden;
-            border: 1px solid #eee;
+        }
+
+        /* Aplica as margens e espaçamento */
+        .etiqueta-50x25:first-child {
+            margin-left: 1.5mm;
+            margin-right: 3mm;
+        }
+
+        .etiqueta-50x25:last-child {
+            margin-right: 1.5mm;
         }
 
         .etiqueta-50x25 .qr-code { width: 18mm; flex-shrink: 0; }
