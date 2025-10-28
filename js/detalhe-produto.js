@@ -146,31 +146,53 @@ document.addEventListener('DOMContentLoaded', async function() {
 
     const renderSobras = (sobras) => {
         if (sobras.length === 0) {
-            sobrasListContainer.innerHTML = '<p>Nenhuma sobra encontrada com o critério informado.</p>';
+            sobrasListContainer.innerHTML = '<p style="text-align: center; color: var(--secondary-text-color);">Nenhuma sobra encontrada com o critério informado.</p>';
             return;
         }
 
-        let html = '<ul style="list-style: none; padding: 0;">';
+        let html = '<ul class="sobras-list">';
         sobras.forEach(sobra => {
             const medida = sobra.medida_sobra || 'N/A';
 
-            let locacoesHtml = 'Sem locação definida';
+            let locacoesHtml = '<ul class="locacoes-list">';
             if (sobra.locacoes && sobra.locacoes.length > 0) {
-                locacoesHtml = sobra.locacoes.map(loc => {
+                sobra.locacoes.forEach(loc => {
                     const localNome = configData.locais[loc.localId]?.nome || 'Desconhecido';
                     const estoque = loc.estoque || 0;
-                    return `${loc.locacao} (${localNome}) - <strong>Estoque: ${estoque} ${sobra.un}</strong>`;
-                }).join('<br>');
+                    // Concatenação de locação e local com quantidade
+                    const locacaoCompleta = `${loc.locacao} (${localNome})`;
+                    locacoesHtml += `
+                        <li>
+                            <i data-feather="map-pin" class="icon"></i>
+                            <span class="locacao-texto">${locacaoCompleta}</span>
+                            <span class="locacao-estoque">${estoque} ${sobra.un}</span>
+                        </li>
+                    `;
+                });
+            } else {
+                locacoesHtml += '<li>Sem locação definida</li>';
             }
+            locacoesHtml += '</ul>';
 
-            html += `<li style="padding: 10px 0; border-bottom: 1px solid var(--border-color);">
-                        <strong>Código:</strong> ${sobra.codigo} <br>
-                        <strong>Medida:</strong> ${medida} ${sobra.un} <br>
-                        <strong>Locações:</strong><br>${locacoesHtml}
-                     </li>`;
+            html += `
+                <li class="sobra-item">
+                    <div class="sobra-header">
+                        <i data-feather="code" class="icon"></i>
+                        <strong>Cód:</strong> ${sobra.codigo}
+                    </div>
+                    <div class="sobra-medida">
+                        <i data-feather="maximize-2" class="icon"></i>
+                        <strong>Medida:</strong> ${medida} ${sobra.un}
+                    </div>
+                    <div class="sobra-locacoes-container">
+                        ${locacoesHtml}
+                    </div>
+                </li>`;
         });
         html += '</ul>';
         sobrasListContainer.innerHTML = html;
+        // IMPORTANTE: Chamar o feather.replace() após inserir o HTML no DOM
+        feather.replace();
     };
 
     descricaoEl.addEventListener('click', async () => {

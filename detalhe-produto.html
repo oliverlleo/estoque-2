@@ -259,6 +259,68 @@
         cursor: not-allowed;
         opacity: 0.6;
     }
+
+    /* Estilos para a Lista de Sobras - NOVO */
+    .sobras-list {
+        list-style: none;
+        padding: 0;
+    }
+    .sobra-item {
+        background-color: var(--bg-color);
+        border: 1px solid var(--border-color);
+        border-radius: 6px;
+        padding: 15px;
+        margin-bottom: 15px;
+    }
+    .sobra-header, .sobra-medida {
+        display: flex;
+        align-items: center;
+        margin-bottom: 12px;
+        font-size: 1rem;
+    }
+    .sobra-header strong, .sobra-medida strong {
+        color: var(--secondary-text-color);
+        margin-right: 8px;
+    }
+    .icon {
+        color: var(--secondary-text-color);
+        margin-right: 10px;
+        width: 18px;
+        height: 18px;
+    }
+    .sobra-locacoes-container {
+        padding-top: 10px;
+        border-top: 1px solid var(--border-color);
+    }
+    .locacoes-list {
+        list-style: none;
+        padding-left: 5px; /* Alinhamento com o conteúdo acima */
+    }
+    .locacoes-list li {
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        padding: 8px 0;
+        font-size: 0.95rem;
+    }
+    .locacoes-list li:not(:last-child) {
+        border-bottom: 1px solid #3a3a55; /* Divisor mais sutil */
+    }
+    .locacao-texto {
+        flex-grow: 1;
+        margin-right: 15px;
+        color: var(--primary-text-color);
+    }
+    .locacao-estoque {
+        font-weight: 600;
+        background-color: #3a3a55;
+        padding: 4px 8px;
+        border-radius: 4px;
+        font-size: 0.9rem;
+    }
+    .locacoes-list .icon {
+        margin-right: 12px;
+    }
     </style>
 </head>
 <body>
