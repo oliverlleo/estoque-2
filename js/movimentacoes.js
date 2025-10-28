@@ -8,7 +8,8 @@ import { collection, addDoc, getDocs, onSnapshot, runTransaction, doc, serverTim
 
 /**
  * A ÚNICA FONTE DA VERDADE PARA O CÁLCULO DE CUSTO MÉDIO PONDERADO.
- * Busca todas as movimentações de um produto, ordena por data no lado do cliente para garantir a ordem correta,
+ * Lógica copiada DIRETAMENTE de 'js/consultas.js' para garantir consistência.
+ * Busca todas as movimentações de um produto, ordena por data no lado do cliente,
  * e então calcula o custo médio ponderado processando cada movimentação sequencialmente.
  * @param {string} produtoId - O ID do produto a ser calculado.
  * @returns {Promise<number>} - O custo médio ponderado atual.
@@ -20,6 +21,12 @@ async function calcularCustoMedioPonderado(produtoId) {
     const movementsSnapshot = await getDocs(q);
 
     if (movementsSnapshot.empty) {
+        // Tenta buscar o valor médio do próprio produto como fallback inicial
+        const productRef = doc(db, 'produtos', produtoId);
+        const productSnap = await getDoc(productRef);
+        if (productSnap.exists() && productSnap.data().valorMedio) {
+            return productSnap.data().valorMedio;
+        }
         return 0;
     }
 
@@ -47,9 +54,10 @@ async function calcularCustoMedioPonderado(produtoId) {
             totalCost -= (mov.quantidade || 0) * currentAvgCost;
             totalQuantity -= mov.quantidade || 0;
         }
+        // Outros tipos como 'reserva' são ignorados, pois não afetam o custo.
     });
 
-    // Zera o custo se o estoque for zerado ou negativo, para evitar custos residuais.
+    // Zera o custo se o estoque for zerado ou negativo.
     if (totalQuantity <= 0) {
         totalCost = 0;
     }
@@ -57,6 +65,7 @@ async function calcularCustoMedioPonderado(produtoId) {
     const finalAverageCost = totalQuantity > 0 ? totalCost / totalQuantity : 0;
     return finalAverageCost;
 }
+
 
 /**
  * Atualiza o campo 'valorMedio' no Firestore para um determinado produto.
