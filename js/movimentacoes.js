@@ -328,23 +328,33 @@ document.addEventListener('DOMContentLoaded', async function() {
                             // Calcula o custo médio mais recente do produto original usando a função unificada
                             const custoMedioDinamico = await calcularCustoMedioPonderado(originalProductId);
 
-                            // Verifica se há uma regra de conversão associada ao produto original
-                            if (originalProductData.conversaoId && configData.conversoes[originalProductData.conversaoId]) {
-                                const conversao = configData.conversoes[originalProductData.conversaoId];
-                                const medidaPadrao = parseFloat(String(conversao.qtd_padrao).replace(',', '.'));
+                            // Verifica se há um ID de conversão no produto pai
+                            if (originalProductData.conversaoId) {
+                                // Busca a regra de conversão DIRETAMENTE do Firestore para garantir dados atualizados
+                                const conversaoRef = doc(db, "conversoes", originalProductData.conversaoId);
+                                const conversaoSnap = await getDoc(conversaoRef);
 
-                                // O custo da sobra é o custo médio DINÂMICO dividido pela medida padrão
-                                if (medidaPadrao > 0) {
-                                    const custoProporcional = custoMedioDinamico / medidaPadrao;
-                                    valorUnitarioInput.value = custoProporcional.toFixed(3);
+                                if (conversaoSnap.exists()) {
+                                    const conversao = conversaoSnap.data();
+                                    const medidaPadrao = parseFloat(String(conversao.qtd_padrao).replace(',', '.'));
+
+                                    // Realiza o cálculo proporcional
+                                    if (medidaPadrao > 0) {
+                                        const custoProporcional = custoMedioDinamico / medidaPadrao;
+                                        valorUnitarioInput.value = custoProporcional.toFixed(3);
+                                    } else {
+                                        valorUnitarioInput.value = '0.000'; // Evita divisão por zero
+                                        console.warn(`A medida padrão para a conversão ${originalProductData.conversaoId} é zero.`);
+                                    }
                                 } else {
-                                    valorUnitarioInput.value = '0.000'; // Evita divisão por zero
-                                    console.warn(`A medida padrão para a conversão ${originalProductData.conversaoId} é zero.`);
+                                    // Se a regra de conversão não for encontrada, usa o custo médio como fallback
+                                    valorUnitarioInput.value = custoMedioDinamico.toFixed(3);
+                                    console.warn(`Regra de conversão com ID ${originalProductData.conversaoId} não foi encontrada.`);
                                 }
                             } else {
-                                // Se não houver conversão, usa o custo médio dinâmico como fallback
+                                // Se não houver ID de conversão, usa o custo médio como fallback
                                 valorUnitarioInput.value = custoMedioDinamico.toFixed(3);
-                                console.warn(`Produto original ${originalProductId} não possui regra de conversão válida.`);
+                                console.warn(`Produto original ${originalProductId} não possui um 'conversaoId'.`);
                             }
                         } else {
                              valorUnitarioInput.value = '0.000';
