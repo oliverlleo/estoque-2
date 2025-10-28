@@ -6,33 +6,72 @@ function showInfoModal(message) {
 import { db } from './firebase-config.js';
 import { collection, addDoc, getDocs, onSnapshot, runTransaction, doc, serverTimestamp, query, where, getDoc, setDoc, orderBy } from "https://www.gstatic.com/firebasejs/9.6.1/firebase-firestore.js";
 
-// Adicione esta função em js/movimentacoes.js
-async function calcularCustoMedioProduto(produtoId) {
-    const q = query(collection(db, 'movimentacoes'), where("productId", "==", produtoId), orderBy("data", "asc"));
+/**
+ * A ÚNICA FONTE DA VERDADE PARA O CÁLCULO DE CUSTO MÉDIO PONDERADO.
+ * Busca todas as movimentações de um produto, ordena por data no lado do cliente para garantir a ordem correta,
+ * e então calcula o custo médio ponderado processando cada movimentação sequencialmente.
+ * @param {string} produtoId - O ID do produto a ser calculado.
+ * @returns {Promise<number>} - O custo médio ponderado atual.
+ */
+async function calcularCustoMedioPonderado(produtoId) {
+    if (!produtoId) return 0;
+
+    const q = query(collection(db, 'movimentacoes'), where("productId", "==", produtoId));
     const movementsSnapshot = await getDocs(q);
+
+    if (movementsSnapshot.empty) {
+        return 0;
+    }
+
+    const productMovements = [];
+    movementsSnapshot.forEach(doc => {
+        productMovements.push(doc.data());
+    });
+
+    // Ordena as movimentações por data NO LADO DO CLIENTE para garantir a ordem correta.
+    productMovements.sort((a, b) => {
+        const dateA = a.data?.toMillis() || 0;
+        const dateB = b.data?.toMillis() || 0;
+        return dateA - dateB;
+    });
 
     let totalQuantity = 0;
     let totalCost = 0;
 
-    movementsSnapshot.forEach(doc => {
-        const mov = doc.data();
-        if (mov.tipo === 'entrada') {
-            totalCost += mov.custo_total_entrada || 0;
-            totalQuantity += mov.quantidade || 0;
+    productMovements.forEach(mov => {
+        if (mov.tipo === 'entrada' && mov.custo_total_entrada != null) {
+            totalCost += mov.custo_total_entrada;
+            totalQuantity += mov.quantidade;
         } else if (mov.tipo === 'saida') {
             const currentAvgCost = totalQuantity > 0 ? totalCost / totalQuantity : 0;
             totalCost -= (mov.quantidade || 0) * currentAvgCost;
             totalQuantity -= mov.quantidade || 0;
         }
-        // Ignora outros tipos como 'transferencia', 'reserva', etc., pois não afetam o custo.
     });
 
-    // Garante que o custo total não seja negativo se o estoque chegar a zero ou ficar negativo
+    // Zera o custo se o estoque for zerado ou negativo, para evitar custos residuais.
     if (totalQuantity <= 0) {
         totalCost = 0;
     }
 
-    return totalQuantity > 0 ? totalCost / totalQuantity : 0;
+    const finalAverageCost = totalQuantity > 0 ? totalCost / totalQuantity : 0;
+    return finalAverageCost;
+}
+
+/**
+ * Atualiza o campo 'valorMedio' no Firestore para um determinado produto.
+ * Utiliza a função unificada 'calcularCustoMedioPonderado' para obter o valor correto.
+ * @param {string} produtoId - O ID do produto a ser atualizado.
+ */
+async function atualizarCustoMedioProduto(produtoId) {
+    if (!produtoId) return;
+
+    const novoCustoMedio = await calcularCustoMedioPonderado(produtoId);
+
+    const productRef = doc(db, 'produtos', produtoId);
+    await setDoc(productRef, { valorMedio: novoCustoMedio }, { merge: true });
+
+    console.log(`Custo médio do produto ${produtoId} atualizado para ${novoCustoMedio.toFixed(3)}`);
 }
 
 
@@ -277,8 +316,8 @@ document.addEventListener('DOMContentLoaded', async function() {
 
                         if (originalProductSnap.exists()) {
                             const originalProductData = originalProductSnap.data();
-                            // Calcula o custo médio mais recente do produto original
-                            const custoMedioDinamico = await calcularCustoMedioProduto(originalProductId);
+                            // Calcula o custo médio mais recente do produto original usando a função unificada
+                            const custoMedioDinamico = await calcularCustoMedioPonderado(originalProductId);
 
                             // Verifica se há uma regra de conversão associada ao produto original
                             if (originalProductData.conversaoId && configData.conversoes[originalProductData.conversaoId]) {
@@ -1503,7 +1542,7 @@ document.addEventListener('DOMContentLoaded', async function() {
         for (const [selectId, data] of Object.entries(selects)) {
             const select = document.getElementById(selectId);
             while (select.options.length > 1) select.remove(1);
-            for (const [id, item] of Object.entries(data)) {
+            for (const [id, item] of Object.entries(selects)) {
                 const option = document.createElement('option');
                 option.value = id;
                 option.textContent = item.nome || item.nome_regra || 'N/A';
@@ -1642,38 +1681,3 @@ document.addEventListener('DOMContentLoaded', async function() {
         loadingOverlay.style.display = 'none'; // Esconde o loader
     });
 });
-
-// Substitua a função inteira em js/movimentacoes.js por esta versão CORRIGIDA:
-async function atualizarCustoMedioProduto(produtoId) {
-    if (!produtoId) return;
-
-    const q = query(collection(db, 'movimentacoes'), where("productId", "==", produtoId));
-    const movementsSnapshot = await getDocs(q);
-    const productMovements = [];
-    movementsSnapshot.forEach(doc => {
-        productMovements.push(doc.data());
-    });
-
-    // Ordena as movimentações por data para o cálculo correto do custo médio
-    productMovements.sort((a, b) => a.data.toMillis() - b.data.toMillis());
-
-    let totalQuantity = 0;
-    let totalCost = 0;
-
-    productMovements.forEach(mov => {
-        if (mov.tipo === 'entrada' && mov.custo_total_entrada) {
-            totalCost += mov.custo_total_entrada;
-            totalQuantity += mov.quantidade;
-        } else if (mov.tipo === 'saida') {
-            const currentAvgCost = totalQuantity > 0 ? totalCost / totalQuantity : 0;
-            totalCost -= mov.quantidade * currentAvgCost;
-            totalQuantity -= mov.quantidade;
-        }
-    });
-
-    const novoCustoMedio = totalQuantity > 0 ? totalCost / totalQuantity : 0;
-    const productRef = doc(db, 'produtos', produtoId);
-    await setDoc(productRef, { valorMedio: novoCustoMedio }, { merge: true });
-
-    console.log(`Custo médio do produto ${produtoId} atualizado para ${novoCustoMedio.toFixed(3)}`);
-}
