@@ -181,13 +181,24 @@ document.addEventListener('DOMContentLoaded', async function() {
         sobrasListContainer.innerHTML = '<p>Buscando sobras...</p>';
 
         try {
-            const q = query(collection(db, "produtos"), where("originalProductId", "==", currentProduct.id), where("isSobra", "==", true));
+            // Determina qual ID de produto usar para a busca
+            const isViewingSobra = currentProduct.isSobra && currentProduct.originalProductId;
+            const productIdToSearch = isViewingSobra ? currentProduct.originalProductId : currentProduct.id;
+
+            const q = query(collection(db, "produtos"), where("originalProductId", "==", productIdToSearch), where("isSobra", "==", true));
             const querySnapshot = await getDocs(q);
 
-            sobrasData = querySnapshot.docs.map(doc => doc.data());
+            let allSobras = querySnapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
+
+            // Se estiver vendo uma sobra, filtre-a da lista para mostrar apenas as "irmãs"
+            if (isViewingSobra) {
+                sobrasData = allSobras.filter(sobra => sobra.id !== currentProduct.id);
+            } else {
+                sobrasData = allSobras;
+            }
 
             if (sobrasData.length === 0) {
-                sobrasListContainer.innerHTML = '<p>Nenhuma sobra encontrada para este produto.</p>';
+                sobrasListContainer.innerHTML = '<p>Nenhuma outra sobra encontrada para este produto.</p>';
             } else {
                 renderSobras(sobrasData);
             }
