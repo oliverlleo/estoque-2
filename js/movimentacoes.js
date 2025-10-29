@@ -281,6 +281,11 @@ document.addEventListener('DOMContentLoaded', async function() {
                         const tamanhoSobra = parseFloat(String(sobraData.medida_sobra).replace(',', '.'));
                         const tamanhoBarraInteira = parseFloat(String(conversao.fator_conversao_sobra).replace(',', '.'));
 
+                        console.log('--- Cálculo Custo Sobra ---');
+                        console.log('Tamanho da Sobra (medida_sobra):', tamanhoSobra);
+                        console.log('Tamanho da Barra Inteira (fator_conversao_sobra):', tamanhoBarraInteira);
+                        console.log('Custo Médio do Original:', custoMedioOriginal);
+
                         if (isNaN(tamanhoSobra) || isNaN(tamanhoBarraInteira) || tamanhoBarraInteira === 0) {
                              throw new Error('O "Fator Conversão Sobra" na regra de conversão é inválido ou não foi encontrado.');
                         }
