@@ -6,6 +6,7 @@ document.addEventListener('DOMContentLoaded', async function() {
     const detailsContainer = document.getElementById('details-container');
     const codigoEl = document.getElementById('produto-codigo');
     const descricaoEl = document.getElementById('produto-descricao');
+    const medidaEl = document.getElementById('produto-medida');
     const fornecedorEl = document.getElementById('produto-fornecedor');
     const corEl = document.getElementById('produto-cor');
     const locacaoCompletaEl = document.getElementById('locacao-completa');
@@ -79,11 +80,11 @@ document.addEventListener('DOMContentLoaded', async function() {
             currentLocacao = currentProduct.locacoes?.find(l => l.locacao === locacaoId) || null;
         }
 
-        renderDetails();
+        await renderDetails();
         setupModalForm();
     }
 
-    function renderDetails() {
+    async function renderDetails() {
         const pData = currentProduct;
 
         codigoEl.textContent = pData.codigo;
@@ -108,6 +109,27 @@ document.addEventListener('DOMContentLoaded', async function() {
         const estoqueSemOrigem = pData.estoque || 0;
         const estoqueTotal = totalEstoqueLocacoes + estoqueSemOrigem;
         estoqueTotalTextoEl.textContent = `${estoqueTotal} ${pData.un}`;
+
+        // Lógica para buscar e exibir a medida
+        if (pData.isSobra) {
+            medidaEl.textContent = pData.medida_sobra ? `${pData.medida_sobra} ${pData.un}` : 'N/A';
+        } else if (pData.conversaoId) {
+            try {
+                const conversaoRef = doc(db, 'conversoes', pData.conversaoId);
+                const conversaoSnap = await getDoc(conversaoRef);
+                if (conversaoSnap.exists()) {
+                    const conversaoData = conversaoSnap.data();
+                    medidaEl.textContent = conversaoData.fator_conversao_sobra || 'Padrão';
+                } else {
+                    medidaEl.textContent = 'Conversão não encontrada';
+                }
+            } catch (error) {
+                console.error("Erro ao buscar conversão:", error);
+                medidaEl.textContent = 'Erro ao buscar medida';
+            }
+        } else {
+            medidaEl.textContent = 'Não aplicável';
+        }
     }
 
     async function setupModalForm() {
@@ -181,13 +203,24 @@ document.addEventListener('DOMContentLoaded', async function() {
         sobrasListContainer.innerHTML = '<p>Buscando sobras...</p>';
 
         try {
-            const q = query(collection(db, "produtos"), where("originalProductId", "==", currentProduct.id), where("isSobra", "==", true));
+            // Determina qual ID de produto usar para a busca
+            const isViewingSobra = currentProduct.isSobra && currentProduct.originalProductId;
+            const productIdToSearch = isViewingSobra ? currentProduct.originalProductId : currentProduct.id;
+
+            const q = query(collection(db, "produtos"), where("originalProductId", "==", productIdToSearch), where("isSobra", "==", true));
             const querySnapshot = await getDocs(q);
 
-            sobrasData = querySnapshot.docs.map(doc => doc.data());
+            let allSobras = querySnapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
+
+            // Se estiver vendo uma sobra, filtre-a da lista para mostrar apenas as "irmãs"
+            if (isViewingSobra) {
+                sobrasData = allSobras.filter(sobra => sobra.id !== currentProduct.id);
+            } else {
+                sobrasData = allSobras;
+            }
 
             if (sobrasData.length === 0) {
-                sobrasListContainer.innerHTML = '<p>Nenhuma sobra encontrada para este produto.</p>';
+                sobrasListContainer.innerHTML = '<p>Nenhuma outra sobra encontrada para este produto.</p>';
             } else {
                 renderSobras(sobrasData);
             }
