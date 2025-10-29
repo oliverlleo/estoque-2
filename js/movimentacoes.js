@@ -253,23 +253,54 @@ document.addEventListener('DOMContentLoaded', async function() {
                     document.getElementById(fieldId).disabled = false;
                 });
 
-                // Preenche o valor unitário como sugestão, mas permite edição.
+                // Preenche o valor unitário com o novo cálculo proporcional.
                 valorUnitarioInput.value = '...'; // Valor padrão enquanto calcula
                 try {
-                    // **BUG FIX**: Fetch the full product document to get the originalProductId
                     const productRef = doc(db, "produtos", productId);
                     const productSnap = await getDoc(productRef);
-                    if (productSnap.exists() && productSnap.data().originalProductId) {
-                        const originalProductId = productSnap.data().originalProductId;
-                        const custoMedio = await calcularCustoMedioProduto(originalProductId);
-                        valorUnitarioInput.value = custoMedio > 0 ? custoMedio.toFixed(3) : '0.000';
+                    const sobraData = productSnap.data();
+
+                    if (productSnap.exists() && sobraData.originalProductId) {
+                        const originalProductId = sobraData.originalProductId;
+                        const originalProduct = productsMap[originalProductId];
+
+                        if (!originalProduct) {
+                            throw new Error(`Produto original com ID ${originalProductId} não encontrado no cache local.`);
+                        }
+
+                        const custoMedioOriginal = originalProduct.valorMedio || 0;
+
+                        if (!originalProduct.conversaoId) {
+                            throw new Error('O produto original não possui regra de conversão para determinar o tamanho total.');
+                        }
+                        const conversao = configData.conversoes[originalProduct.conversaoId];
+                        if (!conversao) {
+                            throw new Error(`Regra de conversão com ID ${originalProduct.conversaoId} não encontrada.`);
+                        }
+
+                        const tamanhoSobra = parseFloat(String(sobraData.medida_sobra).replace(',', '.'));
+                        const tamanhoBarraInteira = parseFloat(String(conversao.fator_conversao_sobra).replace(',', '.'));
+
+                        console.log('--- Cálculo Custo Sobra ---');
+                        console.log('Tamanho da Sobra (medida_sobra):', tamanhoSobra);
+                        console.log('Tamanho da Barra Inteira (fator_conversao_sobra):', tamanhoBarraInteira);
+                        console.log('Custo Médio do Original:', custoMedioOriginal);
+
+                        if (isNaN(tamanhoSobra) || isNaN(tamanhoBarraInteira) || tamanhoBarraInteira === 0) {
+                             throw new Error('O "Fator Conversão Sobra" na regra de conversão é inválido ou não foi encontrado.');
+                        }
+
+                        const valorProporcional = (tamanhoSobra / tamanhoBarraInteira) * custoMedioOriginal;
+                        valorUnitarioInput.value = valorProporcional.toFixed(3);
+
                     } else {
                         valorUnitarioInput.value = '0.000';
                         console.warn(`Sobra ${productId} não tem um originalProductId ou não foi encontrada.`);
                     }
                 } catch (error) {
-                    console.error("Erro ao buscar custo médio da sobra:", error);
+                    console.error("Erro ao calcular o custo proporcional da sobra:", error);
                     valorUnitarioInput.value = '0.00';
+                    showInfoModal(`Não foi possível calcular o valor da sobra: ${error.message}`);
                 }
 
             } else {
