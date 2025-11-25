@@ -29,7 +29,7 @@ document.addEventListener('DOMContentLoaded', () => {
             modalFields.innerHTML += `
                 <div>
                     <label>${grupo.nome}</label>
-                    <input type="number" data-grupo-id="${grupo.id}" value="${valor}" class="form-control">
+                    <input type="text" data-grupo-id="${grupo.id}" value="${String(valor).replace('.', ',')}" class="form-control">
                 </div>
             `;
         });
@@ -50,11 +50,11 @@ document.addEventListener('DOMContentLoaded', () => {
 
     modalForm.onsubmit = async function(event) {
         event.preventDefault();
-        const inputs = modalFields.querySelectorAll('input[type="number"]');
+        const inputs = modalFields.querySelectorAll('input[type="text"]');
         const valores = {};
         let total = 0;
         inputs.forEach(input => {
-            const valor = parseFloat(input.value) || 0;
+            const valor = parseFloat(input.value.replace(',', '.')) || 0;
             valores[input.dataset.grupoId] = valor;
             total += valor;
         });
