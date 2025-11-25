@@ -1374,6 +1374,9 @@ document.addEventListener('DOMContentLoaded', async function() {
                 localId: localId,
                 estoque: 0 // Estoque inicial para uma nova locação é sempre 0
             });
+        } else if (locacao && !localId) {
+            alert("Ao preencher a Locação, o Local também deve ser selecionado.");
+            return;
         }
 
         const novoProduto = {
