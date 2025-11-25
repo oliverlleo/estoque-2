@@ -145,11 +145,14 @@ document.addEventListener('DOMContentLoaded', async function() {
     populateSobraLocalDropdown();
 
 
-    // Populate Conversions Select
+    // Populate Conversions Select and create a map
     const conversaoSelect = document.getElementById('produto-conversao');
+    configData['conversoes'] = {}; // Initialize the map
     const conversoesSnapshot = await getDocs(collection(db, 'conversoes'));
     conversoesSnapshot.forEach(doc => {
+        const id = doc.id;
         const conversao = doc.data();
+        configData['conversoes'][id] = conversao; // Store in the map
         const displayText = `${conversao.qtd_compra}${conversao.medida_compra} X ${conversao.qtd_padrao}${conversao.medida_padrao}`;
         conversaoSelect.innerHTML += `<option value="${doc.id}" title="${conversao.nome_regra}">${displayText}</option>`;
     });
@@ -579,13 +582,13 @@ document.addEventListener('DOMContentLoaded', async function() {
 
             const fornecedor = configData.fornecedores[pData.fornecedorId]?.nome || 'N/A';
             const grupo = configData.grupos[pData.grupoId]?.nome || 'N/A';
+            const conversao = configData.conversoes[pData.conversaoId]?.nome_regra || 'N/A';
 
-            let locacaoCompleta = 'N/A';
+            let locaisHtml = 'N/A';
+            let locacoesHtml = 'N/A';
             if (pData.locacoes && pData.locacoes.length > 0) {
-                locacaoCompleta = pData.locacoes.map(loc => {
-                    const localNome = configData.locais[loc.localId]?.nome || 'Local desconhecido';
-                    return `${loc.locacao} (${localNome})`;
-                }).join('<br>');
+                locaisHtml = pData.locacoes.map(loc => configData.locais[loc.localId]?.nome || 'Desconhecido').join('<br>');
+                locacoesHtml = pData.locacoes.map(loc => loc.locacao).join('<br>');
             }
 
             const aplicacoesNomes = (pData.aplicacaoIds || [])
@@ -600,8 +603,10 @@ document.addEventListener('DOMContentLoaded', async function() {
                 <td>${pData.cor}</td>
                 <td>${fornecedor}</td>
                 <td>${grupo}</td>
+                <td>${conversao}</td>
                 <td>${aplicacoesNomes}</td>
-                <td>${locacaoCompleta}</td>
+                <td>${locaisHtml}</td>
+                <td>${locacoesHtml}</td>
                 <td>${pData.medida_sobra || '-'}</td>
             `;
             tableBody.appendChild(row);
