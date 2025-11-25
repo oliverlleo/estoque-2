@@ -1,114 +1,142 @@
-<!DOCTYPE html>
-<html lang="pt-BR">
-<head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Análise de Custos por Obra - Controle de Estoque</title>
-    <link rel="stylesheet" href="css/style.css">
-    <link rel="stylesheet" href="css/global-search.css">
-    <script src="https://cdn.jsdelivr.net/npm/feather-icons/dist/feather.min.js"></script>
-    <link href="https://cdnjs.cloudflare.com/ajax/libs/tailwindcss/2.2.19/tailwind.min.css" rel="stylesheet">
-    <link href="https://fonts.googleapis.com/icon?family=Material+Icons" rel="stylesheet">
-    <style>
-        .obras-grid {
-            display: grid;
-            grid-template-columns: repeat(auto-fill, minmax(300px, 1fr));
-            gap: 20px;
-        }
-        .obra-card {
-            background-color: #f8f9fa;
-            border: 1px solid #dee2e6;
-            border-radius: 5px;
-            padding: 20px;
-            display: flex;
-            flex-direction: column;
-        }
-        .obra-card h4 {
-            margin-top: 0;
-        }
-        .obra-card .custo {
-            font-size: 1.5rem;
-            font-weight: bold;
-            color: #28a745;
-            margin: 10px 0;
-        }
-        .obra-card .ver-mais {
-            margin-top: auto;
-            align-self: flex-end;
-            text-decoration: none;
-            font-weight: bold;
-        }
-    </style>
-</head>
-<body class="flex h-screen">
-    <aside class="w-64 bg-gray-800 text-white flex flex-col">
-        <div class="p-6 text-2xl font-bold border-b border-gray-700">
-            Estoque
-        </div>
-        <nav class="flex-1 p-4 space-y-2">
-            <a href="index.html" class="flex items-center px-4 py-2 text-gray-300 hover:bg-gray-700 rounded-md">
-                <span class="material-icons mr-3">dashboard</span>
-                Dashboard
-            </a>
-            <a href="configuracoes.html" class="flex items-center px-4 py-2 text-gray-300 hover:bg-gray-700 rounded-md">
-                <span class="material-icons mr-3">settings</span>
-                Configurações
-            </a>
-            <a href="produtos.html" class="flex items-center px-4 py-2 text-gray-300 hover:bg-gray-700 rounded-md">
-                <span class="material-icons mr-3">inventory_2</span>
-                Produtos
-            </a>
-            <a href="movimentacoes.html" class="flex items-center px-4 py-2 text-gray-300 hover:bg-gray-700 rounded-md">
-                <span class="material-icons mr-3">sync_alt</span>
-                Movimentações
-            </a>
-            <a href="obras.html" class="flex items-center px-4 py-2 text-white bg-blue-500 rounded-md">
-                <span class="material-icons mr-3">construction</span>
-                Obras
-            </a>
-            <a href="consultas.html" class="flex items-center px-4 py-2 text-gray-300 hover:bg-gray-700 rounded-md">
-                <span class="material-icons mr-3">search</span>
-                Consultas
-            </a>
-            <a href="reservas.html" class="flex items-center px-4 py-2 text-gray-300 hover:bg-gray-700 rounded-md">
-                <span class="material-icons mr-3">book_online</span>
-                Reservas
-            </a>
-            <a href="implementacao.html" class="flex items-center px-4 py-2 text-gray-300 hover:bg-gray-700 rounded-md">
-                <span class="material-icons mr-3">build</span>
-                Inventario
-            </a>
-        </nav>
-        <div class="p-4">
-            <div class="relative">
-                <span class="absolute inset-y-0 left-0 flex items-center pl-3">
-                    <span class="material-icons text-gray-400">search</span>
-                </span>
-                <input type="text" id="global-search" placeholder="Buscar em tudo..." class="w-full py-2 pl-10 pr-4 bg-gray-700 border border-gray-600 rounded-md text-white placeholder-gray-400 focus:outline-none focus:bg-gray-600 focus:ring-1 focus:ring-blue-500">
-            </div>
-        </div>
-    </aside>
-    <main class="main-content flex-1 overflow-y-auto">
-        <header>
-            <h1>Análise de Custos por Obra</h1>
-        </header>
-        <section class="content">
-            <div class="card">
-                <div class="card-body">
-                    <div class="filters-container" style="display: flex; gap: 10px; margin-bottom: 20px;">
-                        <input type="text" id="filter-codigo" class="form-control" placeholder="Filtrar por Código...">
-                        <input type="text" id="filter-obra" class="form-control" placeholder="Filtrar por Obra...">
-                    </div>
-                    <div id="obras-container" class="obras-grid">
-                        <!-- Obra cards will be loaded here by JS -->
-                    </div>
+import { db } from './firebase-config.js';
+import { collection, getDocs, doc, updateDoc } from "https://www.gstatic.com/firebasejs/9.6.1/firebase-firestore.js";
+
+document.addEventListener('DOMContentLoaded', () => {
+    const obrasContainer = document.getElementById('obras-container');
+    const modal = document.getElementById('valor-modal');
+    const modalTitle = document.getElementById('modal-title');
+    const modalFields = document.getElementById('modal-fields');
+    const modalForm = document.getElementById('modal-form');
+    const closeButton = document.querySelector('.close-button');
+
+    let currentObraId = null;
+    let currentField = '';
+    let grupos = [];
+
+    async function carregarGrupos() {
+        const gruposSnap = await getDocs(collection(db, 'grupos'));
+        grupos = gruposSnap.docs.map(doc => ({ id: doc.id, ...doc.data() }));
+    }
+
+    function openModal(obraId, field, title, valores) {
+        currentObraId = obraId;
+        currentField = field;
+        modalTitle.textContent = title;
+        modalFields.innerHTML = '';
+
+        grupos.forEach(grupo => {
+            const valor = valores[grupo.id] || '';
+            modalFields.innerHTML += `
+                <div>
+                    <label>${grupo.nome}</label>
+                    <input type="number" data-grupo-id="${grupo.id}" value="${valor}" class="form-control">
                 </div>
-            </div>
-        </section>
-    </main>
-    <script type="module" src="js/main.js"></script>
-    <script type="module" src="js/obras.js"></script>
-    <script type="module" src="js/global-search.js"></script>
-    <script> feather.replace() </script>
-</body>
-</html>
+            `;
+        });
+
+        modal.style.display = 'block';
+    }
+
+    function closeModal() {
+        modal.style.display = 'none';
+    }
+
+    closeButton.onclick = closeModal;
+    window.onclick = function(event) {
+        if (event.target == modal) {
+            closeModal();
+        }
+    }
+
+    modalForm.onsubmit = async function(event) {
+        event.preventDefault();
+        const inputs = modalFields.querySelectorAll('input[type="number"]');
+        const valores = {};
+        let total = 0;
+        inputs.forEach(input => {
+            const valor = parseFloat(input.value) || 0;
+            valores[input.dataset.grupoId] = valor;
+            total += valor;
+        });
+
+        const obraRef = doc(db, 'obras', currentObraId);
+        await updateDoc(obraRef, {
+            [currentField]: valores
+        });
+
+        closeModal();
+        carregarDadosObras();
+    }
+
+    async function carregarDadosObras() {
+        if (!obrasContainer) return;
+
+        obrasContainer.innerHTML = '<p>Calculando custos, por favor aguarde...</p>';
+
+        try {
+            await carregarGrupos();
+            const [obrasSnap, movementsSnap] = await Promise.all([
+                getDocs(collection(db, 'obras')),
+                getDocs(collection(db, 'movimentacoes'))
+            ]);
+
+            const custosPorObra = new Map();
+            movementsSnap.forEach(movDoc => {
+                const mov = movDoc.data();
+                if (mov.tipo === 'saida' && mov.obraId) {
+                    const custoMovimentacao = (mov.quantidade || 0) * (mov.valorMedioHistorico || 0);
+                    const custoAtual = custosPorObra.get(mov.obraId) || 0;
+                    custosPorObra.set(mov.obraId, custoAtual + custoMovimentacao);
+                }
+            });
+
+            obrasContainer.innerHTML = '';
+            obrasSnap.forEach(obraDoc => {
+                const obra = obraDoc.data();
+                const obraId = obraDoc.id;
+                const custoTotal = custosPorObra.get(obraId) || 0;
+
+                const orcadoTotal = obra.orcado ? Object.values(obra.orcado).reduce((a, b) => a + b, 0) : 0;
+                const negociadoTotal = obra.negociado ? Object.values(obra.negociado).reduce((a, b) => a + b, 0) : 0;
+                const vendidoTotal = obra.vendido ? Object.values(obra.vendido).reduce((a, b) => a + b, 0) : 0;
+
+                const card = document.createElement('div');
+                card.className = 'obra-card';
+
+                card.innerHTML = `
+                    <h4>${obra.nome}</h4>
+                    <p><strong>Código:</strong> ${obra.codigo || 'N/A'}</p>
+                    <div class="obra-custo">
+                        ${custoTotal.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' })}
+                    </div>
+                    <div class="valor-coluna" data-field="orcado">
+                        <strong>Orçado:</strong> ${orcadoTotal.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' })}
+                    </div>
+                    <div class="valor-coluna" data-field="negociado">
+                        <strong>Negociado:</strong> ${negociadoTotal.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' })}
+                    </div>
+                    <div class="valor-coluna" data-field="vendido">
+                        <strong>Vendido:</strong> ${vendidoTotal.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' })}
+                    </div>
+                    <a href="detalhe-obra.html?id=${obraId}" class="btn-ver-mais">Ver mais</a>
+                `;
+
+                card.querySelector('[data-field="orcado"]').onclick = () => openModal(obraId, 'orcado', 'Orçado', obra.orcado || {});
+                card.querySelector('[data-field="negociado"]').onclick = () => openModal(obraId, 'negociado', 'Negociado', obra.negociado || {});
+                card.querySelector('[data-field="vendido"]').onclick = () => openModal(obraId, 'vendido', 'Vendido', obra.vendido || {});
+
+                obrasContainer.appendChild(card);
+            });
+
+            if (obrasSnap.empty) {
+                obrasContainer.innerHTML = '<p>Nenhuma obra cadastrada.</p>';
+            }
+
+        } catch (error) {
+            console.error("Erro ao carregar e calcular custos das obras:", error);
+            obrasContainer.innerHTML = '<p style="color: red;">Erro ao carregar os dados. Verifique o console.</p>';
+        }
+    }
+
+    carregarDadosObras();
+});
