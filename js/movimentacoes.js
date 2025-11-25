@@ -130,7 +130,7 @@ document.addEventListener('DOMContentLoaded', async function() {
     function updateLocacaoRequirement() {
         const localValue = localSelect.value;
         if (localValue) {
-            locacaoSelect.required = true;
+            locacaoSelect.required = false;
         } else {
             locacaoSelect.required = false;
         }
@@ -578,10 +578,6 @@ document.addEventListener('DOMContentLoaded', async function() {
                 return;
             }
             const localSelecionado = document.getElementById('mov-local').value;
-            if (localSelecionado && !locacaoSelecionada) {
-                alert('Ao selecionar um Local, a Locação se torna obrigatória.');
-                return;
-            }
         } else { // Saída ou Transferência
              if (!productId || !locacaoSelecionada || isNaN(quantidade) || quantidade <= 0) {
                 alert('Para saídas, o produto, a locação e a quantidade são obrigatórios.');
@@ -1215,11 +1211,6 @@ document.addEventListener('DOMContentLoaded', async function() {
             const localSelect = row.cells[8].querySelector('select');
             const locacaoSelect = row.cells[9].querySelector('select');
             const codigoProduto = row.cells[0].querySelector('input').value;
-
-            if (localSelect && localSelect.value && (!locacaoSelect || !locacaoSelect.value)) {
-                alert(`Para o produto ${codigoProduto}, ao selecionar um Local, a Locação também deve ser selecionada.`);
-                return; // Interrompe a importação
-            }
         }
 
 
@@ -1389,12 +1380,11 @@ document.addEventListener('DOMContentLoaded', async function() {
         const localId = document.getElementById('modal-produto-local').value;
         const locacoes = [];
 
-        // Apenas adiciona a locação se ambos os campos estiverem preenchidos
-        if (locacao && localId) {
+        if (localId) {
             locacoes.push({
-                locacao: locacao,
+                locacao: locacao, // Se locacao estiver vazio, será salvo como ''
                 localId: localId,
-                estoque: 0 // Estoque inicial para uma nova locação é sempre 0
+                estoque: 0
             });
         } else if (locacao && !localId) {
             alert("Ao preencher a Locação, o Local também deve ser selecionado.");
