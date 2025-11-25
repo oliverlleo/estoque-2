@@ -128,12 +128,8 @@ document.addEventListener('DOMContentLoaded', async function() {
     const locacaoSelect = document.getElementById('mov-locacao');
 
     function updateLocacaoRequirement() {
-        const localValue = localSelect.value;
-        if (localValue) {
-            locacaoSelect.required = true;
-        } else {
-            locacaoSelect.required = false;
-        }
+        // A locação nunca deve ser obrigatória na entrada
+        locacaoSelect.required = false;
     }
 
     function populateLocacoes(product, selectedLocalId) {
@@ -577,11 +573,6 @@ document.addEventListener('DOMContentLoaded', async function() {
                 alert('Por favor, preencha o produto e a quantidade corretamente.');
                 return;
             }
-            const localSelecionado = document.getElementById('mov-local').value;
-            if (localSelecionado && !locacaoSelecionada) {
-                alert('Ao selecionar um Local, a Locação se torna obrigatória.');
-                return;
-            }
         } else { // Saída ou Transferência
              if (!productId || !locacaoSelecionada || isNaN(quantidade) || quantidade <= 0) {
                 alert('Para saídas, o produto, a locação e a quantidade são obrigatórios.');
@@ -636,14 +627,17 @@ document.addEventListener('DOMContentLoaded', async function() {
                     const tipoEntradaConfig = configData.tipos_entrada[tipoEntradaId];
 
                     if (tipoEntradaConfig && tipoEntradaConfig.movimenta_estoque == true) {
-                        if (locacaoSelecionada) {
-                            const locacaoIndex = locacoes.findIndex(l => l.locacao === locacaoSelecionada);
-                             if (locacaoIndex === -1) {
-                                throw new Error("Locação selecionada não encontrada no produto.");
+                        const localSelecionado = document.getElementById('mov-local').value;
+                        if (localSelecionado) {
+                            // Se um local (e, por extensão, uma locação) for selecionado, atualiza o estoque nessa locação
+                            const locacaoIndex = locacoes.findIndex(l => l.localId === localSelecionado && l.locacao === locacaoSelecionada);
+                            if (locacaoIndex === -1) {
+                                throw new Error("A combinação de Local e Locação selecionada não foi encontrada no cadastro do produto.");
                             }
                             locacoes[locacaoIndex].estoque = (locacoes[locacaoIndex].estoque || 0) + quantidadeParaEstoque;
                             transaction.update(productRef, { locacoes: locacoes });
                         } else {
+                            // Se nenhum local for selecionado, atualiza o estoque geral (sem locação)
                             const novoEstoque = (productData.estoque || 0) + quantidadeParaEstoque;
                             transaction.update(productRef, { estoque: novoEstoque });
                         }
@@ -1207,20 +1201,6 @@ document.addEventListener('DOMContentLoaded', async function() {
             return alert("Não há produtos para importar.");
         }
 
-        // Validação prévia
-        for (const row of rows) {
-            const productId = row.dataset.productId;
-            if (!productId) continue; // Pula não cadastrados
-
-            const localSelect = row.cells[8].querySelector('select');
-            const locacaoSelect = row.cells[9].querySelector('select');
-            const codigoProduto = row.cells[0].querySelector('input').value;
-
-            if (localSelect && localSelect.value && (!locacaoSelect || !locacaoSelect.value)) {
-                alert(`Para o produto ${codigoProduto}, ao selecionar um Local, a Locação também deve ser selecionada.`);
-                return; // Interrompe a importação
-            }
-        }
 
 
         if (confirm(`Confirmar a entrada de ${rows.length} item(ns) da NF-e ${nf}?`)) {
@@ -1241,9 +1221,6 @@ document.addEventListener('DOMContentLoaded', async function() {
                     const ipi = parseFloat(row.cells[6].querySelector('input').value) || 0;
                     const frete = parseFloat(row.cells[7].querySelector('input').value) || 0;
 
-                    if (isNaN(quantidadeInformada) || quantidadeInformada <= 0 || isNaN(valorUnitario) || !locacaoSelecionada) {
-                        throw new Error("Dados inválidos ou locação não selecionada.");
-                    }
 
                     await runTransaction(db, async (transaction) => {
                         const productRef = doc(db, 'produtos', productId);
@@ -1278,16 +1255,17 @@ document.addEventListener('DOMContentLoaded', async function() {
                         // ... (outras lógicas de custo, se houver)
 
                         // 3. Atualiza Estoque na Locação Correta ou no Estoque Geral
-                        if (locacaoSelecionada) {
+                        const localSelecionado = row.cells[8].querySelector('select').value;
+                        if (localSelecionado) {
                             const locacoes = productData.locacoes || [];
-                            const locacaoIndex = locacoes.findIndex(l => l.locacao === locacaoSelecionada);
+                            const locacaoIndex = locacoes.findIndex(l => l.localId === localSelecionado && l.locacao === locacaoSelecionada);
                             if (locacaoIndex === -1) {
-                                throw new Error(`Locação '${locacaoSelecionada}' não encontrada para o produto.`);
+                                throw new Error(`A combinação de Local/Locação para o produto '${productData.codigo}' não foi encontrada no cadastro.`);
                             }
                             locacoes[locacaoIndex].estoque = (locacoes[locacaoIndex].estoque || 0) + quantidadeParaEstoque;
                             transaction.update(productRef, { locacoes: locacoes });
                         } else {
-                            // Se não houver locação, atualiza o estoque geral
+                            // Se nenhum local for selecionado, atualiza o estoque geral (sem locação)
                             const novoEstoque = (productData.estoque || 0) + quantidadeParaEstoque;
                             transaction.update(productRef, { estoque: novoEstoque });
                         }
