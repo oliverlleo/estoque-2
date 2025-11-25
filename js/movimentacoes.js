@@ -61,6 +61,7 @@ document.addEventListener('DOMContentLoaded', async function() {
     const formNovoProdutoModal = document.getElementById('form-novo-produto-modal');
     const btnFecharModalCadastro = document.getElementById('cadastro-produto-modal-close');
     let linhaAtualParaAtualizar = null; // Guarda a referência da linha da tabela
+    let lastUsedValues = {}; // Objeto para armazenar os últimos valores
 
     // --- Campos do Formulário ---
     const entradaFields = [
@@ -1025,17 +1026,26 @@ document.addEventListener('DOMContentLoaded', async function() {
 
     // --- Lógica do Modal de Importação XML ---
     btnImportarXml.addEventListener('click', () => { xmlImportModal.style.display = 'block'; });
-    xmlModalClose.addEventListener('click', () => { xmlImportModal.style.display = 'none'; });
+    xmlModalClose.addEventListener('click', () => {
+        xmlImportModal.style.display = 'none';
+        lastUsedValues = {}; // Limpa os valores ao fechar o modal
+    });
     window.addEventListener('click', (event) => {
-        if (event.target == xmlImportModal) xmlImportModal.style.display = 'none';
-        if (event.target == cadastroProdutoModal) cadastroProdutoModal.style.display = 'none';
+        if (event.target == xmlImportModal) {
+            xmlImportModal.style.display = 'none';
+            lastUsedValues = {}; // Limpa os valores ao fechar o modal
+        }
+        if (event.target == cadastroProdutoModal) {
+            cadastroProdutoModal.style.display = 'none';
+        }
     });
 
     xmlFileInput.addEventListener('change', (event) => {
         const file = event.target.files[0];
         if (!file) return;
 
-        // Limpa o valor total ao carregar um novo arquivo
+        // Limpa os valores ao carregar um novo arquivo
+        lastUsedValues = {};
         document.getElementById('xml-total-value').textContent = 'R$ 0,00';
 
         const reader = new FileReader();
@@ -1340,6 +1350,18 @@ document.addEventListener('DOMContentLoaded', async function() {
             document.getElementById('modal-produto-codigo').value = dados.codigo || '';
             document.getElementById('modal-produto-descricao').value = dados.descricao || '';
             document.getElementById('modal-produto-un').value = dados.un || '';
+
+            // Preenche o formulário com os últimos valores usados
+            if (lastUsedValues.grupoId) {
+                document.getElementById('modal-produto-grupo').value = lastUsedValues.grupoId;
+            }
+            if (lastUsedValues.fornecedorId) {
+                document.getElementById('modal-produto-fornecedor').value = lastUsedValues.fornecedorId;
+            }
+            if (lastUsedValues.localId) {
+                document.getElementById('modal-produto-local').value = lastUsedValues.localId;
+            }
+
             cadastroProdutoModal.style.display = 'block';
         }
     });
@@ -1394,6 +1416,12 @@ document.addEventListener('DOMContentLoaded', async function() {
 
         try {
             const docRef = await addDoc(collection(db, 'produtos'), novoProduto);
+
+            // Armazena os valores para o próximo cadastro
+            lastUsedValues.grupoId = novoProduto.grupoId;
+            lastUsedValues.fornecedorId = novoProduto.fornecedorId;
+            lastUsedValues.localId = localId; // localId já está disponível nesta função
+
             alert('Produto cadastrado com sucesso!');
 
             if (linhaAtualParaAtualizar) {
