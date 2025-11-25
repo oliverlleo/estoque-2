@@ -72,6 +72,17 @@
             text-decoration: none;
             cursor: pointer;
         }
+        .btn {
+            padding: 10px 15px;
+            border: none;
+            border-radius: 5px;
+            cursor: pointer;
+            font-size: 16px;
+        }
+        .btn-primary {
+            background-color: #007bff;
+            color: white;
+        }
     </style>
 </head>
 <body class="flex h-screen">
@@ -145,7 +156,7 @@
                 <h3 id="modal-title"></h3>
                 <form id="modal-form">
                     <div id="modal-fields"></div>
-                    <button type="submit">Salvar</button>
+                    <button type="submit" class="btn btn-primary">Salvar</button>
                 </form>
             </div>
         </div>
