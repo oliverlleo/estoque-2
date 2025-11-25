@@ -311,7 +311,7 @@ document.addEventListener('DOMContentLoaded', async function() {
             const row = e.target.closest('.locacao-row');
             const locacaoInput = row.querySelector('.locacao-input');
             if (e.target.value) {
-                locacaoInput.required = true;
+                locacaoInput.required = false;
             } else {
                 locacaoInput.required = false;
             }
@@ -512,21 +512,23 @@ document.addEventListener('DOMContentLoaded', async function() {
             const locacao = locacaoInput.value.toUpperCase();
             const localId = localSelect.value;
 
-            if (!locacao || !localId) {
-                alert('Todas as locações devem ter um código e um local selecionado. Remova as linhas não utilizadas.');
+            if (locacao && !localId) {
+                alert('Ao preencher uma Locação, o Local também deve ser selecionado.');
                 return;
             }
 
-            if (!locacaoPattern.test(locacao)) {
+            if (locacao && !locacaoPattern.test(locacao)) {
                 alert(`O formato da locação "${locacao}" é inválido. Use o formato N-L-NN-L (ex: 1-A-02-B).`);
                 return;
             }
 
-            locacoes.push({
-                locacao: locacao,
-                localId: localId,
-                estoque: 0 // Estoque inicial é sempre 0 ao cadastrar
-            });
+            if (localId) {
+                locacoes.push({
+                    locacao: locacao,
+                    localId: localId,
+                    estoque: 0
+                });
+            }
         }
 
         const product = {
