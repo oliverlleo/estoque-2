@@ -302,6 +302,34 @@ body {
 }
 
 /* Estilos para filtros e ordenação da tabela */
+#product-table-headers th.sortable {
+    cursor: pointer;
+    position: relative;
+}
+
+#product-table-headers th.sortable:hover {
+    background-color: #e9ecef;
+}
+
+#product-table-headers th.sortable::after {
+    content: '';
+    position: absolute;
+    right: 8px;
+    top: 50%;
+    margin-top: -8px;
+    border: 4px solid transparent;
+}
+
+#product-table-headers th.sortable.sort-asc::after {
+    content: ' ▲';
+    border-bottom-color: #212529;
+}
+
+#product-table-headers th.sortable.sort-desc::after {
+    content: ' ▼';
+    border-top-color: #212529;
+}
+
 #filters-row .form-control {
     padding: 0.25rem 0.5rem;
     font-size: 0.8rem;
