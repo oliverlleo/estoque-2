@@ -128,12 +128,8 @@ document.addEventListener('DOMContentLoaded', async function() {
     const locacaoSelect = document.getElementById('mov-locacao');
 
     function updateLocacaoRequirement() {
-        const localValue = localSelect.value;
-        if (localValue) {
-            locacaoSelect.required = true;
-        } else {
-            locacaoSelect.required = false;
-        }
+        // A locação nunca deve ser obrigatória na entrada
+        locacaoSelect.required = false;
     }
 
     function populateLocacoes(product, selectedLocalId) {
@@ -577,11 +573,6 @@ document.addEventListener('DOMContentLoaded', async function() {
                 alert('Por favor, preencha o produto e a quantidade corretamente.');
                 return;
             }
-            const localSelecionado = document.getElementById('mov-local').value;
-            if (localSelecionado && !locacaoSelecionada) {
-                alert('Ao selecionar um Local, a Locação se torna obrigatória.');
-                return;
-            }
         } else { // Saída ou Transferência
              if (!productId || !locacaoSelecionada || isNaN(quantidade) || quantidade <= 0) {
                 alert('Para saídas, o produto, a locação e a quantidade são obrigatórios.');
@@ -624,9 +615,6 @@ document.addEventListener('DOMContentLoaded', async function() {
                                 const fator_qtd_padrao = parseFloat(String(regra.qtd_padrao).replace(',', '.'));
                                 if (fator_qtd_compra > 0) {
                                     quantidadeParaEstoque = (quantidade / fator_qtd_compra) * fator_qtd_padrao;
-                                    if (quantidadeParaEstoque % 1 !== 0) {
-                                        throw new Error("A conversão de unidade resultou em um valor fracionado (" + quantidadeParaEstoque.toFixed(3) + "). Apenas números inteiros são permitidos na entrada de estoque.");
-                                    }
                                 }
                             }
                         }
@@ -636,14 +624,17 @@ document.addEventListener('DOMContentLoaded', async function() {
                     const tipoEntradaConfig = configData.tipos_entrada[tipoEntradaId];
 
                     if (tipoEntradaConfig && tipoEntradaConfig.movimenta_estoque == true) {
-                        if (locacaoSelecionada) {
-                            const locacaoIndex = locacoes.findIndex(l => l.locacao === locacaoSelecionada);
-                             if (locacaoIndex === -1) {
-                                throw new Error("Locação selecionada não encontrada no produto.");
+                        const localSelecionado = document.getElementById('mov-local').value;
+                        if (localSelecionado) {
+                            // Se um local (e, por extensão, uma locação) for selecionado, atualiza o estoque nessa locação
+                            const locacaoIndex = locacoes.findIndex(l => l.localId === localSelecionado && l.locacao === locacaoSelecionada);
+                            if (locacaoIndex === -1) {
+                                throw new Error("A combinação de Local e Locação selecionada não foi encontrada no cadastro do produto.");
                             }
                             locacoes[locacaoIndex].estoque = (locacoes[locacaoIndex].estoque || 0) + quantidadeParaEstoque;
                             transaction.update(productRef, { locacoes: locacoes });
                         } else {
+                            // Se nenhum local for selecionado, atualiza o estoque geral (sem locação)
                             const novoEstoque = (productData.estoque || 0) + quantidadeParaEstoque;
                             transaction.update(productRef, { estoque: novoEstoque });
                         }
@@ -1115,22 +1106,28 @@ document.addEventListener('DOMContentLoaded', async function() {
         const nfeNumero = xmlDoc.querySelector('nNF')?.textContent || '';
         inputNfeNumero.value = nfeNumero;
 
+        let itensJaImportados = new Set();
         if (nfeNumero) {
             const q = query(collection(db, 'movimentacoes'), where("nf", "==", nfeNumero), where("tipo", "==", "entrada"));
             const querySnapshot = await getDocs(q);
-            if (!querySnapshot.empty) {
-                showInfoModal(`A NF-e de número ${nfeNumero} já foi importada anteriormente e não pode ser processada novamente.`);
-                xmlFileInput.value = ''; // Limpa o input de arquivo
-                inputNfeNumero.value = ''; // Limpa o campo do número da NF
-                return; // Interrompe a execução
-            }
+            querySnapshot.forEach(doc => {
+                const data = doc.data();
+                if (data.nItem) {
+                    itensJaImportados.add(data.nItem);
+                }
+            });
         }
 
         const totalFrete = parseFloat(xmlDoc.querySelector('ICMSTot vFrete')?.textContent || 0);
         const totalProdutos = parseFloat(xmlDoc.querySelector('ICMSTot vProd')?.textContent || 0);
-        const items = xmlDoc.querySelectorAll('det');
+        const items = xmlDoc.getElementsByTagName('det');
 
-        items.forEach(item => {
+        Array.from(items).forEach(item => {
+            const nItem = item.getAttribute('nItem');
+            if (itensJaImportados.has(nItem)) {
+                return; // Pula este item, pois já foi importado
+            }
+
             const cProd = item.querySelector('cProd')?.textContent;
             const xProd = item.querySelector('xProd')?.textContent;
             const uCom = item.querySelector('uCom')?.textContent;
@@ -1167,6 +1164,7 @@ document.addEventListener('DOMContentLoaded', async function() {
             if (!produtoNoSistema) row.style.backgroundColor = '#ffdddd';
             row.dataset.productId = produtoIdSistema;
             row.dataset.unidadeCompra = uCom;
+            row.dataset.nItem = nItem; // Adiciona o nItem à linha
 
             row.innerHTML = `
                 <td><input type="text" class="form-control" value="${cProd}" disabled></td>
@@ -1207,140 +1205,234 @@ document.addEventListener('DOMContentLoaded', async function() {
             return alert("Não há produtos para importar.");
         }
 
-        // Validação prévia
-        for (const row of rows) {
-            const productId = row.dataset.productId;
-            if (!productId) continue; // Pula não cadastrados
-
-            const localSelect = row.cells[8].querySelector('select');
-            const locacaoSelect = row.cells[9].querySelector('select');
-            const codigoProduto = row.cells[0].querySelector('input').value;
-
-            if (localSelect && localSelect.value && (!locacaoSelect || !locacaoSelect.value)) {
-                alert(`Para o produto ${codigoProduto}, ao selecionar um Local, a Locação também deve ser selecionada.`);
-                return; // Interrompe a importação
-            }
-        }
 
 
         if (confirm(`Confirmar a entrada de ${rows.length} item(ns) da NF-e ${nf}?`)) {
-            loader.style.display = 'flex'; // Mostra o loader
-            btnConfirmarXmlImport.disabled = true; // Desabilita o botão
+            loader.style.display = 'flex';
+            btnConfirmarXmlImport.disabled = true;
 
+            let itensComProblema = [];
+            let itensParaImportar = [];
+            let sucessoCount = 0;
+            let erroCount = 0;
+            let falhas = [];
+            const produtosParaAtualizarCusto = new Set();
+
+            // Primeira passada: Validar e separar os itens
             for (const row of rows) {
                 const productId = row.dataset.productId;
-                if (!productId) continue; // Pula não cadastrados
+                if (!productId) continue;
 
-                const locacaoSelecionada = row.cells[9].querySelector('select').value; // Índice da célula de locação agora é 9
-                const unidadeCompra = row.dataset.unidadeCompra;
+                const produto = productsMap[productId];
+                const quantidadeInformada = parseFloat(row.cells[3].querySelector('input').value);
+                let quantidadeParaEstoque = quantidadeInformada;
 
-                try {
-                    const quantidadeInformada = parseFloat(row.cells[3].querySelector('input').value);
-                    const valorUnitario = parseFloat(row.cells[4].querySelector('input').value);
-                    const icms = parseFloat(row.cells[5].querySelector('input').value) || 0;
-                    const ipi = parseFloat(row.cells[6].querySelector('input').value) || 0;
-                    const frete = parseFloat(row.cells[7].querySelector('input').value) || 0;
-
-                    if (isNaN(quantidadeInformada) || quantidadeInformada <= 0 || isNaN(valorUnitario) || !locacaoSelecionada) {
-                        throw new Error("Dados inválidos ou locação não selecionada.");
+                // Lógica de Conversão
+                if (produto.conversaoId) {
+                    const regra = configData.conversoes[produto.conversaoId];
+                    if (regra) {
+                        const fator_qtd_compra = parseFloat(String(regra.qtd_compra).replace(',', '.'));
+                        const fator_qtd_padrao = parseFloat(String(regra.qtd_padrao).replace(',', '.'));
+                        if (fator_qtd_compra > 0) {
+                            quantidadeParaEstoque = (quantidadeInformada / fator_qtd_compra) * fator_qtd_padrao;
+                        }
                     }
+                }
 
-                    await runTransaction(db, async (transaction) => {
-                        const productRef = doc(db, 'produtos', productId);
-                        const productDoc = await transaction.get(productRef);
-                        if (!productDoc.exists()) {
-                            throw new Error(`Produto com ID ${productId} não encontrado.`);
-                        }
+                const itemData = {
+                    row: row, // Mantém a referência à linha da tabela
+                    productId: productId,
+                    productData: produto,
+                    quantidadeInformada: quantidadeInformada,
+                    valorUnitario: parseFloat(row.cells[4].querySelector('input').value),
+                    icms: parseFloat(row.cells[5].querySelector('input').value) || 0,
+                    ipi: parseFloat(row.cells[6].querySelector('input').value) || 0,
+                    frete: parseFloat(row.cells[7].querySelector('input').value) || 0,
+                    localSelecionado: row.cells[8].querySelector('select').value,
+                    locacaoSelecionada: row.cells[9].querySelector('select').value,
+                    unidadeCompra: row.dataset.unidadeCompra,
+                    nItem: row.dataset.nItem
+                };
 
-                        const productData = productDoc.data();
-                        let quantidadeParaEstoque = quantidadeInformada;
-
-                        // 1. Lógica de Conversão
-                        if (productData.conversaoId) {
-                            const conversaoRef = doc(db, 'conversoes', productData.conversaoId);
-                            const conversaoDoc = await transaction.get(conversaoRef);
-                            if (conversaoDoc.exists()) {
-                                const regra = conversaoDoc.data();
-                                const fator_qtd_compra = parseFloat(String(regra.qtd_compra).replace(',', '.'));
-                                const fator_qtd_padrao = parseFloat(String(regra.qtd_padrao).replace(',', '.'));
-                                if (fator_qtd_compra > 0) {
-                                    quantidadeParaEstoque = (quantidadeInformada / fator_qtd_compra) * fator_qtd_padrao;
-                                    // Validação de número inteiro
-                                    if (quantidadeParaEstoque % 1 !== 0) {
-                                        throw new Error("A conversão de unidade resultou em um valor fracionado. Apenas números inteiros são permitidos.");
-                                    }
-                                }
-                            }
-                        }
-
-                        // 2. Lógica de Custo Total
-                        let custoTotalEntrada = (quantidadeInformada * valorUnitario) + icms + ipi + frete;
-                        // ... (outras lógicas de custo, se houver)
-
-                        // 3. Atualiza Estoque na Locação Correta ou no Estoque Geral
-                        if (locacaoSelecionada) {
-                            const locacoes = productData.locacoes || [];
-                            const locacaoIndex = locacoes.findIndex(l => l.locacao === locacaoSelecionada);
-                            if (locacaoIndex === -1) {
-                                throw new Error(`Locação '${locacaoSelecionada}' não encontrada para o produto.`);
-                            }
-                            locacoes[locacaoIndex].estoque = (locacoes[locacaoIndex].estoque || 0) + quantidadeParaEstoque;
-                            transaction.update(productRef, { locacoes: locacoes });
-                        } else {
-                            // Se não houver locação, atualiza o estoque geral
-                            const novoEstoque = (productData.estoque || 0) + quantidadeParaEstoque;
-                            transaction.update(productRef, { estoque: novoEstoque });
-                        }
-
-
-                        // 4. Cria o Registro de Movimentação
-                        const movementRef = doc(collection(db, 'movimentacoes'));
-                        const movementData = {
-                            tipo: 'entrada',
-                            productId,
-                            locacao: locacaoSelecionada,
-                            un_compra: unidadeCompra, // SALVA A UNIDADE DA NOTA
-                            data: serverTimestamp(),
-                            nf: nf,
-                            valor_unitario: valorUnitario,
-                            icms: icms,
-                            ipi: ipi,
-                            frete: frete,
-                            observacao: `Importado via XML da NF-e ${nf}`,
-                            quantidade: quantidadeParaEstoque,
-                            quantidade_compra: quantidadeInformada,
-                            custo_total_entrada: custoTotalEntrada
-                        };
-                        transaction.set(movementRef, movementData);
-                    });
-
-                    produtosParaAtualizarCusto.add(productId);
-                    sucessoCount++;
-                } catch (error) {
-                    erroCount++;
-                    const codigoProduto = row.cells[0].querySelector('input').value;
-                    falhas.push(`Produto ${codigoProduto}: ${error.message}`);
-                    console.error(`Falha ao importar produto com ID ${productId}:`, error);
+                if (quantidadeParaEstoque % 1 !== 0) {
+                    itemData.quantidadeCalculada = quantidadeParaEstoque;
+                    itensComProblema.push(itemData);
+                } else {
+                    itemData.quantidadeParaEstoque = quantidadeParaEstoque;
+                    itensParaImportar.push(itemData);
                 }
             }
 
-            // 5. Atualiza o Custo Médio
+            // Processar itens sem problemas em segundo plano
+            for (const item of itensParaImportar) {
+                try {
+                    await processarItemImportacao(item, nf);
+                    sucessoCount++;
+                    produtosParaAtualizarCusto.add(item.productId);
+                } catch (error) {
+                    erroCount++;
+                    falhas.push(`Produto ${item.productData.codigo}: ${error.message}`);
+                }
+            }
+
+            // Exibir modal se houver itens com problema
+            if (itensComProblema.length > 0) {
+                exibirModalCorrecao(itensComProblema, nf);
+            }
+
+            // Esconder o loader e reativar o botão se não houver modal
+            if (itensComProblema.length === 0) {
+                loader.style.display = 'none';
+                btnConfirmarXmlImport.disabled = false;
+                xmlImportModal.style.display = 'none';
+
+                // Atualizar custos e mostrar resumo
+                for (const id of produtosParaAtualizarCusto) {
+                    await atualizarCustoMedioProduto(id);
+                }
+                let alertMessage = `${sucessoCount} produto(s) importado(s) com sucesso!`;
+                if (erroCount > 0) {
+                    alertMessage += `\n\n${erroCount} produto(s) falharam:\n- ${falhas.join('\n- ')}`;
+                }
+                alert(alertMessage);
+            }
+        }
+    });
+
+    async function processarItemImportacao(item, nf) {
+        // Esta função encapsula a lógica de transação para um único item
+        await runTransaction(db, async (transaction) => {
+            const productRef = doc(db, 'produtos', item.productId);
+            const productDoc = await transaction.get(productRef);
+            if (!productDoc.exists()) {
+                throw new Error(`Produto não encontrado.`);
+            }
+
+            const productData = productDoc.data();
+
+            // Lógica de Custo Total
+            let custoTotalEntrada = (item.quantidadeInformada * item.valorUnitario) + item.icms + item.ipi + item.frete;
+
+            // Atualiza Estoque
+            if (item.localSelecionado) {
+                const locacoes = productData.locacoes || [];
+                const locacaoIndex = locacoes.findIndex(l => l.localId === item.localSelecionado && l.locacao === item.locacaoSelecionada);
+                if (locacaoIndex === -1) {
+                    throw new Error(`Combinação de Local/Locação não encontrada.`);
+                }
+                locacoes[locacaoIndex].estoque = (locacoes[locacaoIndex].estoque || 0) + item.quantidadeParaEstoque;
+                transaction.update(productRef, { locacoes: locacoes });
+            } else {
+                const novoEstoque = (productData.estoque || 0) + item.quantidadeParaEstoque;
+                transaction.update(productRef, { estoque: novoEstoque });
+            }
+
+            // Cria o Registro de Movimentação
+            const movementRef = doc(collection(db, 'movimentacoes'));
+            const movementData = {
+                tipo: 'entrada',
+                productId: item.productId,
+                nItem: item.nItem,
+                locacao: item.locacaoSelecionada,
+                un_compra: item.unidadeCompra,
+                data: serverTimestamp(),
+                nf: nf,
+                valor_unitario: item.valorUnitario,
+                icms: item.icms,
+                ipi: item.ipi,
+                frete: item.frete,
+                observacao: `Importado via XML da NF-e ${nf}`,
+                quantidade: item.quantidadeParaEstoque,
+                quantidade_compra: item.quantidadeInformada,
+                custo_total_entrada: custoTotalEntrada
+            };
+            transaction.set(movementRef, movementData);
+        });
+    }
+
+    function exibirModalCorrecao(itensComProblema, nf) {
+        const modal = document.getElementById('correcao-fracionada-modal');
+        const tableBody = document.getElementById('correcao-fracionada-table-body');
+        const btnConfirmar = document.getElementById('btn-confirmar-correcoes');
+        const modalClose = document.getElementById('correcao-modal-close');
+
+        tableBody.innerHTML = ''; // Limpa a tabela
+
+        itensComProblema.forEach((item, index) => {
+            const row = tableBody.insertRow();
+            row.dataset.itemIndex = index; // Referência ao item no array original
+            row.innerHTML = `
+                <td>${item.productData.codigo}</td>
+                <td>${item.productData.descricao}</td>
+                <td>${item.quantidadeCalculada.toFixed(4)}</td>
+                <td><input type="number" class="form-control" value="${Math.round(item.quantidadeCalculada)}"></td>
+                <td><button class="btn btn-delete btn-remover-item-correcao">Remover</button></td>
+            `;
+        });
+
+        modal.style.display = 'block';
+
+        // Lógica para fechar o modal
+        modalClose.onclick = () => {
+            modal.style.display = 'none';
+            // Recarrega a página para refletir importações parciais
+            location.reload();
+        };
+
+        // Lógica para o botão de remover
+        tableBody.addEventListener('click', (e) => {
+            if (e.target.classList.contains('btn-remover-item-correcao')) {
+                e.target.closest('tr').remove();
+            }
+        });
+
+        // Lógica para o botão de confirmar
+        btnConfirmar.onclick = async () => {
+            const rows = tableBody.querySelectorAll('tr');
+            let sucessoCount = 0;
+            let erroCount = 0;
+            let falhas = [];
+            const produtosParaAtualizarCusto = new Set();
+
+            for (const row of rows) {
+                const index = parseInt(row.dataset.itemIndex, 10);
+                const item = itensComProblema[index];
+                const novaQuantidade = parseInt(row.querySelector('input').value, 10);
+
+                if (isNaN(novaQuantidade) || novaQuantidade <= 0) {
+                    erroCount++;
+                    falhas.push(`Produto ${item.productData.codigo}: Quantidade corrigida é inválida.`);
+                    continue;
+                }
+
+                item.quantidadeParaEstoque = novaQuantidade;
+
+                try {
+                    await processarItemImportacao(item, nf);
+                    sucessoCount++;
+                    produtosParaAtualizarCusto.add(item.productId);
+                } catch (error) {
+                    erroCount++;
+                    falhas.push(`Produto ${item.productData.codigo}: ${error.message}`);
+                }
+            }
+
+            // Atualizar custos e mostrar resumo final
             for (const id of produtosParaAtualizarCusto) {
                 await atualizarCustoMedioProduto(id);
             }
 
-            let alertMessage = `${sucessoCount} produto(s) importado(s) com sucesso!`;
+            let alertMessage = `Dos itens corrigidos, ${sucessoCount} foram importado(s) com sucesso!`;
             if (erroCount > 0) {
-                alertMessage += `\n\n${erroCount} produto(s) falharam:\n- ${falhas.join('\n- ')}`;
+                alertMessage += `\n\n${erroCount} falharam:\n- ${falhas.join('\n- ')}`;
             }
             alert(alertMessage);
 
-            xmlProductsTableBody.innerHTML = '';
-            xmlImportModal.style.display = 'none';
-            loader.style.display = 'none'; // Esconde o loader
-            btnConfirmarXmlImport.disabled = false; // Reabilita o botão
-        }
-    });
+            // Fecha o modal e recarrega a página
+            modal.style.display = 'none';
+            location.reload();
+        };
+    }
 
     // --- Lógica do Modal de Cadastro ---
     xmlProductsTableBody.addEventListener('click', (e) => {
