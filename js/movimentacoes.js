@@ -128,12 +128,8 @@ document.addEventListener('DOMContentLoaded', async function() {
     const locacaoSelect = document.getElementById('mov-locacao');
 
     function updateLocacaoRequirement() {
-        const localValue = localSelect.value;
-        if (localValue) {
-            locacaoSelect.required = true;
-        } else {
-            locacaoSelect.required = false;
-        }
+        // A locação nunca deve ser obrigatória na entrada
+        locacaoSelect.required = false;
     }
 
     function populateLocacoes(product, selectedLocalId) {
@@ -577,11 +573,6 @@ document.addEventListener('DOMContentLoaded', async function() {
                 alert('Por favor, preencha o produto e a quantidade corretamente.');
                 return;
             }
-            const localSelecionado = document.getElementById('mov-local').value;
-            if (localSelecionado && !locacaoSelecionada) {
-                alert('Ao selecionar um Local, a Locação se torna obrigatória.');
-                return;
-            }
         } else { // Saída ou Transferência
              if (!productId || !locacaoSelecionada || isNaN(quantidade) || quantidade <= 0) {
                 alert('Para saídas, o produto, a locação e a quantidade são obrigatórios.');
@@ -636,14 +627,17 @@ document.addEventListener('DOMContentLoaded', async function() {
                     const tipoEntradaConfig = configData.tipos_entrada[tipoEntradaId];
 
                     if (tipoEntradaConfig && tipoEntradaConfig.movimenta_estoque == true) {
-                        if (locacaoSelecionada) {
-                            const locacaoIndex = locacoes.findIndex(l => l.locacao === locacaoSelecionada);
-                             if (locacaoIndex === -1) {
-                                throw new Error("Locação selecionada não encontrada no produto.");
+                        const localSelecionado = document.getElementById('mov-local').value;
+                        if (localSelecionado) {
+                            // Se um local (e, por extensão, uma locação) for selecionado, atualiza o estoque nessa locação
+                            const locacaoIndex = locacoes.findIndex(l => l.localId === localSelecionado && l.locacao === locacaoSelecionada);
+                            if (locacaoIndex === -1) {
+                                throw new Error("A combinação de Local e Locação selecionada não foi encontrada no cadastro do produto.");
                             }
                             locacoes[locacaoIndex].estoque = (locacoes[locacaoIndex].estoque || 0) + quantidadeParaEstoque;
                             transaction.update(productRef, { locacoes: locacoes });
                         } else {
+                            // Se nenhum local for selecionado, atualiza o estoque geral (sem locação)
                             const novoEstoque = (productData.estoque || 0) + quantidadeParaEstoque;
                             transaction.update(productRef, { estoque: novoEstoque });
                         }
@@ -1115,22 +1109,28 @@ document.addEventListener('DOMContentLoaded', async function() {
         const nfeNumero = xmlDoc.querySelector('nNF')?.textContent || '';
         inputNfeNumero.value = nfeNumero;
 
+        let itensJaImportados = new Set();
         if (nfeNumero) {
             const q = query(collection(db, 'movimentacoes'), where("nf", "==", nfeNumero), where("tipo", "==", "entrada"));
             const querySnapshot = await getDocs(q);
-            if (!querySnapshot.empty) {
-                showInfoModal(`A NF-e de número ${nfeNumero} já foi importada anteriormente e não pode ser processada novamente.`);
-                xmlFileInput.value = ''; // Limpa o input de arquivo
-                inputNfeNumero.value = ''; // Limpa o campo do número da NF
-                return; // Interrompe a execução
-            }
+            querySnapshot.forEach(doc => {
+                const data = doc.data();
+                if (data.nItem) {
+                    itensJaImportados.add(data.nItem);
+                }
+            });
         }
 
         const totalFrete = parseFloat(xmlDoc.querySelector('ICMSTot vFrete')?.textContent || 0);
         const totalProdutos = parseFloat(xmlDoc.querySelector('ICMSTot vProd')?.textContent || 0);
-        const items = xmlDoc.querySelectorAll('det');
+        const items = xmlDoc.getElementsByTagName('det');
 
-        items.forEach(item => {
+        Array.from(items).forEach(item => {
+            const nItem = item.getAttribute('nItem');
+            if (itensJaImportados.has(nItem)) {
+                return; // Pula este item, pois já foi importado
+            }
+
             const cProd = item.querySelector('cProd')?.textContent;
             const xProd = item.querySelector('xProd')?.textContent;
             const uCom = item.querySelector('uCom')?.textContent;
@@ -1167,6 +1167,7 @@ document.addEventListener('DOMContentLoaded', async function() {
             if (!produtoNoSistema) row.style.backgroundColor = '#ffdddd';
             row.dataset.productId = produtoIdSistema;
             row.dataset.unidadeCompra = uCom;
+            row.dataset.nItem = nItem; // Adiciona o nItem à linha
 
             row.innerHTML = `
                 <td><input type="text" class="form-control" value="${cProd}" disabled></td>
@@ -1207,20 +1208,6 @@ document.addEventListener('DOMContentLoaded', async function() {
             return alert("Não há produtos para importar.");
         }
 
-        // Validação prévia
-        for (const row of rows) {
-            const productId = row.dataset.productId;
-            if (!productId) continue; // Pula não cadastrados
-
-            const localSelect = row.cells[8].querySelector('select');
-            const locacaoSelect = row.cells[9].querySelector('select');
-            const codigoProduto = row.cells[0].querySelector('input').value;
-
-            if (localSelect && localSelect.value && (!locacaoSelect || !locacaoSelect.value)) {
-                alert(`Para o produto ${codigoProduto}, ao selecionar um Local, a Locação também deve ser selecionada.`);
-                return; // Interrompe a importação
-            }
-        }
 
 
         if (confirm(`Confirmar a entrada de ${rows.length} item(ns) da NF-e ${nf}?`)) {
@@ -1241,9 +1228,6 @@ document.addEventListener('DOMContentLoaded', async function() {
                     const ipi = parseFloat(row.cells[6].querySelector('input').value) || 0;
                     const frete = parseFloat(row.cells[7].querySelector('input').value) || 0;
 
-                    if (isNaN(quantidadeInformada) || quantidadeInformada <= 0 || isNaN(valorUnitario) || !locacaoSelecionada) {
-                        throw new Error("Dados inválidos ou locação não selecionada.");
-                    }
 
                     await runTransaction(db, async (transaction) => {
                         const productRef = doc(db, 'produtos', productId);
@@ -1278,26 +1262,29 @@ document.addEventListener('DOMContentLoaded', async function() {
                         // ... (outras lógicas de custo, se houver)
 
                         // 3. Atualiza Estoque na Locação Correta ou no Estoque Geral
-                        if (locacaoSelecionada) {
+                        const localSelecionado = row.cells[8].querySelector('select').value;
+                        if (localSelecionado) {
                             const locacoes = productData.locacoes || [];
-                            const locacaoIndex = locacoes.findIndex(l => l.locacao === locacaoSelecionada);
+                            const locacaoIndex = locacoes.findIndex(l => l.localId === localSelecionado && l.locacao === locacaoSelecionada);
                             if (locacaoIndex === -1) {
-                                throw new Error(`Locação '${locacaoSelecionada}' não encontrada para o produto.`);
+                                throw new Error(`A combinação de Local/Locação para o produto '${productData.codigo}' não foi encontrada no cadastro.`);
                             }
                             locacoes[locacaoIndex].estoque = (locacoes[locacaoIndex].estoque || 0) + quantidadeParaEstoque;
                             transaction.update(productRef, { locacoes: locacoes });
                         } else {
-                            // Se não houver locação, atualiza o estoque geral
+                            // Se nenhum local for selecionado, atualiza o estoque geral (sem locação)
                             const novoEstoque = (productData.estoque || 0) + quantidadeParaEstoque;
                             transaction.update(productRef, { estoque: novoEstoque });
                         }
 
 
                         // 4. Cria o Registro de Movimentação
+                        const nItem = row.dataset.nItem; // Recupera o nItem da linha
                         const movementRef = doc(collection(db, 'movimentacoes'));
                         const movementData = {
                             tipo: 'entrada',
                             productId,
+                            nItem: nItem, // Salva o nItem
                             locacao: locacaoSelecionada,
                             un_compra: unidadeCompra, // SALVA A UNIDADE DA NOTA
                             data: serverTimestamp(),
