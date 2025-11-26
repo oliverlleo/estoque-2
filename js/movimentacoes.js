@@ -4,27 +4,45 @@ function showInfoModal(message) {
 }
 
 import { db } from './firebase-config.js';
-import { collection, addDoc, getDocs, onSnapshot, runTransaction, doc, serverTimestamp, query, where, getDoc, setDoc, orderBy } from "https://www.gstatic.com/firebasejs/9.6.1/firebase-firestore.js";
+import { collection, addDoc, getDocs, onSnapshot, runTransaction, doc, serverTimestamp, query, where, getDoc, setDoc, orderBy, deleteDoc } from "https://www.gstatic.com/firebasejs/9.6.1/firebase-firestore.js";
 
-// Adicione esta função em js/movimentacoes.js
-async function calcularCustoMedioProduto(produtoId) {
+// Calcula e atualiza o custo médio de um produto no Firestore.
+async function atualizarCustoMedioProduto(produtoId) {
+    if (!produtoId) return;
+
     const q = query(collection(db, 'movimentacoes'), where("productId", "==", produtoId));
     const movementsSnapshot = await getDocs(q);
     const productMovements = [];
     movementsSnapshot.forEach(doc => {
-        productMovements.push(doc.data());
+        const data = doc.data();
+        // Garante que a data existe para ordenação
+        if (data.data && data.data.toMillis) {
+            productMovements.push(data);
+        }
     });
 
-    const entryMovements = productMovements.filter(m => m.tipo === 'entrada' && (m.custo_total_entrada || 0) > 0);
+    // Ordena as movimentações por data para o cálculo correto do custo médio
+    productMovements.sort((a, b) => a.data.toMillis() - b.data.toMillis());
+
+    let totalQuantity = 0;
     let totalCost = 0;
-    let totalQuantityForAvg = 0;
 
-    entryMovements.forEach(m => {
-        totalCost += m.custo_total_entrada;
-        totalQuantityForAvg += m.quantidade;
+    productMovements.forEach(mov => {
+        if (mov.tipo === 'entrada' && mov.custo_total_entrada) {
+            totalCost += mov.custo_total_entrada;
+            totalQuantity += mov.quantidade;
+        } else if (mov.tipo === 'saida') {
+            const currentAvgCost = totalQuantity > 0 ? totalCost / totalQuantity : 0;
+            totalCost -= mov.quantidade * currentAvgCost;
+            totalQuantity -= mov.quantidade;
+        }
     });
 
-    return totalQuantityForAvg > 0 ? totalCost / totalQuantityForAvg : 0;
+    const novoCustoMedio = totalQuantity > 0 ? totalCost / totalQuantity : 0;
+    const productRef = doc(db, 'produtos', produtoId);
+    await setDoc(productRef, { valorMedio: novoCustoMedio }, { merge: true });
+
+    console.log(`Custo médio do produto ${produtoId} atualizado para ${novoCustoMedio.toFixed(3)}`);
 }
 
 
@@ -80,6 +98,105 @@ document.addEventListener('DOMContentLoaded', async function() {
     // --- Table State ---
     let sortState = { column: 'data', direction: 'desc' };
     let filterState = {};
+
+    // --- Deletion Logic Elements ---
+    const btnDeleteSelected = document.getElementById('btn-delete-selected');
+    const selectAllCheckbox = document.getElementById('select-all-checkbox');
+
+    function updateDeleteButtonVisibility() {
+        const anyChecked = tableBody.querySelector('.movement-checkbox:checked');
+        btnDeleteSelected.style.display = anyChecked ? 'inline-block' : 'none';
+    }
+
+    tableBody.addEventListener('change', (e) => {
+        if (e.target.classList.contains('movement-checkbox')) {
+            updateDeleteButtonVisibility();
+        }
+    });
+
+    selectAllCheckbox.addEventListener('change', () => {
+        const checkboxes = tableBody.querySelectorAll('.movement-checkbox');
+        checkboxes.forEach(checkbox => {
+            checkbox.checked = selectAllCheckbox.checked;
+        });
+        updateDeleteButtonVisibility();
+    });
+
+    btnDeleteSelected.addEventListener('click', async () => {
+        const selectedCheckboxes = tableBody.querySelectorAll('.movement-checkbox:checked');
+        if (selectedCheckboxes.length === 0) {
+            alert('Nenhuma movimentação selecionada para exclusão.');
+            return;
+        }
+
+        if (!confirm(`Tem certeza que deseja excluir ${selectedCheckboxes.length} movimentação(ões)? Esta ação não pode ser desfeita.`)) {
+            return;
+        }
+
+        const movementsToDelete = Array.from(selectedCheckboxes).map(cb => cb.dataset.id);
+        const affectedProductIds = new Set();
+        let successCount = 0;
+        let errorCount = 0;
+
+        for (const movementId of movementsToDelete) {
+            try {
+                const movementRef = doc(db, 'movimentacoes', movementId);
+                const movementDoc = await getDoc(movementRef);
+                if (!movementDoc.exists()) {
+                    throw new Error(`Movimentação ${movementId} não encontrada.`);
+                }
+                const movementData = movementDoc.data();
+                const productId = movementData.productId;
+                affectedProductIds.add(productId);
+
+                await runTransaction(db, async (transaction) => {
+                    const productRef = doc(db, 'produtos', productId);
+                    const productDoc = await transaction.get(productRef);
+
+                    if (productDoc.exists()) {
+                        const productData = productDoc.data();
+                        let locacoes = productData.locacoes || [];
+                        const quantidade = movementData.quantidade;
+                        const tipoMovimento = movementData.tipo;
+
+                        // Reverte a quantidade no estoque da locação específica
+                        if (movementData.locacao && (tipoMovimento === 'entrada' || tipoMovimento === 'saida')) {
+                            const locacaoIndex = locacoes.findIndex(l => l.locacao === movementData.locacao);
+                            if (locacaoIndex !== -1) {
+                                if (tipoMovimento === 'entrada') {
+                                    locacoes[locacaoIndex].estoque -= quantidade;
+                                } else { // 'saida'
+                                    locacoes[locacaoIndex].estoque += quantidade;
+                                }
+                                transaction.update(productRef, { locacoes: locacoes });
+                            }
+                        }
+                    }
+                    // Deleta a movimentação independentemente de o produto existir
+                    transaction.delete(movementRef);
+                });
+                successCount++;
+            } catch (error) {
+                console.error(`Erro ao excluir movimentação ${movementId}:`, error);
+                errorCount++;
+            }
+        }
+
+
+        alert(`${successCount} movimentação(ões) excluída(s) com sucesso.\n${errorCount > 0 ? `${errorCount} falharam.` : ''}`);
+
+        // Recalcula o custo médio para todos os produtos afetados
+        for (const productId of affectedProductIds) {
+            await atualizarCustoMedioProduto(productId);
+        }
+
+        // Desmarca todos os checkboxes e esconde o botão
+        selectAllCheckbox.checked = false;
+        selectedCheckboxes.forEach(cb => cb.checked = false);
+        updateDeleteButtonVisibility();
+        // O onSnapshot listener irá atualizar a tabela automaticamente
+    });
+
 
     function toggleValorUnitarioRequirement() {
         const isEntrada = toggle.checked;
@@ -476,6 +593,7 @@ document.addEventListener('DOMContentLoaded', async function() {
             }
 
             const row = document.createElement('tr');
+            row.dataset.id = mov.id; // Store movement ID on the row for easier access
             const searchData = mov._search_data;
             const product = productsMap[mov.productId] || {};
             const standardUnit = product.un || '';
@@ -504,6 +622,7 @@ document.addEventListener('DOMContentLoaded', async function() {
             const freteTitle = mov.freteUnit > 0 ? `Valor Unit.: ${mov.freteUnit.toFixed(2).replace('.', ',')}` : '';
 
             row.innerHTML = `
+                <td><input type="checkbox" class="movement-checkbox" data-id="${mov.id}"></td>
                 <td>${searchData.data}</td>
                 <td class="${searchData.tipo}">${searchData.tipo === 'reserva_cancelada' ? 'RESERVA CANCELADA' : searchData.tipo.toUpperCase()}</td>
                 <td>${searchData.subTipo}</td>
@@ -1769,37 +1888,3 @@ document.addEventListener('DOMContentLoaded', async function() {
     });
 });
 
-// Substitua a função inteira em js/movimentacoes.js por esta versão CORRIGIDA:
-async function atualizarCustoMedioProduto(produtoId) {
-    if (!produtoId) return;
-
-    const q = query(collection(db, 'movimentacoes'), where("productId", "==", produtoId));
-    const movementsSnapshot = await getDocs(q);
-    const productMovements = [];
-    movementsSnapshot.forEach(doc => {
-        productMovements.push(doc.data());
-    });
-
-    // Ordena as movimentações por data para o cálculo correto do custo médio
-    productMovements.sort((a, b) => a.data.toMillis() - b.data.toMillis());
-
-    let totalQuantity = 0;
-    let totalCost = 0;
-
-    productMovements.forEach(mov => {
-        if (mov.tipo === 'entrada' && mov.custo_total_entrada) {
-            totalCost += mov.custo_total_entrada;
-            totalQuantity += mov.quantidade;
-        } else if (mov.tipo === 'saida') {
-            const currentAvgCost = totalQuantity > 0 ? totalCost / totalQuantity : 0;
-            totalCost -= mov.quantidade * currentAvgCost;
-            totalQuantity -= mov.quantidade;
-        }
-    });
-
-    const novoCustoMedio = totalQuantity > 0 ? totalCost / totalQuantity : 0;
-    const productRef = doc(db, 'produtos', produtoId);
-    await setDoc(productRef, { valorMedio: novoCustoMedio }, { merge: true });
-
-    console.log(`Custo médio do produto ${produtoId} atualizado para ${novoCustoMedio.toFixed(3)}`);
-}
