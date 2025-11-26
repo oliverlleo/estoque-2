@@ -508,6 +508,7 @@ document.addEventListener('DOMContentLoaded', async function() {
             const freteTitle = mov.freteUnit > 0 ? `Valor Unit.: ${mov.freteUnit.toFixed(2).replace('.', ',')}` : '';
 
             row.innerHTML = `
+                <td style="width: 30px;"><input type="checkbox" class="mov-checkbox" data-id="${mov.id}" data-product-id="${mov.productId}"></td>
                 <td>${searchData.data}</td>
                 <td class="${searchData.tipo}">${searchData.tipo === 'reserva_cancelada' ? 'RESERVA CANCELADA' : searchData.tipo.toUpperCase()}</td>
                 <td>${searchData.subTipo}</td>
@@ -1114,23 +1115,26 @@ document.addEventListener('DOMContentLoaded', async function() {
         xmlProductsTableBody.innerHTML = '';
         const nfeNumero = xmlDoc.querySelector('nNF')?.textContent || '';
         inputNfeNumero.value = nfeNumero;
+        let movimentosAnteriores = [];
 
         if (nfeNumero) {
             const q = query(collection(db, 'movimentacoes'), where("nf", "==", nfeNumero), where("tipo", "==", "entrada"));
             const querySnapshot = await getDocs(q);
             if (!querySnapshot.empty) {
-                showInfoModal(`A NF-e de número ${nfeNumero} já foi importada anteriormente e não pode ser processada novamente.`);
-                xmlFileInput.value = ''; // Limpa o input de arquivo
-                inputNfeNumero.value = ''; // Limpa o campo do número da NF
-                return; // Interrompe a execução
+                showInfoModal(`A NF-e ${nfeNumero} já foi parcialmente importada. Apenas itens novos serão habilitados.`);
+                querySnapshot.forEach(doc => {
+                    movimentosAnteriores.push(doc.data());
+                });
             }
         }
 
+        const itemsAnteriores = new Set(movimentosAnteriores.map(mov => mov.nItem.trim()));
         const totalFrete = parseFloat(xmlDoc.querySelector('ICMSTot vFrete')?.textContent || 0);
         const totalProdutos = parseFloat(xmlDoc.querySelector('ICMSTot vProd')?.textContent || 0);
         const items = xmlDoc.querySelectorAll('det');
 
         items.forEach(item => {
+            const nItem = item.getAttribute('nItem');
             const cProd = item.querySelector('cProd')?.textContent;
             const xProd = item.querySelector('xProd')?.textContent;
             const uCom = item.querySelector('uCom')?.textContent;
@@ -1164,9 +1168,17 @@ document.addEventListener('DOMContentLoaded', async function() {
             let locacaoDropdownHtml = `<select class="form-control xml-locacao-select" ${!produtoNoSistema ? 'disabled' : ''}><option value="">Locação...</option></select>`;
 
             const row = xmlProductsTableBody.insertRow();
-            if (!produtoNoSistema) row.style.backgroundColor = '#ffdddd';
+            row.dataset.nItem = nItem; // Adiciona o nItem ao dataset da linha
             row.dataset.productId = produtoIdSistema;
             row.dataset.unidadeCompra = uCom;
+
+            if (itemsAnteriores.has(nItem.trim())) {
+                row.style.backgroundColor = '#e9ecef';
+                row.classList.add('item-ja-importado');
+                acaoHtml = '<span class="text-muted" style="font-weight: bold;">Já Importado</span>';
+            } else if (!produtoNoSistema) {
+                row.style.backgroundColor = '#ffdddd';
+            }
 
             row.innerHTML = `
                 <td><input type="text" class="form-control" value="${cProd}" disabled></td>
@@ -1194,151 +1206,238 @@ document.addEventListener('DOMContentLoaded', async function() {
         updateTotalValue(); // Calcula o valor total inicial
     }
 
-    btnConfirmarXmlImport.addEventListener('click', async () => {
-        const loader = document.getElementById('xml-import-loader');
+    // --- Lógica do Modal de Correção Fracionada ---
+    const correcaoModal = document.getElementById('correcao-fracionada-modal');
+    const correcaoModalClose = document.getElementById('correcao-fracionada-modal-close');
+    const correcaoTableBody = document.getElementById('correcao-fracionada-table-body');
+    const btnConfirmarCorrecao = document.getElementById('btn-confirmar-correcoes');
+    let itensParaCorrigir = [];
+    let itensBonsParaImportar = [];
+
+    correcaoModalClose.addEventListener('click', () => correcaoModal.style.display = 'none');
+
+    correcaoTableBody.addEventListener('click', (e) => {
+        if (e.target.classList.contains('btn-remover-item')) {
+            e.target.closest('tr').remove();
+        }
+    });
+
+    btnConfirmarCorrecao.addEventListener('click', async () => {
         const nf = document.getElementById('xml-nfe-numero').value;
-        const rows = document.querySelectorAll('#xml-products-table tbody tr');
+        const loader = document.getElementById('xml-import-loader');
+        const correctedItems = [];
+
+        const rows = correcaoTableBody.querySelectorAll('tr');
+        for (const row of rows) {
+            const originalItem = itensParaCorrigir.find(item => item.productId === row.dataset.productId);
+            if (originalItem) {
+                const novaQuantidadeCompra = parseFloat(row.querySelector('.quantidade-corrigida').value);
+                if (isNaN(novaQuantidadeCompra) || novaQuantidadeCompra <= 0) {
+                    alert(`Quantidade corrigida para o produto ${originalItem.codigo} é inválida.`);
+                    return;
+                }
+                // Recalcula a quantidade de estoque com base no novo valor de compra
+                const regra = configData.conversoes[originalItem.product.conversaoId];
+                const fator_qtd_compra = parseFloat(String(regra.qtd_compra).replace(',', '.'));
+                const fator_qtd_padrao = parseFloat(String(regra.qtd_padrao).replace(',', '.'));
+                const novaQuantidadeEstoque = (novaQuantidadeCompra / fator_qtd_compra) * fator_qtd_padrao;
+
+                if (novaQuantidadeEstoque % 1 !== 0) {
+                    alert(`A quantidade corrigida para o produto ${originalItem.codigo} ainda resulta em um valor fracionado (${novaQuantidadeEstoque.toFixed(3)}) para o estoque. Por favor, ajuste o valor.`);
+                    return;
+                }
+
+                correctedItems.push({
+                    ...originalItem,
+                    quantidade_compra: novaQuantidadeCompra,
+                    quantidade: novaQuantidadeEstoque,
+                    // O custo total será recalculado durante a importação
+                });
+            }
+        }
+
+        correcaoModal.style.display = 'none';
+        loader.style.display = 'flex';
+        btnConfirmarXmlImport.disabled = true;
+
+        const todosOsItens = [...itensBonsParaImportar, ...correctedItems];
+        await processarImportacao(todosOsItens, nf);
+    });
+
+    function abrirModalCorrecao(itensComErro, itensValidos) {
+        itensParaCorrigir = itensComErro;
+        itensBonsParaImportar = itensValidos;
+        correcaoTableBody.innerHTML = '';
+
+        itensComErro.forEach(item => {
+            const row = document.createElement('tr');
+            row.dataset.productId = item.productId;
+            row.innerHTML = `
+                <td>${item.codigo}</td>
+                <td>${item.descricao}</td>
+                <td>${item.resultadoFracionado.toFixed(4)}</td>
+                <td><input type="number" step="any" class="form-control quantidade-corrigida" value="${item.quantidade_compra}"></td>
+                <td><button class="btn btn-sm btn-danger btn-remover-item">Remover</button></td>
+            `;
+            correcaoTableBody.appendChild(row);
+        });
+        correcaoModal.style.display = 'block';
+    }
+
+    async function processarImportacao(itens, nf) {
+        const loader = document.getElementById('xml-import-loader');
         let sucessoCount = 0;
         let erroCount = 0;
         const produtosParaAtualizarCusto = new Set();
         let falhas = [];
 
-        if (rows.length === 0) {
-            return alert("Não há produtos para importar.");
-        }
+        for (const item of itens) {
+            try {
+                 await runTransaction(db, async (transaction) => {
+                    const productRef = doc(db, 'produtos', item.productId);
+                    const productDoc = await transaction.get(productRef);
+                    if (!productDoc.exists()) throw new Error(`Produto não encontrado.`);
 
-        // Validação prévia
-        for (const row of rows) {
-            const productId = row.dataset.productId;
-            if (!productId) continue; // Pula não cadastrados
+                    const productData = productDoc.data();
 
-            const localSelect = row.cells[8].querySelector('select');
-            const locacaoSelect = row.cells[9].querySelector('select');
-            const codigoProduto = row.cells[0].querySelector('input').value;
+                    let custoTotalEntrada = (item.quantidade_compra * item.valor_unitario) + item.icms + item.ipi + item.frete;
 
-            if (localSelect && localSelect.value && (!locacaoSelect || !locacaoSelect.value)) {
-                alert(`Para o produto ${codigoProduto}, ao selecionar um Local, a Locação também deve ser selecionada.`);
-                return; // Interrompe a importação
+                    if (item.locacao) {
+                        const locacoes = productData.locacoes || [];
+                        const locacaoIndex = locacoes.findIndex(l => l.locacao === item.locacao);
+                        if (locacaoIndex === -1) throw new Error(`Locação '${item.locacao}' não encontrada.`);
+                        locacoes[locacaoIndex].estoque = (locacoes[locacaoIndex].estoque || 0) + item.quantidade;
+                        transaction.update(productRef, { locacoes: locacoes });
+                    } else {
+                        const novoEstoque = (productData.estoque || 0) + item.quantidade;
+                        transaction.update(productRef, { estoque: novoEstoque });
+                    }
+
+                    const movementRef = doc(collection(db, 'movimentacoes'));
+                    transaction.set(movementRef, {
+                        tipo: 'entrada',
+                        nItem: item.nItem,
+                        productId: item.productId,
+                        locacao: item.locacao,
+                        un_compra: item.un_compra,
+                        data: serverTimestamp(),
+                        nf: nf,
+                        valor_unitario: item.valor_unitario,
+                        icms: item.icms,
+                        ipi: item.ipi,
+                        frete: item.frete,
+                        observacao: `Importado via XML da NF-e ${nf}`,
+                        quantidade: item.quantidade,
+                        quantidade_compra: item.quantidade_compra,
+                        custo_total_entrada: custoTotalEntrada
+                    });
+                });
+                produtosParaAtualizarCusto.add(item.productId);
+                sucessoCount++;
+            } catch (error) {
+                erroCount++;
+                falhas.push(`Produto ${item.codigo}: ${error.message}`);
+                console.error(`Falha ao importar produto ${item.codigo}:`, error);
             }
         }
 
+        for (const id of produtosParaAtualizarCusto) {
+            await atualizarCustoMedioProduto(id);
+        }
 
-        if (confirm(`Confirmar a entrada de ${rows.length} item(ns) da NF-e ${nf}?`)) {
-            loader.style.display = 'flex'; // Mostra o loader
-            btnConfirmarXmlImport.disabled = true; // Desabilita o botão
+        let alertMessage = `${sucessoCount} produto(s) importado(s) com sucesso!`;
+        if (erroCount > 0) {
+            alertMessage += `\n\n${erroCount} produto(s) falharam:\n- ${falhas.join('\n- ')}`;
+        }
+        alert(alertMessage);
 
-            for (const row of rows) {
-                const productId = row.dataset.productId;
-                if (!productId) continue; // Pula não cadastrados
+        xmlProductsTableBody.innerHTML = '';
+        xmlImportModal.style.display = 'none';
+        loader.style.display = 'none';
+        btnConfirmarXmlImport.disabled = false;
+    }
 
-                const locacaoSelecionada = row.cells[9].querySelector('select').value; // Índice da célula de locação agora é 9
-                const unidadeCompra = row.dataset.unidadeCompra;
 
-                try {
-                    const quantidadeInformada = parseFloat(row.cells[3].querySelector('input').value);
-                    const valorUnitario = parseFloat(row.cells[4].querySelector('input').value);
-                    const icms = parseFloat(row.cells[5].querySelector('input').value) || 0;
-                    const ipi = parseFloat(row.cells[6].querySelector('input').value) || 0;
-                    const frete = parseFloat(row.cells[7].querySelector('input').value) || 0;
+    btnConfirmarXmlImport.addEventListener('click', async () => {
+        const loader = document.getElementById('xml-import-loader');
+        const nf = document.getElementById('xml-nfe-numero').value;
+        const rows = Array.from(document.querySelectorAll('#xml-products-table tbody tr'));
 
-                    if (isNaN(quantidadeInformada) || quantidadeInformada <= 0 || isNaN(valorUnitario) || !locacaoSelecionada) {
-                        throw new Error("Dados inválidos ou locação não selecionada.");
+        if (rows.length === 0) return alert("Não há produtos para importar.");
+
+        loader.style.display = 'flex';
+        btnConfirmarXmlImport.disabled = true;
+
+        const itensParaImportar = [];
+        const itensComErroFracionado = [];
+
+        // 1. Pré-processamento e Validação de Conversão
+        for (const row of rows) {
+            if (row.classList.contains('item-ja-importado')) continue;
+
+            const productId = row.dataset.productId;
+            if (!productId) continue;
+
+            const product = productsMap[productId];
+            const quantidadeInformada = parseFloat(row.cells[3].querySelector('input').value);
+            let quantidadeParaEstoque = quantidadeInformada;
+            let resultadoFracionado = null;
+
+            if (product.conversaoId) {
+                const regra = configData.conversoes[product.conversaoId];
+                if (regra) {
+                    const fator_qtd_compra = parseFloat(String(regra.qtd_compra).replace(',', '.'));
+                    const fator_qtd_padrao = parseFloat(String(regra.qtd_padrao).replace(',', '.'));
+                    if (fator_qtd_compra > 0) {
+                        const resultado = (quantidadeInformada / fator_qtd_compra) * fator_qtd_padrao;
+                        if (resultado % 1 !== 0) {
+                            resultadoFracionado = resultado; // Armazena o resultado fracionado
+                        }
+                        quantidadeParaEstoque = resultado;
                     }
-
-                    await runTransaction(db, async (transaction) => {
-                        const productRef = doc(db, 'produtos', productId);
-                        const productDoc = await transaction.get(productRef);
-                        if (!productDoc.exists()) {
-                            throw new Error(`Produto com ID ${productId} não encontrado.`);
-                        }
-
-                        const productData = productDoc.data();
-                        let quantidadeParaEstoque = quantidadeInformada;
-
-                        // 1. Lógica de Conversão
-                        if (productData.conversaoId) {
-                            const conversaoRef = doc(db, 'conversoes', productData.conversaoId);
-                            const conversaoDoc = await transaction.get(conversaoRef);
-                            if (conversaoDoc.exists()) {
-                                const regra = conversaoDoc.data();
-                                const fator_qtd_compra = parseFloat(String(regra.qtd_compra).replace(',', '.'));
-                                const fator_qtd_padrao = parseFloat(String(regra.qtd_padrao).replace(',', '.'));
-                                if (fator_qtd_compra > 0) {
-                                    quantidadeParaEstoque = (quantidadeInformada / fator_qtd_compra) * fator_qtd_padrao;
-                                    // Validação de número inteiro
-                                    if (quantidadeParaEstoque % 1 !== 0) {
-                                        throw new Error("A conversão de unidade resultou em um valor fracionado. Apenas números inteiros são permitidos.");
-                                    }
-                                }
-                            }
-                        }
-
-                        // 2. Lógica de Custo Total
-                        let custoTotalEntrada = (quantidadeInformada * valorUnitario) + icms + ipi + frete;
-                        // ... (outras lógicas de custo, se houver)
-
-                        // 3. Atualiza Estoque na Locação Correta ou no Estoque Geral
-                        if (locacaoSelecionada) {
-                            const locacoes = productData.locacoes || [];
-                            const locacaoIndex = locacoes.findIndex(l => l.locacao === locacaoSelecionada);
-                            if (locacaoIndex === -1) {
-                                throw new Error(`Locação '${locacaoSelecionada}' não encontrada para o produto.`);
-                            }
-                            locacoes[locacaoIndex].estoque = (locacoes[locacaoIndex].estoque || 0) + quantidadeParaEstoque;
-                            transaction.update(productRef, { locacoes: locacoes });
-                        } else {
-                            // Se não houver locação, atualiza o estoque geral
-                            const novoEstoque = (productData.estoque || 0) + quantidadeParaEstoque;
-                            transaction.update(productRef, { estoque: novoEstoque });
-                        }
-
-
-                        // 4. Cria o Registro de Movimentação
-                        const movementRef = doc(collection(db, 'movimentacoes'));
-                        const movementData = {
-                            tipo: 'entrada',
-                            productId,
-                            locacao: locacaoSelecionada,
-                            un_compra: unidadeCompra, // SALVA A UNIDADE DA NOTA
-                            data: serverTimestamp(),
-                            nf: nf,
-                            valor_unitario: valorUnitario,
-                            icms: icms,
-                            ipi: ipi,
-                            frete: frete,
-                            observacao: `Importado via XML da NF-e ${nf}`,
-                            quantidade: quantidadeParaEstoque,
-                            quantidade_compra: quantidadeInformada,
-                            custo_total_entrada: custoTotalEntrada
-                        };
-                        transaction.set(movementRef, movementData);
-                    });
-
-                    produtosParaAtualizarCusto.add(productId);
-                    sucessoCount++;
-                } catch (error) {
-                    erroCount++;
-                    const codigoProduto = row.cells[0].querySelector('input').value;
-                    falhas.push(`Produto ${codigoProduto}: ${error.message}`);
-                    console.error(`Falha ao importar produto com ID ${productId}:`, error);
                 }
             }
 
-            // 5. Atualiza o Custo Médio
-            for (const id of produtosParaAtualizarCusto) {
-                await atualizarCustoMedioProduto(id);
-            }
+            const itemData = {
+                nItem: row.dataset.nItem,
+                productId: productId,
+                product: product,
+                codigo: product.codigo,
+                descricao: product.descricao,
+                locacao: row.cells[9].querySelector('select').value,
+                un_compra: row.dataset.unidadeCompra,
+                quantidade_compra: quantidadeInformada,
+                quantidade: quantidadeParaEstoque,
+                valor_unitario: parseFloat(row.cells[4].querySelector('input').value),
+                icms: parseFloat(row.cells[5].querySelector('input').value) || 0,
+                ipi: parseFloat(row.cells[6].querySelector('input').value) || 0,
+                frete: parseFloat(row.cells[7].querySelector('input').value) || 0,
+            };
 
-            let alertMessage = `${sucessoCount} produto(s) importado(s) com sucesso!`;
-            if (erroCount > 0) {
-                alertMessage += `\n\n${erroCount} produto(s) falharam:\n- ${falhas.join('\n- ')}`;
+            if (resultadoFracionado !== null) {
+                itemData.resultadoFracionado = resultadoFracionado;
+                itensComErroFracionado.push(itemData);
+            } else {
+                itensParaImportar.push(itemData);
             }
-            alert(alertMessage);
+        }
 
-            xmlProductsTableBody.innerHTML = '';
-            xmlImportModal.style.display = 'none';
-            loader.style.display = 'none'; // Esconde o loader
-            btnConfirmarXmlImport.disabled = false; // Reabilita o botão
+        // 2. Decide o Fluxo
+        if (itensComErroFracionado.length > 0) {
+            loader.style.display = 'none';
+            btnConfirmarXmlImport.disabled = false;
+            abrirModalCorrecao(itensComErroFracionado, itensParaImportar);
+        } else if (itensParaImportar.length > 0) {
+            if (confirm(`Confirmar a entrada de ${itensParaImportar.length} item(ns) da NF-e ${nf}?`)) {
+                 await processarImportacao(itensParaImportar, nf);
+            } else {
+                loader.style.display = 'none';
+                btnConfirmarXmlImport.disabled = false;
+            }
+        } else {
+            alert("Nenhum item válido para importação.");
+            loader.style.display = 'none';
+            btnConfirmarXmlImport.disabled = false;
         }
     });
 
@@ -1424,54 +1523,57 @@ document.addEventListener('DOMContentLoaded', async function() {
 
             alert('Produto cadastrado com sucesso!');
 
-            if (linhaAtualParaAtualizar) {
-                linhaAtualParaAtualizar.dataset.productId = docRef.id;
-                linhaAtualParaAtualizar.style.backgroundColor = '#d4edda';
-                linhaAtualParaAtualizar.cells[1].querySelector('input').value = novoProduto.descricao;
+            // Atualiza o mapa de produtos local imediatamente
+            const newProductData = { id: docRef.id, ...novoProduto };
+            productsMap[docRef.id] = newProductData;
 
-                // Célula de Ação (11ª célula, index 10)
-                const acaoCell = linhaAtualParaAtualizar.cells[10];
-                acaoCell.innerHTML = '<span class="text-success" style="color: green; font-weight: bold;">Cadastrado!</span>';
+            // Itera por TODAS as linhas da tabela para atualizar qualquer uma que corresponda ao novo produto
+            const todasAsLinhas = document.querySelectorAll('#xml-products-table tbody tr');
+            todasAsLinhas.forEach(linha => {
+                const codigoNaLinha = linha.cells[0].querySelector('input').value;
+                if (codigoNaLinha === novoProduto.codigo) {
+                    linha.dataset.productId = docRef.id;
+                    linha.style.backgroundColor = '#d4edda'; // Verde para sucesso
+                    linha.cells[1].querySelector('input').value = novoProduto.descricao;
 
-                // Célula de Local (9ª célula, index 8) e Locação (10ª célula, index 9)
-                const localCell = linhaAtualParaAtualizar.cells[8];
-                const locacaoCell = linhaAtualParaAtualizar.cells[9];
+                    // Habilita e popula os selects de local/locação
+                    const localSelect = linha.cells[8].querySelector('select');
+                    const locacaoSelect = linha.cells[9].querySelector('select');
+                    localSelect.disabled = false;
+                    locacaoSelect.disabled = false;
 
-                // Atualiza o dropdown de Local
-                const newLocalSelect = document.createElement('select');
-                newLocalSelect.className = 'form-control xml-local-select';
-                newLocalSelect.required = true;
-                let localOptionsHtml = '<option value="">Local...</option>';
-                const locaisUnicos = [...new Set(novoProduto.locacoes.map(l => l.localId))];
-                locaisUnicos.forEach(localId => {
-                    const localNome = configData.locais[localId]?.nome || 'Desconhecido';
-                    localOptionsHtml += `<option value="${localId}">${localNome}</option>`;
-                });
-                newLocalSelect.innerHTML = localOptionsHtml;
-                localCell.innerHTML = '';
-                localCell.appendChild(newLocalSelect);
-
-                // Atualiza o dropdown de Locação
-                const newLocacaoSelect = document.createElement('select');
-                newLocacaoSelect.className = 'form-control xml-locacao-select';
-                newLocacaoSelect.required = true;
-
-                let optionsHtml = '<option value="">Locação...</option>';
-                if (novoProduto.locacoes && novoProduto.locacoes.length > 0) {
-                    novoProduto.locacoes.forEach(loc => {
-                        optionsHtml += `<option value="${loc.locacao}">${loc.locacao}</option>`;
+                    // Popula o dropdown de Local
+                    let localOptionsHtml = '<option value="">Local...</option>';
+                    const locaisUnicos = [...new Set(novoProduto.locacoes.map(l => l.localId))];
+                    locaisUnicos.forEach(localId => {
+                        const localNome = configData.locais[localId]?.nome || 'Desconhecido';
+                        localOptionsHtml += `<option value="${localId}">${localNome}</option>`;
                     });
-                } else {
-                    optionsHtml = '<option value="">Nenhuma</option>';
-                    newLocacaoSelect.disabled = true;
+                    localSelect.innerHTML = localOptionsHtml;
+
+                    // Popula o dropdown de Locação
+                    let locacaoOptionsHtml = '<option value="">Locação...</option>';
+                     if (novoProduto.locacoes && novoProduto.locacoes.length > 0) {
+                        novoProduto.locacoes.forEach(loc => {
+                            locacaoOptionsHtml += `<option value="${loc.locacao}">${loc.locacao}</option>`;
+                        });
+                    }
+                    locacaoSelect.innerHTML = locacaoOptionsHtml;
+
+                    // Pré-seleciona a primeira opção se houver
+                    if (localSelect.options.length > 1) {
+                         localSelect.selectedIndex = 1;
+                         localSelect.dispatchEvent(new Event('change'));
+                    }
+                     if (locacaoSelect.options.length > 1) {
+                         locacaoSelect.selectedIndex = 1;
+                    }
+
+                    // Atualiza a célula de ação
+                    linha.cells[10].innerHTML = '<span class="text-success" style="font-weight: bold;">Cadastrado!</span>';
                 }
-                newLocacaoSelect.innerHTML = optionsHtml;
+            });
 
-                locacaoCell.innerHTML = ''; // Limpa a célula
-                locacaoCell.appendChild(newLocacaoSelect); // Adiciona o novo select
-            }
-
-            productsMap[docRef.id] = { id: docRef.id, ...novoProduto };
             formNovoProdutoModal.reset();
             cadastroProdutoModal.style.display = 'none';
         } catch (error) {
@@ -1664,7 +1766,128 @@ document.addEventListener('DOMContentLoaded', async function() {
         document.getElementById('movement-wrapper').style.display = 'block';
         loadingOverlay.style.display = 'none'; // Esconde o loader
     });
+
+    // --- Lógica para Exclusão de Movimentações ---
+    const btnExcluirSelecionados = document.getElementById('btn-excluir-selecionados');
+    const chkSelecionarTodos = document.getElementById('selecionar-todos');
+
+    function atualizarEstadoExclusao() {
+        const selecionados = document.querySelectorAll('.mov-checkbox:checked').length;
+        btnExcluirSelecionados.disabled = selecionados === 0;
+    }
+
+    chkSelecionarTodos.addEventListener('change', () => {
+        document.querySelectorAll('.mov-checkbox').forEach(chk => {
+            chk.checked = chkSelecionarTodos.checked;
+        });
+        atualizarEstadoExclusao();
+    });
+
+    tableBody.addEventListener('change', (e) => {
+        if (e.target.classList.contains('mov-checkbox')) {
+            atualizarEstadoExclusao();
+            if (!e.target.checked) {
+                chkSelecionarTodos.checked = false;
+            }
+        }
+    });
+
+    btnExcluirSelecionados.addEventListener('click', async () => {
+        const selecionados = document.querySelectorAll('.mov-checkbox:checked');
+        if (selecionados.length === 0) return;
+
+        if (confirm(`Tem certeza de que deseja excluir ${selecionados.length} movimentação(ões)? Esta ação recalculará o estoque e os custos dos produtos afetados.`)) {
+            const loader = document.getElementById('loading-overlay');
+            loader.style.display = 'flex';
+
+            const movimentacoesParaExcluir = Array.from(selecionados).map(chk => chk.dataset.id);
+            const produtosAfetados = new Set(Array.from(selecionados).map(chk => chk.dataset.productId));
+            const { deleteDoc } = await import("https://www.gstatic.com/firebasejs/9.6.1/firebase-firestore.js");
+
+            try {
+                const promisesExclusao = movimentacoesParaExcluir.map(id => deleteDoc(doc(db, 'movimentacoes', id)));
+                await Promise.all(promisesExclusao);
+
+                const promisesRecalculo = Array.from(produtosAfetados).map(id => recalcularEstoqueEValoresProduto(id));
+                await Promise.all(promisesRecalculo);
+
+                alert('Movimentações excluídas e recálculo concluído com sucesso!');
+                chkSelecionarTodos.checked = false;
+
+            } catch (error) {
+                console.error("Erro durante a exclusão e recálculo:", error);
+                alert(`Ocorreu um erro: ${error.message}`);
+            } finally {
+                loader.style.display = 'none';
+                atualizarEstadoExclusao(); // Garante que o botão seja desabilitado
+            }
+        }
+    });
 });
+
+async function recalcularEstoqueEValoresProduto(produtoId) {
+    if (!produtoId) return;
+    console.log(`Iniciando recálculo para: ${produtoId}`);
+    const productRef = doc(db, 'produtos', produtoId);
+
+    const movQuery = query(collection(db, 'movimentacoes'), where("productId", "==", produtoId), orderBy("data"));
+    const [productDoc, movementsSnapshot] = await Promise.all([getDoc(productRef), getDocs(movQuery)]);
+
+    if (!productDoc.exists()) {
+        console.error(`Produto ${produtoId} não encontrado.`);
+        return;
+    }
+
+    const productData = productDoc.data();
+    const productMovements = movementsSnapshot.docs.map(doc => doc.data());
+
+    // Recalcular Custo Médio
+    let totalQuantity = 0;
+    let totalCost = 0;
+    productMovements.forEach(mov => {
+        if (mov.tipo === 'entrada' && mov.custo_total_entrada) {
+            totalCost += mov.custo_total_entrada;
+            totalQuantity += mov.quantidade;
+        } else if (mov.tipo === 'saida') {
+            const currentAvgCost = totalQuantity > 0 ? totalCost / totalQuantity : 0;
+            totalCost -= mov.quantidade * currentAvgCost;
+            totalQuantity -= mov.quantidade;
+        }
+    });
+    const novoCustoMedio = totalQuantity > 0 ? totalCost / totalQuantity : 0;
+
+    // Recalcular Estoque por Locação e Geral
+    const locacoesAtualizadas = productData.locacoes ? JSON.parse(JSON.stringify(productData.locacoes)) : [];
+    locacoesAtualizadas.forEach(loc => loc.estoque = 0);
+    let estoqueGeral = 0;
+
+    productMovements.forEach(mov => {
+        const quantidade = mov.quantidade || 0;
+        if (mov.tipo === 'entrada') {
+            if (mov.locacao) {
+                const locIndex = locacoesAtualizadas.findIndex(l => l.locacao === mov.locacao);
+                if (locIndex !== -1) locacoesAtualizadas[locIndex].estoque = (locacoesAtualizadas[locIndex].estoque || 0) + quantidade;
+            } else {
+                estoqueGeral += quantidade;
+            }
+        } else if (mov.tipo === 'saida') {
+            if (mov.locacao) {
+                const locIndex = locacoesAtualizadas.findIndex(l => l.locacao === mov.locacao);
+                if (locIndex !== -1) locacoesAtualizadas[locIndex].estoque = (locacoesAtualizadas[locIndex].estoque || 0) - quantidade;
+            } else {
+                estoqueGeral -= quantidade;
+            }
+        }
+    });
+
+    await setDoc(productRef, {
+        valorMedio: novoCustoMedio,
+        locacoes: locacoesAtualizadas,
+        estoque: estoqueGeral
+    }, { merge: true });
+
+    console.log(`Recálculo para ${produtoId} concluído.`);
+}
 
 // Substitua a função inteira em js/movimentacoes.js por esta versão CORRIGIDA:
 async function atualizarCustoMedioProduto(produtoId) {

@@ -253,7 +253,10 @@
 
             <div class="card">
                 <div class="card-header" style="display: flex; justify-content: space-between; align-items: center;">
-                    <h3>Histórico de Movimentações</h3>
+                    <div style="display: flex; align-items: center; gap: 15px;">
+                        <h3>Histórico de Movimentações</h3>
+                        <button id="btn-excluir-selecionados" class="btn btn-danger" disabled>Excluir Selecionados</button>
+                    </div>
                     <div id="total-custo-container" style="font-weight: bold; font-size: 1.1em;">
                         Total: <span id="total-custo-valor">R$ 0,00</span>
                     </div>
@@ -263,6 +266,7 @@
                         <table id="table-movimentacoes" class="table">
                             <thead>
                                 <tr id="headers-row">
+                                    <th style="width: 30px;"><input type="checkbox" id="selecionar-todos"></th>
                                     <th data-column="data">Data</th>
                                     <th data-column="tipo">Tipo</th>
                                     <th data-column="subTipo">Sub-Tipo</th>
@@ -412,5 +416,37 @@
     <script type="module" src="js/movimentacoes.js"></script>
     <script type="module" src="js/global-search.js"></script>
     <script> feather.replace() </script>
+
+    <!-- Modal para Correção de Quantidades Fracionadas -->
+    <div id="correcao-fracionada-modal" class="modal" style="display: none;">
+        <div class="modal-content" style="max-width: 800px;">
+            <div class="modal-header">
+                <h3>Corrigir Quantidades de Importação</h3>
+                <span class="close-btn" id="correcao-modal-close">&times;</span>
+            </div>
+            <div class="modal-body">
+                <p>Alguns itens resultaram em quantidades fracionadas após a conversão. Por favor, ajuste os valores abaixo ou remova os itens da importação.</p>
+                <div class="table-wrapper">
+                    <table class="table">
+                        <thead>
+                            <tr>
+                                <th>Código</th>
+                                <th>Descrição</th>
+                                <th>Qtd. Calculada</th>
+                                <th>Nova Qtd. (Inteiro)</th>
+                                <th>Ação</th>
+                            </tr>
+                        </thead>
+                        <tbody id="correcao-fracionada-table-body">
+                            <!-- Linhas serão adicionadas dinamicamente -->
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+            <div class="modal-footer">
+                <button id="btn-confirmar-correcoes" class="btn btn-success">Importar Itens Corrigidos</button>
+            </div>
+        </div>
+    </div>
 </body>
 </html>
