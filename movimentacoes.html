@@ -254,8 +254,11 @@
             <div class="card">
                 <div class="card-header" style="display: flex; justify-content: space-between; align-items: center;">
                     <h3>Histórico de Movimentações</h3>
-                    <div id="total-custo-container" style="font-weight: bold; font-size: 1.1em;">
-                        Total: <span id="total-custo-valor">R$ 0,00</span>
+                    <div style="display: flex; align-items: center; gap: 20px;">
+                        <div id="total-custo-container" style="font-weight: bold; font-size: 1.1em;">
+                            Total: <span id="total-custo-valor">R$ 0,00</span>
+                        </div>
+                        <button id="btn-delete-selected" class="btn btn-danger" style="display: none;">Excluir Selecionados</button>
                     </div>
                 </div>
                 <div class="card-body">
@@ -263,6 +266,7 @@
                         <table id="table-movimentacoes" class="table">
                             <thead>
                                 <tr id="headers-row">
+                                    <th><input type="checkbox" id="select-all-checkbox"></th>
                                     <th data-column="data">Data</th>
                                     <th data-column="tipo">Tipo</th>
                                     <th data-column="subTipo">Sub-Tipo</th>

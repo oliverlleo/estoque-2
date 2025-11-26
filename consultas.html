@@ -64,7 +64,10 @@
         </header>
         <section class="content">
             <div class="card">
-                <div class="card-header"><h3>Consulta de Estoque e Valores</h3></div>
+                <div class="card-header" style="display: flex; justify-content: space-between; align-items: center;">
+                    <h3>Consulta de Estoque e Valores</h3>
+                    <button id="btn-recalculate-stock" class="btn btn-warning">Recalcular Estoque Global</button>
+                </div>
                 <div class="card-body">
                     <div class="filters-container" style="display: flex; gap: 10px; margin-bottom: 20px;">
                         <input type="text" id="filter-codigo" class="form-control" placeholder="Filtrar por Código...">
