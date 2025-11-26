@@ -94,13 +94,22 @@ document.addEventListener('DOMContentLoaded', async function() {
             };
         });
 
-        // 4. Renderiza a tabela.
+        // 4. Renderiza a tabela e calcula o total geral.
         renderTable(consolidatedData);
+        calculateAndDisplayGlobalTotal(consolidatedData);
+    }
+
+    function calculateAndDisplayGlobalTotal(data) {
+        const totalValorEstoqueGeral = data.reduce((acc, item) => acc + (item.valorTotalEstoque || 0), 0);
+        document.getElementById('total-valor-estoque-geral').textContent = totalValorEstoqueGeral.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' });
     }
 
     function renderTable(data) {
         tableBody.innerHTML = '';
+        let totalCustoFiltrado = 0;
+
         data.forEach(item => {
+            totalCustoFiltrado += item.valorTotalEstoque || 0;
             const row = document.createElement('tr');
             row.className = 'main-row';
             row.innerHTML = `
@@ -116,6 +125,7 @@ document.addEventListener('DOMContentLoaded', async function() {
             `;
             tableBody.appendChild(row);
         });
+        document.getElementById('total-custo-estoque').textContent = totalCustoFiltrado.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' });
         feather.replace();
     }
 
