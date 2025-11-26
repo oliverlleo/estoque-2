@@ -1482,14 +1482,22 @@ document.addEventListener('DOMContentLoaded', async function() {
         const localId = document.getElementById('modal-produto-local').value;
         const locacoes = [];
 
-        // Apenas adiciona a locação se ambos os campos estiverem preenchidos
-        if (locacao && localId) {
+        if (localId && locacao) {
+            // Se ambos estão preenchidos, cria a locação completa
             locacoes.push({
                 locacao: locacao,
                 localId: localId,
-                estoque: 0 // Estoque inicial para uma nova locação é sempre 0
+                estoque: 0
             });
-        } else if (locacao && !localId) {
+        } else if (localId && !locacao) {
+            // Se apenas o Local está preenchido, cria uma locação "parcial" para salvar o localId
+            locacoes.push({
+                locacao: '', // Locação vazia
+                localId: localId,
+                estoque: 0
+            });
+        } else if (!localId && locacao) {
+            // Se a locação está preenchida mas o local não, impede o salvamento
             alert("Ao preencher a Locação, o Local também deve ser selecionado.");
             return;
         }
@@ -1517,52 +1525,54 @@ document.addEventListener('DOMContentLoaded', async function() {
 
             alert('Produto cadastrado com sucesso!');
 
-            if (linhaAtualParaAtualizar) {
-                linhaAtualParaAtualizar.dataset.productId = docRef.id;
-                linhaAtualParaAtualizar.style.backgroundColor = '#d4edda';
-                linhaAtualParaAtualizar.cells[1].querySelector('input').value = novoProduto.descricao;
+            // Itera sobre todas as linhas da tabela para atualizar produtos correspondentes
+            const todasAsLinhas = xmlProductsTableBody.querySelectorAll('tr');
+            todasAsLinhas.forEach(linha => {
+                const codigoNaLinha = linha.cells[0].querySelector('input').value;
 
-                // Célula de Ação (11ª célula, index 10)
-                const acaoCell = linhaAtualParaAtualizar.cells[10];
-                acaoCell.innerHTML = '<span class="text-success" style="color: green; font-weight: bold;">Cadastrado!</span>';
+                if (codigoNaLinha === novoProduto.codigo) {
+                    linha.dataset.productId = docRef.id;
+                    linha.style.backgroundColor = '#d4edda';
+                    linha.cells[1].querySelector('input').value = novoProduto.descricao;
 
-                // Célula de Local (9ª célula, index 8) e Locação (10ª célula, index 9)
-                const localCell = linhaAtualParaAtualizar.cells[8];
-                const locacaoCell = linhaAtualParaAtualizar.cells[9];
+                    const acaoCell = linha.cells[10];
+                    acaoCell.innerHTML = '<span class="text-success" style="color: green; font-weight: bold;">Cadastrado!</span>';
 
-                // Atualiza o dropdown de Local
-                const newLocalSelect = document.createElement('select');
-                newLocalSelect.className = 'form-control xml-local-select';
-                newLocalSelect.required = true;
-                let localOptionsHtml = '<option value="">Local...</option>';
-                const locaisUnicos = [...new Set(novoProduto.locacoes.map(l => l.localId))];
-                locaisUnicos.forEach(localId => {
-                    const localNome = configData.locais[localId]?.nome || 'Desconhecido';
-                    localOptionsHtml += `<option value="${localId}">${localNome}</option>`;
-                });
-                newLocalSelect.innerHTML = localOptionsHtml;
-                localCell.innerHTML = '';
-                localCell.appendChild(newLocalSelect);
+                    const localCell = linha.cells[8];
+                    const locacaoCell = linha.cells[9];
 
-                // Atualiza o dropdown de Locação
-                const newLocacaoSelect = document.createElement('select');
-                newLocacaoSelect.className = 'form-control xml-locacao-select';
-                newLocacaoSelect.required = true;
-
-                let optionsHtml = '<option value="">Locação...</option>';
-                if (novoProduto.locacoes && novoProduto.locacoes.length > 0) {
-                    novoProduto.locacoes.forEach(loc => {
-                        optionsHtml += `<option value="${loc.locacao}">${loc.locacao}</option>`;
+                    // Habilita e popula o dropdown de Local
+                    const localSelect = localCell.querySelector('select');
+                    localSelect.disabled = false;
+                    let localOptionsHtml = '<option value="">Local...</option>';
+                    const locaisUnicos = [...new Set(novoProduto.locacoes.map(l => l.localId))];
+                    locaisUnicos.forEach(localId => {
+                        const localNome = configData.locais[localId]?.nome || 'Desconhecido';
+                        const estaSelecionado = localId === lastUsedValues.localId ? 'selected' : '';
+                        localOptionsHtml += `<option value="${localId}" ${estaSelecionado}>${localNome}</option>`;
                     });
-                } else {
-                    optionsHtml = '<option value="">Nenhuma</option>';
-                    newLocacaoSelect.disabled = true;
-                }
-                newLocacaoSelect.innerHTML = optionsHtml;
+                    localSelect.innerHTML = localOptionsHtml;
 
-                locacaoCell.innerHTML = ''; // Limpa a célula
-                locacaoCell.appendChild(newLocacaoSelect); // Adiciona o novo select
-            }
+                    // Habilita e popula o dropdown de Locação
+                    const locacaoSelect = locacaoCell.querySelector('select');
+                    locacaoSelect.disabled = false;
+                    let locacaoOptionsHtml = '<option value="">Locação...</option>';
+                    if (novoProduto.locacoes && novoProduto.locacoes.length > 0) {
+                        const locacoesDoLocal = novoProduto.locacoes.filter(l => l.localId === lastUsedValues.localId);
+                        locacoesDoLocal.forEach(loc => {
+                             if (loc.locacao) { // Apenas adiciona se a locação não for vazia
+                                locacaoOptionsHtml += `<option value="${loc.locacao}">${loc.locacao}</option>`;
+                            }
+                        });
+                    }
+                    locacaoSelect.innerHTML = locacaoOptionsHtml;
+
+                     // Dispara o evento de change para pré-selecionar a locação, se aplicável
+                    if (localSelect.value) {
+                       localSelect.dispatchEvent(new Event('change', { bubbles: true }));
+                    }
+                }
+            });
 
             productsMap[docRef.id] = { id: docRef.id, ...novoProduto };
             formNovoProdutoModal.reset();
