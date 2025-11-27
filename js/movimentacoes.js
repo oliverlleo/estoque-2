@@ -128,8 +128,12 @@ document.addEventListener('DOMContentLoaded', async function() {
     const locacaoSelect = document.getElementById('mov-locacao');
 
     function updateLocacaoRequirement() {
-        // A locação nunca deve ser obrigatória na entrada
-        locacaoSelect.required = false;
+        const localValue = localSelect.value;
+        if (localValue) {
+            locacaoSelect.required = false;
+        } else {
+            locacaoSelect.required = false;
+        }
     }
 
     function populateLocacoes(product, selectedLocalId) {
@@ -573,6 +577,7 @@ document.addEventListener('DOMContentLoaded', async function() {
                 alert('Por favor, preencha o produto e a quantidade corretamente.');
                 return;
             }
+            const localSelecionado = document.getElementById('mov-local').value;
         } else { // Saída ou Transferência
              if (!productId || !locacaoSelecionada || isNaN(quantidade) || quantidade <= 0) {
                 alert('Para saídas, o produto, a locação e a quantidade são obrigatórios.');
@@ -1206,6 +1211,15 @@ document.addEventListener('DOMContentLoaded', async function() {
             return alert("Não há produtos para importar.");
         }
 
+        // Validação prévia
+        for (const row of rows) {
+            const productId = row.dataset.productId;
+            if (!productId) continue; // Pula não cadastrados
+
+            const localSelect = row.cells[8].querySelector('select');
+            const locacaoSelect = row.cells[9].querySelector('select');
+            const codigoProduto = row.cells[0].querySelector('input').value;
+        }
 
 
         if (confirm(`Confirmar a entrada de ${rows.length} item(ns) da NF-e ${nf}?`)) {
@@ -1482,17 +1496,9 @@ document.addEventListener('DOMContentLoaded', async function() {
         const localId = document.getElementById('modal-produto-local').value;
         const locacoes = [];
 
-        if (localId && locacao) {
-            // Se ambos estão preenchidos, cria a locação completa
+        if (localId) {
             locacoes.push({
-                locacao: locacao,
-                localId: localId,
-                estoque: 0
-            });
-        } else if (localId && !locacao) {
-            // Se apenas o Local está preenchido, cria uma locação "parcial" para salvar o localId
-            locacoes.push({
-                locacao: '', // Locação vazia
+                locacao: locacao, // Se locacao estiver vazio, será salvo como ''
                 localId: localId,
                 estoque: 0
             });
