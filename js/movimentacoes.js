@@ -1767,7 +1767,7 @@ document.addEventListener('DOMContentLoaded', async function() {
         // console.log('Products map updated in real-time.', Object.keys(productsMap).length, 'products loaded.');
     });
 
-    onSnapshot(query(collection(db, 'movimentacoes'), orderBy('data', 'desc')), (snapshot) => {
+    onSnapshot(query(collection(db, 'movimentacoes')), (snapshot) => {
         allMovements = snapshot.docs.map(doc => {
             const data = doc.data();
             return { id: doc.id, ...data };
