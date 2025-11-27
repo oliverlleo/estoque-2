@@ -1,0 +1,1 @@
+Firebase inicializado. Certifique-se de que suas credenciais em firebase-config.js estão corretas.\nSistema de Controle de Estoque iniciado.\n
