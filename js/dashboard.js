@@ -186,24 +186,27 @@ document.addEventListener('DOMContentLoaded', () => {
         });
     }
 
-    async function renderActivityFeed(productsMap, obrasMap, obraId) {
+    function renderActivityFeed(movements, productsMap, obrasMap, obraId) {
         const feedContainer = document.getElementById('feed-atividades-container');
         if (!feedContainer) return;
 
-        let q;
-        if (obraId === 'todos') {
-            q = query(collection(db, 'movimentacoes'), orderBy('data', 'desc'), limit(10));
-        } else {
-            q = query(collection(db, 'movimentacoes'), where('obraId', '==', obraId), orderBy('data', 'desc'), limit(10));
-        }
+        // Filtra e ordena as movimentações localmente em vez de consultar o DB
+        const filteredMovements = (obraId === 'todos')
+            ? movements
+            : movements.filter(mov => mov.obraId === obraId);
 
-        const snapshot = await getDocs(q);
+        // Ordena por data (mais recente primeiro) e pega os top 10
+        const sortedMovements = filteredMovements.sort((a, b) => {
+            const dateA = a.data ? a.data.toDate() : new Date(0);
+            const dateB = b.data ? b.data.toDate() : new Date(0);
+            return dateB - dateA;
+        }).slice(0, 10);
+
         let html = '';
-        if (snapshot.empty) {
+        if (sortedMovements.length === 0) {
             html = '<div class="feed-item-empty">Nenhuma atividade encontrada para esta seleção.</div>';
         } else {
-            snapshot.forEach(doc => {
-                const mov = doc.data();
+            sortedMovements.forEach(mov => {
                 const product = productsMap[mov.productId] || { descricao: 'Produto desconhecido' };
                 const obra = obrasMap[mov.obraId] || { nome: 'Destino desconhecido' };
                 const date = mov.data ? mov.data.toDate().toLocaleDateString('pt-BR') : '';
@@ -260,7 +263,7 @@ document.addEventListener('DOMContentLoaded', () => {
         renderValorPorGrupoChart(allProducts, allMovements, allGroups, obraId);
         renderTopObrasChart(allProducts, allMovements, allObrasMap, obraId);
         renderEntradasSaidasChart(allMovements, obraId);
-        renderActivityFeed(allProductsMap, allObrasMap, obraId);
+        renderActivityFeed(allMovements, allProductsMap, allObrasMap, obraId);
         renderAlertasEstoque(allProducts); // Não é afetado pelo filtro
         feather.replace();
     }
