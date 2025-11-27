@@ -146,6 +146,11 @@ body {
 .btn-danger {
     background-color: #dc3545;
 }
+
+.btn-warning {
+    background-color: #f0ad4e; /* A standard orange/yellow color for warnings */
+    color: #fff;
+}
 /* Legacy styles from previous implementation might need to be adapted or replaced */
 /* For example, table styles can be generalized */
 .table {
