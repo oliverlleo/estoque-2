@@ -1,5 +1,5 @@
 import { db } from './firebase-config.js';
-import { collection, getDocs, query, where, orderBy, limit, Timestamp } from "https://www.gstatic.com/firebasejs/9.6.1/firebase-firestore.js";
+import { collection, getDocs, query, where, orderBy, limit, Timestamp, collectionGroup } from "https://www.gstatic.com/firebasejs/9.6.1/firebase-firestore.js";
 
 document.addEventListener('DOMContentLoaded', () => {
     // --- Armazenamento de Dados e Estado ---
@@ -24,10 +24,10 @@ document.addEventListener('DOMContentLoaded', () => {
     };
 
     // --- Lógica de Cálculo de KPIs ---
-    const calcularValorTotalEstoque = (products) => products.reduce((total, p) => {
-        const estoqueTotal = (p.locacoes || []).reduce((sum, loc) => sum + (loc.estoque || 0), 0);
-        return total + (estoqueTotal * (p.valorMedio || 0));
-    }, 0);
+    const calcularValorTotalEstoque = (products) => {
+        // A lógica de cálculo agora é apenas somar os valores já pré-calculados
+        return products.reduce((total, p) => total + (p.valorTotalEstoque || 0), 0);
+    };
 
     const calcularItensAbaixoMinimo = (products) => {
         return 0; // Lógica pendente
@@ -186,24 +186,27 @@ document.addEventListener('DOMContentLoaded', () => {
         });
     }
 
-    async function renderActivityFeed(productsMap, obrasMap, obraId) {
+    function renderActivityFeed(movements, productsMap, obrasMap, obraId) {
         const feedContainer = document.getElementById('feed-atividades-container');
         if (!feedContainer) return;
 
-        let q;
-        if (obraId === 'todos') {
-            q = query(collection(db, 'movimentacoes'), orderBy('data', 'desc'), limit(10));
-        } else {
-            q = query(collection(db, 'movimentacoes'), where('obraId', '==', obraId), orderBy('data', 'desc'), limit(10));
-        }
+        // Filtra e ordena as movimentações localmente em vez de consultar o DB
+        const filteredMovements = (obraId === 'todos')
+            ? movements
+            : movements.filter(mov => mov.obraId === obraId);
 
-        const snapshot = await getDocs(q);
+        // Ordena por data (mais recente primeiro) e pega os top 10
+        const sortedMovements = filteredMovements.sort((a, b) => {
+            const dateA = a.data ? a.data.toDate() : new Date(0);
+            const dateB = b.data ? b.data.toDate() : new Date(0);
+            return dateB - dateA;
+        }).slice(0, 10);
+
         let html = '';
-        if (snapshot.empty) {
+        if (sortedMovements.length === 0) {
             html = '<div class="feed-item-empty">Nenhuma atividade encontrada para esta seleção.</div>';
         } else {
-            snapshot.forEach(doc => {
-                const mov = doc.data();
+            sortedMovements.forEach(mov => {
                 const product = productsMap[mov.productId] || { descricao: 'Produto desconhecido' };
                 const obra = obrasMap[mov.obraId] || { nome: 'Destino desconhecido' };
                 const date = mov.data ? mov.data.toDate().toLocaleDateString('pt-BR') : '';
@@ -260,12 +263,15 @@ document.addEventListener('DOMContentLoaded', () => {
         renderValorPorGrupoChart(allProducts, allMovements, allGroups, obraId);
         renderTopObrasChart(allProducts, allMovements, allObrasMap, obraId);
         renderEntradasSaidasChart(allMovements, obraId);
-        renderActivityFeed(allProductsMap, allObrasMap, obraId);
+        renderActivityFeed(allMovements, allProductsMap, allObrasMap, obraId);
         renderAlertasEstoque(allProducts); // Não é afetado pelo filtro
         feather.replace();
     }
 
     async function loadDashboard() {
+        // NOTE: This function fetches all products, movements, and locations to perform
+        // calculations client-side. This ensures data accuracy but may be slow on
+        // very large datasets. A future optimization could involve server-side aggregation.
         try {
             kpiValorTotalEl.textContent = 'Carregando...';
             const [productsSnap, movementsSnap, groupsSnap, obrasSnap] = await Promise.all([
@@ -275,9 +281,74 @@ document.addEventListener('DOMContentLoaded', () => {
                 getDocs(collection(db, 'obras'))
             ]);
 
-            allProducts = productsSnap.docs.map(doc => ({ id: doc.id, ...doc.data() }));
+            // 1. Processa movimentações para fácil acesso
+            const movementsByProduct = {};
+            movementsSnap.forEach(doc => {
+                const mov = doc.data();
+                if (!movementsByProduct[mov.productId]) {
+                    movementsByProduct[mov.productId] = [];
+                }
+                movementsByProduct[mov.productId].push(mov);
+            });
+
+            // 2. Busca todas as locações de uma vez para evitar N+1 queries
+            const locacoesGroupSnap = await getDocs(collectionGroup(db, 'locacoes'));
+            const locacoesByProduct = {};
+            locacoesGroupSnap.forEach(doc => {
+                const locacaoData = doc.data();
+                const productRef = doc.ref.parent.parent; // O path é .../produtos/{productId}/locacoes/{locacaoId}
+                if (productRef) {
+                    const productId = productRef.id;
+                    if (!locacoesByProduct[productId]) {
+                        locacoesByProduct[productId] = [];
+                    }
+                    locacoesByProduct[productId].push(locacaoData);
+                }
+            });
+
+            // 3. Processa produtos, atribui locações e recalcula tudo
+            const productPromises = productsSnap.docs.map(async (productDoc) => {
+                const product = { id: productDoc.id, ...productDoc.data() };
+                const productId = product.id;
+
+                // Atribui as locações pré-buscadas
+                product.locacoes = locacoesByProduct[productId] || [];
+
+                // CORREÇÃO FINAL: A fonte de verdade do estoque está apenas nas locações.
+                const estoqueAtual = product.locacoes.reduce((acc, loc) => acc + (loc.estoque || 0), 0);
+
+                // Recalcula o custo médio a partir do histórico de movimentações
+                const productMovements = movementsByProduct[productId] || [];
+                productMovements.sort((a, b) => (a.data?.toMillis() || 0) - (b.data?.toMillis() || 0));
+
+                let totalQuantity = 0;
+                let totalCost = 0;
+                productMovements.forEach(mov => {
+                    if (mov.tipo === 'entrada' && mov.custo_total_entrada) {
+                        totalCost += mov.custo_total_entrada;
+                        totalQuantity += mov.quantidade;
+                    } else if (mov.tipo === 'saida') {
+                        const currentAvgCost = totalQuantity > 0 ? totalCost / totalQuantity : 0;
+                        totalCost -= mov.quantidade * currentAvgCost;
+                        totalQuantity -= mov.quantidade;
+                    }
+                });
+
+                const valorMedio = totalQuantity > 0 ? totalCost / totalQuantity : 0;
+
+                // Atribui os valores recalculados ao objeto do produto
+                product.valorMedio = valorMedio;
+                product.estoque = estoqueAtual; // Usado em outros cálculos
+                product.valorTotalEstoque = estoqueAtual * valorMedio;
+
+                return product;
+            });
+
+            allProducts = await Promise.all(productPromises);
             allMovements = movementsSnap.docs.map(doc => ({ id: doc.id, ...doc.data() }));
-            allProductsMap = Object.fromEntries(productsSnap.docs.map(doc => [doc.id, doc.data()]));
+
+            // Recria o allProductsMap com os dados atualizados e recalculados
+            allProductsMap = Object.fromEntries(allProducts.map(p => [p.id, p]));
             allGroups = Object.fromEntries(groupsSnap.docs.map(doc => [doc.id, doc.data()]));
             allObrasMap = Object.fromEntries(obrasSnap.docs.map(doc => [doc.id, doc.data()]));
             allObrasList = obrasSnap.docs.map(doc => ({ id: doc.id, ...doc.data() }));
