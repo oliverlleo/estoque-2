@@ -577,10 +577,24 @@ document.addEventListener('DOMContentLoaded', async function() {
                 alert('Por favor, preencha o produto e a quantidade corretamente.');
                 return;
             }
-            const localSelecionado = document.getElementById('mov-local').value;
-        } else { // Saída ou Transferência
-             if (!productId || !locacaoSelecionada || isNaN(quantidade) || quantidade <= 0) {
-                alert('Para saídas, o produto, a locação e a quantidade são obrigatórios.');
+        } else { // Saída
+            const product = productsMap[productId];
+            if (!product) {
+                alert('Por favor, selecione um produto válido.');
+                return;
+            }
+
+            // Verifica se existem locações REAIS (com nome) cadastradas para o produto.
+            const hasRealLocacoes = product.locacoes && product.locacoes.some(l => l.locacao);
+
+            if (isNaN(quantidade) || quantidade <= 0) {
+                alert('Para saídas, a quantidade é obrigatória.');
+                return;
+            }
+
+            // A locação só é obrigatória se o produto tiver locações cadastradas.
+            if (hasRealLocacoes && !locacaoSelecionada) {
+                alert('Para produtos com locação, a locação é obrigatória para saídas.');
                 return;
             }
         }
