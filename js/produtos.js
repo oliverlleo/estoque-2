@@ -89,6 +89,7 @@ document.addEventListener('DOMContentLoaded', async function() {
     });
 
     let productsData = [];
+    let sortState = { column: 'codigo', direction: 'asc' };
     const configData = {};
 
     // 1. Fetch all configuration data for dropdowns and mapping
@@ -577,6 +578,41 @@ document.addEventListener('DOMContentLoaded', async function() {
     });
 
     const renderTable = (data) => {
+        const headers = document.querySelectorAll('#product-table-headers .sortable');
+        headers.forEach(header => {
+            header.classList.remove('sort-asc', 'sort-desc');
+            if (header.dataset.column === sortState.column) {
+                header.classList.add(sortState.direction === 'asc' ? 'sort-asc' : 'sort-desc');
+            }
+        });
+
+        data.sort((a, b) => {
+            let valA = a.data[sortState.column] || '';
+            let valB = b.data[sortState.column] || '';
+
+            // Handle special cases for linked data
+            if (sortState.column === 'fornecedorId') {
+                valA = configData.fornecedores[valA]?.nome || '';
+                valB = configData.fornecedores[valB]?.nome || '';
+            } else if (sortState.column === 'grupoId') {
+                valA = configData.grupos[valA]?.nome || '';
+                valB = configData.grupos[valB]?.nome || '';
+            } else if (sortState.column === 'conversaoId') {
+                valA = configData.conversoes[valA]?.nome_regra || '';
+                valB = configData.conversoes[valB]?.nome_regra || '';
+            } else if (sortState.column === 'aplicacaoIds') {
+                valA = (a.data.aplicacaoIds || []).map(id => configData.aplicacoes[id]?.nome || '').join(', ');
+                valB = (b.data.aplicacaoIds || []).map(id => configData.aplicacoes[id]?.nome || '').join(', ');
+            } else if (sortState.column === 'local' || sortState.column === 'locacao') {
+                valA = a.data.locacoes && a.data.locacoes.length > 0 ? (sortState.column === 'local' ? configData.locais[a.data.locacoes[0].localId]?.nome : a.data.locacoes[0].locacao) || '' : '';
+                valB = b.data.locacoes && b.data.locacoes.length > 0 ? (sortState.column === 'local' ? configData.locais[b.data.locacoes[0].localId]?.nome : b.data.locacoes[0].locacao) || '' : '';
+            }
+
+            if (valA < valB) return sortState.direction === 'asc' ? -1 : 1;
+            if (valA > valB) return sortState.direction === 'asc' ? 1 : -1;
+            return 0;
+        });
+
         tableBody.innerHTML = '';
         data.forEach(product => {
             const row = document.createElement('tr');
@@ -621,6 +657,19 @@ document.addEventListener('DOMContentLoaded', async function() {
         productsData = snapshot.docs.map(doc => ({ id: doc.id, data: doc.data() }));
         renderTable(productsData);
         populateSobraSelect();
+    });
+
+    document.getElementById('product-table-headers').addEventListener('click', (e) => {
+        if (e.target.classList.contains('sortable')) {
+            const column = e.target.dataset.column;
+            if (sortState.column === column) {
+                sortState.direction = sortState.direction === 'asc' ? 'desc' : 'asc';
+            } else {
+                sortState.column = column;
+                sortState.direction = 'asc';
+            }
+            renderTable(productsData);
+        }
     });
 
 

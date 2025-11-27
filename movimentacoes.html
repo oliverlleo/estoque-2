@@ -412,5 +412,37 @@
     <script type="module" src="js/movimentacoes.js"></script>
     <script type="module" src="js/global-search.js"></script>
     <script> feather.replace() </script>
+
+    <!-- Modal para Correção de Quantidades Fracionadas -->
+    <div id="correcao-fracionada-modal" class="modal" style="display: none;">
+        <div class="modal-content" style="max-width: 800px;">
+            <div class="modal-header">
+                <h3>Corrigir Quantidades de Importação</h3>
+                <span class="close-btn" id="correcao-modal-close">&times;</span>
+            </div>
+            <div class="modal-body">
+                <p>Alguns itens resultaram em quantidades fracionadas após a conversão. Por favor, ajuste os valores abaixo ou remova os itens da importação.</p>
+                <div class="table-wrapper">
+                    <table class="table">
+                        <thead>
+                            <tr>
+                                <th>Código</th>
+                                <th>Descrição</th>
+                                <th>Qtd. Calculada</th>
+                                <th>Nova Qtd. (Inteiro)</th>
+                                <th>Ação</th>
+                            </tr>
+                        </thead>
+                        <tbody id="correcao-fracionada-table-body">
+                            <!-- Linhas serão adicionadas dinamicamente -->
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+            <div class="modal-footer">
+                <button id="btn-confirmar-correcoes" class="btn btn-success">Importar Itens Corrigidos</button>
+            </div>
+        </div>
+    </div>
 </body>
 </html>
