@@ -740,27 +740,22 @@ document.addEventListener('DOMContentLoaded', async function() {
                     showInfoModal(error.message);
                 }
             } else {
-                // Lógica de Saída Normal
-                // Validação de estoque ANTES da transação
-                const productData = productsMap[productId];
-                const locacaoData = productData.locacoes.find(l => l.locacao === locacaoSelecionada);
-                if (!locacaoData || (locacaoData.estoque || 0) < quantidade) {
-                    alert(`Estoque insuficiente na locação ${locacaoSelecionada}! Disponível: ${locacaoData?.estoque || 0}`);
-                    return;
-                }
+                // Lógica de Saída Normal (CORREÇÃO FINAL COM BUSCA EM TEMPO REAL NO MOMENTO CERTO)
+                const localSelecionadoId = document.getElementById('mov-local').value;
 
                 try {
+
                     await runTransaction(db, async (transaction) => {
                         const productRef = doc(db, 'produtos', productId);
-                        const productDoc = await transaction.get(productRef);
+                        const productDoc = await transaction.get(productRef); // Busca em tempo real dentro da transação
                         if (!productDoc.exists()) throw new Error("Produto não encontrado!");
 
                         const pData = productDoc.data();
                         const locacoes = pData.locacoes || [];
-                        const locacaoIndex = locacoes.findIndex(l => l.locacao === locacaoSelecionada);
+                        const locacaoIndex = locacoes.findIndex(l => l.localId === localSelecionadoId && l.locacao === locacaoSelecionada);
 
                         if (locacaoIndex === -1) {
-                            throw new Error("Locação selecionada não encontrada no produto.");
+                            throw new Error("A combinação de Local e Locação não foi encontrada. O estoque pode ter mudado.");
                         }
 
                         // A verificação do tipo de saída já foi feita, aqui só verificamos se movimenta estoque
@@ -770,14 +765,15 @@ document.addEventListener('DOMContentLoaded', async function() {
                                throw new Error(`Estoque insuficiente na locação ${locacaoSelecionada}! Disponível: ${locacoes[locacaoIndex].estoque || 0}`);
                             }
                             locacoes[locacaoIndex].estoque -= quantidade;
-                            transaction.update(productRef, { locacoes: locacoes });
+                            transaction.update(transProductRef, { locacoes: locacoes });
                         }
 
                         const movementRef = doc(collection(db, 'movimentacoes'));
                         transaction.set(movementRef, {
                             tipo: 'saida',
                             productId,
-                            locacao: locacaoSelecionada,
+                            locacao: locacaoSelecionada, // Mantém o nome da locação para referência
+                            localId: localSelecionadoId, // Adiciona o ID do local para clareza
                             quantidade,
                             data: serverTimestamp(),
                             tipo_saidaId: tipoSaidaId,
@@ -1767,7 +1763,7 @@ document.addEventListener('DOMContentLoaded', async function() {
         // console.log('Products map updated in real-time.', Object.keys(productsMap).length, 'products loaded.');
     });
 
-    onSnapshot(query(collection(db, 'movimentacoes'), orderBy('data', 'desc')), (snapshot) => {
+    onSnapshot(query(collection(db, 'movimentacoes')), (snapshot) => {
         allMovements = snapshot.docs.map(doc => {
             const data = doc.data();
             return { id: doc.id, ...data };
