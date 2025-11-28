@@ -442,7 +442,9 @@ input:checked + .slider:before {
 /* Estilos para Célula de Tipo na Tabela de Movimentações (VERSÃO CORRIGIDA) */
 
 #table-movimentacoes td.entrada,
-#table-movimentacoes td.saida {
+#table-movimentacoes td.saida,
+#table-history-modal td.entrada,
+#table-history-modal td.saida {
     color: white;
     text-align: center;
     font-weight: 600;
@@ -450,16 +452,19 @@ input:checked + .slider:before {
     border-bottom: 2px solid #fff;
 }
 
-#table-movimentacoes td.entrada {
+#table-movimentacoes td.entrada,
+#table-history-modal td.entrada {
     background-color: #198754; /* Verde (btn-success) */
 }
 
-#table-movimentacoes td.saida {
+#table-movimentacoes td.saida,
+#table-history-modal td.saida {
     background-color: #dc3545; /* Vermelho (btn-danger) */
 }
 
 /* Estilo para Reservas Pendentes na Tabela de Movimentações */
-#table-movimentacoes td.reserva {
+#table-movimentacoes td.reserva,
+#table-history-modal td.reserva {
     background-color: #0d6efd; /* Azul informativo do Bootstrap */
     color: white;
     text-align: center;
@@ -471,15 +476,18 @@ input:checked + .slider:before {
 /* Mantém a cor da célula mesmo com o efeito hover da linha da tabela.
   Esta regra é mais específica e por isso prevalece sobre a regra de hover genérica.
 */
-#table-movimentacoes tr:hover td.entrada {
+#table-movimentacoes tr:hover td.entrada,
+#table-history-modal tr:hover td.entrada {
     background-color: #198754;
 }
 
-#table-movimentacoes tr:hover td.saida {
+#table-movimentacoes tr:hover td.saida,
+#table-history-modal tr:hover td.saida {
     background-color: #dc3545;
 }
 
-#table-movimentacoes tr:hover td.reserva {
+#table-movimentacoes tr:hover td.reserva,
+#table-history-modal tr:hover td.reserva {
     background-color: #0b5ed7; /* Azul um pouco mais escuro no hover */
 }
 
@@ -935,7 +943,9 @@ input:checked + .slider:before {
 #table-movimentacoes tr,
 #table-consultas tr,
 #table-reservas tr,
-#table-implementacao tr {
+#table-implementacao tr,
+#table-history-modal tr,
+#correcao-fracionada-modal table tr {
     display: table-row; /* Força o elemento a se comportar como uma linha de tabela */
 }
 
@@ -943,7 +953,9 @@ input:checked + .slider:before {
 #table-movimentacoes th, #table-movimentacoes td,
 #table-consultas th, #table-consultas td,
 #table-reservas th, #table-reservas td,
-#table-implementacao th, #table-implementacao td {
+#table-implementacao th, #table-implementacao td,
+#table-history-modal th, #table-history-modal td,
+#correcao-fracionada-modal table th, #correcao-fracionada-modal table td {
     display: table-cell; /* Força o elemento a se comportar como uma célula de tabela */
 }
 
