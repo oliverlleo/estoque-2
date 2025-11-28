@@ -570,6 +570,7 @@ document.addEventListener('DOMContentLoaded', async function() {
         const isEntrada = toggle.checked;
         const productId = document.getElementById('mov-produto-id').value;
         const locacaoSelecionada = document.getElementById('mov-locacao').value;
+        const localSelecionado = document.getElementById('mov-local').value;
         const quantidade = parseFloat(document.getElementById('mov-quantidade').value);
 
         if (isEntrada) {
@@ -743,7 +744,7 @@ document.addEventListener('DOMContentLoaded', async function() {
                 // Lógica de Saída Normal
                 // Validação de estoque ANTES da transação
                 const productData = productsMap[productId];
-                const locacaoData = productData.locacoes.find(l => l.locacao === locacaoSelecionada);
+            const locacaoData = productData.locacoes.find(l => l.locacao === locacaoSelecionada && l.localId === localSelecionado);
                 if (!locacaoData || (locacaoData.estoque || 0) < quantidade) {
                     alert(`Estoque insuficiente na locação ${locacaoSelecionada}! Disponível: ${locacaoData?.estoque || 0}`);
                     return;
@@ -757,7 +758,7 @@ document.addEventListener('DOMContentLoaded', async function() {
 
                         const pData = productDoc.data();
                         const locacoes = pData.locacoes || [];
-                        const locacaoIndex = locacoes.findIndex(l => l.locacao === locacaoSelecionada);
+                    const locacaoIndex = locacoes.findIndex(l => l.locacao === locacaoSelecionada && l.localId === localSelecionado);
 
                         if (locacaoIndex === -1) {
                             throw new Error("Locação selecionada não encontrada no produto.");
