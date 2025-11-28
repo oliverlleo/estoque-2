@@ -111,5 +111,72 @@
     <script type="module" src="js/consultas.js"></script>
     <script type="module" src="js/global-search.js"></script>
     <script> feather.replace() </script>
+
+    <!-- Modal de Histórico de Movimentações -->
+    <div id="history-modal" class="modal">
+        <div class="modal-content" style="max-width: 1400px; width: 95%;">
+            <div class="modal-header">
+                <h3>Histórico de Movimentações - <span id="history-modal-product-title"></span></h3>
+                <span class="close-button" id="history-modal-close">&times;</span>
+            </div>
+            <div class="modal-body">
+                <div class="filters-container" style="display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 15px; margin-bottom: 20px;">
+                    <div>
+                        <label for="history-filter-local" class="block text-sm font-medium text-gray-700">Local</label>
+                        <select id="history-filter-local" class="form-control w-full mt-1">
+                            <option value="">Todos</option>
+                        </select>
+                    </div>
+                    <div>
+                        <label for="history-filter-locacao" class="block text-sm font-medium text-gray-700">Locação</label>
+                        <select id="history-filter-locacao" class="form-control w-full mt-1">
+                            <option value="">Todas</option>
+                        </select>
+                    </div>
+                    <div>
+                        <label for="history-filter-tipo" class="block text-sm font-medium text-gray-700">Tipo (Múltipla Seleção - Segure Ctrl)</label>
+                        <select id="history-filter-tipo" class="form-control w-full mt-1" multiple style="height: 80px;">
+                            <option value="entrada">Entrada</option>
+                            <option value="saida">Saída</option>
+                            <option value="transferencia">Transferência</option>
+                            <option value="reserva">Reserva</option>
+                            <option value="reserva_cancelada">Reserva Cancelada</option>
+                        </select>
+                    </div>
+                    <div>
+                        <label for="history-filter-subtipo" class="block text-sm font-medium text-gray-700">Sub-Tipo (Múltipla Seleção - Segure Ctrl)</label>
+                        <select id="history-filter-subtipo" class="form-control w-full mt-1" multiple style="height: 80px;">
+                            <!-- Populated dynamically -->
+                        </select>
+                    </div>
+                </div>
+
+                <div class="table-wrapper" style="max-height: 500px; overflow-y: auto;">
+                    <table id="table-history-modal" class="table">
+                        <thead>
+                            <tr>
+                                <th>Data</th>
+                                <th>Tipo</th>
+                                <th>Sub-Tipo</th>
+                                <th>Código</th>
+                                <th>Descrição</th>
+                                <th>UN</th>
+                                <th>Qtde</th>
+                                <th>Nº NF</th>
+                                <th>Custo Médio Unit.</th>
+                                <th>Custo Total</th>
+                                <th>Requisitante</th>
+                                <th>Obra</th>
+                                <th>Obs.</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            <!-- Data populated by JS -->
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+        </div>
+    </div>
 </body>
 </html>
