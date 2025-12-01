@@ -790,10 +790,8 @@ document.addEventListener('DOMContentLoaded', async function() {
                          return;
                     }
 
-                    // Busca o produto atualizado para obter o valorMedio
-                    const productDocForReserva = await getDoc(doc(db, 'produtos', productId));
-                    const pDataReserva = productDocForReserva.exists() ? productDocForReserva.data() : productData;
-                    const valorMedioReserva = pDataReserva.valorMedio || 0;
+                    // Busca o custo médio atualizado para registrar na reserva (calculado dinamicamente para precisão)
+                    const valorMedioReserva = await obterCustoMedioAtual(productId);
 
                     await addDoc(collection(db, 'movimentacoes'), {
                         tipo: 'reserva',
@@ -1869,9 +1867,8 @@ document.addEventListener('DOMContentLoaded', async function() {
     });
 });
 
-// Substitua a função inteira em js/movimentacoes.js por esta versão CORRIGIDA:
-async function atualizarCustoMedioProduto(produtoId) {
-    if (!produtoId) return;
+async function obterCustoMedioAtual(produtoId) {
+    if (!produtoId) return 0;
 
     const q = query(collection(db, 'movimentacoes'), where("productId", "==", produtoId));
     const movementsSnapshot = await getDocs(q);
@@ -1902,9 +1899,12 @@ async function atualizarCustoMedioProduto(produtoId) {
         }
     });
 
-    const novoCustoMedio = totalQuantity > 0 ? totalCost / totalQuantity : 0;
+    return totalQuantity > 0 ? totalCost / totalQuantity : 0;
+}
+
+async function atualizarCustoMedioProduto(produtoId) {
+    const novoCustoMedio = await obterCustoMedioAtual(produtoId);
     const productRef = doc(db, 'produtos', produtoId);
     await setDoc(productRef, { valorMedio: novoCustoMedio }, { merge: true });
-
     console.log(`Custo médio do produto ${produtoId} atualizado para ${novoCustoMedio.toFixed(3)}`);
 }
