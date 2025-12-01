@@ -162,7 +162,8 @@ document.addEventListener('DOMContentLoaded', () => {
                 const movimentacao = movDoc.data();
                 const produto = productsMap[movimentacao.productId];
                 if (produto) {
-                    const valorMedio = movimentacao.valorMedioHistorico || 0;
+                    // Fallback para produto.valorMedio se o historico for 0 ou indefinido
+                    const valorMedio = movimentacao.valorMedioHistorico || produto.valorMedio || 0;
                     const valorTotalItem = movimentacao.quantidade * valorMedio;
                     custoTotalDaObra += valorTotalItem;
 

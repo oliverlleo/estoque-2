@@ -321,13 +321,16 @@ document.addEventListener('DOMContentLoaded', () => {
                 // Deduz estoque
                 locacoes[locacaoIndex].estoque -= movData.quantidade;
 
+                const valorMedio = parseFloat(pData.valorMedio) || 0;
+                const custoTotal = valorMedio * movData.quantidade;
+
                 transaction.update(productRef, { locacoes: locacoes });
                 transaction.update(movRef, {
                     tipo: 'saida',
                     reserva_confirmada: true,
                     locacao: selectedLocacao, // Atualiza para a locação REAL utilizada
-                    valorMedioHistorico: pData.valorMedio || 0,
-                    custoTotal: (pData.valorMedio || 0) * movData.quantidade // Salva o custo total
+                    valorMedioHistorico: valorMedio,
+                    custoTotal: custoTotal // Salva o custo total
                 });
             });
             alert('Reserva confirmada e estoque atualizado com sucesso!');
