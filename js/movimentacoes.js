@@ -1337,6 +1337,7 @@ document.addEventListener('DOMContentLoaded', async function() {
                 let quantidadeParaEstoque = quantidadeInformada;
 
                 // Lógica de Conversão
+                let valorUnitEstoque = 0;
                 if (produto.conversaoId) {
                     const regra = configData.conversoes[produto.conversaoId];
                     if (regra) {
@@ -1345,6 +1346,8 @@ document.addEventListener('DOMContentLoaded', async function() {
                         if (fator_qtd_compra > 0) {
                             quantidadeParaEstoque = (quantidadeInformada / fator_qtd_compra) * fator_qtd_padrao;
                         }
+                        // Calcula Valor Unit. Estoque conforme lógica da tabela
+                        valorUnitEstoque = fator_qtd_compra * parseFloat(row.cells[4].querySelector('input').value);
                     }
                 }
 
@@ -1360,7 +1363,8 @@ document.addEventListener('DOMContentLoaded', async function() {
                     localSelecionado: row.cells[8].querySelector('select').value,
                     locacaoSelecionada: row.cells[9].querySelector('select').value,
                     unidadeCompra: row.dataset.unidadeCompra,
-                    nItem: row.dataset.nItem
+                    nItem: row.dataset.nItem,
+                    valorUnitEstoque: valorUnitEstoque
                 };
 
                 if (quantidadeParaEstoque % 1 !== 0) {
@@ -1422,6 +1426,12 @@ document.addEventListener('DOMContentLoaded', async function() {
             // Lógica de Custo Total
             let custoTotalEntrada = (item.quantidadeInformada * item.valorUnitario) + item.icms + item.ipi + item.frete;
 
+            // Calcula Custo Médio Unit. (para salvar)
+            let custoUnitario = 0;
+            if (item.quantidadeParaEstoque > 0) {
+                custoUnitario = custoTotalEntrada / item.quantidadeParaEstoque;
+            }
+
             // Atualiza Estoque
             if (item.localSelecionado) {
                 const locacoes = productData.locacoes || [];
@@ -1446,14 +1456,16 @@ document.addEventListener('DOMContentLoaded', async function() {
                 un_compra: item.unidadeCompra,
                 data: serverTimestamp(),
                 nf: nf,
-                valor_unitario: item.valorUnitario,
-                icms: item.icms,
-                ipi: item.ipi,
-                frete: item.frete,
+                valor_unitario: Number(item.valorUnitario),
+                icms: Number(item.icms),
+                ipi: Number(item.ipi),
+                frete: Number(item.frete),
                 observacao: `Importado via XML da NF-e ${nf}`,
-                quantidade: item.quantidadeParaEstoque,
-                quantidade_compra: item.quantidadeInformada,
-                custo_total_entrada: custoTotalEntrada
+                quantidade: Number(item.quantidadeParaEstoque),
+                quantidade_compra: Number(item.quantidadeInformada),
+                custo_total_entrada: Number(custoTotalEntrada),
+                valorUnitEstoque: Number(item.valorUnitEstoque || 0),
+                custoUnitario: Number(custoUnitario)
             };
             transaction.set(movementRef, movementData);
         });
