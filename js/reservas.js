@@ -125,7 +125,7 @@ document.addEventListener('DOMContentLoaded', () => {
                      enderecamento = '<span class="text-gray-400 italic">Não especificado</span>';
                      localNome = '<span class="text-gray-400 italic">Não especificado</span>';
                  }
-            } else {
+            } else if (!enderecamento && localNome === '-') {
                 enderecamento = '-';
             }
 
@@ -289,7 +289,8 @@ document.addEventListener('DOMContentLoaded', () => {
         if (!currentConfirmMovId) return;
         const selectedLocacao = selectLocacao.value;
 
-        if (!selectedLocacao) {
+        // Validação corrigida para aceitar string vazia (locação sem nome)
+        if (selectedLocacao === null || selectedLocacao === undefined) {
             alert('Selecione uma locação.');
             return;
         }
@@ -325,7 +326,8 @@ document.addEventListener('DOMContentLoaded', () => {
                     tipo: 'saida',
                     reserva_confirmada: true,
                     locacao: selectedLocacao, // Atualiza para a locação REAL utilizada
-                    valorMedioHistorico: pData.valorMedio || 0
+                    valorMedioHistorico: pData.valorMedio || 0,
+                    custoTotal: (pData.valorMedio || 0) * movData.quantidade // Salva o custo total
                 });
             });
             alert('Reserva confirmada e estoque atualizado com sucesso!');
