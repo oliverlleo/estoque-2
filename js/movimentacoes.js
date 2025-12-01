@@ -20,7 +20,12 @@ async function calcularCustoMedioProduto(produtoId) {
     let totalQuantityForAvg = 0;
 
     entryMovements.forEach(m => {
-        totalCost += m.custo_total_entrada;
+        let custoEntrada = m.custo_total_entrada;
+        if (custoEntrada === undefined || custoEntrada === null) {
+            // Fallback para entradas antigas
+            custoEntrada = (m.quantidade_compra * (m.valor_unitario || 0)) + (m.icms || 0) + (m.ipi || 0) + (m.frete || 0);
+        }
+        totalCost += custoEntrada;
         totalQuantityForAvg += m.quantidade;
     });
 
@@ -80,6 +85,55 @@ document.addEventListener('DOMContentLoaded', async function() {
     // --- Table State ---
     let sortState = { column: 'data', direction: 'desc' };
     let filterState = {};
+
+    function saveLembrarValues() {
+        const checkbox = document.getElementById('lembrar-registro-mov');
+        if (!checkbox.checked) {
+            localStorage.removeItem('movimentacao_lembrar_config');
+            return;
+        }
+
+        const isEntrada = toggle.checked;
+        const data = {
+            tipo: isEntrada ? 'entrada' : 'saida',
+            checked: true
+        };
+
+        if (isEntrada) {
+            data.tipoEntrada = document.getElementById('mov-tipo-entrada').value;
+            data.observacao = document.getElementById('mov-observacao-entrada').value;
+        } else {
+            data.tipoSaida = document.getElementById('mov-tipo-saida').value;
+            data.requisitante = document.getElementById('mov-requisitante').value;
+            data.obra = document.getElementById('mov-obra').value;
+            data.observacao = document.getElementById('mov-observacao-saida').value;
+        }
+
+        localStorage.setItem('movimentacao_lembrar_config', JSON.stringify(data));
+    }
+
+    function restoreLembrarValues() {
+        const stored = localStorage.getItem('movimentacao_lembrar_config');
+        if (!stored) return;
+
+        const data = JSON.parse(stored);
+        const checkbox = document.getElementById('lembrar-registro-mov');
+
+        checkbox.checked = data.checked;
+
+        const isEntrada = toggle.checked;
+        if (isEntrada && data.tipo === 'entrada') {
+             if(data.tipoEntrada) document.getElementById('mov-tipo-entrada').value = data.tipoEntrada;
+             if(data.observacao) document.getElementById('mov-observacao-entrada').value = data.observacao;
+             toggleValorUnitarioRequirement();
+        } else if (!isEntrada && data.tipo === 'saida') {
+             if(data.tipoSaida) document.getElementById('mov-tipo-saida').value = data.tipoSaida;
+             if(data.requisitante) document.getElementById('mov-requisitante').value = data.requisitante;
+             if(data.obra) document.getElementById('mov-obra').value = data.obra;
+             if(data.observacao) document.getElementById('mov-observacao-saida').value = data.observacao;
+             toggleObraRequirement();
+        }
+    }
 
     function toggleValorUnitarioRequirement() {
         const isEntrada = toggle.checked;
@@ -333,8 +387,9 @@ document.addEventListener('DOMContentLoaded', async function() {
                     valorTotal = (mov.quantidade_compra * (mov.valor_unitario || 0)) + (mov.icms || 0) + (mov.ipi || 0) + (mov.frete || 0);
                 }
                 custoUnitario = valorTotal / mov.quantidade;
-            } else if (mov.tipo === 'saida') {
-                custoUnitario = mov.valorMedioHistorico || 0;
+            } else if (mov.tipo === 'saida' || mov.tipo === 'reserva') {
+                // Para reservas, usamos o valor salvo ou o do produto (fallback visual)
+                custoUnitario = mov.valorMedioHistorico || product.valorMedio || 0;
             }
 
             const isXmlImport = mov.observacao && mov.observacao.includes('Importado via XML');
@@ -475,7 +530,8 @@ document.addEventListener('DOMContentLoaded', async function() {
         let totalCusto = 0;
 
         data.forEach(mov => {
-            if (mov.custoTotal && mov.custoTotal > 0) {
+            // Exclude reservations from the total cost calculation
+            if (mov.tipo !== 'reserva' && mov.tipo !== 'reserva_cancelada' && mov.custoTotal && mov.custoTotal > 0) {
                 totalCusto += mov.custoTotal;
             }
 
@@ -558,6 +614,7 @@ document.addEventListener('DOMContentLoaded', async function() {
         await updateProductInfo();
         toggleObraRequirement();
         toggleValorUnitarioRequirement();
+        restoreLembrarValues();
     }
 
     toggle.addEventListener('change', handleToggleChange);
@@ -705,7 +762,9 @@ document.addEventListener('DOMContentLoaded', async function() {
                     productsMap[productId] = { id: productId, ...updatedDoc.data() };
                 }
 
+                saveLembrarValues();
                 formMovimentacao.reset();
+                restoreLembrarValues();
                 handleToggleChange();
             } catch (error) {
                 console.error("Erro na transação de entrada:", error);
@@ -731,6 +790,11 @@ document.addEventListener('DOMContentLoaded', async function() {
                          return;
                     }
 
+                    // Busca o produto atualizado para obter o valorMedio
+                    const productDocForReserva = await getDoc(doc(db, 'produtos', productId));
+                    const pDataReserva = productDocForReserva.exists() ? productDocForReserva.data() : productData;
+                    const valorMedioReserva = pDataReserva.valorMedio || 0;
+
                     await addDoc(collection(db, 'movimentacoes'), {
                         tipo: 'reserva',
                         productId,
@@ -741,9 +805,13 @@ document.addEventListener('DOMContentLoaded', async function() {
                         requisitante: document.getElementById('mov-requisitante').value,
                         obraId: document.getElementById('mov-obra').value,
                         observacao: document.getElementById('mov-observacao-saida').value,
+                        valorMedioHistorico: valorMedioReserva,
+                        custoTotal: valorMedioReserva * quantidade
                     });
                     alert('Reserva registrada com sucesso!');
+                    saveLembrarValues();
                     formMovimentacao.reset();
+                    restoreLembrarValues();
                     handleToggleChange();
                 } catch (error) {
                     console.error("Erro ao registrar reserva:", error);
@@ -806,7 +874,9 @@ document.addEventListener('DOMContentLoaded', async function() {
                     if (updatedDoc.exists()) {
                         productsMap[productId] = { id: productId, ...updatedDoc.data() };
                     }
+                    saveLembrarValues();
                     formMovimentacao.reset();
+                    restoreLembrarValues();
                     handleToggleChange();
                 } catch (error) {
                     console.error("Erro ao registrar saída:", error);
@@ -1817,8 +1887,13 @@ async function atualizarCustoMedioProduto(produtoId) {
     let totalCost = 0;
 
     productMovements.forEach(mov => {
-        if (mov.tipo === 'entrada' && mov.custo_total_entrada) {
-            totalCost += mov.custo_total_entrada;
+        if (mov.tipo === 'entrada') {
+            let custoEntrada = mov.custo_total_entrada;
+            if (custoEntrada === undefined || custoEntrada === null) {
+                // Recalcula custo se não existir (compatibilidade)
+                custoEntrada = (mov.quantidade_compra * (mov.valor_unitario || 0)) + (mov.icms || 0) + (mov.ipi || 0) + (mov.frete || 0);
+            }
+            totalCost += custoEntrada;
             totalQuantity += mov.quantidade;
         } else if (mov.tipo === 'saida') {
             const currentAvgCost = totalQuantity > 0 ? totalCost / totalQuantity : 0;
