@@ -7,8 +7,13 @@ document.addEventListener('DOMContentLoaded', () => {
     const btnExportExcel = document.getElementById('btn-export-excel');
     const filterCodigo = document.getElementById('filter-codigo-produto');
     const filterDescricao = document.getElementById('filter-descricao-produto');
+    const viewToggle = document.getElementById('view-toggle');
+    const labelItens = document.getElementById('toggle-label-itens');
+    const labelReservas = document.getElementById('toggle-label-reservas');
 
-    let currentItens = [];
+    let currentItens = []; // Itens de Saída (Consumidos)
+    let currentReservas = []; // Itens Reservados
+    let activeDataset = []; // Dataset atualmente exibido
     let obraInfo = {};
     let charts = {}; // Para armazenar instâncias dos gráficos
 
@@ -109,9 +114,10 @@ document.addEventListener('DOMContentLoaded', () => {
 
     async function carregarDetalhesDaObra() {
         try {
-            const [obraSnap, movementsSnap, productsSnap, fornecedoresSnap, gruposSnap, aplicacoesSnap] = await Promise.all([
+            const [obraSnap, movementsSnap, reservasSnap, productsSnap, fornecedoresSnap, gruposSnap, aplicacoesSnap] = await Promise.all([
                 getDoc(doc(db, 'obras', obraId)),
                 getDocs(query(collection(db, 'movimentacoes'), where('obraId', '==', obraId), where('tipo', '==', 'saida'))),
+                getDocs(query(collection(db, 'movimentacoes'), where('obraId', '==', obraId), where('tipo', '==', 'reserva'))),
                 getDocs(collection(db, 'produtos')),
                 getDocs(collection(db, 'fornecedores')),
                 getDocs(collection(db, 'grupos')),
@@ -129,7 +135,9 @@ document.addEventListener('DOMContentLoaded', () => {
 
             let custoTotalDaObra = 0;
             const itensUtilizados = [];
+            const itensReservados = [];
 
+            // Processar Saídas (Itens Utilizados)
             movementsSnap.forEach(movDoc => {
                 const movimentacao = movDoc.data();
                 const produto = productsMap[movimentacao.productId];
@@ -158,7 +166,46 @@ document.addEventListener('DOMContentLoaded', () => {
                 }
             });
 
+            // Processar Reservas
+            reservasSnap.forEach(movDoc => {
+                const movimentacao = movDoc.data();
+                const produto = productsMap[movimentacao.productId];
+                if (produto) {
+                    // Para reservas, usamos o valor médio atual do produto se não houver histórico,
+                    // ou mantemos zero se preferir. O usuário pediu "os valores mais dos itens".
+                    // Assumindo valorMedio do produto atual se não salvo na movimentação.
+                    // Reservas geralmente não tem valorMedioHistorico salvo no momento da reserva (depende da implementação).
+                    // Vou tentar usar valorMedioHistorico se existir, senão o do produto.
+                    const valorMedio = movimentacao.valorMedioHistorico || produto.valorMedio || 0;
+                    const valorTotalItem = movimentacao.quantidade * valorMedio;
+
+                    const fornecedor = produto.fornecedorId ? (fornecedoresMap[produto.fornecedorId]?.nome || 'N/A') : 'N/A';
+                    const grupo = produto.grupoId ? (gruposMap[produto.grupoId]?.nome || 'N/A') : 'N/A';
+                    const aplicacoes = (produto.aplicacaoIds || []).map(id => aplicacoesMap[id]?.nome || '').filter(Boolean).join(', ') || 'N/A';
+
+                    itensReservados.push({
+                        codigo: produto.codigo,
+                        descricao: produto.descricao,
+                        un: produto.un,
+                        cor: produto.cor || '-',
+                        fornecedor,
+                        grupo,
+                        aplicacoes,
+                        qtde: movimentacao.quantidade,
+                        observacao: movimentacao.observacao || '-',
+                        valorMedio: valorMedio,
+                        valorTotal: valorTotalItem
+                    });
+                }
+            });
+
             currentItens = itensUtilizados;
+            currentReservas = itensReservados;
+
+            // Define o dataset ativo inicial com base no estado do toggle
+            activeDataset = viewToggle.checked ? currentReservas : currentItens;
+            updateToggleUI();
+
             const obraData = obraSnap.data();
             obraInfo = {
                 codigo: obraData.codigo || 'S/C',
@@ -187,7 +234,7 @@ document.addEventListener('DOMContentLoaded', () => {
                 orcamentoElement.innerHTML = `Orçamento: <span class="font-semibold" style="color: red;">${parseFloat(obraData.orcamento).toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' })}</span>`;
             }
 
-            renderTabelaItens(itensUtilizados);
+            renderTabelaItens(activeDataset);
             renderCharts(custoPorGrupo, custoPorFornecedor);
 
         } catch (error) {
@@ -228,7 +275,7 @@ document.addEventListener('DOMContentLoaded', () => {
     function applyFilters() {
         const codigoFilter = filterCodigo.value.toLowerCase();
         const descricaoFilter = filterDescricao.value.toLowerCase();
-        const filteredItens = currentItens.filter(item => {
+        const filteredItens = activeDataset.filter(item => {
             const codigoMatch = item.codigo.toLowerCase().includes(codigoFilter);
             const descricaoMatch = item.descricao.toLowerCase().includes(descricaoFilter);
             return codigoMatch && descricaoMatch;
@@ -236,12 +283,33 @@ document.addEventListener('DOMContentLoaded', () => {
         renderTabelaItens(filteredItens);
     }
 
+    function updateToggleUI() {
+        if (viewToggle.checked) {
+            // Modo Reservas
+            labelItens.style.fontWeight = 'normal';
+            labelItens.style.color = '#6c757d';
+            labelReservas.style.fontWeight = 'bold';
+            labelReservas.style.color = '#0d6efd'; // Azul
+            activeDataset = currentReservas;
+        } else {
+            // Modo Itens (Saída)
+            labelItens.style.fontWeight = 'bold';
+            labelItens.style.color = '#dc3545'; // Vermelho
+            labelReservas.style.fontWeight = 'normal';
+            labelReservas.style.color = '#6c757d';
+            activeDataset = currentItens;
+        }
+        applyFilters(); // Re-renderiza com filtros atuais
+    }
+
+    viewToggle.addEventListener('change', updateToggleUI);
+
     function exportToExcel() {
-        if (currentItens.length === 0) {
+        if (activeDataset.length === 0) {
             alert("Não há itens para exportar.");
             return;
         }
-        const dataForExport = currentItens.map(item => ({
+        const dataForExport = activeDataset.map(item => ({
             'Código': item.codigo, 'Descrição': item.descricao, 'UN': item.un, 'Cor': item.cor,
             'Fornecedor': item.fornecedor, 'Grupo': item.grupo, 'Aplicações': item.aplicacoes,
             'Qtde': item.qtde, 'Observação': item.observacao, 'Valor Médio': item.valorMedio,
@@ -251,12 +319,14 @@ document.addEventListener('DOMContentLoaded', () => {
         const workbook = XLSX.utils.book_new();
         XLSX.utils.sheet_add_aoa(worksheet, [[`Código da Obra: ${obraInfo.codigo}`]], { origin: 'A1' });
         XLSX.utils.sheet_add_aoa(worksheet, [[`Nome da Obra: ${obraInfo.nome}`]], { origin: 'A2' });
-        XLSX.utils.sheet_add_json(worksheet, dataForExport, { origin: 'A4', skipHeader: false });
+        const tipoListagem = viewToggle.checked ? "Reservas" : "Itens Utilizados";
+        XLSX.utils.sheet_add_aoa(worksheet, [[`Listagem: ${tipoListagem}`]], { origin: 'A3' });
+        XLSX.utils.sheet_add_json(worksheet, dataForExport, { origin: 'A5', skipHeader: false });
         worksheet['!cols'] = [
             { wch: 15 }, { wch: 40 }, { wch: 8 }, { wch: 15 }, { wch: 25 },
             { wch: 25 }, { wch: 30 }, { wch: 10 }, { wch: 40 }, { wch: 15 }, { wch: 15 }
         ];
-        XLSX.writeFile(workbook, `Itens_Obra_${obraInfo.codigo}_${obraInfo.nome}.xlsx`);
+        XLSX.writeFile(workbook, `${tipoListagem}_Obra_${obraInfo.codigo}_${obraInfo.nome}.xlsx`);
     }
 
     filterCodigo.addEventListener('input', applyFilters);
