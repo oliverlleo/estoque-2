@@ -321,13 +321,18 @@ document.addEventListener('DOMContentLoaded', () => {
                 // Deduz estoque
                 locacoes[locacaoIndex].estoque -= movData.quantidade;
 
+                // Usar EXATAMENTE a mesma lógica de uma saída manual em movimentacoes.js
+                // Pega o valorMedio ATUAL do produto. Não usa histórico da reserva.
+                const valorMedioAtual = pData.valorMedio || 0;
+                const custoTotal = valorMedioAtual * movData.quantidade;
+
                 transaction.update(productRef, { locacoes: locacoes });
                 transaction.update(movRef, {
                     tipo: 'saida',
                     reserva_confirmada: true,
-                    locacao: selectedLocacao, // Atualiza para a locação REAL utilizada
-                    valorMedioHistorico: pData.valorMedio || 0,
-                    custoTotal: (pData.valorMedio || 0) * movData.quantidade // Salva o custo total
+                    locacao: selectedLocacao,
+                    valorMedioHistorico: valorMedioAtual,
+                    custoTotal: custoTotal
                 });
             });
             alert('Reserva confirmada e estoque atualizado com sucesso!');
