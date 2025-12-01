@@ -7,6 +7,7 @@
     <link rel="stylesheet" href="css/style.css">
     <link rel="stylesheet" href="css/dashboard.css">
     <link rel="stylesheet" href="css/global-search.css">
+    <link rel="stylesheet" href="css/detalhe-obra-toggle.css">
     <link href="https://cdnjs.cloudflare.com/ajax/libs/tailwindcss/2.2.19/tailwind.min.css" rel="stylesheet">
     <link href="https://fonts.googleapis.com/icon?family=Material+Icons" rel="stylesheet">
     <script src="https://cdn.jsdelivr.net/npm/feather-icons/dist/feather.min.js"></script>
@@ -69,6 +70,14 @@
                 <p id="obra-orcamento" class="text-gray-500 text-lg"></p>
             </div>
             <div class="flex items-center space-x-4">
+                <div class="toggle-container" style="margin-right: 15px;">
+                    <span id="toggle-label-itens" style="font-weight: bold; color: #dc3545;">Itens</span>
+                    <label class="toggle-switch">
+                        <input type="checkbox" id="view-toggle">
+                        <span class="slider"></span>
+                    </label>
+                    <span id="toggle-label-reservas" style="font-weight: normal; color: #6c757d;">Reservas</span>
+                </div>
                 <div class="flex items-center space-x-2">
                     <div class="relative">
                         <span class="material-icons absolute left-3 top-1/2 -translate-y-1/2 text-gray-400">search</span>
