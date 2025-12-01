@@ -1,0 +1,18 @@
+
+/* Toggle switch color for Reservas (Blue) */
+#view-toggle:checked + .slider {
+    background-color: #0d6efd !important;
+}
+
+/* Ensure container is on top */
+.toggle-container {
+    position: relative;
+    z-index: 50; /* Higher than table header (10) */
+}
+
+/* Make labels clickable */
+#toggle-label-itens,
+#toggle-label-reservas {
+    cursor: pointer;
+    user-select: none;
+}
