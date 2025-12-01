@@ -7,6 +7,7 @@
     <link rel="stylesheet" href="css/style.css">
     <link rel="stylesheet" href="css/dashboard.css">
     <link rel="stylesheet" href="css/global-search.css">
+    <link rel="stylesheet" href="css/detalhe-obra-toggle.css">
     <link href="https://cdnjs.cloudflare.com/ajax/libs/tailwindcss/2.2.19/tailwind.min.css" rel="stylesheet">
     <link href="https://fonts.googleapis.com/icon?family=Material+Icons" rel="stylesheet">
     <script src="https://cdn.jsdelivr.net/npm/feather-icons/dist/feather.min.js"></script>
@@ -106,6 +107,18 @@
                     </div>
                 </div>
             </div>
+
+            <div class="flex justify-end">
+                <div class="toggle-container" style="margin-bottom: 0;">
+                    <span id="toggle-label-itens" style="font-weight: bold; color: #dc3545;">Itens</span>
+                    <label class="toggle-switch">
+                        <input type="checkbox" id="view-toggle">
+                        <span class="slider"></span>
+                    </label>
+                    <span id="toggle-label-reservas" style="font-weight: normal; color: #6c757d;">Reservas</span>
+                </div>
+            </div>
+
             <div class="bg-white rounded-2xl shadow-lg overflow-hidden">
                 <div class="overflow-x-auto">
                     <div class="max-h-[60vh] overflow-y-auto">
