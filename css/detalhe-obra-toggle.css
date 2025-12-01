@@ -1,0 +1,5 @@
+
+/* Toggle switch color for Reservas (Blue) */
+#view-toggle:checked + .slider {
+    background-color: #0d6efd !important;
+}
