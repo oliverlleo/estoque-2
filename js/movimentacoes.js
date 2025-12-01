@@ -20,7 +20,12 @@ async function calcularCustoMedioProduto(produtoId) {
     let totalQuantityForAvg = 0;
 
     entryMovements.forEach(m => {
-        totalCost += m.custo_total_entrada;
+        let custoEntrada = m.custo_total_entrada;
+        if (custoEntrada === undefined || custoEntrada === null) {
+            // Fallback para entradas antigas
+            custoEntrada = (m.quantidade_compra * (m.valor_unitario || 0)) + (m.icms || 0) + (m.ipi || 0) + (m.frete || 0);
+        }
+        totalCost += custoEntrada;
         totalQuantityForAvg += m.quantidade;
     });
 
@@ -80,6 +85,55 @@ document.addEventListener('DOMContentLoaded', async function() {
     // --- Table State ---
     let sortState = { column: 'data', direction: 'desc' };
     let filterState = {};
+
+    function saveLembrarValues() {
+        const checkbox = document.getElementById('lembrar-registro-mov');
+        if (!checkbox.checked) {
+            localStorage.removeItem('movimentacao_lembrar_config');
+            return;
+        }
+
+        const isEntrada = toggle.checked;
+        const data = {
+            tipo: isEntrada ? 'entrada' : 'saida',
+            checked: true
+        };
+
+        if (isEntrada) {
+            data.tipoEntrada = document.getElementById('mov-tipo-entrada').value;
+            data.observacao = document.getElementById('mov-observacao-entrada').value;
+        } else {
+            data.tipoSaida = document.getElementById('mov-tipo-saida').value;
+            data.requisitante = document.getElementById('mov-requisitante').value;
+            data.obra = document.getElementById('mov-obra').value;
+            data.observacao = document.getElementById('mov-observacao-saida').value;
+        }
+
+        localStorage.setItem('movimentacao_lembrar_config', JSON.stringify(data));
+    }
+
+    function restoreLembrarValues() {
+        const stored = localStorage.getItem('movimentacao_lembrar_config');
+        if (!stored) return;
+
+        const data = JSON.parse(stored);
+        const checkbox = document.getElementById('lembrar-registro-mov');
+
+        checkbox.checked = data.checked;
+
+        const isEntrada = toggle.checked;
+        if (isEntrada && data.tipo === 'entrada') {
+             if(data.tipoEntrada) document.getElementById('mov-tipo-entrada').value = data.tipoEntrada;
+             if(data.observacao) document.getElementById('mov-observacao-entrada').value = data.observacao;
+             toggleValorUnitarioRequirement();
+        } else if (!isEntrada && data.tipo === 'saida') {
+             if(data.tipoSaida) document.getElementById('mov-tipo-saida').value = data.tipoSaida;
+             if(data.requisitante) document.getElementById('mov-requisitante').value = data.requisitante;
+             if(data.obra) document.getElementById('mov-obra').value = data.obra;
+             if(data.observacao) document.getElementById('mov-observacao-saida').value = data.observacao;
+             toggleObraRequirement();
+        }
+    }
 
     function toggleValorUnitarioRequirement() {
         const isEntrada = toggle.checked;
@@ -333,8 +387,19 @@ document.addEventListener('DOMContentLoaded', async function() {
                     valorTotal = (mov.quantidade_compra * (mov.valor_unitario || 0)) + (mov.icms || 0) + (mov.ipi || 0) + (mov.frete || 0);
                 }
                 custoUnitario = valorTotal / mov.quantidade;
-            } else if (mov.tipo === 'saida') {
-                custoUnitario = mov.valorMedioHistorico || 0;
+            } else if (mov.tipo === 'saida' || mov.tipo === 'reserva') {
+                // Para reservas, usamos o valor salvo ou o do produto (fallback visual)
+                // Usando parseFloat e replace para garantir que strings com virgula sejam tratadas corretamente
+                const valHist = mov.valorMedioHistorico !== undefined ? mov.valorMedioHistorico : undefined;
+                const valProd = product.valorMedio;
+
+                const parseVal = (v) => {
+                    if (typeof v === 'number') return v;
+                    if (typeof v === 'string') return parseFloat(v.replace(',', '.')) || 0;
+                    return 0;
+                };
+
+                custoUnitario = valHist !== undefined ? parseVal(valHist) : parseVal(valProd);
             }
 
             const isXmlImport = mov.observacao && mov.observacao.includes('Importado via XML');
@@ -357,7 +422,8 @@ document.addEventListener('DOMContentLoaded', async function() {
             const quantidadeDisplay = isXmlImport ? mov.quantidade_compra : mov.quantidade;
             const unidadeDisplay = mov.un_compra || product.un;
 
-            const custoTotal = custoUnitario * mov.quantidade;
+            const qtd = typeof mov.quantidade === 'string' ? parseFloat(mov.quantidade.replace(',', '.')) : mov.quantidade;
+            const custoTotal = custoUnitario * (qtd || 0);
             let valorUnitEstoque = 0;
             if (mov.tipo === 'entrada' && product.conversaoId && configData.conversoes[product.conversaoId]) {
                 const conversao = configData.conversoes[product.conversaoId];
@@ -388,7 +454,8 @@ document.addEventListener('DOMContentLoaded', async function() {
                     ipi: (mov.ipi || 0).toString(),
                     frete: (mov.frete || 0).toString(),
                     custoUnitario: custoUnitario > 0 ? custoUnitario.toFixed(3) : '0.000',
-                    custoTotal: mov.custoTotal > 0 ? mov.custoTotal.toFixed(2) : '0.00',
+                    // Use o valor calculado localmente se o do banco não existir ou for zero (para corrigir visualização de itens antigos/manuais)
+                    custoTotal: (mov.custoTotal && mov.custoTotal > 0) ? parseFloat(mov.custoTotal).toFixed(2) : (custoTotal > 0 ? custoTotal.toFixed(2) : '0.00'),
                     requisitante: mov.requisitante || '',
                     obraId: configData.obras?.[mov.obraId]?.nome || '',
                     observacao: mov.observacao || '',
@@ -475,7 +542,8 @@ document.addEventListener('DOMContentLoaded', async function() {
         let totalCusto = 0;
 
         data.forEach(mov => {
-            if (mov.custoTotal && mov.custoTotal > 0) {
+            // Exclude reservations from the total cost calculation
+            if (mov.tipo !== 'reserva' && mov.tipo !== 'reserva_cancelada' && mov.custoTotal && mov.custoTotal > 0) {
                 totalCusto += mov.custoTotal;
             }
 
@@ -558,6 +626,7 @@ document.addEventListener('DOMContentLoaded', async function() {
         await updateProductInfo();
         toggleObraRequirement();
         toggleValorUnitarioRequirement();
+        restoreLembrarValues();
     }
 
     toggle.addEventListener('change', handleToggleChange);
@@ -705,7 +774,9 @@ document.addEventListener('DOMContentLoaded', async function() {
                     productsMap[productId] = { id: productId, ...updatedDoc.data() };
                 }
 
+                saveLembrarValues();
                 formMovimentacao.reset();
+                restoreLembrarValues();
                 handleToggleChange();
             } catch (error) {
                 console.error("Erro na transação de entrada:", error);
@@ -731,6 +802,11 @@ document.addEventListener('DOMContentLoaded', async function() {
                          return;
                     }
 
+                    // Busca o produto atualizado para obter o valorMedio
+                    const productDocForReserva = await getDoc(doc(db, 'produtos', productId));
+                    const pDataReserva = productDocForReserva.exists() ? productDocForReserva.data() : productData;
+                    const valorMedioReserva = pDataReserva.valorMedio || 0;
+
                     await addDoc(collection(db, 'movimentacoes'), {
                         tipo: 'reserva',
                         productId,
@@ -741,9 +817,13 @@ document.addEventListener('DOMContentLoaded', async function() {
                         requisitante: document.getElementById('mov-requisitante').value,
                         obraId: document.getElementById('mov-obra').value,
                         observacao: document.getElementById('mov-observacao-saida').value,
+                        valorMedioHistorico: valorMedioReserva,
+                        custoTotal: valorMedioReserva * quantidade
                     });
                     alert('Reserva registrada com sucesso!');
+                    saveLembrarValues();
                     formMovimentacao.reset();
+                    restoreLembrarValues();
                     handleToggleChange();
                 } catch (error) {
                     console.error("Erro ao registrar reserva:", error);
@@ -806,7 +886,9 @@ document.addEventListener('DOMContentLoaded', async function() {
                     if (updatedDoc.exists()) {
                         productsMap[productId] = { id: productId, ...updatedDoc.data() };
                     }
+                    saveLembrarValues();
                     formMovimentacao.reset();
+                    restoreLembrarValues();
                     handleToggleChange();
                 } catch (error) {
                     console.error("Erro ao registrar saída:", error);
@@ -1164,7 +1246,10 @@ document.addEventListener('DOMContentLoaded', async function() {
             const produtoNoSistema = Object.values(productsMap).find(p => p.codigo === cProd);
             const descricaoSistema = produtoNoSistema ? produtoNoSistema.descricao : 'PRODUTO NÃO CADASTRADO';
             const produtoIdSistema = produtoNoSistema ? produtoNoSistema.id : '';
-            const vProd = parseFloat(item.querySelector('vProd')?.textContent || 0);
+
+            // Garantir que vProd e frete sejam tratados como números desde a origem
+            const vProdStr = item.querySelector('vProd')?.textContent || '0';
+            const vProd = parseFloat(vProdStr.replace(',', '.')) || 0;
             const freteRateado = (totalProdutos > 0) ? (vProd / totalProdutos) * totalFrete : 0;
 
             let acaoHtml = '';
@@ -1196,14 +1281,19 @@ document.addEventListener('DOMContentLoaded', async function() {
             row.dataset.unidadeCompra = uCom;
             row.dataset.nItem = nItem; // Adiciona o nItem à linha
 
+            // Extração segura de valores numéricos do XML
+            const qCom = parseFloat((item.querySelector('qCom')?.textContent || '0').replace(',', '.')) || 0;
+            const vUnCom = parseFloat((item.querySelector('vUnCom')?.textContent || '0').replace(',', '.')) || 0;
+            const vIPI = parseFloat((item.querySelector('vIPI')?.textContent || '0').replace(',', '.')) || 0;
+
             row.innerHTML = `
                 <td><input type="text" class="form-control" value="${cProd}" disabled></td>
                 <td><input type="text" class="form-control" value="${descricaoSistema}" disabled></td>
                 <td><input type="text" class="form-control" value="${uCom}" disabled></td>
-                <td><input type="number" step="any" class="form-control" value="${parseFloat(item.querySelector('qCom')?.textContent || 0)}"></td>
-                <td><input type="number" step="0.001" class="form-control" value="${parseFloat(item.querySelector('vUnCom')?.textContent || 0)}"></td>
+                <td><input type="number" step="any" class="form-control" value="${qCom}"></td>
+                <td><input type="number" step="0.001" class="form-control" value="${vUnCom}"></td>
                 <td><input type="number" step="any" class="form-control" value="0"></td>
-                <td><input type="number" step="any" class="form-control" value="${parseFloat(item.querySelector('vIPI')?.textContent || 0)}"></td>
+                <td><input type="number" step="any" class="form-control" value="${vIPI}"></td>
                 <td><input type="number" step="any" class="form-control" value="${freteRateado.toFixed(2)}"></td>
                 <td>${localDropdownHtml}</td>
                 <td>${locacaoDropdownHtml}</td>
@@ -1817,8 +1907,13 @@ async function atualizarCustoMedioProduto(produtoId) {
     let totalCost = 0;
 
     productMovements.forEach(mov => {
-        if (mov.tipo === 'entrada' && mov.custo_total_entrada) {
-            totalCost += mov.custo_total_entrada;
+        if (mov.tipo === 'entrada') {
+            let custoEntrada = mov.custo_total_entrada;
+            if (custoEntrada === undefined || custoEntrada === null) {
+                // Recalcula custo se não existir (compatibilidade)
+                custoEntrada = (mov.quantidade_compra * (mov.valor_unitario || 0)) + (mov.icms || 0) + (mov.ipi || 0) + (mov.frete || 0);
+            }
+            totalCost += custoEntrada;
             totalQuantity += mov.quantidade;
         } else if (mov.tipo === 'saida') {
             const currentAvgCost = totalQuantity > 0 ? totalCost / totalQuantity : 0;
