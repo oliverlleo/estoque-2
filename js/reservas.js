@@ -17,6 +17,7 @@ document.addEventListener('DOMContentLoaded', () => {
     const filtersContainer = document.getElementById('filters-container');
     let productsMap = {};
     let obrasMap = {};
+    let locaisMap = {};
     let allReservas = [];
     let filterState = {};
 
@@ -33,6 +34,13 @@ document.addEventListener('DOMContentLoaded', () => {
         obrasMap = {};
         obrasSnapshot.forEach(doc => {
             obrasMap[doc.id] = doc.data();
+        });
+
+        // Carregar locais
+        const locaisSnapshot = await getDocs(collection(db, 'locais'));
+        locaisMap = {};
+        locaisSnapshot.forEach(doc => {
+            locaisMap[doc.id] = doc.data();
         });
     }
 
@@ -91,6 +99,17 @@ document.addEventListener('DOMContentLoaded', () => {
 
             const corEstoque = estoqueAtual < mov.quantidade ? 'red' : 'green';
 
+            // Lógica para Local e Endereçamento
+            let localNome = '-';
+            let enderecamento = mov.locacao || '-';
+
+            if (mov.locacao && product.locacoes) {
+                const locInfo = product.locacoes.find(l => l.locacao === mov.locacao);
+                if (locInfo && locInfo.localId && locaisMap[locInfo.localId]) {
+                    localNome = locaisMap[locInfo.localId].nome;
+                }
+            }
+
             row.innerHTML = `
                 <td><span class="status-badge ${statusClass}">${statusText}</span></td>
                 <td>${mov.data ? new Date(mov.data.seconds * 1000).toLocaleDateString('pt-BR') : 'N/A'}</td>
@@ -100,6 +119,8 @@ document.addEventListener('DOMContentLoaded', () => {
                 <td>${product.cor || '-'}</td>
                 <td>${mov.quantidade}</td>
                 <td style="color: ${corEstoque}; font-weight: bold;">${estoqueAtual.toFixed(2)}</td>
+                <td>${localNome}</td>
+                <td>${enderecamento}</td>
                 <td>${obra.nome || 'N/A'}</td>
                 <td>${mov.observacao || ''}</td>
                 <td class="actions">
