@@ -81,6 +81,55 @@ document.addEventListener('DOMContentLoaded', async function() {
     let sortState = { column: 'data', direction: 'desc' };
     let filterState = {};
 
+    function saveLembrarValues() {
+        const checkbox = document.getElementById('lembrar-registro-mov');
+        if (!checkbox.checked) {
+            localStorage.removeItem('movimentacao_lembrar_config');
+            return;
+        }
+
+        const isEntrada = toggle.checked;
+        const data = {
+            tipo: isEntrada ? 'entrada' : 'saida',
+            checked: true
+        };
+
+        if (isEntrada) {
+            data.tipoEntrada = document.getElementById('mov-tipo-entrada').value;
+            data.observacao = document.getElementById('mov-observacao-entrada').value;
+        } else {
+            data.tipoSaida = document.getElementById('mov-tipo-saida').value;
+            data.requisitante = document.getElementById('mov-requisitante').value;
+            data.obra = document.getElementById('mov-obra').value;
+            data.observacao = document.getElementById('mov-observacao-saida').value;
+        }
+
+        localStorage.setItem('movimentacao_lembrar_config', JSON.stringify(data));
+    }
+
+    function restoreLembrarValues() {
+        const stored = localStorage.getItem('movimentacao_lembrar_config');
+        if (!stored) return;
+
+        const data = JSON.parse(stored);
+        const checkbox = document.getElementById('lembrar-registro-mov');
+
+        checkbox.checked = data.checked;
+
+        const isEntrada = toggle.checked;
+        if (isEntrada && data.tipo === 'entrada') {
+             if(data.tipoEntrada) document.getElementById('mov-tipo-entrada').value = data.tipoEntrada;
+             if(data.observacao) document.getElementById('mov-observacao-entrada').value = data.observacao;
+             toggleValorUnitarioRequirement();
+        } else if (!isEntrada && data.tipo === 'saida') {
+             if(data.tipoSaida) document.getElementById('mov-tipo-saida').value = data.tipoSaida;
+             if(data.requisitante) document.getElementById('mov-requisitante').value = data.requisitante;
+             if(data.obra) document.getElementById('mov-obra').value = data.obra;
+             if(data.observacao) document.getElementById('mov-observacao-saida').value = data.observacao;
+             toggleObraRequirement();
+        }
+    }
+
     function toggleValorUnitarioRequirement() {
         const isEntrada = toggle.checked;
         const valorUnitarioInput = document.getElementById('mov-valor-unitario');
@@ -558,6 +607,7 @@ document.addEventListener('DOMContentLoaded', async function() {
         await updateProductInfo();
         toggleObraRequirement();
         toggleValorUnitarioRequirement();
+        restoreLembrarValues();
     }
 
     toggle.addEventListener('change', handleToggleChange);
@@ -705,7 +755,9 @@ document.addEventListener('DOMContentLoaded', async function() {
                     productsMap[productId] = { id: productId, ...updatedDoc.data() };
                 }
 
+                saveLembrarValues();
                 formMovimentacao.reset();
+                restoreLembrarValues();
                 handleToggleChange();
             } catch (error) {
                 console.error("Erro na transação de entrada:", error);
@@ -743,7 +795,9 @@ document.addEventListener('DOMContentLoaded', async function() {
                         observacao: document.getElementById('mov-observacao-saida').value,
                     });
                     alert('Reserva registrada com sucesso!');
+                    saveLembrarValues();
                     formMovimentacao.reset();
+                    restoreLembrarValues();
                     handleToggleChange();
                 } catch (error) {
                     console.error("Erro ao registrar reserva:", error);
@@ -806,7 +860,9 @@ document.addEventListener('DOMContentLoaded', async function() {
                     if (updatedDoc.exists()) {
                         productsMap[productId] = { id: productId, ...updatedDoc.data() };
                     }
+                    saveLembrarValues();
                     formMovimentacao.reset();
+                    restoreLembrarValues();
                     handleToggleChange();
                 } catch (error) {
                     console.error("Erro ao registrar saída:", error);
