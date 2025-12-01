@@ -722,10 +722,19 @@ document.addEventListener('DOMContentLoaded', async function() {
             if (tipoSaidaConfig && tipoSaidaConfig.reservar_estoque == true) {
                 // Lógica de Reserva
                 try {
+                    // Validar se tem locação selecionada se o produto tiver locações
+                    const productData = productsMap[productId];
+                    const hasRealLocacoes = productData.locacoes && productData.locacoes.some(l => l.locacao);
+
+                    if (hasRealLocacoes && !locacaoSelecionada) {
+                         alert('Para produtos com locação, a locação é obrigatória para fazer a reserva.');
+                         return;
+                    }
+
                     await addDoc(collection(db, 'movimentacoes'), {
                         tipo: 'reserva',
                         productId,
-                        locacao: locacaoSelecionada, // Campo novo
+                        locacao: locacaoSelecionada || '', // Garante que salva o local, mesmo que vazio
                         quantidade,
                         data: serverTimestamp(),
                         tipo_saidaId: tipoSaidaId,
