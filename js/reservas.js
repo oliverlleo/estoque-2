@@ -17,6 +17,7 @@ document.addEventListener('DOMContentLoaded', () => {
     const filtersContainer = document.getElementById('filters-container');
     let productsMap = {};
     let obrasMap = {};
+    let locaisMap = {};
     let allReservas = [];
     let filterState = {};
 
@@ -33,6 +34,13 @@ document.addEventListener('DOMContentLoaded', () => {
         obrasMap = {};
         obrasSnapshot.forEach(doc => {
             obrasMap[doc.id] = doc.data();
+        });
+
+        // Carregar locais
+        const locaisSnapshot = await getDocs(collection(db, 'locais'));
+        locaisMap = {};
+        locaisSnapshot.forEach(doc => {
+            locaisMap[doc.id] = doc.data();
         });
     }
 
@@ -91,6 +99,35 @@ document.addEventListener('DOMContentLoaded', () => {
 
             const corEstoque = estoqueAtual < mov.quantidade ? 'red' : 'green';
 
+            // Lógica para Local e Endereçamento
+            let localNome = '-';
+            let enderecamento = mov.locacao;
+
+            // Se o movimento tem locação explícita
+            if (enderecamento && product.locacoes) {
+                const locInfo = product.locacoes.find(l => l.locacao === enderecamento);
+                if (locInfo && locInfo.localId && locaisMap[locInfo.localId]) {
+                    localNome = locaisMap[locInfo.localId].nome;
+                }
+            }
+            // Se não tem locação explícita, tenta inferir se o produto só tem uma locação
+            else if (!enderecamento && product.locacoes && product.locacoes.length > 0) {
+                 // Filtra locações com nome válido
+                 const validLocacoes = product.locacoes.filter(l => l.locacao);
+                 if (validLocacoes.length === 1) {
+                     enderecamento = validLocacoes[0].locacao;
+                     const localId = validLocacoes[0].localId;
+                     if (localId && locaisMap[localId]) {
+                         localNome = locaisMap[localId].nome;
+                     }
+                 } else {
+                     enderecamento = '<span class="text-gray-400 italic">Não especificado</span>';
+                     localNome = '<span class="text-gray-400 italic">Não especificado</span>';
+                 }
+            } else {
+                enderecamento = '-';
+            }
+
             row.innerHTML = `
                 <td><span class="status-badge ${statusClass}">${statusText}</span></td>
                 <td>${mov.data ? new Date(mov.data.seconds * 1000).toLocaleDateString('pt-BR') : 'N/A'}</td>
@@ -100,6 +137,8 @@ document.addEventListener('DOMContentLoaded', () => {
                 <td>${product.cor || '-'}</td>
                 <td>${mov.quantidade}</td>
                 <td style="color: ${corEstoque}; font-weight: bold;">${estoqueAtual.toFixed(2)}</td>
+                <td>${localNome}</td>
+                <td>${enderecamento}</td>
                 <td>${obra.nome || 'N/A'}</td>
                 <td>${mov.observacao || ''}</td>
                 <td class="actions">
