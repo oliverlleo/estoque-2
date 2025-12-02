@@ -5,32 +5,8 @@ function showInfoModal(message) {
 
 import { db } from './firebase-config.js';
 import { collection, addDoc, getDocs, onSnapshot, runTransaction, doc, serverTimestamp, query, where, getDoc, setDoc, orderBy } from "https://www.gstatic.com/firebasejs/9.6.1/firebase-firestore.js";
+import { calcularCustoMedioEmTempoReal } from './utils/finance.js';
 
-// Adicione esta função em js/movimentacoes.js
-async function calcularCustoMedioProduto(produtoId) {
-    const q = query(collection(db, 'movimentacoes'), where("productId", "==", produtoId));
-    const movementsSnapshot = await getDocs(q);
-    const productMovements = [];
-    movementsSnapshot.forEach(doc => {
-        productMovements.push(doc.data());
-    });
-
-    const entryMovements = productMovements.filter(m => m.tipo === 'entrada' && (m.custo_total_entrada || 0) > 0);
-    let totalCost = 0;
-    let totalQuantityForAvg = 0;
-
-    entryMovements.forEach(m => {
-        let custoEntrada = m.custo_total_entrada;
-        if (custoEntrada === undefined || custoEntrada === null) {
-            // Fallback para entradas antigas
-            custoEntrada = (m.quantidade_compra * (m.valor_unitario || 0)) + (m.icms || 0) + (m.ipi || 0) + (m.frete || 0);
-        }
-        totalCost += custoEntrada;
-        totalQuantityForAvg += m.quantidade;
-    });
-
-    return totalQuantityForAvg > 0 ? totalCost / totalQuantityForAvg : 0;
-}
 
 
 document.addEventListener('DOMContentLoaded', async function() {
@@ -790,10 +766,8 @@ document.addEventListener('DOMContentLoaded', async function() {
                          return;
                     }
 
-                    // Busca o produto atualizado para obter o valorMedio
-                    const productDocForReserva = await getDoc(doc(db, 'produtos', productId));
-                    const pDataReserva = productDocForReserva.exists() ? productDocForReserva.data() : productData;
-                    const valorMedioReserva = pDataReserva.valorMedio || 0;
+                    // Calcula o custo médio em tempo real
+                    const valorMedioReserva = await calcularCustoMedioEmTempoReal(productId);
 
                     await addDoc(collection(db, 'movimentacoes'), {
                         tipo: 'reserva',
@@ -828,6 +802,16 @@ document.addEventListener('DOMContentLoaded', async function() {
                 }
 
                 try {
+                    // Nota: O cálculo do custo médio precisa ser feito fora da transação se for usar getDocs (que não é suportado dentro de transação para queries complexas da mesma maneira),
+                    // ou aceitamos que ele seja calculado 'agora' e passado.
+                    // Como a transação exige operações síncronas de leitura/escrita atômicas, e calcularCustoMedioEmTempoReal faz várias leituras,
+                    // não podemos colocá-lo diretamente DENTRO da runTransaction se ele fizer queries soltas.
+
+                    // Cálculo REAL TIME (feito ANTES da transação de estoque)
+                    console.log(`Calculando custo médio para saída. ProdutoId: ${productId}`);
+                    const valorMedioRealTime = await calcularCustoMedioEmTempoReal(productId);
+                    console.log(`Custo médio calculado: ${valorMedioRealTime}`);
+
                     await runTransaction(db, async (transaction) => {
                         const productRef = doc(db, 'produtos', productId);
                         const productDoc = await transaction.get(productRef);
@@ -835,17 +819,15 @@ document.addEventListener('DOMContentLoaded', async function() {
 
                         const pData = productDoc.data();
                         const locacoes = pData.locacoes || [];
-                    const locacaoIndex = locacoes.findIndex(l => l.locacao === locacaoSelecionada && l.localId === localSelecionado);
+                        const locacaoIndex = locacoes.findIndex(l => l.locacao === locacaoSelecionada && l.localId === localSelecionado);
 
                         if (locacaoIndex === -1) {
                             throw new Error("Locação selecionada não encontrada no produto.");
                         }
 
-                        // A verificação do tipo de saída já foi feita, aqui só verificamos se movimenta estoque
                         if (tipoSaidaConfig && tipoSaidaConfig.movimenta_estoque == true) {
-                            // Re-valida o estoque dentro da transação para segurança
                             if ((locacoes[locacaoIndex].estoque || 0) < quantidade) {
-                               throw new Error(`Estoque insuficiente na locação ${locacaoSelecionada}! Disponível: ${locacoes[locacaoIndex].estoque || 0}`);
+                            throw new Error(`Estoque insuficiente na locação ${locacaoSelecionada}! Disponível: ${locacoes[locacaoIndex].estoque || 0}`);
                             }
                             locacoes[locacaoIndex].estoque -= quantidade;
                             transaction.update(productRef, { locacoes: locacoes });
@@ -862,7 +844,8 @@ document.addEventListener('DOMContentLoaded', async function() {
                             requisitante: document.getElementById('mov-requisitante').value,
                             obraId: document.getElementById('mov-obra').value,
                             observacao: document.getElementById('mov-observacao-saida').value,
-                            valorMedioHistorico: pData.valorMedio || 0
+                            valorMedioHistorico: valorMedioRealTime, // Usa o valor calculado
+                            custoTotal: valorMedioRealTime * quantidade // Salva o custo total
                         });
                     });
                     alert('Saída registrada com sucesso!');
@@ -1396,9 +1379,9 @@ document.addEventListener('DOMContentLoaded', async function() {
                 xmlImportModal.style.display = 'none';
 
                 // Atualizar custos e mostrar resumo
-                for (const id of produtosParaAtualizarCusto) {
-                    await atualizarCustoMedioProduto(id);
-                }
+                const updatePromises = Array.from(produtosParaAtualizarCusto).map(id => atualizarCustoMedioProduto(id));
+                await Promise.all(updatePromises);
+
                 let alertMessage = `${sucessoCount} produto(s) importado(s) com sucesso!`;
                 if (erroCount > 0) {
                     alertMessage += `\n\n${erroCount} produto(s) falharam:\n- ${falhas.join('\n- ')}`;
@@ -1527,9 +1510,8 @@ document.addEventListener('DOMContentLoaded', async function() {
             }
 
             // Atualizar custos e mostrar resumo final
-            for (const id of produtosParaAtualizarCusto) {
-                await atualizarCustoMedioProduto(id);
-            }
+            const updatePromises = Array.from(produtosParaAtualizarCusto).map(id => atualizarCustoMedioProduto(id));
+            await Promise.all(updatePromises);
 
             let alertMessage = `Dos itens corrigidos, ${sucessoCount} foram importado(s) com sucesso!`;
             if (erroCount > 0) {
@@ -1869,9 +1851,11 @@ document.addEventListener('DOMContentLoaded', async function() {
     });
 });
 
-// Substitua a função inteira em js/movimentacoes.js por esta versão CORRIGIDA:
 async function atualizarCustoMedioProduto(produtoId) {
     if (!produtoId) return;
+
+    // Pequeno delay para garantir que o Firestore indexou as últimas escritas (consistência eventual)
+    await new Promise(resolve => setTimeout(resolve, 1000));
 
     const q = query(collection(db, 'movimentacoes'), where("productId", "==", produtoId));
     const movementsSnapshot = await getDocs(q);
