@@ -6,31 +6,6 @@ function showInfoModal(message) {
 import { db } from './firebase-config.js';
 import { collection, addDoc, getDocs, onSnapshot, runTransaction, doc, serverTimestamp, query, where, getDoc, setDoc, orderBy } from "https://www.gstatic.com/firebasejs/9.6.1/firebase-firestore.js";
 
-// Adicione esta função em js/movimentacoes.js
-async function calcularCustoMedioProduto(produtoId) {
-    const q = query(collection(db, 'movimentacoes'), where("productId", "==", produtoId));
-    const movementsSnapshot = await getDocs(q);
-    const productMovements = [];
-    movementsSnapshot.forEach(doc => {
-        productMovements.push(doc.data());
-    });
-
-    const entryMovements = productMovements.filter(m => m.tipo === 'entrada' && (m.custo_total_entrada || 0) > 0);
-    let totalCost = 0;
-    let totalQuantityForAvg = 0;
-
-    entryMovements.forEach(m => {
-        let custoEntrada = m.custo_total_entrada;
-        if (custoEntrada === undefined || custoEntrada === null) {
-            // Fallback para entradas antigas
-            custoEntrada = (m.quantidade_compra * (m.valor_unitario || 0)) + (m.icms || 0) + (m.ipi || 0) + (m.frete || 0);
-        }
-        totalCost += custoEntrada;
-        totalQuantityForAvg += m.quantidade;
-    });
-
-    return totalQuantityForAvg > 0 ? totalCost / totalQuantityForAvg : 0;
-}
 
 
 document.addEventListener('DOMContentLoaded', async function() {
@@ -1396,9 +1371,9 @@ document.addEventListener('DOMContentLoaded', async function() {
                 xmlImportModal.style.display = 'none';
 
                 // Atualizar custos e mostrar resumo
-                for (const id of produtosParaAtualizarCusto) {
-                    await atualizarCustoMedioProduto(id);
-                }
+                const updatePromises = Array.from(produtosParaAtualizarCusto).map(id => atualizarCustoMedioProduto(id));
+                await Promise.all(updatePromises);
+
                 let alertMessage = `${sucessoCount} produto(s) importado(s) com sucesso!`;
                 if (erroCount > 0) {
                     alertMessage += `\n\n${erroCount} produto(s) falharam:\n- ${falhas.join('\n- ')}`;
@@ -1527,9 +1502,8 @@ document.addEventListener('DOMContentLoaded', async function() {
             }
 
             // Atualizar custos e mostrar resumo final
-            for (const id of produtosParaAtualizarCusto) {
-                await atualizarCustoMedioProduto(id);
-            }
+            const updatePromises = Array.from(produtosParaAtualizarCusto).map(id => atualizarCustoMedioProduto(id));
+            await Promise.all(updatePromises);
 
             let alertMessage = `Dos itens corrigidos, ${sucessoCount} foram importado(s) com sucesso!`;
             if (erroCount > 0) {
@@ -1869,9 +1843,11 @@ document.addEventListener('DOMContentLoaded', async function() {
     });
 });
 
-// Substitua a função inteira em js/movimentacoes.js por esta versão CORRIGIDA:
 async function atualizarCustoMedioProduto(produtoId) {
     if (!produtoId) return;
+
+    // Pequeno delay para garantir que o Firestore indexou as últimas escritas (consistência eventual)
+    await new Promise(resolve => setTimeout(resolve, 1000));
 
     const q = query(collection(db, 'movimentacoes'), where("productId", "==", produtoId));
     const movementsSnapshot = await getDocs(q);
