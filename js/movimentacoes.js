@@ -1386,7 +1386,7 @@ document.addEventListener('DOMContentLoaded', async function() {
 
             // Exibir modal se houver itens com problema
             if (itensComProblema.length > 0) {
-                exibirModalCorrecao(itensComProblema, nf);
+                exibirModalCorrecao(itensComProblema, nf, produtosParaAtualizarCusto);
             }
 
             // Esconder o loader e reativar o botão se não houver modal
@@ -1459,7 +1459,7 @@ document.addEventListener('DOMContentLoaded', async function() {
         });
     }
 
-    function exibirModalCorrecao(itensComProblema, nf) {
+    function exibirModalCorrecao(itensComProblema, nf, produtosPreviamenteImportados = new Set()) {
         const modal = document.getElementById('correcao-fracionada-modal');
         const tableBody = document.getElementById('correcao-fracionada-table-body');
         const btnConfirmar = document.getElementById('btn-confirmar-correcoes');
@@ -1482,7 +1482,13 @@ document.addEventListener('DOMContentLoaded', async function() {
         modal.style.display = 'block';
 
         // Lógica para fechar o modal
-        modalClose.onclick = () => {
+        modalClose.onclick = async () => {
+            // Se houver produtos já importados, garante que o custo deles seja atualizado antes de sair
+            if (produtosPreviamenteImportados.size > 0) {
+                 for (const id of produtosPreviamenteImportados) {
+                    await atualizarCustoMedioProduto(id);
+                 }
+            }
             modal.style.display = 'none';
             // Recarrega a página para refletir importações parciais
             location.reload();
@@ -1525,6 +1531,9 @@ document.addEventListener('DOMContentLoaded', async function() {
                     falhas.push(`Produto ${item.productData.codigo}: ${error.message}`);
                 }
             }
+
+            // Adiciona os produtos da etapa anterior para também atualizar o custo
+            produtosPreviamenteImportados.forEach(id => produtosParaAtualizarCusto.add(id));
 
             // Atualizar custos e mostrar resumo final
             for (const id of produtosParaAtualizarCusto) {
@@ -1872,6 +1881,9 @@ document.addEventListener('DOMContentLoaded', async function() {
 // Substitua a função inteira em js/movimentacoes.js por esta versão CORRIGIDA:
 async function atualizarCustoMedioProduto(produtoId) {
     if (!produtoId) return;
+
+    // Pequeno delay para garantir que o Firestore tenha persistido a última escrita antes da leitura
+    await new Promise(resolve => setTimeout(resolve, 1000));
 
     const q = query(collection(db, 'movimentacoes'), where("productId", "==", produtoId));
     const movementsSnapshot = await getDocs(q);
