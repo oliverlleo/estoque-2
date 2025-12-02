@@ -1575,13 +1575,18 @@ document.addEventListener('DOMContentLoaded', async function() {
 
     // Adiciona a formatação para o campo de locação no modal de cadastro de produto
     const modalLocacaoInput = document.getElementById('modal-produto-locacao');
+    const modalDefinitions = {
+        'L': {
+            mask: /[A-Z]/,
+        }
+    };
     IMask(modalLocacaoInput, {
-        mask: '0-L-00-L',
-        definitions: {
-            'L': {
-                mask: /[A-Z]/,
-            }
-        },
+        mask: [
+            { mask: '0' },
+            { mask: '0-L', definitions: modalDefinitions },
+            { mask: '0-L-00', definitions: modalDefinitions },
+            { mask: '0-L-00-L', definitions: modalDefinitions }
+        ],
         prepare: function (str) {
             return str.toUpperCase();
         },

@@ -231,12 +231,21 @@ document.addEventListener('DOMContentLoaded', async function() {
 
     // --- LÓGICA PARA GERENCIAR LOCAÇÕES DINÂMICAS ---
 
-    const addLocacaoRow = (locacao = '', localId = '') => {
+    const addLocacaoRow = (locacao = '', localId = '', originalLocacao = null, originalLocalId = null) => {
         const row = document.createElement('div');
         row.className = 'locacao-row';
         row.style.display = 'flex';
         row.style.gap = '10px';
         row.style.alignItems = 'center';
+
+        // Armazena os valores originais para preservar o estoque em caso de edição
+        // Garante que undefined não seja gravado como string "undefined"
+        if (originalLocacao !== null && originalLocacao !== undefined) {
+             row.dataset.originalLocacao = originalLocacao;
+        }
+        if (originalLocalId !== null && originalLocalId !== undefined) {
+             row.dataset.originalLocalId = originalLocalId;
+        }
 
         const locacaoInput = document.createElement('input');
         locacaoInput.type = 'text';
@@ -245,14 +254,19 @@ document.addEventListener('DOMContentLoaded', async function() {
         locacaoInput.value = locacao;
         locacaoInput.maxLength = 8;
 
-        // Apply the mask
+        // Apply the mask (Allows partial formats: 1, 1-A, 1-A-11, 1-A-11-B)
+        const locacaoDefinitions = {
+            'L': {
+                mask: /[A-Z]/,
+            }
+        };
         IMask(locacaoInput, {
-            mask: '0-L-00-L',
-            definitions: {
-                'L': {
-                    mask: /[A-Z]/,
-                }
-            },
+            mask: [
+                { mask: '0' },
+                { mask: '0-L', definitions: locacaoDefinitions },
+                { mask: '0-L-00', definitions: locacaoDefinitions },
+                { mask: '0-L-00-L', definitions: locacaoDefinitions }
+            ],
             prepare: function (str) {
                 return str.toUpperCase();
             },
@@ -285,13 +299,18 @@ document.addEventListener('DOMContentLoaded', async function() {
 
     // Aplica a máscara de locação ao campo de sobra
     const sobraLocacaoInput = document.getElementById('sobra-locacao');
+    const sobraDefinitions = {
+        'L': {
+            mask: /[A-Z]/,
+        }
+    };
     IMask(sobraLocacaoInput, {
-        mask: '0-L-00-L',
-        definitions: {
-            'L': {
-                mask: /[A-Z]/,
-            }
-        },
+        mask: [
+            { mask: '0' },
+            { mask: '0-L', definitions: sobraDefinitions },
+            { mask: '0-L-00', definitions: sobraDefinitions },
+            { mask: '0-L-00-L', definitions: sobraDefinitions }
+        ],
         prepare: function (str) {
             return str.toUpperCase();
         },
@@ -379,9 +398,10 @@ document.addEventListener('DOMContentLoaded', async function() {
             return;
         }
 
-        const locacaoPattern = /^[0-9]{1}-[A-Z]{1}-[0-9]{2}-[A-Z]{1}$/;
+        // Regex permite formatos parciais: 1, 1-A, 1-A-11, 1-A-11-B
+        const locacaoPattern = /^[0-9]{1}(-[A-Z]{1}(-[0-9]{2}(-[A-Z]{1})?)?)?$/;
         if (!locacaoPattern.test(sobraLocacao)) {
-            alert(`O formato da locação "${sobraLocacao}" é inválido. Use o formato N-L-NN-L (ex: 1-A-02-B).`);
+            alert(`O formato da locação "${sobraLocacao}" é inválido. Use formatos como 1, 1-A, 1-A-02 ou 1-A-02-B.`);
             return;
         }
 
@@ -505,7 +525,8 @@ document.addEventListener('DOMContentLoaded', async function() {
 
         const locacaoRows = locacoesContainer.querySelectorAll('.locacao-row');
         const locacoes = [];
-        const locacaoPattern = /^[0-9]{1}-[A-Z]{1}-[0-9]{2}-[A-Z]{1}$/;
+        // Regex permite formatos parciais: 1, 1-A, 1-A-11, 1-A-11-B
+        const locacaoPattern = /^[0-9]{1}(-[A-Z]{1}(-[0-9]{2}(-[A-Z]{1})?)?)?$/;
 
         for (const row of locacaoRows) {
             const locacaoInput = row.querySelector('.locacao-input');
@@ -513,13 +534,17 @@ document.addEventListener('DOMContentLoaded', async function() {
             const locacao = locacaoInput.value.toUpperCase();
             const localId = localSelect.value;
 
+            // Recupera as chaves originais salvas no elemento DOM
+            const originalLocacao = row.dataset.originalLocacao;
+            const originalLocalId = row.dataset.originalLocalId;
+
             if (locacao && !localId) {
                 alert('Ao preencher uma Locação, o Local também deve ser selecionado.');
                 return;
             }
 
             if (locacao && !locacaoPattern.test(locacao)) {
-                alert(`O formato da locação "${locacao}" é inválido. Use o formato N-L-NN-L (ex: 1-A-02-B).`);
+                alert(`O formato da locação "${locacao}" é inválido. Use formatos como 1, 1-A, 1-A-02 ou 1-A-02-B.`);
                 return;
             }
 
@@ -527,7 +552,10 @@ document.addEventListener('DOMContentLoaded', async function() {
                 locacoes.push({
                     locacao: locacao,
                     localId: localId,
-                    estoque: 0
+                    estoque: 0, // Será atualizado abaixo se for edição
+                    // Salva as chaves originais no objeto temporário para uso na lógica de preservação
+                    _originalLocacao: originalLocacao,
+                    _originalLocalId: originalLocalId
                 });
             }
         }
@@ -548,19 +576,57 @@ document.addEventListener('DOMContentLoaded', async function() {
 
         try {
             if (productId) {
-                // Ao atualizar, precisamos manter o estoque existente. Esta lógica será mais complexa.
-                // Por enquanto, vamos apenas setar, mas o ideal é uma transação que preserve o estoque.
-                // Esta parte será melhorada na etapa de migração e movimentação.
+                // Ao atualizar, precisamos manter o estoque existente.
                 const originalProduct = productsData.find(p => p.id === productId)?.data;
+
                 if (originalProduct && originalProduct.locacoes) {
+                    // Mapeia as novas locações preservando o estoque das originais correspondentes
                     product.locacoes = locacoes.map(novaLoc => {
-                        const existente = originalProduct.locacoes.find(antiga => antiga.locacao === novaLoc.locacao && antiga.localId === novaLoc.localId);
-                        return existente ? existente : novaLoc; // Mantém a locação existente com seu estoque
+                        let estoque = 0;
+
+                        // 1. Tenta encontrar pela chave ORIGINAL (se o usuário editou uma linha existente)
+                        // Isso permite renomear a locação mantendo o estoque (Move o estoque)
+                        if (novaLoc._originalLocacao !== undefined && novaLoc._originalLocalId !== undefined) {
+                            const originalMatch = originalProduct.locacoes.find(antiga =>
+                                String(antiga.locacao || '') === String(novaLoc._originalLocacao || '') &&
+                                String(antiga.localId || '') === String(novaLoc._originalLocalId || '')
+                            );
+                            if (originalMatch) {
+                                estoque = originalMatch.estoque || 0;
+                            }
+                        }
+                        // 2. Fallback: Se não tem chave original (ex: apagou e criou de novo igual),
+                        // tenta casar pelo nome atual para não zerar estoque acidentalmente se a linha for recriada
+                        else {
+                            const matchByName = originalProduct.locacoes.find(antiga =>
+                                antiga.locacao === novaLoc.locacao &&
+                                antiga.localId === novaLoc.localId
+                            );
+                            if (matchByName) {
+                                estoque = matchByName.estoque || 0;
+                            }
+                        }
+
+                        // Remove as propriedades temporárias antes de salvar
+                        const { _originalLocacao, _originalLocalId, ...locData } = novaLoc;
+                        return { ...locData, estoque: estoque };
                     });
+                } else {
+                    // Se não tinha locações antes, limpa as propriedades temporárias
+                     product.locacoes = locacoes.map(l => {
+                        const { _originalLocacao, _originalLocalId, ...rest } = l;
+                        return rest;
+                     });
                 }
+
                 await setDoc(doc(db, 'produtos', productId), product, { merge: true });
                 alert('Produto atualizado com sucesso!');
             } else {
+                // Remove propriedades temporárias para novos produtos também
+                 product.locacoes = locacoes.map(l => {
+                    const { _originalLocacao, _originalLocalId, ...rest } = l;
+                    return rest;
+                 });
                 await addDoc(collection(db, 'produtos'), product);
                 alert('Produto cadastrado com sucesso!');
             }
@@ -766,7 +832,8 @@ document.addEventListener('DOMContentLoaded', async function() {
             // Preenche as locações dinâmicas
             if (product.data.locacoes && Array.isArray(product.data.locacoes)) {
                 product.data.locacoes.forEach(loc => {
-                    addLocacaoRow(loc.locacao, loc.localId);
+                    // Passa também os valores originais para rastreamento
+                    addLocacaoRow(loc.locacao, loc.localId, loc.locacao, loc.localId);
                 });
             }
 
