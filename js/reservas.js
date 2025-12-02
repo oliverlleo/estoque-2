@@ -9,6 +9,7 @@ import {
     getDocs,
     updateDoc
 } from "https://www.gstatic.com/firebasejs/9.6.1/firebase-firestore.js";
+import { calcularCustoMedioEmTempoReal } from './utils/finance.js';
 
 document.addEventListener('DOMContentLoaded', () => {
     console.log("Página de Reservas carregada.");
@@ -296,6 +297,21 @@ document.addEventListener('DOMContentLoaded', () => {
         }
 
         try {
+            // Buscamos o ID do produto primeiro para calcular o custo real time
+            // Precisamos ler a reserva para saber o produto.
+            // Como 'runTransaction' exige que todas as leituras sejam feitas antes de escritas,
+            // e 'calcularCustoMedioEmTempoReal' é complexo, vamos fazer em duas etapas ou calcular fora.
+
+            // Etapa 1: Obter dados básicos para cálculo
+            const preMovDoc = await getDocs(query(collection(db, 'movimentacoes'), where('__name__', '==', currentConfirmMovId)));
+            if (preMovDoc.empty) throw new Error("Reserva não encontrada.");
+            const preMovData = preMovDoc.docs[0].data();
+            const productId = preMovData.productId;
+
+            // Etapa 2: Calcular custo em tempo real
+            const valorMedioRealTime = await calcularCustoMedioEmTempoReal(productId);
+
+            // Etapa 3: Transação de Estoque e Confirmação
             await runTransaction(db, async (transaction) => {
                 const movRef = doc(db, 'movimentacoes', currentConfirmMovId);
                 const movDoc = await transaction.get(movRef);
@@ -321,15 +337,15 @@ document.addEventListener('DOMContentLoaded', () => {
                 // Deduz estoque
                 locacoes[locacaoIndex].estoque -= movData.quantidade;
 
-                const valorMedio = parseFloat(pData.valorMedio) || 0;
-                const custoTotal = valorMedio * movData.quantidade;
+                // Usa o valor calculado em tempo real
+                const custoTotal = valorMedioRealTime * movData.quantidade;
 
                 transaction.update(productRef, { locacoes: locacoes });
                 transaction.update(movRef, {
                     tipo: 'saida',
                     reserva_confirmada: true,
                     locacao: selectedLocacao, // Atualiza para a locação REAL utilizada
-                    valorMedioHistorico: valorMedio,
+                    valorMedioHistorico: valorMedioRealTime,
                     custoTotal: custoTotal // Salva o custo total
                 });
             });
