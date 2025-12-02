@@ -1296,10 +1296,6 @@ document.addEventListener('DOMContentLoaded', async function() {
         const loader = document.getElementById('xml-import-loader');
         const nf = document.getElementById('xml-nfe-numero').value;
         const rows = document.querySelectorAll('#xml-products-table tbody tr');
-        let sucessoCount = 0;
-        let erroCount = 0;
-        const produtosParaAtualizarCusto = new Set();
-        let falhas = [];
 
         if (rows.length === 0) {
             return alert("Não há produtos para importar.");
@@ -1325,7 +1321,6 @@ document.addEventListener('DOMContentLoaded', async function() {
             let sucessoCount = 0;
             let erroCount = 0;
             let falhas = [];
-            const produtosParaAtualizarCusto = new Set();
 
             // Primeira passada: Validar e separar os itens
             for (const row of rows) {
@@ -1377,7 +1372,6 @@ document.addEventListener('DOMContentLoaded', async function() {
                 try {
                     await processarItemImportacao(item, nf);
                     sucessoCount++;
-                    produtosParaAtualizarCusto.add(item.productId);
                 } catch (error) {
                     erroCount++;
                     falhas.push(`Produto ${item.productData.codigo}: ${error.message}`);
@@ -1395,10 +1389,6 @@ document.addEventListener('DOMContentLoaded', async function() {
                 btnConfirmarXmlImport.disabled = false;
                 xmlImportModal.style.display = 'none';
 
-                // Atualizar custos e mostrar resumo
-                for (const id of produtosParaAtualizarCusto) {
-                    await atualizarCustoMedioProduto(id);
-                }
                 let alertMessage = `${sucessoCount} produto(s) importado(s) com sucesso!`;
                 if (erroCount > 0) {
                     alertMessage += `\n\n${erroCount} produto(s) falharam:\n- ${falhas.join('\n- ')}`;
@@ -1419,10 +1409,29 @@ document.addEventListener('DOMContentLoaded', async function() {
 
             const productData = productDoc.data();
 
-            // Lógica de Custo Total
-            let custoTotalEntrada = (item.quantidadeInformada * item.valorUnitario) + item.icms + item.ipi + item.frete;
+            // 1. Calcula Estoque Atual (Total)
+            let estoqueAtual = 0;
+            if (productData.locacoes && productData.locacoes.length > 0) {
+                estoqueAtual = productData.locacoes.reduce((sum, l) => sum + (l.estoque || 0), 0);
+            } else {
+                estoqueAtual = productData.estoque || 0;
+            }
 
-            // Atualiza Estoque
+            // 2. Calcula Custo Médio Atual e Novo
+            const custoMedioAtual = productData.valorMedio || 0;
+            const valorTotalAtual = estoqueAtual * custoMedioAtual;
+            const custoTotalEntrada = (item.quantidadeInformada * item.valorUnitario) + item.icms + item.ipi + item.frete;
+
+            const novoEstoqueTotal = estoqueAtual + item.quantidadeParaEstoque;
+            let novoCustoMedio = custoMedioAtual;
+
+            if (novoEstoqueTotal > 0) {
+                novoCustoMedio = (valorTotalAtual + custoTotalEntrada) / novoEstoqueTotal;
+            }
+
+            // 3. Prepara Atualização do Produto
+            const updateData = { valorMedio: novoCustoMedio };
+
             if (item.localSelecionado) {
                 const locacoes = productData.locacoes || [];
                 const locacaoIndex = locacoes.findIndex(l => l.localId === item.localSelecionado && l.locacao === item.locacaoSelecionada);
@@ -1430,13 +1439,15 @@ document.addEventListener('DOMContentLoaded', async function() {
                     throw new Error(`Combinação de Local/Locação não encontrada.`);
                 }
                 locacoes[locacaoIndex].estoque = (locacoes[locacaoIndex].estoque || 0) + item.quantidadeParaEstoque;
-                transaction.update(productRef, { locacoes: locacoes });
+                updateData.locacoes = locacoes;
             } else {
-                const novoEstoque = (productData.estoque || 0) + item.quantidadeParaEstoque;
-                transaction.update(productRef, { estoque: novoEstoque });
+                updateData.estoque = (productData.estoque || 0) + item.quantidadeParaEstoque;
             }
 
-            // Cria o Registro de Movimentação
+            // Aplica atualização atômica no produto (Estoque + Custo Médio)
+            transaction.update(productRef, updateData);
+
+            // 4. Cria o Registro de Movimentação
             const movementRef = doc(collection(db, 'movimentacoes'));
             const movementData = {
                 tipo: 'entrada',
@@ -1501,7 +1512,6 @@ document.addEventListener('DOMContentLoaded', async function() {
             let sucessoCount = 0;
             let erroCount = 0;
             let falhas = [];
-            const produtosParaAtualizarCusto = new Set();
 
             for (const row of rows) {
                 const index = parseInt(row.dataset.itemIndex, 10);
@@ -1519,16 +1529,10 @@ document.addEventListener('DOMContentLoaded', async function() {
                 try {
                     await processarItemImportacao(item, nf);
                     sucessoCount++;
-                    produtosParaAtualizarCusto.add(item.productId);
                 } catch (error) {
                     erroCount++;
                     falhas.push(`Produto ${item.productData.codigo}: ${error.message}`);
                 }
-            }
-
-            // Atualizar custos e mostrar resumo final
-            for (const id of produtosParaAtualizarCusto) {
-                await atualizarCustoMedioProduto(id);
             }
 
             let alertMessage = `Dos itens corrigidos, ${sucessoCount} foram importado(s) com sucesso!`;
