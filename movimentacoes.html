@@ -123,6 +123,7 @@
                         <div style="display: flex; align-items: center; gap: 10px;">
                             <button id="btn-importar-xml" class="btn" style="background-color: #0d6efd;">Importar NF-e (XML)</button>
                             <button id="btn-transferencia" class="btn" style="background-color: #ffc107; display: none;">Transferência Local</button>
+                            <button id="btn-bulk-transfer" class="btn" style="background-color: #17a2b8; display: none; color: white;">Transferência em Lote</button>
                             <div class="toggle-container" style="margin-left: 10px;">
                                 <span id="toggle-label-saida" style="font-weight: bold; color: #dc3545;">Saída</span>
                                 <label class="toggle-switch">
@@ -351,9 +352,14 @@
                     <div class="transfer-section">
                         <div class="transfer-section-title" style="display: flex; justify-content: space-between; align-items: center;">
                             <span>Destinos da Transferência</span>
-                            <button type="button" id="btn-add-destination" class="btn btn-sm btn-secondary" style="font-size: 0.8rem;">
-                                <span class="material-icons" style="font-size: 14px; vertical-align: middle;">add</span> Adicionar Destino
-                            </button>
+                            <div style="display: flex; gap: 10px;">
+                                <button type="button" id="btn-new-location" class="btn btn-sm btn-info" style="font-size: 0.8rem; background-color: #17a2b8; color: white;">
+                                    <span class="material-icons" style="font-size: 14px; vertical-align: middle;">add_location</span> Nova Locação
+                                </button>
+                                <button type="button" id="btn-add-destination" class="btn btn-sm btn-secondary" style="font-size: 0.8rem;">
+                                    <span class="material-icons" style="font-size: 14px; vertical-align: middle;">add</span> Adicionar Destino
+                                </button>
+                            </div>
                         </div>
 
                         <div class="destination-header-row">
@@ -494,6 +500,74 @@
             </div>
             <div class="modal-footer">
                 <button id="btn-confirmar-correcoes" class="btn btn-success">Importar Itens Corrigidos</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Modal para Adicionar Nova Locação (Transferência) -->
+    <div id="add-location-modal" class="modal" style="display: none;">
+        <div class="modal-content" style="max-width: 500px;">
+            <div class="modal-header">
+                <h3>Adicionar Nova Locação</h3>
+                <span class="close-button" id="add-location-modal-close">&times;</span>
+            </div>
+            <div class="modal-body">
+                <form id="form-add-location">
+                    <div style="margin-bottom: 15px;">
+                        <label for="new-location-local" style="display: block; margin-bottom: 5px;">Local</label>
+                        <select id="new-location-local" class="form-control" required>
+                            <option value="">Selecione o Local...</option>
+                        </select>
+                    </div>
+                    <div style="margin-bottom: 15px;">
+                        <label for="new-location-input" style="display: block; margin-bottom: 5px;">Locação</label>
+                        <input type="text" id="new-location-input" class="form-control" placeholder="Ex: 1-A-01-B" required>
+                        <small style="color: #6c757d;">Formato: 1, 1-A, 1-A-01 ou 1-A-01-B</small>
+                    </div>
+                    <div style="text-align: right;">
+                        <button type="submit" class="btn btn-success">Salvar Locação</button>
+                    </div>
+                </form>
+            </div>
+        </div>
+    </div>
+
+    <!-- Modal de Transferência em Lote -->
+    <div id="bulk-transfer-modal" class="modal" style="display: none;">
+        <div class="modal-content" style="max-width: 1200px;">
+            <div class="modal-header">
+                <h3>Transferência de Estoque em Lote</h3>
+                <span class="close-button" id="bulk-transfer-modal-close">&times;</span>
+            </div>
+            <div class="modal-body">
+                <div style="margin-bottom: 20px;">
+                    <label for="bulk-codes-input" style="font-weight: bold; display: block; margin-bottom: 5px;">Insira os Códigos dos Produtos (separados por espaço, vírgula ou nova linha)</label>
+                    <div style="display: flex; gap: 10px;">
+                        <textarea id="bulk-codes-input" class="form-control" rows="3" placeholder="Ex: PROD001, PROD002 PROD003..." style="flex-grow: 1;"></textarea>
+                        <button id="btn-load-bulk" class="btn btn-primary" style="align-self: flex-start;">Carregar Produtos</button>
+                    </div>
+                </div>
+
+                <div class="table-wrapper" style="max-height: 500px; overflow-y: auto;">
+                    <table id="bulk-transfer-table" class="table">
+                        <thead>
+                            <tr>
+                                <th>Código</th>
+                                <th>Produto</th>
+                                <th>Origem</th>
+                                <th>Destino (Local)</th>
+                                <th>Destino (Locação)</th>
+                                <th>Quantidade</th>
+                                <th>Status</th>
+                            </tr>
+                        </thead>
+                        <tbody></tbody>
+                    </table>
+                </div>
+
+                <div style="margin-top: 20px; text-align: right;">
+                    <button id="btn-confirm-bulk" class="btn btn-success" disabled>Confirmar Transferências</button>
+                </div>
             </div>
         </div>
     </div>
