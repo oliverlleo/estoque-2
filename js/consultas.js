@@ -8,7 +8,10 @@ document.addEventListener('DOMContentLoaded', async function() {
     const filters = {
         codigo: document.getElementById('filter-codigo'),
         descricao: document.getElementById('filter-descricao'),
-        local: document.getElementById('filter-local')
+        cor: document.getElementById('filter-cor'),
+        local: document.getElementById('filter-local'),
+        locacao: document.getElementById('filter-locacao'),
+        comReserva: document.getElementById('filter-com-reserva')
     };
 
     let consolidatedData = [];
@@ -66,8 +69,14 @@ document.addEventListener('DOMContentLoaded', async function() {
         ]);
 
         configData.locais = {};
+        filters.local.innerHTML = '<option value="">Todos os Locais</option>';
         locaisSnapshot.forEach(doc => {
             configData.locais[doc.id] = doc.data();
+            // Popula o filtro de locais
+            const option = document.createElement('option');
+            option.value = doc.id;
+            option.textContent = doc.data().nome;
+            filters.local.appendChild(option);
         });
 
         const conversoesMap = {};
@@ -365,20 +374,45 @@ document.addEventListener('DOMContentLoaded', async function() {
         const filterValues = {
             codigo: filters.codigo.value.toLowerCase(),
             descricao: filters.descricao.value.toLowerCase(),
-            local: filters.local.value.toLowerCase()
+            cor: filters.cor.value.toLowerCase(),
+            local: filters.local.value, // Select uses exact value (ID)
+            locacao: filters.locacao.value.toLowerCase(),
+            comReserva: filters.comReserva.checked
         };
 
         const filteredData = consolidatedData.filter(item => {
             const matchesCodigo = (item.codigo || '').toLowerCase().includes(filterValues.codigo);
             const matchesDescricao = (item.descricao || '').toLowerCase().includes(filterValues.descricao);
-            const matchesLocal = (item.localDisplay || '').toLowerCase().includes(filterValues.local);
-            return matchesCodigo && matchesDescricao && matchesLocal;
+            const matchesCor = (item.cor || '').toLowerCase().includes(filterValues.cor);
+
+            // Filtro de Reserva
+            if (filterValues.comReserva && (item.quantidadeReservada || 0) <= 0) {
+                return false;
+            }
+
+            // Filtro de Local e Locação (verifica se alguma das locações do produto atende)
+            // Se não houver filtro de local nem locação, passa direto nesta checagem
+            let matchesLocalLocacao = true;
+
+            if (filterValues.local || filterValues.locacao) {
+                if (!item.locacoes || item.locacoes.length === 0) {
+                    matchesLocalLocacao = false; // Se filtrar por local/locação e produto não tiver, falha
+                } else {
+                    matchesLocalLocacao = item.locacoes.some(loc => {
+                        const localMatch = !filterValues.local || loc.localId === filterValues.local;
+                        const locacaoMatch = !filterValues.locacao || (loc.locacao || '').toLowerCase().includes(filterValues.locacao);
+                        return localMatch && locacaoMatch;
+                    });
+                }
+            }
+
+            return matchesCodigo && matchesDescricao && matchesCor && matchesLocalLocacao;
         });
 
         renderTable(filteredData);
     }
 
-    Object.values(filters).forEach(input => input.addEventListener('input', applyFilters));
+    Object.values(filters).forEach(input => input.addEventListener(input.type === 'checkbox' ? 'change' : 'input', applyFilters));
 
     fetchDataAndCalculate().catch(error => {
         console.error("Erro ao carregar dados da consulta:", error);
