@@ -254,14 +254,19 @@ document.addEventListener('DOMContentLoaded', async function() {
         locacaoInput.value = locacao;
         locacaoInput.maxLength = 8;
 
-        // Apply the mask
+        // Apply the mask (Allows partial formats: 1, 1-A, 1-A-11, 1-A-11-B)
+        const locacaoDefinitions = {
+            'L': {
+                mask: /[A-Z]/,
+            }
+        };
         IMask(locacaoInput, {
-            mask: '0-L-00-L',
-            definitions: {
-                'L': {
-                    mask: /[A-Z]/,
-                }
-            },
+            mask: [
+                { mask: '0' },
+                { mask: '0-L', definitions: locacaoDefinitions },
+                { mask: '0-L-00', definitions: locacaoDefinitions },
+                { mask: '0-L-00-L', definitions: locacaoDefinitions }
+            ],
             prepare: function (str) {
                 return str.toUpperCase();
             },
@@ -294,13 +299,18 @@ document.addEventListener('DOMContentLoaded', async function() {
 
     // Aplica a máscara de locação ao campo de sobra
     const sobraLocacaoInput = document.getElementById('sobra-locacao');
+    const sobraDefinitions = {
+        'L': {
+            mask: /[A-Z]/,
+        }
+    };
     IMask(sobraLocacaoInput, {
-        mask: '0-L-00-L',
-        definitions: {
-            'L': {
-                mask: /[A-Z]/,
-            }
-        },
+        mask: [
+            { mask: '0' },
+            { mask: '0-L', definitions: sobraDefinitions },
+            { mask: '0-L-00', definitions: sobraDefinitions },
+            { mask: '0-L-00-L', definitions: sobraDefinitions }
+        ],
         prepare: function (str) {
             return str.toUpperCase();
         },
@@ -388,9 +398,10 @@ document.addEventListener('DOMContentLoaded', async function() {
             return;
         }
 
-        const locacaoPattern = /^[0-9]{1}-[A-Z]{1}-[0-9]{2}-[A-Z]{1}$/;
+        // Regex permite formatos parciais: 1, 1-A, 1-A-11, 1-A-11-B
+        const locacaoPattern = /^[0-9]{1}(-[A-Z]{1}(-[0-9]{2}(-[A-Z]{1})?)?)?$/;
         if (!locacaoPattern.test(sobraLocacao)) {
-            alert(`O formato da locação "${sobraLocacao}" é inválido. Use o formato N-L-NN-L (ex: 1-A-02-B).`);
+            alert(`O formato da locação "${sobraLocacao}" é inválido. Use formatos como 1, 1-A, 1-A-02 ou 1-A-02-B.`);
             return;
         }
 
@@ -514,7 +525,8 @@ document.addEventListener('DOMContentLoaded', async function() {
 
         const locacaoRows = locacoesContainer.querySelectorAll('.locacao-row');
         const locacoes = [];
-        const locacaoPattern = /^[0-9]{1}-[A-Z]{1}-[0-9]{2}-[A-Z]{1}$/;
+        // Regex permite formatos parciais: 1, 1-A, 1-A-11, 1-A-11-B
+        const locacaoPattern = /^[0-9]{1}(-[A-Z]{1}(-[0-9]{2}(-[A-Z]{1})?)?)?$/;
 
         for (const row of locacaoRows) {
             const locacaoInput = row.querySelector('.locacao-input');
@@ -532,7 +544,7 @@ document.addEventListener('DOMContentLoaded', async function() {
             }
 
             if (locacao && !locacaoPattern.test(locacao)) {
-                alert(`O formato da locação "${locacao}" é inválido. Use o formato N-L-NN-L (ex: 1-A-02-B).`);
+                alert(`O formato da locação "${locacao}" é inválido. Use formatos como 1, 1-A, 1-A-02 ou 1-A-02-B.`);
                 return;
             }
 
