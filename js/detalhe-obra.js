@@ -11,31 +11,215 @@ document.addEventListener('DOMContentLoaded', () => {
     const labelItens = document.getElementById('toggle-label-itens');
     const labelReservas = document.getElementById('toggle-label-reservas');
 
+    // New Financial Toggle Elements
+    const financialToggle = document.getElementById('financial-view-toggle');
+    const labelGrafico = document.getElementById('toggle-label-grafico');
+    const labelDados = document.getElementById('toggle-label-dados');
+    const chartsView = document.getElementById('financial-charts-view');
+    const dataView = document.getElementById('financial-data-view');
+
     let currentItens = []; // Itens de Saída (Consumidos)
     let currentReservas = []; // Itens Reservados
     let activeDataset = []; // Dataset atualmente exibido
     let obraInfo = {};
     let charts = {}; // Para armazenar instâncias dos gráficos
+    let selectedGroupId = null; // Para filtrar por grupo ao clicar no grafico/tabela
+    let gruposMap = {}; // Mapa de grupos (ID -> Objeto)
 
     if (!obraId) {
         document.body.innerHTML = '<h1>ID da Obra não fornecido.</h1>';
         return;
     }
 
+    function renderFinancialTable(orcadoMap, negociadoMap, realizadoMap) {
+        const tableBody = document.getElementById('financial-details-body');
+        const tableFooter = document.getElementById('financial-details-footer');
+
+        if (!tableBody || !tableFooter) return;
+
+        tableBody.innerHTML = '';
+        tableFooter.innerHTML = '';
+
+        // Obter todos os IDs de grupo únicos presentes em qualquer um dos mapas
+        const allGroupIds = new Set([
+            ...Object.keys(orcadoMap || {}),
+            ...Object.keys(negociadoMap || {}),
+            ...Object.keys(realizadoMap || {})
+        ]);
+
+        let totalOrcado = 0;
+        let totalNegociado = 0;
+        let totalRealizado = 0;
+
+        // Consolidar dados para renderização
+        const rowsToRender = [];
+        const semGrupoTotals = {
+            orcado: 0,
+            negociado: 0,
+            realizado: 0,
+            hasData: false
+        };
+
+        allGroupIds.forEach(groupId => {
+            const valOrcado = orcadoMap && orcadoMap[groupId] ? parseFloat(orcadoMap[groupId]) : 0;
+            const valNegociado = negociadoMap && negociadoMap[groupId] ? parseFloat(negociadoMap[groupId]) : 0;
+            const valRealizado = realizadoMap[groupId] || 0;
+
+            // Se todos os valores forem zero, ignora esta linha
+            if (valOrcado === 0 && valNegociado === 0 && valRealizado === 0) {
+                return;
+            }
+
+            const groupName = gruposMap[groupId]?.nome;
+
+            if (groupName) {
+                // Grupo conhecido e válido
+                rowsToRender.push({
+                    id: groupId,
+                    nome: groupName,
+                    valOrcado,
+                    valNegociado,
+                    valRealizado
+                });
+            } else {
+                // Grupo desconhecido ou 'sem_grupo' -> Consolidar
+                semGrupoTotals.orcado += valOrcado;
+                semGrupoTotals.negociado += valNegociado;
+                semGrupoTotals.realizado += valRealizado;
+                semGrupoTotals.hasData = true;
+            }
+        });
+
+        // Adicionar linha consolidada de "Sem Grupo/Outros" se houver dados
+        if (semGrupoTotals.hasData) {
+            rowsToRender.push({
+                id: 'sem_grupo_consolidado', // ID especial para seleção
+                nome: 'Sem Grupo/Outros',
+                valOrcado: semGrupoTotals.orcado,
+                valNegociado: semGrupoTotals.negociado,
+                valRealizado: semGrupoTotals.realizado
+            });
+        }
+
+        // Ordenar alfabeticamente
+        rowsToRender.sort((a, b) => a.nome.localeCompare(b.nome));
+
+        // Renderizar linhas
+        rowsToRender.forEach(rowInfo => {
+            const groupId = rowInfo.id;
+
+            totalOrcado += rowInfo.valOrcado;
+            totalNegociado += rowInfo.valNegociado;
+            totalRealizado += rowInfo.valRealizado;
+
+            // Cálculos de porcentagem
+            let percNegOrc = 0;
+            if (rowInfo.valOrcado > 0) {
+                percNegOrc = (rowInfo.valNegociado / rowInfo.valOrcado) * 100;
+            }
+
+            let percRealNeg = 0;
+            if (rowInfo.valNegociado > 0) {
+                percRealNeg = (rowInfo.valRealizado / rowInfo.valNegociado) * 100;
+            }
+
+            // Formatação
+            const fmtBRL = (val) => val.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' });
+            const fmtPerc = (val) => val.toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 }) + '%';
+
+            const row = document.createElement('tr');
+            row.className = `bg-white border-b hover:bg-gray-50 cursor-pointer transition-colors ${selectedGroupId === groupId ? 'bg-blue-50 border-l-4 border-blue-500' : ''}`;
+            row.innerHTML = `
+                <td class="px-6 py-4 font-medium text-gray-900">${rowInfo.nome}</td>
+                <td class="px-6 py-4 text-right">${fmtBRL(rowInfo.valOrcado)}</td>
+                <td class="px-6 py-4 text-center font-semibold ${percNegOrc > 100 ? 'text-red-600' : 'text-green-600'}">${fmtPerc(percNegOrc)}</td>
+                <td class="px-6 py-4 text-right">${fmtBRL(rowInfo.valNegociado)}</td>
+                <td class="px-6 py-4 text-center font-semibold ${percRealNeg > 100 ? 'text-red-600' : 'text-green-600'}">${fmtPerc(percRealNeg)}</td>
+                <td class="px-6 py-4 text-right font-bold">${fmtBRL(rowInfo.valRealizado)}</td>
+            `;
+
+            row.addEventListener('click', () => {
+                // Se for a linha consolidada, precisamos decidir como filtrar.
+                // Se selecionarmos 'sem_grupo_consolidado', applyFilters deve saber lidar.
+                // Atualmente applyFilters compara selectedGroupId com item.grupoId.
+                // Se item.grupoId for indefinido ou 'sem_grupo', e selectedGroupId for 'sem_grupo_consolidado'?
+                // Precisamos ajustar o ID usado.
+                // Mas wait, se existirem multiplos IDs desconhecidos que foram consolidados,
+                // clicar nessa linha deveria mostrar itens de TODOS esses IDs?
+                // Seria complexo.
+                // Simplificação: Se item.grupoId não estiver em gruposMap, ele é considerado Sem Grupo.
+                // Mas applyFilters nao tem acesso facil a gruposMap.
+
+                // Vamos assumir que 'sem_grupo_consolidado' deve mapear para 'sem_grupo' ou IDs desconhecidos.
+                // Mas a maioria dos casos 'sem_grupo' vem de item.grupoId = null.
+                // Então vamos usar 'sem_grupo' como ID se for consolidado E o ID original fosse 'sem_grupo'.
+                // Se for um ID desconhecido (deletado), ele não vai bater com item.grupoId (que seria esse ID deletado).
+
+                // Melhor abordagem: selectedGroupId armazena o ID exato se for linha normal.
+                // Se for linha consolidada, armazena 'sem_grupo_consolidado'.
+                // E applyFilters trata esse caso especial.
+
+                if (selectedGroupId === groupId) {
+                    selectedGroupId = null; // Toggle off
+                } else {
+                    selectedGroupId = groupId; // Select
+                }
+                applyFilters();
+                renderFinancialTable(orcadoMap, negociadoMap, realizadoMap);
+            });
+
+            tableBody.appendChild(row);
+        });
+
+        // Totais
+        let totalPercNegOrc = 0;
+        if (totalOrcado > 0) totalPercNegOrc = (totalNegociado / totalOrcado) * 100;
+
+        let totalPercRealNeg = 0;
+        if (totalNegociado > 0) totalPercRealNeg = (totalRealizado / totalNegociado) * 100;
+
+        const fmtBRL = (val) => val.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' });
+        const fmtPerc = (val) => val.toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 }) + '%';
+
+        const footerRow = document.createElement('tr');
+        footerRow.className = 'cursor-pointer hover:bg-gray-100 transition-colors'; // Add visual feedback
+        footerRow.innerHTML = `
+            <td class="px-6 py-4 font-bold">TOTAL</td>
+            <td class="px-6 py-4 text-right font-bold">${fmtBRL(totalOrcado)}</td>
+            <td class="px-6 py-4 text-center font-bold">${fmtPerc(totalPercNegOrc)}</td>
+            <td class="px-6 py-4 text-right font-bold">${fmtBRL(totalNegociado)}</td>
+            <td class="px-6 py-4 text-center font-bold">${fmtPerc(totalPercRealNeg)}</td>
+            <td class="px-6 py-4 text-right font-bold text-blue-600">${fmtBRL(totalRealizado)}</td>
+        `;
+
+        footerRow.addEventListener('click', () => {
+            selectedGroupId = null; // Clear filter
+            applyFilters();
+            renderFinancialTable(orcadoMap, negociadoMap, realizadoMap); // Re-render to clear selection highlights
+        });
+
+        tableFooter.appendChild(footerRow);
+    }
+
     function renderCharts(custoPorGrupo, custoPorFornecedor) {
-        // Destruir gráficos existentes para evitar sobreposição de tooltips e eventos
+        // Destruir gráficos existentes
         if (charts.groupChart) charts.groupChart.destroy();
         if (charts.supplierChart) charts.supplierChart.destroy();
+
+        // custoPorGrupo agora usa IDs como chaves. Precisamos de labels (nomes).
+        const groupIds = Object.keys(custoPorGrupo);
+        const groupLabels = groupIds.map(id => gruposMap[id]?.nome || 'Sem Grupo/Outros');
+        const groupValues = Object.values(custoPorGrupo);
 
         const groupCtx = document.getElementById('groupChart')?.getContext('2d');
         if (groupCtx) {
             charts.groupChart = new Chart(groupCtx, {
                 type: 'doughnut',
                 data: {
-                    labels: Object.keys(custoPorGrupo),
+                    labels: groupLabels,
                     datasets: [{
                         label: 'Custo por Grupo',
-                        data: Object.values(custoPorGrupo),
+                        data: groupValues,
                         backgroundColor: [
                             'rgba(59, 130, 246, 0.7)', 'rgba(239, 68, 68, 0.7)', 'rgba(16, 185, 129, 0.7)',
                             'rgba(249, 115, 22, 0.7)', 'rgba(139, 92, 246, 0.7)', 'rgba(236, 72, 153, 0.7)',
@@ -50,6 +234,36 @@ document.addEventListener('DOMContentLoaded', () => {
                 options: {
                     responsive: true,
                     maintainAspectRatio: false,
+                    onClick: (event, elements) => {
+                        if (elements.length > 0) {
+                            const index = elements[0].index;
+                            const clickedGroupId = groupIds[index];
+
+                            if (selectedGroupId === clickedGroupId) {
+                                selectedGroupId = null; // Toggle off
+                            } else {
+                                selectedGroupId = clickedGroupId; // Select
+                            }
+
+                            applyFilters();
+                            // Se a tabela estiver visivel, deve atualizar visualmente tambem (opcional, já que toggle chama updateToggleUI que chama applyFilters)
+                            // Se quisermos que o gráfico de feedback visual de seleção, seria mais complexo com Chart.js padrão (precisaria mudar cores do dataset)
+                            // Por enquanto, apenas filtra.
+
+                            // Força update da tabela se estiver no modo tabela
+                            if (financialToggle.checked) {
+                                renderFinancialTable(obraInfo.orcado, obraInfo.negociado, custoPorGrupo);
+                            }
+                        } else {
+                            // Clicked outside segments (background) -> Clear filter
+                            selectedGroupId = null;
+                            applyFilters();
+
+                            if (financialToggle.checked) {
+                                renderFinancialTable(obraInfo.orcado, obraInfo.negociado, custoPorGrupo);
+                            }
+                        }
+                    },
                     plugins: {
                         legend: { position: 'bottom' },
                         tooltip: {
@@ -57,8 +271,19 @@ document.addEventListener('DOMContentLoaded', () => {
                                 label: function(context) {
                                     let label = context.label || '';
                                     if (label) { label += ': '; }
+
                                     if (context.parsed !== null) {
-                                        label += new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(context.parsed);
+                                        const value = context.parsed;
+                                        // Calculate total manually if needed, or access chart metadata
+                                        let total = 0;
+                                        if (context.dataset.data) {
+                                            total = context.dataset.data.reduce((acc, curr) => acc + curr, 0);
+                                        }
+
+                                        const percentage = total > 0 ? ((value / total) * 100).toFixed(2) + '%' : '0%';
+
+                                        label += new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(value);
+                                        label += ` (${percentage})`;
                                     }
                                     return label;
                                 }
@@ -121,9 +346,12 @@ document.addEventListener('DOMContentLoaded', () => {
             if (item.valorTotal) {
                 total += item.valorTotal;
             }
-            if (item.grupo && item.valorTotal > 0) {
-                porGrupo[item.grupo] = (porGrupo[item.grupo] || 0) + item.valorTotal;
+            // Alterado para usar ID do grupo para agregação mais precisa
+            const grupoKey = item.grupoId || 'sem_grupo';
+            if (item.valorTotal > 0) {
+                 porGrupo[grupoKey] = (porGrupo[grupoKey] || 0) + item.valorTotal;
             }
+
             if (item.fornecedor && item.valorTotal > 0) {
                 porFornecedor[item.fornecedor] = (porFornecedor[item.fornecedor] || 0) + item.valorTotal;
             }
@@ -148,8 +376,11 @@ document.addEventListener('DOMContentLoaded', () => {
             productsSnap.forEach(prodDoc => { productsMap[prodDoc.id] = prodDoc.data(); });
             const fornecedoresMap = {};
             fornecedoresSnap.forEach(fornDoc => { fornecedoresMap[fornDoc.id] = fornDoc.data(); });
-            const gruposMap = {};
+
+            // Popula a variável global do escopo
+            gruposMap = {};
             gruposSnap.forEach(grupoDoc => { gruposMap[grupoDoc.id] = grupoDoc.data(); });
+
             const aplicacoesMap = {};
             aplicacoesSnap.forEach(appDoc => { aplicacoesMap[appDoc.id] = appDoc.data(); });
 
@@ -178,6 +409,7 @@ document.addEventListener('DOMContentLoaded', () => {
                         cor: produto.cor || '-',
                         fornecedor,
                         grupo,
+                        grupoId: produto.grupoId, // Adicionado para filtragem robusta
                         aplicacoes,
                         qtde: movimentacao.quantidade,
                         observacao: movimentacao.observacao || '-',
@@ -211,6 +443,7 @@ document.addEventListener('DOMContentLoaded', () => {
                         cor: produto.cor || '-',
                         fornecedor,
                         grupo,
+                        grupoId: produto.grupoId, // Adicionado para filtragem robusta
                         aplicacoes,
                         qtde: movimentacao.quantidade,
                         observacao: movimentacao.observacao || '-',
@@ -226,17 +459,102 @@ document.addEventListener('DOMContentLoaded', () => {
             const obraData = obraSnap.data();
             obraInfo = {
                 codigo: obraData.codigo || 'S/C',
-                nome: obraData.nome
+                nome: obraData.nome,
+                orcado: obraData.orcado || {},
+                negociado: obraData.negociado || {}
             };
 
             document.getElementById('obra-titulo').textContent = `${obraInfo.codigo} - ${obraInfo.nome}`;
 
-            const orcamentoElement = document.getElementById('obra-orcamento');
-            if (orcamentoElement && obraData.orcamento) {
-                orcamentoElement.innerHTML = `Orçamento: <span class="font-semibold" style="color: red;">${parseFloat(obraData.orcamento).toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' })}</span>`;
+            // Calculando total do orçamento para exibição no header (usando a soma dos grupos se for objeto, ou o valor legado se for string/numero)
+            let totalOrcamentoExibicao = 0;
+            if (typeof obraData.orcamento === 'object') {
+                 // Caso legado onde talvez fosse salvo diferente? Não, o código antigo usava obraData.orcamento diretamente.
+                 // Vamos verificar se existe o campo orcado (novo) e usar ele preferencialmente?
+                 // O código antigo em detalhe-obra.js fazia: parseFloat(obraData.orcamento)
+                 // O código em obras.js mostra que 'orcado' é um objeto. 'orcamento' devia ser um campo antigo de valor total.
+                 // Vamos manter a lógica antiga para o header se existir, mas somar o 'orcado' se não.
+                 if (obraData.orcamento && !isNaN(parseFloat(obraData.orcamento))) {
+                     totalOrcamentoExibicao = parseFloat(obraData.orcamento);
+                 } else if (obraData.orcado) {
+                     totalOrcamentoExibicao = Object.values(obraData.orcado).reduce((a, b) => a + b, 0);
+                 }
+            } else if (obraData.orcamento) {
+                 totalOrcamentoExibicao = parseFloat(obraData.orcamento);
+            } else if (obraData.orcado) {
+                 totalOrcamentoExibicao = Object.values(obraData.orcado).reduce((a, b) => a + b, 0);
             }
 
-            // Define o dataset ativo inicial com base no estado do toggle e atualiza UI (incluindo dashboard)
+            const orcamentoElement = document.getElementById('obra-orcamento');
+            if (orcamentoElement) {
+                orcamentoElement.innerHTML = `Orçamento: <span class="font-semibold" style="color: red;">${totalOrcamentoExibicao.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' })}</span>`;
+            }
+
+            // Função para update da UI do Toggle Financeiro (precisa estar aqui para acessar activeDataset/obraInfo que são locais ao escopo DOMContentLoaded, mas fora desta função?)
+            // activeDataset e obraInfo estão no escopo de DOMContentLoaded.
+            // Então updateFinancialToggleUI pode ser definida lá fora?
+            // Não, ela é chamada aqui.
+            // Mas os listeners devem ser definidos apenas uma vez.
+            // O problema anterior era redefinição de updateToggleUI.
+
+            // Vamos definir a função de update do toggle financeiro
+            const updateFinancialToggleUI = () => {
+                if (financialToggle.checked) {
+                    // Modo DADOS
+                    labelGrafico.style.fontWeight = 'normal';
+                    labelGrafico.style.color = '#6c757d';
+                    labelDados.style.fontWeight = 'bold';
+                    labelDados.style.color = '#0d6efd';
+
+                    chartsView.classList.add('hidden');
+                    dataView.classList.remove('hidden');
+
+                    const financials = calculateFinancials(activeDataset);
+                    renderFinancialTable(obraInfo.orcado, obraInfo.negociado, financials.porGrupo);
+
+                } else {
+                    // Modo GRÁFICO
+                    labelGrafico.style.fontWeight = 'bold';
+                    labelGrafico.style.color = '#0d6efd';
+                    labelDados.style.fontWeight = 'normal';
+                    labelDados.style.color = '#6c757d';
+
+                    chartsView.classList.remove('hidden');
+                    dataView.classList.add('hidden');
+                }
+            }
+
+            // Remover listeners antigos? Não consigo remover facilmente anonimos/redifinidos.
+            // Mas como carregarDetalhesDaObra é chamado apenas uma vez no load, está ok adicionar listeners aqui?
+            // Sim, carregarDetalhesDaObra é chamado uma vez no final do script.
+
+            // ATENÇÃO: Se carregarDetalhesDaObra falhar, listeners não são adicionados.
+            // Mas se falhar, a tela mostra erro. Ok.
+
+            // Limpar listeners anteriores para evitar duplicacao se chamado multiplas vezes (improvavel aqui, mas boa pratica)
+            // Clonar e substituir elementos remove listeners
+            const cloneAndReplace = (el) => {
+                const newEl = el.cloneNode(true);
+                el.parentNode.replaceChild(newEl, el);
+                return newEl;
+            };
+
+            // Vamos apenas adicionar, assumindo execução única.
+            financialToggle.onchange = updateFinancialToggleUI;
+            labelGrafico.onclick = () => {
+                 if (financialToggle.checked) {
+                    financialToggle.checked = false;
+                    updateFinancialToggleUI();
+                }
+            };
+            labelDados.onclick = () => {
+                if (!financialToggle.checked) {
+                    financialToggle.checked = true;
+                    updateFinancialToggleUI();
+                }
+            };
+
+            // Chamada inicial para configurar UI baseada no estado inicial
             activeDataset = viewToggle.checked ? currentReservas : currentItens;
             updateToggleUI();
 
@@ -278,10 +596,26 @@ document.addEventListener('DOMContentLoaded', () => {
     function applyFilters() {
         const codigoFilter = filterCodigo.value.toLowerCase();
         const descricaoFilter = filterDescricao.value.toLowerCase();
+
         const filteredItens = activeDataset.filter(item => {
             const codigoMatch = item.codigo.toLowerCase().includes(codigoFilter);
             const descricaoMatch = item.descricao.toLowerCase().includes(descricaoFilter);
-            return codigoMatch && descricaoMatch;
+
+            let grupoMatch = true;
+            if (selectedGroupId) {
+                const itemGroupId = item.grupoId || 'sem_grupo';
+
+                if (selectedGroupId === 'sem_grupo_consolidado') {
+                    // Match se o grupo do item NAO existir no mapa de grupos conhecidos
+                    // OU se for explicitamente 'sem_grupo'
+                    const isKnownGroup = gruposMap[item.grupoId];
+                    grupoMatch = !isKnownGroup;
+                } else {
+                    grupoMatch = itemGroupId === selectedGroupId;
+                }
+            }
+
+            return codigoMatch && descricaoMatch && grupoMatch;
         });
         renderTabelaItens(filteredItens);
     }
@@ -313,6 +647,11 @@ document.addEventListener('DOMContentLoaded', () => {
 
         // Update Charts
         renderCharts(financials.porGrupo, financials.porFornecedor);
+
+        // Update Table if visible
+        if (financialToggle.checked) {
+            renderFinancialTable(obraInfo.orcado, obraInfo.negociado, financials.porGrupo);
+        }
 
         applyFilters(); // Re-renderiza com filtros atuais
     }
