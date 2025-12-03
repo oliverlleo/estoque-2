@@ -527,13 +527,21 @@ document.addEventListener('DOMContentLoaded', async function() {
 
     function renderTable(data) {
         tableBody.innerHTML = '';
-        let totalCusto = 0;
+        let totalEntrada = 0;
+        let totalSaida = 0;
 
         data.forEach(mov => {
-            // Exclude reservations from the total cost calculation
-            if (mov.tipo !== 'reserva' && mov.tipo !== 'reserva_cancelada' && mov.custoTotal && mov.custoTotal > 0) {
-                totalCusto += mov.custoTotal;
+            if (mov.tipo === 'entrada') {
+                if (mov.custoTotal && mov.custoTotal > 0) {
+                    totalEntrada += mov.custoTotal;
+                }
+            } else if (mov.tipo === 'saida') {
+                // Ensure reservations are not counted as saida here if they slipped through
+                if (mov.custoTotal && mov.custoTotal > 0) {
+                    totalSaida += mov.custoTotal;
+                }
             }
+            // Reservations and cancellations are ignored for totals
 
             const row = document.createElement('tr');
             const searchData = mov._search_data;
@@ -586,7 +594,8 @@ document.addEventListener('DOMContentLoaded', async function() {
             tableBody.appendChild(row);
         });
 
-        document.getElementById('total-custo-valor').textContent = totalCusto.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' });
+        document.getElementById('total-entrada-valor').textContent = totalEntrada.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' });
+        document.getElementById('total-saida-valor').textContent = totalSaida.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' });
     }
 
     async function handleToggleChange() {
