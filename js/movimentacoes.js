@@ -1270,6 +1270,127 @@ document.addEventListener('DOMContentLoaded', async function() {
 
     // --- FIM DA LÓGICA DE TRANSFERÊNCIA ---
 
+    // --- LÓGICA PARA ADICIONAR NOVA LOCAÇÃO (NOVA FEATURE) ---
+    const btnNewLocation = document.getElementById('btn-new-location');
+    const addLocationModal = document.getElementById('add-location-modal');
+    const closeAddLocationModal = document.getElementById('add-location-modal-close');
+    const formAddLocation = document.getElementById('form-add-location');
+    const newLocationLocalSelect = document.getElementById('new-location-local');
+    const newLocationInput = document.getElementById('new-location-input');
+
+    // Inicializa o IMask para o campo de nova locação
+    const newLocacaoDefinitions = {
+        'L': { mask: /[A-Z]/ }
+    };
+    IMask(newLocationInput, {
+        mask: [
+            { mask: '0' },
+            { mask: '0-L', definitions: newLocacaoDefinitions },
+            { mask: '0-L-00', definitions: newLocacaoDefinitions },
+            { mask: '0-L-00-L', definitions: newLocacaoDefinitions }
+        ],
+        prepare: function (str) {
+            return str.toUpperCase();
+        },
+    });
+
+    btnNewLocation.addEventListener('click', () => {
+        const productId = transfProdutoSelect.value;
+        if (!productId) {
+            alert('Por favor, selecione um produto primeiro.');
+            return;
+        }
+
+        // Popula o dropdown de locais
+        newLocationLocalSelect.innerHTML = '<option value="">Selecione o Local...</option>';
+        if (configData.locais) {
+            for (const [id, data] of Object.entries(configData.locais)) {
+                const option = document.createElement('option');
+                option.value = id;
+                option.textContent = data.nome;
+                newLocationLocalSelect.appendChild(option);
+            }
+        }
+
+        formAddLocation.reset();
+        addLocationModal.style.display = 'block';
+    });
+
+    closeAddLocationModal.addEventListener('click', () => {
+        addLocationModal.style.display = 'none';
+    });
+
+    formAddLocation.addEventListener('submit', async (e) => {
+        e.preventDefault();
+        const productId = transfProdutoSelect.value;
+        const localId = newLocationLocalSelect.value;
+        const locacao = newLocationInput.value.toUpperCase();
+
+        if (!productId || !localId || !locacao) {
+            alert('Preencha todos os campos.');
+            return;
+        }
+
+        // Validação de Regex
+        const locacaoPattern = /^[0-9]{1}(-[A-Z]{1}(-[0-9]{2}(-[A-Z]{1})?)?)?$/;
+        if (!locacaoPattern.test(locacao)) {
+            alert(`O formato da locação "${locacao}" é inválido. Use formatos como 1, 1-A, 1-A-02 ou 1-A-02-B.`);
+            return;
+        }
+
+        try {
+            await runTransaction(db, async (transaction) => {
+                const productRef = doc(db, 'produtos', productId);
+                const productDoc = await transaction.get(productRef);
+                if (!productDoc.exists()) throw new Error('Produto não encontrado.');
+
+                const pData = productDoc.data();
+                const locacoes = pData.locacoes || [];
+
+                // Verifica duplicidade
+                const exists = locacoes.some(l => l.localId === localId && l.locacao === locacao);
+                if (exists) {
+                    throw new Error('Esta locação já existe para este produto.');
+                }
+
+                // Adiciona nova locação
+                locacoes.push({
+                    localId: localId,
+                    locacao: locacao,
+                    estoque: 0
+                });
+
+                transaction.update(productRef, { locacoes: locacoes });
+            });
+
+            alert('Locação adicionada com sucesso!');
+            addLocationModal.style.display = 'none';
+
+            // Atualiza o mapa local
+            const productRef = doc(db, 'produtos', productId);
+            const updatedDoc = await getDoc(productRef);
+            if (updatedDoc.exists()) {
+                productsMap[productId] = { id: productId, ...updatedDoc.data() };
+            }
+
+            // Atualiza as opções de destino
+            // Re-renderiza as opções de todos os selects de destino existentes
+            const destSelects = destinationsList.querySelectorAll('.transf-dest-select');
+            const origemValue = transfOrigemSelect.value;
+            destSelects.forEach(select => {
+                populateDestinationSelect(select, productsMap[productId], origemValue);
+            });
+
+            // Se não houver destinos, adiciona uma linha automaticamente (opcional, mas bom para UX)
+            if (destinationsList.children.length === 0) {
+                addDestinationRow();
+            }
+
+        } catch (error) {
+            console.error("Erro ao adicionar locação:", error);
+            alert(error.message);
+        }
+    });
 
     // --- Lógica do Modal de Importação XML ---
     btnImportarXml.addEventListener('click', () => { xmlImportModal.style.display = 'block'; });
