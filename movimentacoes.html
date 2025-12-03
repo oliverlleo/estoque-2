@@ -298,41 +298,83 @@
     </main>
 
     <div id="transferencia-modal" class="modal">
-        <div class="modal-content" style="max-width: 800px;">
+        <div class="modal-content" style="max-width: 900px;">
             <div class="modal-header">
-                <h3>Transferência de Estoque Entre Locais</h3>
+                <h3>Transferência de Estoque</h3>
                 <span class="close-button" id="transferencia-modal-close">&times;</span>
             </div>
             <div class="modal-body">
                 <form id="form-transferencia">
-                    <div class="form-grid-2-col">
-                        <div style="grid-column: 1 / -1;">
-                            <label for="transf-produto">Selecione o Produto</label>
-                            <select id="transf-produto" required class="form-control">
-                                <option value="">Produto...</option>
+
+                    <!-- Seção de Seleção de Produto -->
+                    <div class="transfer-section">
+                        <div class="transfer-section-title">Produto e Origem</div>
+
+                        <div style="margin-bottom: 1rem;">
+                            <label for="transf-produto" style="font-weight: 500; margin-bottom: 0.5rem; display: block;">Selecione o Produto</label>
+                            <select id="transf-produto" required class="form-control" style="font-size: 1.1rem; padding: 0.75rem;">
+                                <option value="">Buscar ou Selecionar Produto...</option>
                             </select>
                         </div>
-                        <p class="auto-filled-field"><strong>Código:</strong> <span id="transf-codigo-display">-</span></p>
-                        <p class="auto-filled-field"><strong>Descrição:</strong> <span id="transf-descricao-display">-</span></p>
-                        <div>
-                            <label for="transf-locacao-origem">Locação de Origem</label>
-                            <select id="transf-locacao-origem" required class="form-control" disabled>
-                                <option value="">Origem...</option>
-                            </select>
+
+                        <div class="product-summary-card">
+                            <div class="product-info-item">
+                                <span class="product-info-label">Código</span>
+                                <span class="product-info-value" id="transf-codigo-display">-</span>
+                            </div>
+                            <div class="product-info-item" style="flex-grow: 1;">
+                                <span class="product-info-label">Descrição</span>
+                                <span class="product-info-value" id="transf-descricao-display">-</span>
+                            </div>
                         </div>
-                        <p class="auto-filled-field"><strong>Estoque na Origem:</strong> <span id="transf-estoque-origem-display">0</span></p>
-                        <div>
-                            <label for="transf-quantidade">Quantidade a Transferir</label>
-                            <input type="number" id="transf-quantidade" placeholder="0" required step="any" class="form-control">
-                        </div>
-                        <div>
-                            <label for="transf-locacao-destino">Locação de Destino</label>
-                            <select id="transf-locacao-destino" required class="form-control" disabled>
-                                <option value="">Destino...</option>
-                            </select>
+
+                        <div style="margin-top: 1.5rem; display: grid; grid-template-columns: 2fr 1fr; gap: 20px; align-items: end;">
+                            <div>
+                                <label for="transf-locacao-origem" style="font-weight: 500; margin-bottom: 0.5rem; display: block;">Retirar de (Origem)</label>
+                                <select id="transf-locacao-origem" required class="form-control" disabled style="background-color: #fff;">
+                                    <option value="">Selecione a Origem...</option>
+                                </select>
+                            </div>
+                            <div style="text-align: right;">
+                                <span style="font-size: 0.9rem; color: #6c757d;">Estoque Disponível:</span>
+                                <div id="transf-estoque-origem-display" style="font-size: 1.5rem; font-weight: bold; color: #198754;">0</div>
+                            </div>
                         </div>
                     </div>
-                    <button type="submit" id="btn-confirmar-transferencia" class="btn btn-success" style="width: 100%; margin-top: 20px;">Confirmar Transferência</button>
+
+                    <!-- Seção de Destinos -->
+                    <div class="transfer-section">
+                        <div class="transfer-section-title" style="display: flex; justify-content: space-between; align-items: center;">
+                            <span>Destinos da Transferência</span>
+                            <button type="button" id="btn-add-destination" class="btn btn-sm btn-secondary" style="font-size: 0.8rem;">
+                                <span class="material-icons" style="font-size: 14px; vertical-align: middle;">add</span> Adicionar Destino
+                            </button>
+                        </div>
+
+                        <div class="destination-header-row">
+                            <span>Local de Destino</span>
+                            <span>Quantidade</span>
+                            <span>Ação</span>
+                        </div>
+
+                        <div id="destinations-list">
+                            <!-- Dynamic rows will be added here -->
+                        </div>
+                    </div>
+
+                    <!-- Resumo e Ações -->
+                    <div class="total-transfer-container">
+                        <span>Total a Transferir</span>
+                        <span id="transf-total-display" class="total-transfer-value">0</span>
+                    </div>
+
+                    <div class="modal-footer-custom">
+                        <button type="button" class="btn btn-secondary" id="btn-cancelar-transferencia" style="background-color: #6c757d;">Cancelar</button>
+                        <button type="submit" id="btn-confirmar-transferencia" class="btn btn-primary" style="padding: 0.75rem 2rem; font-size: 1.1rem;">
+                            <span class="material-icons" style="font-size: 18px; vertical-align: middle; margin-right: 5px;">check_circle</span>
+                            Confirmar Transferência
+                        </button>
+                    </div>
                 </form>
             </div>
         </div>
