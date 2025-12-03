@@ -87,23 +87,59 @@
         </header>
         <div class="space-y-8">
             <div class="bg-white rounded-2xl shadow-lg p-6">
-                <h2 class="text-2xl font-semibold text-gray-700 mb-4">Resumo Financeiro</h2>
-                <div class="grid grid-cols-1 lg:grid-cols-3 gap-8">
-                    <div class="lg:col-span-1">
-                        <h3 class="text-xl font-semibold text-gray-700 mb-4 flex items-center">
-                            <span class="material-icons mr-2 text-blue-500">pie_chart</span> Custo por Grupo
-                        </h3>
-                        <div class="chart-container relative">
-                            <canvas id="groupChart"></canvas>
+                <div class="flex justify-between items-center mb-4">
+                    <h2 class="text-2xl font-semibold text-gray-700">Resumo Financeiro</h2>
+                    <div class="toggle-container" style="margin-bottom: 0;">
+                        <span id="toggle-label-grafico" style="font-weight: bold; color: #0d6efd; cursor: pointer;">Gráfico</span>
+                        <label class="toggle-switch">
+                            <input type="checkbox" id="financial-view-toggle">
+                            <span class="slider"></span>
+                        </label>
+                        <span id="toggle-label-dados" style="font-weight: normal; color: #6c757d; cursor: pointer;">Dados</span>
+                    </div>
+                </div>
+
+                <div id="financial-charts-view">
+                    <div class="grid grid-cols-1 lg:grid-cols-3 gap-8">
+                        <div class="lg:col-span-1">
+                            <h3 class="text-xl font-semibold text-gray-700 mb-4 flex items-center">
+                                <span class="material-icons mr-2 text-blue-500">pie_chart</span> Custo por Grupo
+                            </h3>
+                            <div class="chart-container relative">
+                                <canvas id="groupChart"></canvas>
+                            </div>
+                        </div>
+                        <div class="lg:col-span-2">
+                            <h3 class="text-xl font-semibold text-gray-700 mb-4 flex items-center">
+                                <span class="material-icons mr-2 text-blue-500">bar_chart</span> Custo por Fornecedor
+                            </h3>
+                            <div class="chart-container relative">
+                                <canvas id="supplierChart"></canvas>
+                            </div>
                         </div>
                     </div>
-                    <div class="lg:col-span-2">
-                        <h3 class="text-xl font-semibold text-gray-700 mb-4 flex items-center">
-                            <span class="material-icons mr-2 text-blue-500">bar_chart</span> Custo por Fornecedor
-                        </h3>
-                        <div class="chart-container relative">
-                            <canvas id="supplierChart"></canvas>
-                        </div>
+                </div>
+
+                <div id="financial-data-view" class="hidden">
+                    <div class="overflow-x-auto">
+                        <table class="w-full text-sm text-left text-gray-500" id="table-financial-details">
+                            <thead class="text-xs text-gray-700 uppercase bg-gray-100">
+                                <tr>
+                                    <th class="px-6 py-3">Categoria</th>
+                                    <th class="px-6 py-3 text-right">Orçado</th>
+                                    <th class="px-6 py-3 text-center">% (Neg/Orc)</th>
+                                    <th class="px-6 py-3 text-right">Negociado</th>
+                                    <th class="px-6 py-3 text-center">% (Real/Neg)</th>
+                                    <th class="px-6 py-3 text-right">Realizado</th>
+                                </tr>
+                            </thead>
+                            <tbody id="financial-details-body">
+                                <!-- Rows will be inserted here -->
+                            </tbody>
+                            <tfoot id="financial-details-footer" class="bg-gray-100 font-bold text-gray-900">
+                                <!-- Total row -->
+                            </tfoot>
+                        </table>
                     </div>
                 </div>
             </div>
