@@ -940,8 +940,10 @@ document.addEventListener('DOMContentLoaded', async function() {
                     if (loc.estoque > 0) {
                         const localNome = configData.locais[loc.localId]?.nome || 'Desconhecido';
                         const option = document.createElement('option');
-                        option.value = loc.locacao;
-                        option.textContent = `${loc.locacao} (${localNome}) (Estoque: ${loc.estoque})`;
+                        // Use JSON for unique identification
+                        option.value = JSON.stringify({ localId: loc.localId, locacao: loc.locacao });
+                        const locacaoTexto = loc.locacao ? loc.locacao : '';
+                        option.textContent = `${locacaoTexto} (${localNome}) (Estoque: ${loc.estoque})`;
                         transfOrigemSelect.appendChild(option);
                     }
                 });
@@ -960,8 +962,10 @@ document.addEventListener('DOMContentLoaded', async function() {
                  product.locacoes.forEach(loc => {
                     const localNome = configData.locais[loc.localId]?.nome || 'Desconhecido';
                     const option = document.createElement('option');
-                    option.value = loc.locacao;
-                    option.textContent = `${loc.locacao} (${localNome})`;
+                    // Use JSON for unique identification
+                    option.value = JSON.stringify({ localId: loc.localId, locacao: loc.locacao });
+                    const locacaoTexto = loc.locacao ? loc.locacao : '';
+                    option.textContent = `${locacaoTexto} (${localNome})`;
                     transfDestinoSelect.appendChild(option);
                 });
                 transfDestinoSelect.disabled = false;
@@ -978,38 +982,57 @@ document.addEventListener('DOMContentLoaded', async function() {
     transfOrigemSelect.addEventListener('change', () => {
         const productId = transfProdutoSelect.value;
         const product = productsMap[productId];
-        const origem = transfOrigemSelect.value;
+        const origemValue = transfOrigemSelect.value;
         const estoqueDisplay = document.getElementById('transf-estoque-origem-display');
 
-        if (product && origem) {
-            if (origem === 'sem_origem') {
+        let origemLocalId = null;
+        let origemLocacao = null;
+
+        if (product && origemValue) {
+            if (origemValue === 'sem_origem') {
                 estoqueDisplay.textContent = product.estoque || '0';
             } else {
-                const locacaoData = product.locacoes.find(l => l.locacao === origem);
-                estoqueDisplay.textContent = locacaoData ? locacaoData.estoque : '0';
+                try {
+                    const origemObj = JSON.parse(origemValue);
+                    origemLocalId = origemObj.localId;
+                    origemLocacao = origemObj.locacao;
+
+                    const locacaoData = product.locacoes.find(l => l.localId === origemLocalId && l.locacao === origemLocacao);
+                    estoqueDisplay.textContent = locacaoData ? locacaoData.estoque : '0';
+                } catch (e) {
+                    console.error("Erro ao parsear origem", e);
+                    estoqueDisplay.textContent = '0';
+                }
             }
         } else {
             estoqueDisplay.textContent = '0';
         }
 
         // Filtra o select de destino para não mostrar a origem
-        const destino = transfDestinoSelect.value;
+        const destinoValue = transfDestinoSelect.value;
         transfDestinoSelect.innerHTML = '<option value="">Destino...</option>';
         if (product && product.locacoes) {
             product.locacoes.forEach(loc => {
                 // Se a origem for uma locação, não a mostre no destino
-                if (origem !== 'sem_origem' && loc.locacao === origem) {
+                if (origemValue !== 'sem_origem' && loc.localId === origemLocalId && loc.locacao === origemLocacao) {
                     return;
                 }
+
+                const localNome = configData.locais[loc.localId]?.nome || 'Desconhecido';
                 const option = document.createElement('option');
-                option.value = loc.locacao;
-                option.textContent = loc.locacao;
+                option.value = JSON.stringify({ localId: loc.localId, locacao: loc.locacao });
+
+                const locacaoTexto = loc.locacao ? loc.locacao : '';
+                option.textContent = `${locacaoTexto} (${localNome})`;
+
                 transfDestinoSelect.appendChild(option);
             });
         }
         // Restaura a seleção se possível
-        if (destino && destino !== origem) {
-            transfDestinoSelect.value = destino;
+        if (destinoValue && destinoValue !== origemValue) {
+             // Check if option exists
+             const exists = Array.from(transfDestinoSelect.options).some(o => o.value === destinoValue);
+             if(exists) transfDestinoSelect.value = destinoValue;
         }
     });
 
@@ -1018,31 +1041,51 @@ document.addEventListener('DOMContentLoaded', async function() {
         e.preventDefault();
 
         const productId = transfProdutoSelect.value;
-        const origem = transfOrigemSelect.value;
-        const destino = transfDestinoSelect.value;
+        const origemValue = transfOrigemSelect.value;
+        const destinoValue = transfDestinoSelect.value;
         const quantidade = parseFloat(document.getElementById('transf-quantidade').value);
 
         // Validação
-        if (!productId || !origem || !destino || !quantidade || quantidade <= 0) {
+        if (!productId || !origemValue || !destinoValue || !quantidade || quantidade <= 0) {
             alert('Por favor, preencha todos os campos corretamente.');
             return;
         }
-         if (origem === destino) {
+         if (origemValue === destinoValue) {
             alert('A locação de origem e destino não podem ser as mesmas.');
             return;
         }
 
         const product = productsMap[productId];
+
+        // Parse Values
+        let origemLocalId, origemLocacao;
+        let destinoLocalId, destinoLocacao;
+
+        try {
+            if (origemValue !== 'sem_origem') {
+                const o = JSON.parse(origemValue);
+                origemLocalId = o.localId;
+                origemLocacao = o.locacao;
+            }
+
+            const d = JSON.parse(destinoValue);
+            destinoLocalId = d.localId;
+            destinoLocacao = d.locacao;
+        } catch (err) {
+            alert('Erro ao processar dados da locação.');
+            return;
+        }
+
         // Validação de estoque
-        if (origem === 'sem_origem') {
+        if (origemValue === 'sem_origem') {
             if ((product.estoque || 0) < quantidade) {
                 alert(`Quantidade a transferir excede o estoque disponível Sem Origem (${product.estoque || 0}).`);
                 return;
             }
         } else {
-            const locacaoOrigemData = product.locacoes.find(l => l.locacao === origem);
-            if (!locacaoOrigemData || locacaoOrigemData.estoque < quantidade) {
-                alert(`Quantidade a transferir excede o estoque disponível na origem (${locacaoOrigemData.estoque || 0}).`);
+            const locacaoOrigemData = product.locacoes.find(l => l.localId === origemLocalId && l.locacao === origemLocacao);
+            if (!locacaoOrigemData || (locacaoOrigemData.estoque || 0) < quantidade) {
+                alert(`Quantidade a transferir excede o estoque disponível na origem (${locacaoOrigemData ? locacaoOrigemData.estoque : 0}).`);
                 return;
             }
         }
@@ -1056,10 +1099,12 @@ document.addEventListener('DOMContentLoaded', async function() {
 
                 const pData = productDoc.data();
                 const locacoes = pData.locacoes || [];
-                const destinoIndex = locacoes.findIndex(l => l.locacao === destino);
+
+                // Find Index using both IDs
+                const destinoIndex = locacoes.findIndex(l => l.localId === destinoLocalId && l.locacao === destinoLocacao);
                 if (destinoIndex === -1) throw new Error('Locação de destino não encontrada.');
 
-                if (origem === 'sem_origem') {
+                if (origemValue === 'sem_origem') {
                     // Re-valida o estoque sem origem dentro da transação
                     if ((pData.estoque || 0) < quantidade) {
                         throw new Error('Estoque Sem Origem insuficiente. A transação foi cancelada.');
@@ -1071,7 +1116,7 @@ document.addEventListener('DOMContentLoaded', async function() {
                         locacoes: locacoes
                     });
                 } else {
-                    const origemIndex = locacoes.findIndex(l => l.locacao === origem);
+                    const origemIndex = locacoes.findIndex(l => l.localId === origemLocalId && l.locacao === origemLocacao);
                     if (origemIndex === -1) throw new Error('Locação de origem não encontrada.');
 
                     // Re-valida o estoque da locação dentro da transação
@@ -1083,7 +1128,11 @@ document.addEventListener('DOMContentLoaded', async function() {
                     transaction.update(productRef, { locacoes: locacoes });
                 }
 
-                const observacao = `Transferência de ${origem.replace('_', ' ')} para ${destino}.`;
+                // Construct observation text for display
+                const origemNome = origemValue === 'sem_origem' ? 'Sem Origem' : `${origemLocacao || ''} (${configData.locais[origemLocalId]?.nome || '?'})`;
+                const destinoNome = `${destinoLocacao || ''} (${configData.locais[destinoLocalId]?.nome || '?'})`;
+
+                const observacao = `Transferência de ${origemNome} para ${destinoNome}.`;
                 const movementRef = doc(collection(db, 'movimentacoes'));
                 transaction.set(movementRef, {
                     tipo: 'transferencia',
