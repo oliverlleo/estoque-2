@@ -87,8 +87,20 @@
         </header>
         <div class="space-y-8">
             <div class="bg-white rounded-2xl shadow-lg p-6">
-                <h2 class="text-2xl font-semibold text-gray-700 mb-4">Resumo Financeiro</h2>
-                <div class="grid grid-cols-1 lg:grid-cols-3 gap-8">
+                <div class="flex justify-between items-center mb-6">
+                    <h2 class="text-2xl font-semibold text-gray-700">Resumo Financeiro</h2>
+                    <div class="toggle-container" style="margin-bottom: 0;">
+                        <span id="toggle-label-grafico" class="cursor-pointer" style="font-weight: bold; color: #0d6efd;">Gráfico</span>
+                        <label class="toggle-switch">
+                            <input type="checkbox" id="financial-view-toggle">
+                            <span class="slider"></span>
+                        </label>
+                        <span id="toggle-label-dados" class="cursor-pointer" style="font-weight: normal; color: #6c757d;">Dados</span>
+                    </div>
+                </div>
+
+                <!-- View: Gráficos -->
+                <div id="financial-charts-view" class="grid grid-cols-1 lg:grid-cols-3 gap-8">
                     <div class="lg:col-span-1">
                         <h3 class="text-xl font-semibold text-gray-700 mb-4 flex items-center">
                             <span class="material-icons mr-2 text-blue-500">pie_chart</span> Custo por Grupo
@@ -104,6 +116,26 @@
                         <div class="chart-container relative">
                             <canvas id="supplierChart"></canvas>
                         </div>
+                    </div>
+                </div>
+
+                <!-- View: Dados (Tabela) -->
+                <div id="financial-data-view" class="hidden">
+                    <div class="overflow-x-auto">
+                        <table class="w-full text-sm text-left text-gray-500">
+                            <thead class="text-xs text-gray-700 uppercase bg-gray-100">
+                                <tr>
+                                    <th class="px-6 py-3">Categoria</th>
+                                    <th class="px-6 py-3">Orçado</th>
+                                    <th class="px-6 py-3">Negociado</th>
+                                    <th class="px-6 py-3">Vendido</th>
+                                    <th class="px-6 py-3">Executado (Real)</th>
+                                </tr>
+                            </thead>
+                            <tbody id="financial-data-tbody">
+                                <!-- JS will populate this -->
+                            </tbody>
+                        </table>
                     </div>
                 </div>
             </div>

@@ -11,11 +11,21 @@ document.addEventListener('DOMContentLoaded', () => {
     const labelItens = document.getElementById('toggle-label-itens');
     const labelReservas = document.getElementById('toggle-label-reservas');
 
+    // New Toggle for Financial View
+    const financialViewToggle = document.getElementById('financial-view-toggle');
+    const labelGrafico = document.getElementById('toggle-label-grafico');
+    const labelDados = document.getElementById('toggle-label-dados');
+    const financialChartsView = document.getElementById('financial-charts-view');
+    const financialDataView = document.getElementById('financial-data-view');
+    const financialDataTbody = document.getElementById('financial-data-tbody');
+
     let currentItens = []; // Itens de Saída (Consumidos)
     let currentReservas = []; // Itens Reservados
     let activeDataset = []; // Dataset atualmente exibido
+    let allGroups = []; // List of all groups for the financial table
     let obraInfo = {};
     let charts = {}; // Para armazenar instâncias dos gráficos
+    let calculatedFinancials = {}; // Store calculated financials for use in table
 
     if (!obraId) {
         document.body.innerHTML = '<h1>ID da Obra não fornecido.</h1>';
@@ -148,6 +158,14 @@ document.addEventListener('DOMContentLoaded', () => {
             productsSnap.forEach(prodDoc => { productsMap[prodDoc.id] = prodDoc.data(); });
             const fornecedoresMap = {};
             fornecedoresSnap.forEach(fornDoc => { fornecedoresMap[fornDoc.id] = fornDoc.data(); });
+
+            allGroups = [];
+            gruposSnap.forEach(grupoDoc => {
+                allGroups.push(grupoDoc.data().nome);
+            });
+            // Ensure unique and sorted
+            allGroups = [...new Set(allGroups)].sort();
+
             const gruposMap = {};
             gruposSnap.forEach(grupoDoc => { gruposMap[grupoDoc.id] = grupoDoc.data(); });
             const aplicacoesMap = {};
@@ -311,11 +329,111 @@ document.addEventListener('DOMContentLoaded', () => {
              custoTotalElement.innerHTML = `Custo Total: <span class="font-semibold text-blue-600">${financials.total.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' })}</span>`;
         }
 
+        // Store calculated financials for the table
+        calculatedFinancials = financials;
+
         // Update Charts
         renderCharts(financials.porGrupo, financials.porFornecedor);
 
+        // Update Financial Data Table
+        renderFinancialDataTable(financials.porGrupo);
+
         applyFilters(); // Re-renderiza com filtros atuais
     }
+
+    function renderFinancialDataTable(custoPorGrupo) {
+        if (!financialDataTbody) return;
+
+        financialDataTbody.innerHTML = '';
+
+        // Combine groups from configuration (allGroups) and groups found in movements (keys of custoPorGrupo)
+        // to ensure we show all relevant groups.
+        const relevantGroups = [...new Set([...allGroups, ...Object.keys(custoPorGrupo)])].sort();
+
+        relevantGroups.forEach(grupoName => {
+            const executado = custoPorGrupo[grupoName] || 0;
+            const executadoFmt = executado.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' });
+
+            const row = document.createElement('tr');
+            row.className = 'bg-white border-b hover:bg-gray-50';
+
+            // Note: Since we don't have a backend storage for "Orcado", "Negociado", "Vendido" per group yet,
+            // we will render them as input fields (or placeholders) as requested.
+            // Using distinct IDs/Classes for potential future saving logic.
+            // Using standard input styling to match "modern interface".
+
+            row.innerHTML = `
+                <td class="px-6 py-4 font-medium text-gray-900">${grupoName}</td>
+                <td class="px-6 py-4">
+                     <div class="relative rounded-md shadow-sm">
+                        <div class="pointer-events-none absolute inset-y-0 left-0 flex items-center pl-3">
+                          <span class="text-gray-500 sm:text-sm">R$</span>
+                        </div>
+                        <input type="text" class="block w-full rounded-md border-gray-300 pl-8 pr-3 focus:border-blue-500 focus:ring-blue-500 sm:text-sm" placeholder="0,00">
+                      </div>
+                </td>
+                <td class="px-6 py-4">
+                     <div class="relative rounded-md shadow-sm">
+                        <div class="pointer-events-none absolute inset-y-0 left-0 flex items-center pl-3">
+                          <span class="text-gray-500 sm:text-sm">R$</span>
+                        </div>
+                        <input type="text" class="block w-full rounded-md border-gray-300 pl-8 pr-3 focus:border-blue-500 focus:ring-blue-500 sm:text-sm" placeholder="0,00">
+                      </div>
+                </td>
+                <td class="px-6 py-4">
+                     <div class="relative rounded-md shadow-sm">
+                        <div class="pointer-events-none absolute inset-y-0 left-0 flex items-center pl-3">
+                          <span class="text-gray-500 sm:text-sm">R$</span>
+                        </div>
+                        <input type="text" class="block w-full rounded-md border-gray-300 pl-8 pr-3 focus:border-blue-500 focus:ring-blue-500 sm:text-sm" placeholder="0,00">
+                      </div>
+                </td>
+                <td class="px-6 py-4 font-bold text-gray-700">
+                    ${executadoFmt}
+                </td>
+            `;
+            financialDataTbody.appendChild(row);
+        });
+    }
+
+    function updateFinancialViewToggle() {
+        if (financialViewToggle.checked) {
+            // View: Dados (Table)
+            labelGrafico.style.fontWeight = 'normal';
+            labelGrafico.style.color = '#6c757d';
+            labelDados.style.fontWeight = 'bold';
+            labelDados.style.color = '#0d6efd';
+
+            financialChartsView.classList.add('hidden');
+            financialDataView.classList.remove('hidden');
+        } else {
+            // View: Gráfico
+            labelGrafico.style.fontWeight = 'bold';
+            labelGrafico.style.color = '#0d6efd';
+            labelDados.style.fontWeight = 'normal';
+            labelDados.style.color = '#6c757d';
+
+            financialChartsView.classList.remove('hidden');
+            financialDataView.classList.add('hidden');
+        }
+    }
+
+    financialViewToggle.addEventListener('change', updateFinancialViewToggle);
+
+    labelGrafico.addEventListener('click', () => {
+        if (financialViewToggle.checked) {
+            financialViewToggle.checked = false;
+            updateFinancialViewToggle();
+        }
+    });
+
+    labelDados.addEventListener('click', () => {
+        if (!financialViewToggle.checked) {
+            financialViewToggle.checked = true;
+            updateFinancialViewToggle();
+        }
+    });
+
 
     viewToggle.addEventListener('change', updateToggleUI);
 
