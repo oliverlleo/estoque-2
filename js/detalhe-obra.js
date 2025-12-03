@@ -271,8 +271,19 @@ document.addEventListener('DOMContentLoaded', () => {
                                 label: function(context) {
                                     let label = context.label || '';
                                     if (label) { label += ': '; }
+
                                     if (context.parsed !== null) {
-                                        label += new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(context.parsed);
+                                        const value = context.parsed;
+                                        // Calculate total manually if needed, or access chart metadata
+                                        let total = 0;
+                                        if (context.dataset.data) {
+                                            total = context.dataset.data.reduce((acc, curr) => acc + curr, 0);
+                                        }
+
+                                        const percentage = total > 0 ? ((value / total) * 100).toFixed(2) + '%' : '0%';
+
+                                        label += new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(value);
+                                        label += ` (${percentage})`;
                                     }
                                     return label;
                                 }
