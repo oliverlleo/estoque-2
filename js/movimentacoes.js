@@ -894,7 +894,9 @@ document.addEventListener('DOMContentLoaded', async function() {
     const formTransferencia = document.getElementById('form-transferencia');
     const transfProdutoSelect = document.getElementById('transf-produto');
     const transfOrigemSelect = document.getElementById('transf-locacao-origem');
-    const transfDestinoSelect = document.getElementById('transf-locacao-destino');
+    const btnAddDestination = document.getElementById('btn-add-destination');
+    const destinationsList = document.getElementById('destinations-list');
+    const transfTotalDisplay = document.getElementById('transf-total-display');
 
     // Abre o modal
     btnTransferencia.addEventListener('click', () => {
@@ -924,8 +926,8 @@ document.addEventListener('DOMContentLoaded', async function() {
         // Limpa e desabilita os selects de locação
         transfOrigemSelect.innerHTML = '<option value="">Origem...</option>';
         transfOrigemSelect.disabled = true;
-        transfDestinoSelect.innerHTML = '<option value="">Destino...</option>';
-        transfDestinoSelect.disabled = true;
+        destinationsList.innerHTML = ''; // Limpa os destinos
+        updateTotalTransferencia();
         document.getElementById('transf-estoque-origem-display').textContent = '0';
         document.getElementById('transf-codigo-display').textContent = '-';
         document.getElementById('transf-descricao-display').textContent = '-';
@@ -940,8 +942,10 @@ document.addEventListener('DOMContentLoaded', async function() {
                     if (loc.estoque > 0) {
                         const localNome = configData.locais[loc.localId]?.nome || 'Desconhecido';
                         const option = document.createElement('option');
-                        option.value = loc.locacao;
-                        option.textContent = `${loc.locacao} (${localNome}) (Estoque: ${loc.estoque})`;
+                        // Use JSON for unique identification
+                        option.value = JSON.stringify({ localId: loc.localId, locacao: loc.locacao });
+                        const locacaoTexto = loc.locacao ? loc.locacao : '';
+                        option.textContent = `${locacaoTexto} (${localNome}) (Estoque: ${loc.estoque})`;
                         transfOrigemSelect.appendChild(option);
                     }
                 });
@@ -955,22 +959,13 @@ document.addEventListener('DOMContentLoaded', async function() {
                 transfOrigemSelect.appendChild(option);
             }
 
-            // Popula locações de DESTINO (todas)
-            if (product.locacoes && product.locacoes.length > 0) {
-                 product.locacoes.forEach(loc => {
-                    const localNome = configData.locais[loc.localId]?.nome || 'Desconhecido';
-                    const option = document.createElement('option');
-                    option.value = loc.locacao;
-                    option.textContent = `${loc.locacao} (${localNome})`;
-                    transfDestinoSelect.appendChild(option);
-                });
-                transfDestinoSelect.disabled = false;
-            }
-
             // Habilita o select de origem se houver alguma opção
             if (transfOrigemSelect.options.length > 1) {
                 transfOrigemSelect.disabled = false;
             }
+
+            // Adiciona uma linha de destino inicial
+            addDestinationRow();
         }
     });
 
@@ -978,75 +973,208 @@ document.addEventListener('DOMContentLoaded', async function() {
     transfOrigemSelect.addEventListener('change', () => {
         const productId = transfProdutoSelect.value;
         const product = productsMap[productId];
-        const origem = transfOrigemSelect.value;
+        const origemValue = transfOrigemSelect.value;
         const estoqueDisplay = document.getElementById('transf-estoque-origem-display');
 
-        if (product && origem) {
-            if (origem === 'sem_origem') {
+        let origemLocalId = null;
+        let origemLocacao = null;
+
+        if (product && origemValue) {
+            if (origemValue === 'sem_origem') {
                 estoqueDisplay.textContent = product.estoque || '0';
             } else {
-                const locacaoData = product.locacoes.find(l => l.locacao === origem);
-                estoqueDisplay.textContent = locacaoData ? locacaoData.estoque : '0';
+                try {
+                    const origemObj = JSON.parse(origemValue);
+                    origemLocalId = origemObj.localId;
+                    origemLocacao = origemObj.locacao;
+
+                    const locacaoData = product.locacoes.find(l => l.localId === origemLocalId && l.locacao === origemLocacao);
+                    estoqueDisplay.textContent = locacaoData ? locacaoData.estoque : '0';
+                } catch (e) {
+                    console.error("Erro ao parsear origem", e);
+                    estoqueDisplay.textContent = '0';
+                }
             }
         } else {
             estoqueDisplay.textContent = '0';
         }
 
-        // Filtra o select de destino para não mostrar a origem
-        const destino = transfDestinoSelect.value;
-        transfDestinoSelect.innerHTML = '<option value="">Destino...</option>';
+        // Atualiza todas as linhas de destino para filtrar a origem selecionada
+        const destSelects = destinationsList.querySelectorAll('.transf-dest-select');
+        destSelects.forEach(select => {
+            populateDestinationSelect(select, product, origemValue);
+        });
+    });
+
+    btnAddDestination.addEventListener('click', () => {
+        addDestinationRow();
+    });
+
+    function addDestinationRow() {
+        const productId = transfProdutoSelect.value;
+        const product = productsMap[productId];
+        const origemValue = transfOrigemSelect.value;
+
+        if (!product) return;
+
+        const row = document.createElement('div');
+        row.className = 'destination-row';
+        row.style.cssText = 'display: flex; gap: 10px; align-items: center; margin-bottom: 10px;';
+
+        const select = document.createElement('select');
+        select.className = 'form-control transf-dest-select';
+        select.style.flexGrow = '1';
+        select.required = true;
+
+        populateDestinationSelect(select, product, origemValue);
+
+        const input = document.createElement('input');
+        input.type = 'number';
+        input.className = 'form-control transf-dest-qty';
+        input.placeholder = 'Qtd';
+        input.required = true;
+        input.step = 'any';
+        input.style.width = '100px';
+        input.addEventListener('input', updateTotalTransferencia);
+
+        const removeBtn = document.createElement('button');
+        removeBtn.type = 'button';
+        removeBtn.className = 'btn btn-danger btn-sm';
+        removeBtn.innerHTML = '<span class="material-icons">delete</span>';
+        removeBtn.onclick = () => {
+            row.remove();
+            updateTotalTransferencia();
+        };
+
+        row.appendChild(select);
+        row.appendChild(input);
+
+        // Só permite remover se houver mais de uma linha
+        if (destinationsList.children.length > 0) {
+            row.appendChild(removeBtn);
+        } else {
+            // Se for a primeira linha, não adicione o botão de remover, ou adicione lógica para impedir que fique 0
+        }
+
+        destinationsList.appendChild(row);
+    }
+
+    function populateDestinationSelect(select, product, origemValue) {
+        const currentValue = select.value;
+        select.innerHTML = '<option value="">Destino...</option>';
+
+        let origemLocalId = null;
+        let origemLocacao = null;
+
+        if (origemValue && origemValue !== 'sem_origem') {
+             try {
+                const o = JSON.parse(origemValue);
+                origemLocalId = o.localId;
+                origemLocacao = o.locacao;
+            } catch (e) {}
+        }
+
         if (product && product.locacoes) {
             product.locacoes.forEach(loc => {
-                // Se a origem for uma locação, não a mostre no destino
-                if (origem !== 'sem_origem' && loc.locacao === origem) {
-                    return;
+                try {
+                    // Se a origem for uma locação, não a mostre no destino
+                    if (origemValue !== 'sem_origem' && String(loc.localId) === String(origemLocalId) && String(loc.locacao) === String(origemLocacao)) {
+                        return;
+                    }
+
+                    const localNome = (configData.locais && configData.locais[loc.localId]) ? configData.locais[loc.localId].nome : 'Desconhecido';
+                    const option = document.createElement('option');
+                    option.value = JSON.stringify({ localId: loc.localId, locacao: loc.locacao });
+
+                    const locacaoTexto = loc.locacao ? loc.locacao : '';
+                    option.textContent = `${locacaoTexto} (${localNome})`;
+
+                    select.appendChild(option);
+                } catch (err) {
+                    console.error("Erro no loop de destino", err);
                 }
-                const option = document.createElement('option');
-                option.value = loc.locacao;
-                option.textContent = loc.locacao;
-                transfDestinoSelect.appendChild(option);
             });
         }
-        // Restaura a seleção se possível
-        if (destino && destino !== origem) {
-            transfDestinoSelect.value = destino;
+
+        if (currentValue) {
+            // Verifica se a opção ainda existe
+             const exists = Array.from(select.options).some(o => o.value === currentValue);
+             if(exists) select.value = currentValue;
         }
-    });
+    }
+
+    function updateTotalTransferencia() {
+        const inputs = destinationsList.querySelectorAll('.transf-dest-qty');
+        let total = 0;
+        inputs.forEach(input => {
+            total += parseFloat(input.value) || 0;
+        });
+        transfTotalDisplay.textContent = total.toLocaleString('pt-BR');
+    }
 
     // Lógica de submissão do formulário de transferência
     formTransferencia.addEventListener('submit', async (e) => {
         e.preventDefault();
 
         const productId = transfProdutoSelect.value;
-        const origem = transfOrigemSelect.value;
-        const destino = transfDestinoSelect.value;
-        const quantidade = parseFloat(document.getElementById('transf-quantidade').value);
+        const origemValue = transfOrigemSelect.value;
 
-        // Validação
-        if (!productId || !origem || !destino || !quantidade || quantidade <= 0) {
-            alert('Por favor, preencha todos os campos corretamente.');
+        // Coleta destinos
+        const destRows = destinationsList.querySelectorAll('.destination-row');
+        const transfers = [];
+        let totalQuantidade = 0;
+
+        destRows.forEach(row => {
+            const destValue = row.querySelector('.transf-dest-select').value;
+            const qty = parseFloat(row.querySelector('.transf-dest-qty').value);
+
+            if (destValue && qty > 0) {
+                transfers.push({ destValue, qty });
+                totalQuantidade += qty;
+            }
+        });
+
+        if (transfers.length === 0) {
+            alert('Adicione pelo menos um destino com quantidade válida.');
             return;
         }
-         if (origem === destino) {
-            alert('A locação de origem e destino não podem ser as mesmas.');
+
+        // Validação
+        if (!productId || !origemValue) {
+            alert('Por favor, preencha todos os campos corretamente.');
             return;
         }
 
         const product = productsMap[productId];
-        // Validação de estoque
-        if (origem === 'sem_origem') {
-            if ((product.estoque || 0) < quantidade) {
-                alert(`Quantidade a transferir excede o estoque disponível Sem Origem (${product.estoque || 0}).`);
-                return;
+
+        // Parse Origem
+        let origemLocalId, origemLocacao;
+        try {
+            if (origemValue !== 'sem_origem') {
+                const o = JSON.parse(origemValue);
+                origemLocalId = o.localId;
+                origemLocacao = o.locacao;
             }
-        } else {
-            const locacaoOrigemData = product.locacoes.find(l => l.locacao === origem);
-            if (!locacaoOrigemData || locacaoOrigemData.estoque < quantidade) {
-                alert(`Quantidade a transferir excede o estoque disponível na origem (${locacaoOrigemData.estoque || 0}).`);
-                return;
-            }
+        } catch (err) {
+            alert('Erro ao processar dados da origem.');
+            return;
         }
 
+        // Validação de estoque
+        let estoqueDisponivel = 0;
+        let locacaoOrigemData = null;
+
+        if (origemValue === 'sem_origem') {
+            estoqueDisponivel = product.estoque || 0;
+        } else {
+            locacaoOrigemData = product.locacoes.find(l => l.localId === origemLocalId && l.locacao === origemLocacao);
+            estoqueDisponivel = locacaoOrigemData ? locacaoOrigemData.estoque : 0;
+        }
+
+        if (estoqueDisponivel < totalQuantidade) {
+             alert(`Quantidade total (${totalQuantidade}) excede o estoque disponível (${estoqueDisponivel}).`);
+             return;
+        }
 
         try {
             await runTransaction(db, async (transaction) => {
@@ -1056,52 +1184,66 @@ document.addEventListener('DOMContentLoaded', async function() {
 
                 const pData = productDoc.data();
                 const locacoes = pData.locacoes || [];
-                const destinoIndex = locacoes.findIndex(l => l.locacao === destino);
-                if (destinoIndex === -1) throw new Error('Locação de destino não encontrada.');
 
-                if (origem === 'sem_origem') {
-                    // Re-valida o estoque sem origem dentro da transação
-                    if ((pData.estoque || 0) < quantidade) {
-                        throw new Error('Estoque Sem Origem insuficiente. A transação foi cancelada.');
+                // Decrementa Origem (uma única vez pelo total)
+                if (origemValue === 'sem_origem') {
+                    if ((pData.estoque || 0) < totalQuantidade) {
+                        throw new Error('Estoque Sem Origem insuficiente durante transação.');
                     }
-                    const novoEstoqueSemOrigem = (pData.estoque || 0) - quantidade;
-                    locacoes[destinoIndex].estoque = (locacoes[destinoIndex].estoque || 0) + quantidade;
-                    transaction.update(productRef, {
-                        estoque: novoEstoqueSemOrigem,
-                        locacoes: locacoes
-                    });
+                    transaction.update(productRef, { estoque: (pData.estoque || 0) - totalQuantidade });
                 } else {
-                    const origemIndex = locacoes.findIndex(l => l.locacao === origem);
+                    const origemIndex = locacoes.findIndex(l => l.localId === origemLocalId && l.locacao === origemLocacao);
                     if (origemIndex === -1) throw new Error('Locação de origem não encontrada.');
 
-                    // Re-valida o estoque da locação dentro da transação
-                    if ((locacoes[origemIndex].estoque || 0) < quantidade) {
-                        throw new Error('Estoque na origem insuficiente. A transação foi cancelada.');
+                    if ((locacoes[origemIndex].estoque || 0) < totalQuantidade) {
+                        throw new Error('Estoque na origem insuficiente durante transação.');
                     }
-                    locacoes[origemIndex].estoque -= quantidade;
-                    locacoes[destinoIndex].estoque = (locacoes[destinoIndex].estoque || 0) + quantidade;
-                    transaction.update(productRef, { locacoes: locacoes });
+                    locacoes[origemIndex].estoque -= totalQuantidade;
                 }
 
-                const observacao = `Transferência de ${origem.replace('_', ' ')} para ${destino}.`;
-                const movementRef = doc(collection(db, 'movimentacoes'));
-                transaction.set(movementRef, {
-                    tipo: 'transferencia',
-                    productId,
-                    quantidade,
-                    data: serverTimestamp(),
-                    observacao: observacao
-                });
+                // Incrementa Destinos e Cria Movimentações
+                for (const transfer of transfers) {
+                    const d = JSON.parse(transfer.destValue);
+                    const destLocalId = d.localId;
+                    const destLocacao = d.locacao;
+
+                    const destinoIndex = locacoes.findIndex(l => l.localId === destLocalId && l.locacao === destLocacao);
+                    if (destinoIndex === -1) throw new Error(`Locação de destino não encontrada.`);
+
+                    locacoes[destinoIndex].estoque = (locacoes[destinoIndex].estoque || 0) + transfer.qty;
+
+                    // Cria registro de movimentação para este trecho
+                    const origemNome = origemValue === 'sem_origem' ? 'Sem Origem' : `${origemLocacao || ''} (${configData.locais[origemLocalId]?.nome || '?'})`;
+                    const destinoNome = `${destLocacao || ''} (${configData.locais[destLocalId]?.nome || '?'})`;
+
+                    const observacao = `Transferência de ${origemNome} para ${destinoNome}.`;
+                    const movementRef = doc(collection(db, 'movimentacoes'));
+
+                    // Nota: O set dentro do loop é permitido em transações
+                    transaction.set(movementRef, {
+                        tipo: 'transferencia',
+                        productId,
+                        quantidade: transfer.qty,
+                        data: serverTimestamp(),
+                        observacao: observacao
+                    });
+                }
+
+                // Atualiza locacoes array (agora com todas as alterações aplicadas)
+                transaction.update(productRef, { locacoes: locacoes });
             });
 
             alert('Transferência realizada com sucesso!');
-            // Atualiza o mapa local para refletir a mudança (FORMA ROBUSTA)
+
+            // Atualiza o mapa local para refletir a mudança
             const productRef = doc(db, 'produtos', productId);
             const updatedDoc = await getDoc(productRef);
             if (updatedDoc.exists()) {
                 productsMap[productId] = { id: productId, ...updatedDoc.data() };
             }
             formTransferencia.reset();
+            destinationsList.innerHTML = ''; // Limpa a lista visual
+            transfTotalDisplay.textContent = '0';
             transferenciaModal.style.display = 'none';
             await updateProductInfo(); // Atualiza a info do produto principal se estiver selecionado
         } catch (error) {
