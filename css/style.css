@@ -1066,3 +1066,138 @@ input:checked + .slider:before {
     0% { transform: rotate(0deg); }
     100% { transform: rotate(360deg); }
 }
+
+/* --- Modern Transfer Modal Styles --- */
+#transferencia-modal .modal-content {
+    border-radius: 12px;
+    box-shadow: 0 10px 30px rgba(0,0,0,0.15);
+    border: none;
+    overflow: hidden;
+}
+
+#transferencia-modal .modal-header {
+    background-color: #0d6efd; /* Primary Blue */
+    color: white;
+    padding: 1.5rem 2rem;
+    border-bottom: 1px solid rgba(255,255,255,0.1);
+}
+
+#transferencia-modal .modal-body {
+    padding: 2rem;
+    background-color: #f8f9fa;
+}
+
+.transfer-section {
+    background-color: white;
+    padding: 1.5rem;
+    border-radius: 8px;
+    box-shadow: 0 2px 8px rgba(0,0,0,0.05);
+    margin-bottom: 1.5rem;
+    border: 1px solid #e9ecef;
+}
+
+.transfer-section-title {
+    font-size: 0.9rem;
+    text-transform: uppercase;
+    color: #6c757d;
+    font-weight: 700;
+    margin-bottom: 1rem;
+    letter-spacing: 0.5px;
+    border-bottom: 2px solid #f1f3f5;
+    padding-bottom: 0.5rem;
+}
+
+.product-summary-card {
+    display: flex;
+    gap: 2rem;
+    background-color: #f8f9fa;
+    padding: 1rem 1.5rem;
+    border-radius: 6px;
+    border-left: 4px solid #0d6efd;
+    margin-top: 1rem;
+    flex-wrap: wrap;
+    align-items: center;
+}
+
+.product-info-item {
+    display: flex;
+    flex-direction: column;
+}
+
+.product-info-label {
+    font-size: 0.75rem;
+    color: #6c757d;
+    font-weight: 600;
+    text-transform: uppercase;
+}
+
+.product-info-value {
+    font-size: 1.1rem;
+    color: #212529;
+    font-weight: 600;
+}
+
+.origin-stock-badge {
+    background-color: #198754;
+    color: white;
+    padding: 0.25rem 0.6rem;
+    border-radius: 4px;
+    font-size: 0.9rem;
+    font-weight: bold;
+    margin-left: 0.5rem;
+}
+
+.destination-header-row {
+    display: grid;
+    grid-template-columns: 1fr 140px 60px; /* Location, Qty, Action */
+    gap: 15px;
+    padding: 0 0.5rem 0.5rem 0.5rem;
+    font-size: 0.85rem;
+    font-weight: 600;
+    color: #495057;
+}
+
+.destination-row {
+    display: grid;
+    grid-template-columns: 1fr 140px 60px;
+    gap: 15px;
+    align-items: center;
+    margin-bottom: 0.75rem;
+    background-color: white;
+    padding: 0.5rem;
+    border-radius: 6px;
+    border: 1px solid #dee2e6;
+    transition: all 0.2s ease;
+}
+
+.destination-row:hover {
+    border-color: #0d6efd;
+    box-shadow: 0 2px 4px rgba(13, 110, 253, 0.1);
+}
+
+.total-transfer-container {
+    background-color: #212529;
+    color: white;
+    padding: 1rem 1.5rem;
+    border-radius: 8px;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    font-size: 1.1rem;
+    margin-top: 1rem;
+}
+
+.total-transfer-value {
+    font-size: 1.4rem;
+    font-weight: 700;
+    color: #ffc107; /* Warning yellow for contrast */
+}
+
+.modal-footer-custom {
+    display: flex;
+    justify-content: flex-end;
+    gap: 1rem;
+    margin-top: 2rem;
+    border-top: 1px solid #dee2e6;
+    padding-top: 1.5rem;
+}
