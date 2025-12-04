@@ -526,6 +526,15 @@ document.addEventListener('DOMContentLoaded', async function() {
     }
 
     function renderTable(data) {
+        // Update header classes for visual indicators
+        const headers = document.querySelectorAll('#headers-row .sortable');
+        headers.forEach(header => {
+            header.classList.remove('sort-asc', 'sort-desc');
+            if (header.dataset.column === sortState.column) {
+                header.classList.add(sortState.direction === 'asc' ? 'sort-asc' : 'sort-desc');
+            }
+        });
+
         tableBody.innerHTML = '';
         let totalEntrada = 0;
         let totalSaida = 0;
@@ -609,6 +618,8 @@ document.addEventListener('DOMContentLoaded', async function() {
         const isEntrada = toggle.checked;
         btnImportarXml.style.display = isEntrada ? 'inline-block' : 'none';
         btnTransferencia.style.display = isEntrada ? 'none' : 'inline-block';
+        const btnBulkTransfer = document.getElementById('btn-bulk-transfer');
+        if (btnBulkTransfer) btnBulkTransfer.style.display = isEntrada ? 'none' : 'inline-block';
         entradaFields.forEach(el => el.style.display = isEntrada ? '' : 'none');
         saidaFields.forEach(el => el.style.display = isEntrada ? 'none' : '');
 
@@ -1270,6 +1281,374 @@ document.addEventListener('DOMContentLoaded', async function() {
 
     // --- FIM DA LÓGICA DE TRANSFERÊNCIA ---
 
+    // --- LÓGICA PARA ADICIONAR NOVA LOCAÇÃO (NOVA FEATURE) ---
+    const btnNewLocation = document.getElementById('btn-new-location');
+    const addLocationModal = document.getElementById('add-location-modal');
+    const closeAddLocationModal = document.getElementById('add-location-modal-close');
+    const formAddLocation = document.getElementById('form-add-location');
+    const newLocationLocalSelect = document.getElementById('new-location-local');
+    const newLocationInput = document.getElementById('new-location-input');
+
+    // Inicializa o IMask para o campo de nova locação
+    const newLocacaoDefinitions = {
+        'L': { mask: /[A-Z]/ }
+    };
+    IMask(newLocationInput, {
+        mask: [
+            { mask: '0' },
+            { mask: '0-L', definitions: newLocacaoDefinitions },
+            { mask: '0-L-00', definitions: newLocacaoDefinitions },
+            { mask: '0-L-00-L', definitions: newLocacaoDefinitions }
+        ],
+        prepare: function (str) {
+            return str.toUpperCase();
+        },
+    });
+
+    btnNewLocation.addEventListener('click', () => {
+        const productId = transfProdutoSelect.value;
+        if (!productId) {
+            alert('Por favor, selecione um produto primeiro.');
+            return;
+        }
+
+        // Popula o dropdown de locais
+        newLocationLocalSelect.innerHTML = '<option value="">Selecione o Local...</option>';
+        if (configData.locais) {
+            for (const [id, data] of Object.entries(configData.locais)) {
+                const option = document.createElement('option');
+                option.value = id;
+                option.textContent = data.nome;
+                newLocationLocalSelect.appendChild(option);
+            }
+        }
+
+        formAddLocation.reset();
+        addLocationModal.style.display = 'block';
+    });
+
+    closeAddLocationModal.addEventListener('click', () => {
+        addLocationModal.style.display = 'none';
+    });
+
+    formAddLocation.addEventListener('submit', async (e) => {
+        e.preventDefault();
+        const productId = transfProdutoSelect.value;
+        const localId = newLocationLocalSelect.value;
+        const locacao = newLocationInput.value.toUpperCase();
+
+        if (!productId || !localId || !locacao) {
+            alert('Preencha todos os campos.');
+            return;
+        }
+
+        // Validação de Regex
+        const locacaoPattern = /^[0-9]{1}(-[A-Z]{1}(-[0-9]{2}(-[A-Z]{1})?)?)?$/;
+        if (!locacaoPattern.test(locacao)) {
+            alert(`O formato da locação "${locacao}" é inválido. Use formatos como 1, 1-A, 1-A-02 ou 1-A-02-B.`);
+            return;
+        }
+
+        try {
+            await runTransaction(db, async (transaction) => {
+                const productRef = doc(db, 'produtos', productId);
+                const productDoc = await transaction.get(productRef);
+                if (!productDoc.exists()) throw new Error('Produto não encontrado.');
+
+                const pData = productDoc.data();
+                const locacoes = pData.locacoes || [];
+
+                // Verifica duplicidade
+                const exists = locacoes.some(l => l.localId === localId && l.locacao === locacao);
+                if (exists) {
+                    throw new Error('Esta locação já existe para este produto.');
+                }
+
+                // Adiciona nova locação
+                locacoes.push({
+                    localId: localId,
+                    locacao: locacao,
+                    estoque: 0
+                });
+
+                transaction.update(productRef, { locacoes: locacoes });
+            });
+
+            alert('Locação adicionada com sucesso!');
+            addLocationModal.style.display = 'none';
+
+            // Atualiza o mapa local
+            const productRef = doc(db, 'produtos', productId);
+            const updatedDoc = await getDoc(productRef);
+            if (updatedDoc.exists()) {
+                productsMap[productId] = { id: productId, ...updatedDoc.data() };
+            }
+
+            // Atualiza as opções de destino
+            // Re-renderiza as opções de todos os selects de destino existentes
+            const destSelects = destinationsList.querySelectorAll('.transf-dest-select');
+            const origemValue = transfOrigemSelect.value;
+            destSelects.forEach(select => {
+                populateDestinationSelect(select, productsMap[productId], origemValue);
+            });
+
+            // Se não houver destinos, adiciona uma linha automaticamente (opcional, mas bom para UX)
+            if (destinationsList.children.length === 0) {
+                addDestinationRow();
+            }
+
+        } catch (error) {
+            console.error("Erro ao adicionar locação:", error);
+            alert(error.message);
+        }
+    });
+
+    // --- LÓGICA DE TRANSFERÊNCIA EM LOTE ---
+    const btnBulkTransfer = document.getElementById('btn-bulk-transfer');
+    const bulkTransferModal = document.getElementById('bulk-transfer-modal');
+    const closeBulkTransferModal = document.getElementById('bulk-transfer-modal-close');
+    const btnLoadBulk = document.getElementById('btn-load-bulk');
+    const bulkCodesInput = document.getElementById('bulk-codes-input');
+    const bulkTransferTableBody = document.querySelector('#bulk-transfer-table tbody');
+    const btnConfirmBulk = document.getElementById('btn-confirm-bulk');
+
+    btnBulkTransfer.addEventListener('click', () => {
+        bulkTransferModal.style.display = 'block';
+    });
+
+    closeBulkTransferModal.addEventListener('click', () => {
+        bulkTransferModal.style.display = 'none';
+        bulkCodesInput.value = '';
+        bulkTransferTableBody.innerHTML = '';
+        btnConfirmBulk.disabled = true;
+    });
+
+    // Helper to format origin
+    function formatOriginOption(loc) {
+        const localNome = configData.locais[loc.localId]?.nome || 'Desconhecido';
+        return `${loc.locacao} (${localNome}) (Estoque: ${loc.estoque})`;
+    }
+
+    btnLoadBulk.addEventListener('click', () => {
+        const input = bulkCodesInput.value;
+        if (!input.trim()) return;
+
+        // Split by space, comma, or newline and filter empty
+        const codes = input.split(/[\s,]+/).filter(c => c.trim() !== '');
+        bulkTransferTableBody.innerHTML = '';
+        let hasValidItems = false;
+
+        codes.forEach(code => {
+            // Find product by code (case insensitive)
+            const product = Object.values(productsMap).find(p => p.codigo.toLowerCase() === code.toLowerCase());
+            const row = document.createElement('tr');
+
+            if (!product) {
+                row.style.backgroundColor = '#ffdddd'; // Red highlight for not found
+                row.innerHTML = `
+                    <td>${code}</td>
+                    <td colspan="6" style="color: #dc3545; font-weight: bold;">Produto não encontrado</td>
+                `;
+            } else {
+                hasValidItems = true;
+                const productId = product.id;
+
+                // Origin Select
+                let originOptions = '<option value="">Selecione Origem...</option>';
+                let hasStock = false;
+                if (product.locacoes) {
+                    product.locacoes.forEach(loc => {
+                        if (loc.estoque > 0) {
+                            hasStock = true;
+                            originOptions += `<option value='${JSON.stringify({localId: loc.localId, locacao: loc.locacao})}'>${formatOriginOption(loc)}</option>`;
+                        }
+                    });
+                }
+                if (product.estoque > 0) { // Fallback for legacy "sem origem"
+                     hasStock = true;
+                     originOptions += `<option value="sem_origem">Sem Origem (Estoque: ${product.estoque})</option>`;
+                }
+
+                // Destination Select (Dropdown with Existing Locations)
+                let destOptions = '<option value="">Selecione Destino...</option>';
+                if (product.locacoes) {
+                    product.locacoes.forEach(loc => {
+                        const localNome = configData.locais[loc.localId]?.nome || 'Desconhecido';
+                        // Value is JSON string to match origin select structure for easy parsing
+                        destOptions += `<option value='${JSON.stringify({localId: loc.localId, locacao: loc.locacao})}'>${loc.locacao || ''} (${localNome})</option>`;
+                    });
+                }
+
+                row.dataset.productId = productId;
+                row.className = 'bulk-transfer-row'; // Marker class
+
+                row.innerHTML = `
+                    <td>${product.codigo}</td>
+                    <td>${product.descricao}</td>
+                    <td>
+                        <select class="form-control bulk-origin-select" ${!hasStock ? 'disabled' : ''}>
+                            ${hasStock ? originOptions : '<option>Sem Estoque</option>'}
+                        </select>
+                    </td>
+                    <td>
+                        <select class="form-control bulk-dest-select" required>
+                            ${destOptions}
+                        </select>
+                    </td>
+                    <td>
+                        <input type="number" class="form-control bulk-qty-input" placeholder="Qtd" step="any" min="0">
+                    </td>
+                    <td class="status-cell">
+                        <button class="btn btn-sm btn-danger btn-remove-row" onclick="this.closest('tr').remove()">
+                            <span class="material-icons" style="font-size: 16px;">delete</span>
+                        </button>
+                    </td>
+                `;
+            }
+            bulkTransferTableBody.appendChild(row);
+        });
+
+        btnConfirmBulk.disabled = !hasValidItems;
+    });
+
+    btnConfirmBulk.addEventListener('click', async () => {
+        const rows = document.querySelectorAll('.bulk-transfer-row');
+        const transfers = [];
+        let validationError = null;
+
+        rows.forEach(row => {
+            const originSelect = row.querySelector('.bulk-origin-select');
+            const destSelect = row.querySelector('.bulk-dest-select');
+            const qtyInput = row.querySelector('.bulk-qty-input');
+
+            const originValue = originSelect.value;
+            const destValue = destSelect.value;
+            const qty = parseFloat(qtyInput.value);
+
+            if (!originValue || !destValue || isNaN(qty) || qty <= 0) {
+                row.style.border = '2px solid red';
+                validationError = "Preencha todos os campos corretamente.";
+                return;
+            } else {
+                row.style.border = 'none';
+            }
+
+            let destObj;
+            try {
+                destObj = JSON.parse(destValue);
+            } catch (e) {
+                row.style.border = '2px solid red';
+                validationError = "Erro no destino selecionado.";
+                return;
+            }
+
+            transfers.push({
+                productId: row.dataset.productId,
+                originValue,
+                destLocalId: destObj.localId,
+                destLocacao: destObj.locacao,
+                qty
+            });
+        });
+
+        if (validationError) {
+            alert(validationError);
+            return;
+        }
+
+        if (transfers.length === 0) {
+            alert("Nenhuma transferência válida para processar.");
+            return;
+        }
+
+        if (!confirm(`Confirma a transferência de ${transfers.length} item(ns)?`)) return;
+
+        try {
+            await runTransaction(db, async (transaction) => {
+                // Cache product reads to avoid reading same doc multiple times if multiple lines for same product
+                const productDocs = {};
+                const uniqueProductIds = [...new Set(transfers.map(t => t.productId))];
+
+                for (const pid of uniqueProductIds) {
+                    const ref = doc(db, 'produtos', pid);
+                    const snap = await transaction.get(ref);
+                    if (!snap.exists()) throw new Error(`Produto ${pid} não encontrado.`);
+                    productDocs[pid] = { ref, data: snap.data() };
+                }
+
+                // Process transfers
+                for (const transfer of transfers) {
+                    const productCtx = productDocs[transfer.productId];
+                    const pData = productCtx.data;
+                    const locacoes = pData.locacoes || [];
+
+                    // 1. Deduct from Origin
+                    if (transfer.originValue === 'sem_origem') {
+                        if ((pData.estoque || 0) < transfer.qty) {
+                            throw new Error(`Estoque insuficiente (Sem Origem) para ${pData.codigo}.`);
+                        }
+                        pData.estoque = (pData.estoque || 0) - transfer.qty;
+                    } else {
+                        const originObj = JSON.parse(transfer.originValue);
+                        const originIndex = locacoes.findIndex(l => l.localId === originObj.localId && l.locacao === originObj.locacao);
+
+                        if (originIndex === -1) throw new Error(`Origem não encontrada para ${pData.codigo}.`);
+                        if ((locacoes[originIndex].estoque || 0) < transfer.qty) {
+                            throw new Error(`Estoque insuficiente na origem para ${pData.codigo}.`);
+                        }
+                        locacoes[originIndex].estoque -= transfer.qty;
+                    }
+
+                    // 2. Add to Destination
+                    let destIndex = locacoes.findIndex(l => l.localId === transfer.destLocalId && l.locacao === transfer.destLocacao);
+                    if (destIndex === -1) {
+                        locacoes.push({
+                            localId: transfer.destLocalId,
+                            locacao: transfer.destLocacao,
+                            estoque: transfer.qty
+                        });
+                    } else {
+                        locacoes[destIndex].estoque = (locacoes[destIndex].estoque || 0) + transfer.qty;
+                    }
+
+                    // 3. Create Movement Record
+                    // Note: set() inside loop is fine for batch/transaction
+                    const originLabel = transfer.originValue === 'sem_origem' ? 'Sem Origem' : JSON.parse(transfer.originValue).locacao;
+                    const destLabel = transfer.destLocacao;
+                    const localDestName = configData.locais[transfer.destLocalId]?.nome;
+
+                    const movementRef = doc(collection(db, 'movimentacoes'));
+                    transaction.set(movementRef, {
+                        tipo: 'transferencia',
+                        productId: transfer.productId,
+                        quantidade: transfer.qty,
+                        data: serverTimestamp(),
+                        observacao: `Transferência em Lote: ${originLabel} -> ${destLabel} (${localDestName})`
+                    });
+                }
+
+                // Write back all updates
+                for (const pid of uniqueProductIds) {
+                    const ctx = productDocs[pid];
+                    const updatePayload = { locacoes: ctx.data.locacoes || [] };
+                    if (ctx.data.estoque !== undefined) updatePayload.estoque = ctx.data.estoque; // For legacy/sem_origem handling
+                    transaction.update(ctx.ref, updatePayload);
+                }
+            });
+
+            alert("Transferências realizadas com sucesso!");
+            bulkTransferModal.style.display = 'none';
+
+            // Refresh main table if visible? Or just reload logic?
+            // Since we updated DB, real-time listeners should handle main view updates if applicable.
+            // But we should refresh local maps just in case.
+            // Actually, listeners will do it.
+
+        } catch (error) {
+            console.error("Erro na transferência em lote:", error);
+            alert(`Erro: ${error.message}`);
+        }
+    });
 
     // --- Lógica do Modal de Importação XML ---
     btnImportarXml.addEventListener('click', () => { xmlImportModal.style.display = 'block'; });
@@ -1960,7 +2339,16 @@ document.addEventListener('DOMContentLoaded', async function() {
     // --- FIM DA LÓGICA DE BUSCA ---
 
     document.getElementById('headers-row').addEventListener('click', e => {
-        // ... (lógica de ordenação da tabela mantida)
+        if (e.target.classList.contains('sortable')) {
+            const column = e.target.dataset.column;
+            if (sortState.column === column) {
+                sortState.direction = sortState.direction === 'asc' ? 'desc' : 'asc';
+            } else {
+                sortState.column = column;
+                sortState.direction = 'asc';
+            }
+            updateTable();
+        }
     });
 
     document.getElementById('history-filters-container').addEventListener('input', e => {

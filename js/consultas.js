@@ -8,12 +8,21 @@ document.addEventListener('DOMContentLoaded', async function() {
     const filters = {
         codigo: document.getElementById('filter-codigo'),
         descricao: document.getElementById('filter-descricao'),
-        local: document.getElementById('filter-local')
+        cor: document.getElementById('filter-cor'),
+        local: document.getElementById('filter-local'),
+        locacao: document.getElementById('filter-locacao'),
+        comReserva: document.getElementById('filter-com-reserva')
     };
 
     let consolidatedData = [];
     let globalMovementsByProduct = {}; // Armazena as movimentações por produto globalmente
     let configData = {}; // Armazena configurações globais (locais, tipos, etc)
+
+    // --- Estado da Ordenação ---
+    let sortState = {
+        column: null,
+        direction: 'asc' // or 'desc'
+    };
 
     // --- Elementos do Modal de Histórico ---
     const historyModal = document.getElementById('history-modal');
@@ -66,8 +75,14 @@ document.addEventListener('DOMContentLoaded', async function() {
         ]);
 
         configData.locais = {};
+        filters.local.innerHTML = '<option value="">Todos os Locais</option>';
         locaisSnapshot.forEach(doc => {
             configData.locais[doc.id] = doc.data();
+            // Popula o filtro de locais
+            const option = document.createElement('option');
+            option.value = doc.id;
+            option.textContent = doc.data().nome;
+            filters.local.appendChild(option);
         });
 
         const conversoesMap = {};
@@ -143,6 +158,35 @@ document.addEventListener('DOMContentLoaded', async function() {
         calculateAndDisplayGlobalTotal(consolidatedData);
     }
 
+    // --- Event Listeners para Ordenação ---
+    document.querySelectorAll('th.sortable').forEach(th => {
+        th.addEventListener('click', () => {
+            const column = th.dataset.column;
+
+            // Toggle direction if clicking same column, otherwise reset to asc
+            if (sortState.column === column) {
+                sortState.direction = sortState.direction === 'asc' ? 'desc' : 'asc';
+            } else {
+                sortState.column = column;
+                sortState.direction = 'asc';
+            }
+
+            // Update UI
+            document.querySelectorAll('th.sortable').forEach(h => {
+                h.classList.remove('sort-asc', 'sort-desc');
+            });
+            th.classList.add(`sort-${sortState.direction}`);
+
+            // Apply filters first (which calls renderTable, but we need to pass sorted data)
+            // Easier way: call applyFilters which filters consolidatedData then calls renderTable.
+            // But applyFilters doesn't know about sort.
+            // We should sort INSIDE renderTable or sort consolidatedData/filteredData before rendering.
+
+            // Let's re-apply filters which will trigger a render with the new sort state
+            applyFilters();
+        });
+    });
+
     function calculateAndDisplayGlobalTotal(data) {
         const totalValorEstoqueGeral = data.reduce((acc, item) => acc + (item.valorTotalEstoque || 0), 0);
         document.getElementById('total-valor-estoque-geral').textContent = totalValorEstoqueGeral.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' });
@@ -151,6 +195,31 @@ document.addEventListener('DOMContentLoaded', async function() {
     function renderTable(data) {
         tableBody.innerHTML = '';
         let totalCustoFiltrado = 0;
+
+        // Apply sorting
+        if (sortState.column) {
+            data.sort((a, b) => {
+                let valA = a[sortState.column];
+                let valB = b[sortState.column];
+
+                // Handle null/undefined
+                if (valA === null || valA === undefined) valA = '';
+                if (valB === null || valB === undefined) valB = '';
+
+                // Specific column handling if needed (numbers vs strings)
+                if (['estoque', 'reservado', 'custoMedio', 'custoTotal'].includes(sortState.column)) {
+                    valA = Number(valA) || 0;
+                    valB = Number(valB) || 0;
+                } else {
+                    valA = valA.toString().toLowerCase();
+                    valB = valB.toString().toLowerCase();
+                }
+
+                if (valA < valB) return sortState.direction === 'asc' ? -1 : 1;
+                if (valA > valB) return sortState.direction === 'asc' ? 1 : -1;
+                return 0;
+            });
+        }
 
         data.forEach(item => {
             totalCustoFiltrado += item.valorTotalEstoque || 0;
@@ -365,20 +434,45 @@ document.addEventListener('DOMContentLoaded', async function() {
         const filterValues = {
             codigo: filters.codigo.value.toLowerCase(),
             descricao: filters.descricao.value.toLowerCase(),
-            local: filters.local.value.toLowerCase()
+            cor: filters.cor.value.toLowerCase(),
+            local: filters.local.value, // Select uses exact value (ID)
+            locacao: filters.locacao.value.toLowerCase(),
+            comReserva: filters.comReserva.checked
         };
 
         const filteredData = consolidatedData.filter(item => {
             const matchesCodigo = (item.codigo || '').toLowerCase().includes(filterValues.codigo);
             const matchesDescricao = (item.descricao || '').toLowerCase().includes(filterValues.descricao);
-            const matchesLocal = (item.localDisplay || '').toLowerCase().includes(filterValues.local);
-            return matchesCodigo && matchesDescricao && matchesLocal;
+            const matchesCor = (item.cor || '').toLowerCase().includes(filterValues.cor);
+
+            // Filtro de Reserva
+            if (filterValues.comReserva && (item.quantidadeReservada || 0) <= 0) {
+                return false;
+            }
+
+            // Filtro de Local e Locação (verifica se alguma das locações do produto atende)
+            // Se não houver filtro de local nem locação, passa direto nesta checagem
+            let matchesLocalLocacao = true;
+
+            if (filterValues.local || filterValues.locacao) {
+                if (!item.locacoes || item.locacoes.length === 0) {
+                    matchesLocalLocacao = false; // Se filtrar por local/locação e produto não tiver, falha
+                } else {
+                    matchesLocalLocacao = item.locacoes.some(loc => {
+                        const localMatch = !filterValues.local || loc.localId === filterValues.local;
+                        const locacaoMatch = !filterValues.locacao || (loc.locacao || '').toLowerCase().includes(filterValues.locacao);
+                        return localMatch && locacaoMatch;
+                    });
+                }
+            }
+
+            return matchesCodigo && matchesDescricao && matchesCor && matchesLocalLocacao;
         });
 
         renderTable(filteredData);
     }
 
-    Object.values(filters).forEach(input => input.addEventListener('input', applyFilters));
+    Object.values(filters).forEach(input => input.addEventListener(input.type === 'checkbox' ? 'change' : 'input', applyFilters));
 
     fetchDataAndCalculate().catch(error => {
         console.error("Erro ao carregar dados da consulta:", error);

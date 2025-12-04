@@ -20,6 +20,7 @@ document.addEventListener('DOMContentLoaded', () => {
     let locaisMap = {};
     let allReservas = [];
     let filterState = {};
+    let sortState = { column: 'data', direction: 'desc' }; // Default sort
 
     async function loadInitialData() {
         // Carregar produtos
@@ -80,7 +81,64 @@ document.addEventListener('DOMContentLoaded', () => {
         }
     });
 
+    document.getElementById('reservas-headers-row').addEventListener('click', (e) => {
+        if (e.target.classList.contains('sortable')) {
+            const column = e.target.dataset.column;
+            if (sortState.column === column) {
+                sortState.direction = sortState.direction === 'asc' ? 'desc' : 'asc';
+            } else {
+                sortState.column = column;
+                sortState.direction = 'asc';
+            }
+            applyFilters(); // Re-render with sort
+        }
+    });
+
     function renderTable(data) {
+        // Update header classes
+        const headers = document.querySelectorAll('#reservas-headers-row .sortable');
+        headers.forEach(header => {
+            header.classList.remove('sort-asc', 'sort-desc');
+            if (header.dataset.column === sortState.column) {
+                header.classList.add(sortState.direction === 'asc' ? 'sort-asc' : 'sort-desc');
+            }
+        });
+
+        // Sort data
+        data.sort((a, b) => {
+            let valA, valB;
+            const productA = productsMap[a.productId] || {};
+            const productB = productsMap[b.productId] || {};
+            const obraA = obrasMap[a.obraId] || {};
+            const obraB = obrasMap[b.obraId] || {};
+
+            switch (sortState.column) {
+                case 'status': valA = a.tipo; valB = b.tipo; break;
+                case 'data': valA = a.data ? a.data.toMillis() : 0; valB = b.data ? b.data.toMillis() : 0; break;
+                case 'codigo': valA = productA.codigo || ''; valB = productB.codigo || ''; break;
+                case 'descricao': valA = productA.descricao || ''; valB = productB.descricao || ''; break;
+                case 'un': valA = productA.un || ''; valB = productB.un || ''; break;
+                case 'cor': valA = productA.cor || ''; valB = productB.cor || ''; break;
+                case 'quantidade': valA = a.quantidade || 0; valB = b.quantidade || 0; break;
+                case 'estoque':
+                    valA = productA.locacoes ? productA.locacoes.reduce((acc, l) => acc + (l.estoque || 0), 0) : 0;
+                    valB = productB.locacoes ? productB.locacoes.reduce((acc, l) => acc + (l.estoque || 0), 0) : 0;
+                    break;
+                case 'local':
+                    // Simplified sorting for local (just checks if has locacao)
+                    valA = a.locacao || ''; valB = b.locacao || '';
+                    break;
+                case 'enderecamento': valA = a.locacao || ''; valB = b.locacao || ''; break;
+                case 'obra': valA = obraA.nome || ''; valB = obraB.nome || ''; break;
+                case 'observacao': valA = a.observacao || ''; valB = b.observacao || ''; break;
+                default: valA = ''; valB = '';
+            }
+
+            if (valA < valB) return sortState.direction === 'asc' ? -1 : 1;
+            if (valA > valB) return sortState.direction === 'asc' ? 1 : -1;
+            return 0;
+        });
+
         tableBody.innerHTML = '';
         data.forEach(mov => {
             const product = productsMap[mov.productId] || {};
