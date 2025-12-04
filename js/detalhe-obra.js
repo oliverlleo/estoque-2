@@ -25,6 +25,7 @@ document.addEventListener('DOMContentLoaded', () => {
     let charts = {}; // Para armazenar instâncias dos gráficos
     let selectedGroupId = null; // Para filtrar por grupo ao clicar no grafico/tabela
     let gruposMap = {}; // Mapa de grupos (ID -> Objeto)
+    let sortState = { column: 'descricao', direction: 'asc' }; // Default sorting
 
     if (!obraId) {
         document.body.innerHTML = '<h1>ID da Obra não fornecido.</h1>';
@@ -570,6 +571,29 @@ document.addEventListener('DOMContentLoaded', () => {
             console.error('Elemento #detalhe-obra-table-body não encontrado.');
             return;
         }
+
+        // Update header visual state
+        const headers = document.querySelectorAll('#detalhe-obra-headers .sortable');
+        headers.forEach(header => {
+            header.classList.remove('sort-asc', 'sort-desc');
+            if (header.dataset.column === sortState.column) {
+                header.classList.add(sortState.direction === 'asc' ? 'sort-asc' : 'sort-desc');
+            }
+        });
+
+        // Sort logic
+        itens.sort((a, b) => {
+            let valA = a[sortState.column] || '';
+            let valB = b[sortState.column] || '';
+
+            if (typeof valA === 'string') valA = valA.toLowerCase();
+            if (typeof valB === 'string') valB = valB.toLowerCase();
+
+            if (valA < valB) return sortState.direction === 'asc' ? -1 : 1;
+            if (valA > valB) return sortState.direction === 'asc' ? 1 : -1;
+            return 0;
+        });
+
         tabelaBody.innerHTML = '';
         itens.forEach(item => {
             const row = document.createElement('tr');
@@ -701,6 +725,19 @@ document.addEventListener('DOMContentLoaded', () => {
     filterCodigo.addEventListener('input', applyFilters);
     filterDescricao.addEventListener('input', applyFilters);
     btnExportExcel.addEventListener('click', exportToExcel);
+
+    document.getElementById('detalhe-obra-headers').addEventListener('click', (e) => {
+        if (e.target.classList.contains('sortable')) {
+            const column = e.target.dataset.column;
+            if (sortState.column === column) {
+                sortState.direction = sortState.direction === 'asc' ? 'desc' : 'asc';
+            } else {
+                sortState.column = column;
+                sortState.direction = 'asc';
+            }
+            applyFilters();
+        }
+    });
 
     carregarDetalhesDaObra();
 });

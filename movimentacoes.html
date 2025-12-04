@@ -123,6 +123,7 @@
                         <div style="display: flex; align-items: center; gap: 10px;">
                             <button id="btn-importar-xml" class="btn" style="background-color: #0d6efd;">Importar NF-e (XML)</button>
                             <button id="btn-transferencia" class="btn" style="background-color: #ffc107; display: none;">Transferência Local</button>
+                            <button id="btn-bulk-transfer" class="btn" style="background-color: #17a2b8; display: none; color: white;">Transferência em Lote</button>
                             <div class="toggle-container" style="margin-left: 10px;">
                                 <span id="toggle-label-saida" style="font-weight: bold; color: #dc3545;">Saída</span>
                                 <label class="toggle-switch">
@@ -274,24 +275,24 @@
                         <table id="table-movimentacoes" class="table">
                             <thead>
                                 <tr id="headers-row">
-                                    <th data-column="data">Data</th>
-                                    <th data-column="tipo">Tipo</th>
-                                    <th data-column="subTipo">Sub-Tipo</th>
-                                    <th data-column="codigo">Código</th>
-                                    <th data-column="descricao">Descrição</th>
-                                    <th data-column="un">UN</th>
-                                    <th data-column="quantidade">Qtde</th>
-                                    <th data-column="nf">Nº NF</th>
-                                    <th data-column="valor_unitario">Valor Unit. Entrada</th>
-                                    <th data-column="valor_unit_estoque">Valor Unit. Estoque</th>
-                                    <th data-column="icms">ICMS Total</th>
-                                    <th data-column="ipi">IPI Total</th>
-                                    <th data-column="frete">Frete Total</th>
-                                    <th data-column="custoUnitario">Custo Médio Unit.</th>
-                                    <th data-column="custoTotal">Custo Total</th>
-                                    <th data-column="requisitante">Requisitante</th>
-                                    <th data-column="obraId">Obra</th>
-                                    <th data-column="observacao">Obs.</th>
+                                    <th class="sortable" data-column="data">Data</th>
+                                    <th class="sortable" data-column="tipo">Tipo</th>
+                                    <th class="sortable" data-column="subTipo">Sub-Tipo</th>
+                                    <th class="sortable" data-column="codigo">Código</th>
+                                    <th class="sortable" data-column="descricao">Descrição</th>
+                                    <th class="sortable" data-column="un">UN</th>
+                                    <th class="sortable" data-column="quantidade">Qtde</th>
+                                    <th class="sortable" data-column="nf">Nº NF</th>
+                                    <th class="sortable" data-column="valor_unitario">Valor Unit. Entrada</th>
+                                    <th class="sortable" data-column="valor_unit_estoque">Valor Unit. Estoque</th>
+                                    <th class="sortable" data-column="icms">ICMS Total</th>
+                                    <th class="sortable" data-column="ipi">IPI Total</th>
+                                    <th class="sortable" data-column="frete">Frete Total</th>
+                                    <th class="sortable" data-column="custoUnitario">Custo Médio Unit.</th>
+                                    <th class="sortable" data-column="custoTotal">Custo Total</th>
+                                    <th class="sortable" data-column="requisitante">Requisitante</th>
+                                    <th class="sortable" data-column="obraId">Obra</th>
+                                    <th class="sortable" data-column="observacao">Obs.</th>
                                 </tr>
                             </thead>
                             <tbody></tbody>
@@ -527,6 +528,45 @@
                         <button type="submit" class="btn btn-success">Salvar Locação</button>
                     </div>
                 </form>
+            </div>
+        </div>
+    </div>
+
+    <!-- Modal de Transferência em Lote -->
+    <div id="bulk-transfer-modal" class="modal" style="display: none;">
+        <div class="modal-content" style="max-width: 1200px;">
+            <div class="modal-header">
+                <h3>Transferência de Estoque em Lote</h3>
+                <span class="close-button" id="bulk-transfer-modal-close">&times;</span>
+            </div>
+            <div class="modal-body">
+                <div style="margin-bottom: 20px;">
+                    <label for="bulk-codes-input" style="font-weight: bold; display: block; margin-bottom: 5px;">Insira os Códigos dos Produtos (separados por espaço, vírgula ou nova linha)</label>
+                    <div style="display: flex; gap: 10px;">
+                        <textarea id="bulk-codes-input" class="form-control" rows="3" placeholder="Ex: PROD001, PROD002 PROD003..." style="flex-grow: 1;"></textarea>
+                        <button id="btn-load-bulk" class="btn btn-primary" style="align-self: flex-start;">Carregar Produtos</button>
+                    </div>
+                </div>
+
+                <div class="table-wrapper" style="max-height: 500px; overflow-y: auto;">
+                    <table id="bulk-transfer-table" class="table">
+                        <thead>
+                            <tr>
+                                <th>Código</th>
+                                <th>Produto</th>
+                                <th>Origem</th>
+                                <th>Destino</th>
+                                <th>Quantidade</th>
+                                <th>Status</th>
+                            </tr>
+                        </thead>
+                        <tbody></tbody>
+                    </table>
+                </div>
+
+                <div style="margin-top: 20px; text-align: right;">
+                    <button id="btn-confirm-bulk" class="btn btn-success" disabled>Confirmar Transferências</button>
+                </div>
             </div>
         </div>
     </div>

@@ -954,7 +954,8 @@ input:checked + .slider:before {
 #table-reservas tr,
 #table-implementacao tr,
 #table-history-modal tr,
-#correcao-fracionada-modal table tr {
+#correcao-fracionada-modal table tr,
+#bulk-transfer-table tr {
     display: table-row; /* Força o elemento a se comportar como uma linha de tabela */
 }
 
@@ -964,7 +965,8 @@ input:checked + .slider:before {
 #table-reservas th, #table-reservas td,
 #table-implementacao th, #table-implementacao td,
 #table-history-modal th, #table-history-modal td,
-#correcao-fracionada-modal table th, #correcao-fracionada-modal table td {
+#correcao-fracionada-modal table th, #correcao-fracionada-modal table td,
+#bulk-transfer-table th, #bulk-transfer-table td {
     display: table-cell; /* Força o elemento a se comportar como uma célula de tabela */
 }
 
