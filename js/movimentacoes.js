@@ -199,7 +199,7 @@ document.addEventListener('DOMContentLoaded', async function() {
             locacaoSelect.innerHTML = '<option value="">Locação...</option>';
             locacoesFiltradas.forEach(loc => {
                 const option = document.createElement('option');
-                option.value = loc.locacao;
+                option.value = loc.locacao === "" ? "_EMPTY_" : loc.locacao;
                 let text = loc.locacao;
                  if (!isEntrada) {
                     text += ` (Estoque: ${loc.estoque || 0})`;
@@ -653,7 +653,8 @@ document.addEventListener('DOMContentLoaded', async function() {
         e.preventDefault();
         const isEntrada = toggle.checked;
         const productId = document.getElementById('mov-produto-id').value;
-        const locacaoSelecionada = document.getElementById('mov-locacao').value;
+        const rawLocacao = document.getElementById('mov-locacao').value;
+        const locacaoSelecionada = rawLocacao === "_EMPTY_" ? "" : rawLocacao;
         const localSelecionado = document.getElementById('mov-local').value;
         const quantidade = parseFloat(document.getElementById('mov-quantidade').value);
 
@@ -678,7 +679,7 @@ document.addEventListener('DOMContentLoaded', async function() {
             }
 
             // A locação só é obrigatória se o produto tiver locações cadastradas.
-            if (hasRealLocacoes && !locacaoSelecionada) {
+            if (hasRealLocacoes && rawLocacao === "") {
                 alert('Para produtos com locação, a locação é obrigatória para saídas.');
                 return;
             }
@@ -919,7 +920,12 @@ document.addEventListener('DOMContentLoaded', async function() {
     const btnTransferencia = document.getElementById('btn-transferencia');
     const closeTransferenciaModal = document.getElementById('transferencia-modal-close');
     const formTransferencia = document.getElementById('form-transferencia');
-    const transfProdutoSelect = document.getElementById('transf-produto');
+
+    // Updated elements for product search
+    const transfProdutoSearch = document.getElementById('transf-produto-search');
+    const transfProdutoId = document.getElementById('transf-produto-id');
+    const transfProdutoResults = document.getElementById('transf-produto-results');
+
     const transfOrigemSelect = document.getElementById('transf-locacao-origem');
     const btnAddDestination = document.getElementById('btn-add-destination');
     const destinationsList = document.getElementById('destinations-list');
@@ -928,21 +934,24 @@ document.addEventListener('DOMContentLoaded', async function() {
     // Abre o modal
     btnTransferencia.addEventListener('click', () => {
         transferenciaModal.style.display = 'block';
-        // Popula o dropdown de produtos no modal, se ainda não estiver populado
-        if (transfProdutoSelect.options.length <= 1) {
-            for (const productId in productsMap) {
-                const product = productsMap[productId];
-                const option = document.createElement('option');
-                option.value = productId;
-                option.textContent = `${product.codigo} - ${product.descricao}`;
-                transfProdutoSelect.appendChild(option);
-            }
-        }
     });
 
     // Fecha o modal
     const closeTransferencia = () => {
         transferenciaModal.style.display = 'none';
+        // Limpar campos
+        transfProdutoSearch.value = '';
+        transfProdutoId.value = '';
+        transfProdutoResults.innerHTML = '';
+        transfProdutoResults.style.display = 'none';
+        // Resetar UI de transferência
+        transfOrigemSelect.innerHTML = '<option value="">Origem...</option>';
+        transfOrigemSelect.disabled = true;
+        destinationsList.innerHTML = '';
+        updateTotalTransferencia();
+        document.getElementById('transf-estoque-origem-display').textContent = '0';
+        document.getElementById('transf-codigo-display').textContent = '-';
+        document.getElementById('transf-descricao-display').textContent = '-';
     };
     closeTransferenciaModal.addEventListener('click', closeTransferencia);
     const btnCancelarTransferencia = document.getElementById('btn-cancelar-transferencia');
@@ -950,9 +959,60 @@ document.addEventListener('DOMContentLoaded', async function() {
         btnCancelarTransferencia.addEventListener('click', closeTransferencia);
     }
 
-    // Lógica de seleção de produto no modal de transferência
-    transfProdutoSelect.addEventListener('change', () => {
-        const productId = transfProdutoSelect.value;
+    // Lógica de busca de produto para transferência
+    const showAndFilterTransferProducts = () => {
+        const searchTerm = transfProdutoSearch.value.toLowerCase();
+        transfProdutoResults.innerHTML = '';
+        transfProdutoResults.style.display = 'none';
+
+        if (searchTerm.length < 1) return;
+
+        const filteredProducts = Object.values(productsMap).filter(p =>
+            p.codigo.toLowerCase().includes(searchTerm) ||
+            p.descricao.toLowerCase().includes(searchTerm)
+        );
+
+        if (filteredProducts.length > 0) {
+            transfProdutoResults.style.display = 'block';
+            filteredProducts.forEach(p => {
+                const div = document.createElement('div');
+                div.className = 'search-result-item';
+                div.textContent = `${p.codigo} - ${p.descricao}`;
+                div.dataset.id = p.id;
+                div.style.padding = '8px';
+                div.style.cursor = 'pointer';
+                div.addEventListener('mouseover', () => div.style.backgroundColor = '#f0f0f0');
+                div.addEventListener('mouseout', () => div.style.backgroundColor = 'white');
+                transfProdutoResults.appendChild(div);
+            });
+        }
+    };
+
+    transfProdutoSearch.addEventListener('input', showAndFilterTransferProducts);
+    transfProdutoSearch.addEventListener('focus', showAndFilterTransferProducts);
+
+    transfProdutoResults.addEventListener('click', (e) => {
+         if (e.target.classList.contains('search-result-item')) {
+            const productId = e.target.dataset.id;
+            const product = productsMap[productId];
+
+            transfProdutoSearch.value = `${product.codigo} - ${product.descricao}`;
+            transfProdutoId.value = productId;
+            transfProdutoResults.style.display = 'none';
+
+            handleTransferProductSelection(productId);
+         }
+    });
+
+    // Fecha resultados ao clicar fora
+    document.addEventListener('click', (e) => {
+        if (!e.target.closest('#transf-produto-search') && !e.target.closest('#transf-produto-results')) {
+            transfProdutoResults.style.display = 'none';
+        }
+    });
+
+    // Lógica de seleção de produto no modal de transferência (Refatorada)
+    function handleTransferProductSelection(productId) {
         const product = productsMap[productId];
 
         // Limpa e desabilita os selects de locação
@@ -999,11 +1059,11 @@ document.addEventListener('DOMContentLoaded', async function() {
             // Adiciona uma linha de destino inicial
             addDestinationRow();
         }
-    });
+    }
 
     // Lógica de seleção de locação de origem
     transfOrigemSelect.addEventListener('change', () => {
-        const productId = transfProdutoSelect.value;
+        const productId = transfProdutoId.value;
         const product = productsMap[productId];
         const origemValue = transfOrigemSelect.value;
         const estoqueDisplay = document.getElementById('transf-estoque-origem-display');
@@ -1043,7 +1103,7 @@ document.addEventListener('DOMContentLoaded', async function() {
     });
 
     function addDestinationRow() {
-        const productId = transfProdutoSelect.value;
+        const productId = transfProdutoId.value;
         const product = productsMap[productId];
         const origemValue = transfOrigemSelect.value;
 
@@ -1142,7 +1202,7 @@ document.addEventListener('DOMContentLoaded', async function() {
     formTransferencia.addEventListener('submit', async (e) => {
         e.preventDefault();
 
-        const productId = transfProdutoSelect.value;
+        const productId = transfProdutoId.value;
         const origemValue = transfOrigemSelect.value;
 
         // Coleta destinos
@@ -1306,7 +1366,7 @@ document.addEventListener('DOMContentLoaded', async function() {
     });
 
     btnNewLocation.addEventListener('click', () => {
-        const productId = transfProdutoSelect.value;
+        const productId = transfProdutoId.value;
         if (!productId) {
             alert('Por favor, selecione um produto primeiro.');
             return;
@@ -1333,7 +1393,7 @@ document.addEventListener('DOMContentLoaded', async function() {
 
     formAddLocation.addEventListener('submit', async (e) => {
         e.preventDefault();
-        const productId = transfProdutoSelect.value;
+        const productId = transfProdutoId.value;
         const localId = newLocationLocalSelect.value;
         const locacao = newLocationInput.value.toUpperCase();
 
