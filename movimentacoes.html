@@ -316,11 +316,11 @@
                     <div class="transfer-section">
                         <div class="transfer-section-title">Produto e Origem</div>
 
-                        <div style="margin-bottom: 1rem;">
-                            <label for="transf-produto" style="font-weight: 500; margin-bottom: 0.5rem; display: block;">Selecione o Produto</label>
-                            <select id="transf-produto" required class="form-control" style="font-size: 1.1rem; padding: 0.75rem;">
-                                <option value="">Buscar ou Selecionar Produto...</option>
-                            </select>
+                        <div style="margin-bottom: 1rem; position: relative;">
+                            <label for="transf-produto-search" style="font-weight: 500; margin-bottom: 0.5rem; display: block;">Selecione o Produto</label>
+                            <input type="text" id="transf-produto-search" placeholder="Buscar produto por código ou descrição..." class="form-control" autocomplete="off" style="font-size: 1.1rem; padding: 0.75rem;">
+                            <input type="hidden" id="transf-produto-id">
+                            <div id="transf-produto-results" class="search-results" style="position: absolute; background-color: white; border: 1px solid #ccc; width: 100%; z-index: 100; max-height: 200px; overflow-y: auto; display: none;"></div>
                         </div>
 
                         <div class="product-summary-card">
@@ -468,7 +468,7 @@
     </div>
     <script src="https://unpkg.com/imask"></script>
     <script type="module" src="js/main.js"></script>
-    <script type="module" src="js/movimentacoes.js?v=3"></script>
+    <script type="module" src="js/movimentacoes.js?v=4"></script>
     <script type="module" src="js/global-search.js"></script>
     <script> feather.replace() </script>
 
