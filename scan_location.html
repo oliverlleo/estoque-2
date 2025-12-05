@@ -1,0 +1,330 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Consulta Locação</title>
+    <link href="https://cdnjs.cloudflare.com/ajax/libs/tailwindcss/2.2.19/tailwind.min.css" rel="stylesheet">
+    <link href="https://fonts.googleapis.com/icon?family=Material+Icons" rel="stylesheet">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no" />
+    <style>
+        /* Mobile Modal Styles */
+        .mobile-modal {
+            display: none;
+            position: fixed;
+            z-index: 1000;
+            left: 0;
+            top: 0;
+            width: 100%;
+            height: 100%;
+            overflow: auto;
+            background-color: rgba(0,0,0,0.8);
+            align-items: center;
+            justify-content: center;
+        }
+        .mobile-modal-content {
+            background-color: #fefefe;
+            margin: auto;
+            padding: 20px;
+            border: 1px solid #888;
+            width: 90%;
+            max-width: 400px;
+            border-radius: 12px;
+            box-shadow: 0 4px 6px rgba(0,0,0,0.1);
+            animation: slideUp 0.3s ease-out;
+        }
+        @keyframes slideUp {
+            from { transform: translateY(100%); opacity: 0; }
+            to { transform: translateY(0); opacity: 1; }
+        }
+    </style>
+</head>
+<body class="bg-gray-100 min-h-screen">
+
+    <div id="loader" class="fixed inset-0 bg-white flex flex-col justify-center items-center z-50">
+        <div class="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-500 mb-4"></div>
+        <p class="text-gray-600">Buscando locação...</p>
+    </div>
+
+    <div id="error-screen" class="hidden fixed inset-0 bg-white flex flex-col justify-center items-center z-40 p-6 text-center">
+        <span class="material-icons text-red-500 text-6xl mb-4">error_outline</span>
+        <h2 class="text-xl font-bold mb-2">Locação não encontrada</h2>
+        <p class="text-gray-500 mb-6">O código escaneado não corresponde a nenhuma locação registrada.</p>
+        <a href="index.html" class="bg-blue-500 text-white px-6 py-2 rounded-lg font-medium">Voltar ao Início</a>
+    </div>
+
+    <div id="content" class="hidden pb-20">
+        <!-- Header -->
+        <header class="bg-blue-600 text-white p-4 shadow-md sticky top-0 z-30">
+            <div class="flex justify-between items-start">
+                <div>
+                    <h1 class="text-3xl font-bold" id="locacao-code">...</h1>
+                    <p class="text-blue-100 text-sm mt-1" id="local-name">...</p>
+                </div>
+                <a href="index.html" class="text-white opacity-80 hover:opacity-100">
+                    <span class="material-icons">home</span>
+                </a>
+            </div>
+        </header>
+
+        <!-- Stats -->
+        <div class="grid grid-cols-2 gap-4 p-4 -mt-2">
+            <div class="bg-white p-3 rounded-lg shadow text-center border-l-4 border-blue-500">
+                <span class="block text-gray-500 text-xs uppercase font-bold">Total Itens</span>
+                <span class="text-2xl font-bold text-gray-800" id="total-items">0</span>
+            </div>
+            <div class="bg-white p-3 rounded-lg shadow text-center border-l-4 border-yellow-500">
+                <span class="block text-gray-500 text-xs uppercase font-bold">Itens com Reserva</span>
+                <span class="text-lg font-bold text-yellow-600" id="total-reserved-items">0</span>
+            </div>
+        </div>
+
+        <!-- Filter -->
+        <div class="px-4 mb-2">
+            <input type="text" id="search-input" placeholder="Buscar produto..." class="w-full p-3 rounded-lg border border-gray-300 shadow-sm focus:ring-2 focus:ring-blue-500 focus:outline-none">
+        </div>
+
+        <!-- List -->
+        <div id="items-list" class="px-4 space-y-3">
+            <!-- Items injected here -->
+        </div>
+    </div>
+
+    <!-- Mobile Modal -->
+    <div id="reserva-modal" class="mobile-modal flex">
+        <div class="mobile-modal-content relative">
+            <button id="close-modal" class="absolute top-2 right-2 text-gray-500 hover:text-gray-800">
+                <span class="material-icons">close</span>
+            </button>
+            <h3 class="text-lg font-bold text-gray-800 mb-1" id="modal-title">Detalhe da Reserva</h3>
+            <p class="text-sm text-gray-500 mb-4" id="modal-subtitle">Produto...</p>
+
+            <div id="modal-list" class="space-y-3 max-h-60 overflow-y-auto">
+                <!-- Content injected here -->
+            </div>
+        </div>
+    </div>
+
+    <script type="module">
+        import { db } from './js/firebase-config.js';
+        import { collection, getDocs, query, where } from "https://www.gstatic.com/firebasejs/9.6.1/firebase-firestore.js";
+
+        let currentItems = [];
+        let configObras = {};
+
+        document.addEventListener('DOMContentLoaded', async () => {
+            const params = new URLSearchParams(window.location.search);
+            const shortId = params.get('q');
+
+            // Modal Close Logic
+            document.getElementById('close-modal').addEventListener('click', () => {
+                document.getElementById('reserva-modal').style.display = 'none';
+            });
+            window.onclick = (event) => {
+                const modal = document.getElementById('reserva-modal');
+                if (event.target == modal) {
+                    modal.style.display = 'none';
+                }
+            };
+
+            if (!shortId) {
+                showError('Código inválido.');
+                return;
+            }
+
+            try {
+                // 1. Fetch Config (Obras)
+                const obrasSnapshot = await getDocs(collection(db, 'obras'));
+                obrasSnapshot.forEach(doc => configObras[doc.id] = doc.data());
+
+                // 2. Find Location by Short ID
+                const locRef = collection(db, 'locacoes_enderecos');
+                const q = query(locRef, where("short_id", "==", shortId));
+                const querySnapshot = await getDocs(q);
+
+                if (querySnapshot.empty) {
+                    showError();
+                    return;
+                }
+
+                const locDoc = querySnapshot.docs[0].data();
+                const { localId, locacao } = locDoc;
+
+                // 3. Fetch Local Name
+                const locaisSnapshot = await getDocs(collection(db, 'locais'));
+                let localName = 'Local Desconhecido';
+                locaisSnapshot.forEach(doc => {
+                    if (doc.id === localId) localName = doc.data().nome;
+                });
+
+                document.getElementById('locacao-code').textContent = locacao;
+                document.getElementById('local-name').textContent = localName;
+
+                // 4. Fetch Products AND Reservations
+                // We fetch all 'reserva' movements to calculate current reserved state per product
+                const [productsSnapshot, movementsSnapshot] = await Promise.all([
+                    getDocs(query(collection(db, 'produtos'), where("arquivado", "!=", true))),
+                    getDocs(query(collection(db, 'movimentacoes'), where("tipo", "==", "reserva")))
+                ]);
+
+                // Map Reservations by Product ID
+                const reservationsByProduct = {};
+                movementsSnapshot.forEach(doc => {
+                    const mov = doc.data();
+                    if (!reservationsByProduct[mov.productId]) {
+                        reservationsByProduct[mov.productId] = [];
+                    }
+                    reservationsByProduct[mov.productId].push(mov);
+                });
+
+                const items = [];
+                let itemsWithReservesCount = 0;
+
+                productsSnapshot.forEach(doc => {
+                    const p = doc.data();
+                    const productId = doc.id;
+
+                    if (p.locacoes) {
+                        const locEntry = p.locacoes.find(l => l.localId === localId && l.locacao === locacao);
+                        if (locEntry && locEntry.estoque > 0) {
+                            // Calculate Reserved for this product (Filtered by current location)
+                            const productReservations = reservationsByProduct[productId] || [];
+
+                            // Filter reservations that belong to this specific location/local
+                            const localReservations = productReservations.filter(m => {
+                                // Must match the locacao string
+                                if (m.locacao !== locacao) return false;
+                                // If movement has localId, it must match too. If not (legacy), rely on string.
+                                if (m.localId && m.localId !== localId) return false;
+                                return true;
+                            });
+
+                            const totalReserved = localReservations.reduce((acc, m) => acc + m.quantidade, 0);
+
+                            // Group by Obra for detailed view
+                            const reservedByObra = {};
+                            if (totalReserved > 0) {
+                                localReservations.forEach(m => {
+                                    const obraId = m.obraId;
+                                    if (!reservedByObra[obraId]) reservedByObra[obraId] = 0;
+                                    reservedByObra[obraId] += m.quantidade;
+                                });
+                                itemsWithReservesCount++;
+                            }
+
+                            items.push({
+                                ...p,
+                                id: productId,
+                                estoqueLocal: locEntry.estoque,
+                                totalReserved: totalReserved,
+                                reservedByObra: reservedByObra
+                            });
+                        }
+                    }
+                });
+
+                currentItems = items;
+                renderItems(items);
+                document.getElementById('total-items').textContent = items.length;
+                document.getElementById('total-reserved-items').textContent = itemsWithReservesCount;
+
+                // Init Search
+                document.getElementById('search-input').addEventListener('input', (e) => {
+                    const term = e.target.value.toLowerCase();
+                    const filtered = items.filter(i =>
+                        (i.codigo || '').toLowerCase().includes(term) ||
+                        (i.descricao || '').toLowerCase().includes(term)
+                    );
+                    renderItems(filtered);
+                });
+
+                document.getElementById('loader').classList.add('hidden');
+                document.getElementById('content').classList.remove('hidden');
+
+            } catch (e) {
+                console.error(e);
+                showError();
+            }
+        });
+
+        function showError() {
+            document.getElementById('loader').classList.add('hidden');
+            document.getElementById('error-screen').classList.remove('hidden');
+        }
+
+        function renderItems(items) {
+            const container = document.getElementById('items-list');
+            container.innerHTML = '';
+
+            if (items.length === 0) {
+                container.innerHTML = '<div class="text-center text-gray-500 py-10">Nenhum item encontrado nesta locação.</div>';
+                return;
+            }
+
+            items.forEach(item => {
+                const el = document.createElement('div');
+                el.className = 'bg-white rounded-lg shadow p-4 flex flex-col gap-2 border border-gray-100';
+
+                // Card Layout
+                el.innerHTML = `
+                    <div class="flex justify-between items-start">
+                        <span class="bg-gray-200 text-gray-800 text-xs font-bold px-2 py-1 rounded">${item.codigo}</span>
+                        <span class="text-xs text-gray-500">${item.un}</span>
+                    </div>
+                    <h3 class="font-bold text-gray-800 text-lg leading-tight">${item.descricao}</h3>
+                    <div class="flex justify-between items-end mt-2">
+                        <div>
+                            <span class="text-xs text-gray-500 block">Cor</span>
+                            <span class="font-medium">${item.cor || '-'}</span>
+                        </div>
+                        <div class="flex gap-4 text-right">
+                             <div>
+                                <span class="block text-xs text-gray-500">Estoque Local</span>
+                                <span class="text-2xl font-bold text-blue-600">${item.estoqueLocal}</span>
+                            </div>
+                            <div class="cursor-pointer reserved-click-area" data-id="${item.id}">
+                                <span class="block text-xs text-gray-500">Reserva</span>
+                                <span class="text-2xl font-bold text-yellow-500 underline decoration-dashed underline-offset-4">${item.totalReserved}</span>
+                            </div>
+                        </div>
+                    </div>
+                `;
+
+                // Add click listener for modal
+                const reservedArea = el.querySelector('.reserved-click-area');
+                reservedArea.addEventListener('click', () => openModal(item));
+
+                container.appendChild(el);
+            });
+        }
+
+        function openModal(item) {
+            const modal = document.getElementById('reserva-modal');
+            const list = document.getElementById('modal-list');
+
+            document.getElementById('modal-title').textContent = `Reservas: ${item.codigo}`;
+            document.getElementById('modal-subtitle').textContent = item.descricao;
+
+            list.innerHTML = '';
+
+            if (item.totalReserved === 0) {
+                list.innerHTML = '<p class="text-gray-500 text-center">Nenhuma reserva para este item.</p>';
+            } else {
+                Object.entries(item.reservedByObra).forEach(([obraId, qty]) => {
+                    const obraName = configObras[obraId]?.nome || 'Obra Desconhecida';
+
+                    const row = document.createElement('div');
+                    row.className = 'flex justify-between items-center p-2 border-b border-gray-100 last:border-0';
+                    row.innerHTML = `
+                        <span class="font-medium text-gray-700 text-sm truncate w-2/3">${obraName}</span>
+                        <span class="font-bold text-blue-600 text-lg">${qty}</span>
+                    `;
+                    list.appendChild(row);
+                });
+            }
+
+            modal.style.display = 'flex';
+        }
+    </script>
+</body>
+</html>
