@@ -6,7 +6,6 @@ document.addEventListener('DOMContentLoaded', async function() {
 
     // --- Elementos de UI ---
     const tableBodyProduto = document.querySelector('#table-consultas tbody');
-    const tableBodyLocacao = document.querySelector('#table-locacao-mode tbody');
 
     // Filtros Produto
     const filtersProduto = {
@@ -18,25 +17,10 @@ document.addEventListener('DOMContentLoaded', async function() {
         comReserva: document.getElementById('filter-com-reserva')
     };
 
-    // Filtros Locação
-    const filtersLocacao = {
-        locacaoInput: document.getElementById('filter-locacao-mode-input'),
-        localSelect: document.getElementById('filter-local-mode-select')
-    };
-
-    // Toggle
-    const modeToggle = document.getElementById('mode-toggle');
-    const filtersProdutoContainer = document.getElementById('filters-produto');
-    const filtersLocacaoContainer = document.getElementById('filters-locacao');
-    const tableProdutoEl = document.getElementById('table-consultas');
-    const tableLocacaoEl = document.getElementById('table-locacao-mode');
-    const pageTitleMode = document.getElementById('page-title-mode');
-
     // Estado Global
     let consolidatedData = [];
     let globalMovementsByProduct = {};
     let configData = {};
-    let currentMode = 'produto'; // 'produto' or 'locacao'
 
     // --- Estado da Ordenação ---
     let sortState = {
@@ -56,49 +40,25 @@ document.addEventListener('DOMContentLoaded', async function() {
     const historyFilterTipo = document.getElementById('history-filter-tipo');
     const historyFilterSubtipo = document.getElementById('history-filter-subtipo');
 
+    // Reservation Modal
+    const reservationModal = document.getElementById('reservation-detail-modal');
+    const reservationModalClose = document.getElementById('reservation-detail-close');
+    const reservationModalBody = document.getElementById('reservation-detail-body');
+
     // Estado do Modal
     let currentProductHistory = [];
     let currentProductData = null;
 
     historyModalClose.onclick = () => { historyModal.style.display = 'none'; };
+    reservationModalClose.onclick = () => { reservationModal.style.display = 'none'; };
     window.onclick = (event) => {
         if (event.target == historyModal) {
             historyModal.style.display = 'none';
         }
-    };
-
-    // --- Inicialização do Toggle ---
-    modeToggle.addEventListener('change', () => {
-        currentMode = modeToggle.checked ? 'locacao' : 'produto';
-        updateModeUI();
-        applyFilters(); // Re-render based on new mode
-    });
-
-    function updateModeUI() {
-        if (currentMode === 'produto') {
-            filtersProdutoContainer.style.display = 'grid';
-            filtersLocacaoContainer.style.display = 'none';
-            tableProdutoEl.style.display = 'table';
-            tableLocacaoEl.style.display = 'none';
-            pageTitleMode.textContent = 'Consulta de Estoque e Valores';
-
-            document.getElementById('toggle-label-produto').style.color = '#0d6efd';
-            document.getElementById('toggle-label-produto').style.fontWeight = 'bold';
-            document.getElementById('toggle-label-locacao').style.color = '#6c757d';
-            document.getElementById('toggle-label-locacao').style.fontWeight = 'normal';
-        } else {
-            filtersProdutoContainer.style.display = 'none';
-            filtersLocacaoContainer.style.display = 'grid';
-            tableProdutoEl.style.display = 'none';
-            tableLocacaoEl.style.display = 'table';
-            pageTitleMode.textContent = 'Consulta por Locação / Endereço';
-
-            document.getElementById('toggle-label-produto').style.color = '#6c757d';
-            document.getElementById('toggle-label-produto').style.fontWeight = 'normal';
-            document.getElementById('toggle-label-locacao').style.color = '#0d6efd';
-            document.getElementById('toggle-label-locacao').style.fontWeight = 'bold';
+        if (event.target == reservationModal) {
+             reservationModal.style.display = 'none';
         }
-    }
+    };
 
     async function loadConfigData() {
         const [tiposEntradaSnapshot, tiposSaidaSnapshot, obrasSnapshot] = await Promise.all([
@@ -119,16 +79,14 @@ document.addEventListener('DOMContentLoaded', async function() {
     async function fetchDataAndCalculate() {
         await loadConfigData();
 
-        const [productsSnapshot, locaisSnapshot, movementsSnapshot, conversoesSnapshot] = await Promise.all([
+        const [productsSnapshot, locaisSnapshot, movementsSnapshot] = await Promise.all([
             getDocs(query(collection(db, 'produtos'), where("arquivado", "!=", true))),
             getDocs(collection(db, 'locais')),
-            getDocs(query(collection(db, 'movimentacoes'))),
-            getDocs(collection(db, 'conversoes'))
+            getDocs(query(collection(db, 'movimentacoes')))
         ]);
 
         configData.locais = {};
         filtersProduto.local.innerHTML = '<option value="">Todos os Locais</option>';
-        filtersLocacao.localSelect.innerHTML = '<option value="">Todos</option>';
 
         locaisSnapshot.forEach(doc => {
             configData.locais[doc.id] = doc.data();
@@ -137,11 +95,6 @@ document.addEventListener('DOMContentLoaded', async function() {
             optionProd.value = doc.id;
             optionProd.textContent = doc.data().nome;
             filtersProduto.local.appendChild(optionProd);
-
-            const optionLoc = document.createElement('option');
-            optionLoc.value = doc.id;
-            optionLoc.textContent = doc.data().nome;
-            filtersLocacao.localSelect.appendChild(optionLoc);
         });
 
         globalMovementsByProduct = {};
@@ -225,7 +178,7 @@ document.addEventListener('DOMContentLoaded', async function() {
         });
     });
 
-    function calculateReservedDetailed(productId) {
+    function getReservedDetailedData(productId) {
         // Find movements for this product that are RESERVATIONS
         const movements = globalMovementsByProduct[productId] || [];
         const reservations = movements.filter(m => m.tipo === 'reserva');
@@ -242,58 +195,32 @@ document.addEventListener('DOMContentLoaded', async function() {
             byObra[obraName] += m.quantidade;
         });
 
-        const details = Object.entries(byObra).map(([name, qty]) => `${name}: ${qty}`).join(', ');
-        return `${totalReserved} (${details})`;
+        return { total: totalReserved, byObra: byObra };
     }
 
-    function renderTableLocacao(data) {
-        tableBodyLocacao.innerHTML = '';
-        let totalValorLocacao = 0;
+    function showReservationModal(event, item) {
+        event.stopPropagation(); // Prevent opening history modal
+        const data = getReservedDetailedData(item.id);
 
-        // Sorting logic similar to main table
-        if (sortState.column) {
-            data.sort((a, b) => {
-                let valA = a[sortState.column];
-                let valB = b[sortState.column];
-                if (valA === null || valA === undefined) valA = '';
-                if (valB === null || valB === undefined) valB = '';
-                if (['estoque', 'reservado', 'custoMedio', 'custoTotalLocacao'].includes(sortState.column)) {
-                    valA = Number(valA) || 0;
-                    valB = Number(valB) || 0;
-                } else {
-                    valA = valA.toString().toLowerCase();
-                    valB = valB.toString().toLowerCase();
-                }
-                if (valA < valB) return sortState.direction === 'asc' ? -1 : 1;
-                if (valA > valB) return sortState.direction === 'asc' ? 1 : -1;
-                return 0;
-            });
+        if (!data || data.total === 0) {
+            alert('Nenhuma reserva ativa para este produto.');
+            return;
         }
 
-        data.forEach(item => {
-            totalValorLocacao += item.custoTotalLocacao || 0;
-            const row = document.createElement('tr');
-            row.className = 'main-row cursor-pointer hover:bg-gray-100';
-            row.onclick = () => openHistoryModal(item);
-
-            const reservedDetail = calculateReservedDetailed(item.id);
-
-            row.innerHTML = `
-                <td>${item.codigo}</td>
-                <td>${item.descricao}</td>
-                <td>${item.cor}</td>
-                <td>${(item.estoqueNaLocacao || 0).toString().replace('.', ',')}</td>
-                <td>${reservedDetail || '0'}</td>
-                <td>${item.un}</td>
-                <td>${(item.valorMedio || 0).toFixed(3).replace('.', ',')}</td>
-                <td>${(item.custoTotalLocacao || 0).toFixed(2).replace('.', ',')}</td>
-                <td>${item.locacaoEspecifica} (${item.localNome})</td>
-            `;
-            tableBodyLocacao.appendChild(row);
+        let html = `<div class="mb-4 text-lg">Total Reservado: <b>${data.total}</b></div>`;
+        html += '<ul class="divide-y divide-gray-200">';
+        Object.entries(data.byObra).forEach(([obra, qty]) => {
+             html += `<li class="py-2 flex justify-between">
+                <span>${obra}</span>
+                <span class="font-bold text-blue-600">${qty}</span>
+             </li>`;
         });
+        html += '</ul>';
 
-        document.getElementById('total-valor-locacao-mode').textContent = totalValorLocacao.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' });
+        reservationModalBody.innerHTML = html;
+        reservationModal.style.display = 'block';
     }
+
 
     function renderTableProduto(data) {
         tableBodyProduto.innerHTML = '';
@@ -322,104 +249,76 @@ document.addEventListener('DOMContentLoaded', async function() {
             totalCustoFiltrado += item.valorTotalEstoque || 0;
             const row = document.createElement('tr');
             row.className = 'main-row cursor-pointer hover:bg-gray-100';
+
+            // Default click opens history
             row.onclick = () => openHistoryModal(item);
 
-            row.innerHTML = `
-                <td>${item.codigo}</td>
-                <td>${item.descricao}</td>
-                <td>${item.cor}</td>
-                <td>${(item.estoque || 0).toString().replace('.', ',')}</td>
-                <td>${(item.quantidadeReservada || 0).toString().replace('.', ',')}</td>
-                <td>${item.un}</td>
-                <td>${(item.valorMedio || 0).toFixed(3).replace('.', ',')}</td>
-                <td>${(item.valorTotalEstoque || 0).toFixed(2).replace('.', ',')}</td>
-                <td>${item.localDisplay}</td>
-            `;
+            const reservedQty = (item.quantidadeReservada || 0).toString().replace('.', ',');
+
+            // Create cells
+            const cellCodigo = `<td>${item.codigo}</td>`;
+            const cellDesc = `<td>${item.descricao}</td>`;
+            const cellCor = `<td>${item.cor}</td>`;
+            const cellEstoque = `<td>${(item.estoque || 0).toString().replace('.', ',')}</td>`;
+
+            // Reserve cell with special click handler
+            const cellReservado = `<td class="text-blue-600 font-bold hover:underline reservation-cell" style="cursor: pointer;">${reservedQty}</td>`;
+
+            const cellUn = `<td>${item.un}</td>`;
+            const cellCustoMedio = `<td>${(item.valorMedio || 0).toFixed(3).replace('.', ',')}</td>`;
+            const cellCustoTotal = `<td>${(item.valorTotalEstoque || 0).toFixed(2).replace('.', ',')}</td>`;
+            const cellLocacao = `<td>${item.localDisplay}</td>`;
+
+            row.innerHTML = cellCodigo + cellDesc + cellCor + cellEstoque + cellReservado + cellUn + cellCustoMedio + cellCustoTotal + cellLocacao;
+
+            // Add specific listener for reservation cell
+            // We need to do this after appending to DOM or use querySelector on the row
             tableBodyProduto.appendChild(row);
+
+            const reservedCell = row.querySelector('.reservation-cell');
+            reservedCell.onclick = (e) => showReservationModal(e, item);
         });
+
         document.getElementById('total-custo-estoque').textContent = totalCustoFiltrado.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' });
         document.getElementById('total-valor-estoque-geral').textContent = consolidatedData.reduce((acc, i) => acc + (i.valorTotalEstoque || 0), 0).toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' });
         feather.replace();
     }
 
     function applyFilters() {
-        if (currentMode === 'produto') {
-            const filterValues = {
-                codigo: filtersProduto.codigo.value.toLowerCase(),
-                descricao: filtersProduto.descricao.value.toLowerCase(),
-                cor: filtersProduto.cor.value.toLowerCase(),
-                local: filtersProduto.local.value,
-                locacao: filtersProduto.locacao.value.toLowerCase(),
-                comReserva: filtersProduto.comReserva.checked
-            };
+        const filterValues = {
+            codigo: filtersProduto.codigo.value.toLowerCase(),
+            descricao: filtersProduto.descricao.value.toLowerCase(),
+            cor: filtersProduto.cor.value.toLowerCase(),
+            local: filtersProduto.local.value,
+            locacao: filtersProduto.locacao.value.toLowerCase(),
+            comReserva: filtersProduto.comReserva.checked
+        };
 
-            const filteredData = consolidatedData.filter(item => {
-                const matchesCodigo = (item.codigo || '').toLowerCase().includes(filterValues.codigo);
-                const matchesDescricao = (item.descricao || '').toLowerCase().includes(filterValues.descricao);
-                const matchesCor = (item.cor || '').toLowerCase().includes(filterValues.cor);
-                if (filterValues.comReserva && (item.quantidadeReservada || 0) <= 0) return false;
+        const filteredData = consolidatedData.filter(item => {
+            const matchesCodigo = (item.codigo || '').toLowerCase().includes(filterValues.codigo);
+            const matchesDescricao = (item.descricao || '').toLowerCase().includes(filterValues.descricao);
+            const matchesCor = (item.cor || '').toLowerCase().includes(filterValues.cor);
+            if (filterValues.comReserva && (item.quantidadeReservada || 0) <= 0) return false;
 
-                let matchesLocalLocacao = true;
-                if (filterValues.local || filterValues.locacao) {
-                    if (!item.locacoes || item.locacoes.length === 0) {
-                        matchesLocalLocacao = false;
-                    } else {
-                        matchesLocalLocacao = item.locacoes.some(loc => {
-                            const localMatch = !filterValues.local || loc.localId === filterValues.local;
-                            const locacaoMatch = !filterValues.locacao || (loc.locacao || '').toLowerCase().includes(filterValues.locacao);
-                            return localMatch && locacaoMatch;
-                        });
-                    }
-                }
-                return matchesCodigo && matchesDescricao && matchesCor && matchesLocalLocacao;
-            });
-            renderTableProduto(filteredData);
-
-        } else {
-            // Locacao Mode Logic
-            const locacaoSearch = filtersLocacao.locacaoInput.value.toLowerCase();
-            const localFilter = filtersLocacao.localSelect.value;
-
-            if (!locacaoSearch && !localFilter) {
-                // If no filter, show empty or all? Showing empty is safer for performance/cleanliness.
-                // But user might want to see something. Let's show all expanded if they select a Warehouse.
-                // If nothing selected, maybe just return empty or recent.
-                // Requirement: "Lista de Materiais (Tabela): Após a seleção/inserção de uma Locação..."
-                // Implies user MUST search.
-            }
-
-            let flattenedData = [];
-
-            consolidatedData.forEach(product => {
-                if (product.locacoes && Array.isArray(product.locacoes)) {
-                    product.locacoes.forEach(loc => {
-                        const localNome = configData.locais[loc.localId]?.nome || 'Desconhecido';
-                        const locacaoNome = (loc.locacao || '').toLowerCase();
-
-                        // Check filters
-                        const matchesLocal = !localFilter || loc.localId === localFilter;
-                        const matchesLocacao = !locacaoSearch || locacaoNome.includes(locacaoSearch);
-
-                        if (matchesLocal && matchesLocacao) {
-                            flattenedData.push({
-                                ...product,
-                                estoqueNaLocacao: loc.estoque,
-                                locacaoEspecifica: loc.locacao || 'N/A',
-                                localNome: localNome,
-                                custoTotalLocacao: (loc.estoque || 0) * (product.valorMedio || 0)
-                            });
-                        }
+            let matchesLocalLocacao = true;
+            if (filterValues.local || filterValues.locacao) {
+                if (!item.locacoes || item.locacoes.length === 0) {
+                    matchesLocalLocacao = false;
+                } else {
+                    matchesLocalLocacao = item.locacoes.some(loc => {
+                        const localMatch = !filterValues.local || loc.localId === filterValues.local;
+                        const locacaoMatch = !filterValues.locacao || (loc.locacao || '').toLowerCase().includes(filterValues.locacao);
+                        return localMatch && locacaoMatch;
                     });
                 }
-            });
-
-            renderTableLocacao(flattenedData);
-        }
+            }
+            return matchesCodigo && matchesDescricao && matchesCor && matchesLocalLocacao;
+        });
+        renderTableProduto(filteredData);
     }
 
     // Attach listeners
     Object.values(filtersProduto).forEach(input => input.addEventListener(input.type === 'checkbox' ? 'change' : 'input', applyFilters));
-    Object.values(filtersLocacao).forEach(input => input.addEventListener('input', applyFilters));
 
 
     // --- Funções do Modal de Histórico ---
