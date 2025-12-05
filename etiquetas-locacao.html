@@ -40,14 +40,6 @@
         .location-item:last-child { border-bottom: none; }
         .location-item input { margin-right: 10px; }
 
-        /* ESTRUTURA RÍGIDA DA ETIQUETA - FORMATO 50x25 (Dupla) ou 50x100?
-           O user pediu para clonar, mas focou em layout otimizado.
-           Vou assumir o formato padrão de etiqueta de gôndola/shelf label.
-           Geralmente etiquetas de locação são pequenas. Vou usar o layout 50x25 como base, mas adaptado.
-           O prompt diz: "Manter a funcionalidade de impressão da página clonada."
-           Então vou manter os dois formatos (50x100 e 50x25).
-        */
-
         /* FORMATO 50x100 (Single) */
         .etiqueta-50x100 {
             background-color: white;
@@ -161,12 +153,20 @@
         .etiqueta-50x25 .loc-code-large { font-size: 24pt; font-weight: bold; }
         .etiqueta-50x25 .loc-name-small { font-size: 8.5pt; }
 
+        #etiquetas-container {
+            margin-left: 320px;
+        }
+
         /* IMPRESSÃO */
         @media print {
             body { background-color: white; padding: 0; margin: 0; }
             .controls { display: none !important; }
             .etiqueta-50x100, .etiqueta-50x25-container { margin: 0; border: none; page-break-after: always; }
             .etiqueta-50x100:last-child, .etiqueta-50x25-container:last-child { page-break-after: avoid; }
+
+            #etiquetas-container {
+                margin-left: 0 !important;
+            }
         }
 
         @media screen {
@@ -205,7 +205,7 @@
         </div>
     </div>
 
-    <div id="etiquetas-container" style="margin-left: 320px;">
+    <div id="etiquetas-container">
         <!-- Labels generated here -->
     </div>
 
