@@ -1,0 +1,133 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Etiquetas de Locação</title>
+    <script src="https://cdn.jsdelivr.net/npm/qrcodejs@1.0.0/qrcode.min.js"></script>
+    <style>
+        /* ESTILOS GERAIS E DE CONTROLE */
+        body {
+            font-family: Arial, sans-serif;
+            background-color: #f0f2f5;
+            margin: 0;
+            padding: 20px;
+        }
+        .controls {
+            position: fixed; top: 10px; left: 10px; z-index: 100;
+            background-color: white; padding: 10px; border-radius: 5px; box-shadow: 0 2px 5px rgba(0,0,0,0.2);
+        }
+        .controls button { font-size: 16px; padding: 10px 20px; cursor: pointer; border: 1px solid #ccc; background-color: #f0f0f0; }
+        .controls button:hover { background-color: #e0e0e0; }
+
+        /* ESTILOS DE IMPRESSÃO - Baseado no original */
+        .etiqueta-50x25-container {
+            width: 106mm;
+            height: 25mm;
+            display: flex;
+            justify-content: flex-start;
+            align-items: stretch;
+            border: 1px dashed #ccc;
+            margin: 20px auto;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        .etiqueta-50x25 {
+            width: 50mm;
+            height: 25mm;
+            box-sizing: border-box;
+            padding: 1.5mm;
+            display: flex;
+            flex-direction: row;
+            overflow: hidden;
+            gap: 0.5mm;
+            align-items: center;
+        }
+
+        .etiqueta-50x25:first-child {
+            margin-left: 0.5mm;
+            margin-right: 5mm;
+        }
+
+        .etiqueta-50x25:last-child {
+            margin-right: 0.5mm;
+        }
+
+        .etiqueta-50x25 .qr-code {
+            width: 22mm;
+            height: 22mm;
+            flex-shrink: 0;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+        }
+        .etiqueta-50x25 .qr-code img {
+            width: 100%;
+            height: 100%;
+        }
+
+        /* Container para o texto rotacionado */
+        .etiqueta-info {
+            flex-grow: 1;
+            height: 100%;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            overflow: hidden;
+            position: relative;
+        }
+
+        .rotated-content {
+            transform: rotate(-90deg);
+            transform-origin: center;
+            white-space: nowrap;
+            text-align: center;
+            /* Largura absoluta grande para evitar quebra de linha, depois centraliza */
+            width: 50mm;
+            display: flex;
+            flex-direction: column;
+            gap: 2px;
+            align-items: center;
+            justify-content: center;
+        }
+
+        .locacao-numero {
+            font-size: 16pt;
+            font-weight: bold;
+            line-height: 1;
+        }
+
+        .local-nome {
+            font-size: 8pt;
+            line-height: 1;
+        }
+
+        /* ESTILOS DE IMPRESSÃO */
+        @media print {
+            body { background-color: white; padding: 0; margin: 0; }
+            .controls { display: none !important; }
+            .etiqueta-50x25-container {
+                margin: 0;
+                border: none;
+                page-break-after: always;
+            }
+            .etiqueta-50x25-container:last-child {
+                page-break-after: avoid;
+            }
+        }
+
+        @page {
+            size: 106mm 25mm;
+            margin: 0;
+        }
+    </style>
+</head>
+<body>
+    <div class="controls">
+        <button onclick="window.print()">Imprimir Etiquetas</button>
+    </div>
+    <div id="etiquetas-container"></div>
+    <script type="module" src="js/etiquetas-locacao.js"></script>
+</body>
+</html>

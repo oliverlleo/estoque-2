@@ -14,6 +14,18 @@ document.addEventListener('DOMContentLoaded', async function() {
         comReserva: document.getElementById('filter-com-reserva')
     };
 
+    // Toggle and New Mode Elements
+    const toggleSwitch = document.getElementById('consultas-toggle');
+    const filtersProduto = document.getElementById('filters-produto');
+    const filtersLocacao = document.getElementById('filters-locacao');
+    const toggleLabelProduto = document.getElementById('toggle-label-produto');
+    const toggleLabelLocacao = document.getElementById('toggle-label-locacao');
+
+    const locacaoFilterLocal = document.getElementById('locacao-filter-local');
+    const locacaoFilterInput = document.getElementById('locacao-filter-input');
+    const btnBuscarLocacao = document.getElementById('btn-buscar-locacao');
+    const btnGerarEtiquetaLocacao = document.getElementById('btn-gerar-etiqueta-locacao');
+
     let consolidatedData = [];
     let globalMovementsByProduct = {}; // Armazena as movimentações por produto globalmente
     let configData = {}; // Armazena configurações globais (locais, tipos, etc)
@@ -76,6 +88,9 @@ document.addEventListener('DOMContentLoaded', async function() {
 
         configData.locais = {};
         filters.local.innerHTML = '<option value="">Todos os Locais</option>';
+        // Clear and repopulate Locacao mode select as well
+        locacaoFilterLocal.innerHTML = '<option value="">Selecione o Local...</option>';
+
         locaisSnapshot.forEach(doc => {
             configData.locais[doc.id] = doc.data();
             // Popula o filtro de locais
@@ -83,6 +98,12 @@ document.addEventListener('DOMContentLoaded', async function() {
             option.value = doc.id;
             option.textContent = doc.data().nome;
             filters.local.appendChild(option);
+
+            // Populate Locacao Mode Select
+            const option2 = document.createElement('option');
+            option2.value = doc.id;
+            option2.textContent = doc.data().nome;
+            locacaoFilterLocal.appendChild(option2);
         });
 
         const conversoesMap = {};
@@ -154,8 +175,170 @@ document.addEventListener('DOMContentLoaded', async function() {
         });
 
         // 4. Renderiza a tabela e calcula o total geral.
-        renderTable(consolidatedData);
-        calculateAndDisplayGlobalTotal(consolidatedData);
+        // Check mode
+        if (toggleSwitch && toggleSwitch.checked) {
+             // Do nothing or render empty? Keep logic separate.
+        } else {
+             renderTable(consolidatedData);
+             calculateAndDisplayGlobalTotal(consolidatedData);
+        }
+    }
+
+    // --- Toggle Switch Logic ---
+    if (toggleSwitch) {
+        toggleSwitch.addEventListener('change', () => {
+            if (toggleSwitch.checked) {
+                // Locacao Mode
+                if (filtersProduto) filtersProduto.style.display = 'none';
+                if (filtersLocacao) filtersLocacao.style.display = 'grid';
+                if (toggleLabelProduto) {
+                    toggleLabelProduto.style.fontWeight = 'normal';
+                    toggleLabelProduto.style.color = '#6c757d';
+                }
+                if (toggleLabelLocacao) {
+                    toggleLabelLocacao.style.fontWeight = 'bold';
+                    toggleLabelLocacao.style.color = '#0d6efd';
+                }
+                tableBody.innerHTML = ''; // Clear table
+                document.getElementById('total-custo-estoque').textContent = 'R$ 0,00';
+            } else {
+                // Produto Mode
+                if (filtersLocacao) filtersLocacao.style.display = 'none';
+                if (filtersProduto) filtersProduto.style.display = 'grid';
+                if (toggleLabelLocacao) {
+                    toggleLabelLocacao.style.fontWeight = 'normal';
+                    toggleLabelLocacao.style.color = '#6c757d';
+                }
+                if (toggleLabelProduto) {
+                    toggleLabelProduto.style.fontWeight = 'bold';
+                    toggleLabelProduto.style.color = '#0d6efd';
+                }
+                applyFilters();
+            }
+        });
+    }
+
+    // --- Locacao Mode Actions ---
+    if (btnBuscarLocacao) {
+        btnBuscarLocacao.addEventListener('click', () => {
+            const localId = locacaoFilterLocal.value;
+            const locacaoText = locacaoFilterInput.value.trim().toLowerCase();
+
+            if (!localId && !locacaoText) {
+                alert("Selecione um local ou digite uma locação.");
+                return;
+            }
+
+            const results = consolidatedData.filter(product => {
+                if (!product.locacoes) return false;
+                return product.locacoes.some(loc => {
+                    const matchLocal = !localId || loc.localId === localId;
+                    const matchLocacao = !locacaoText || (loc.locacao || '').toLowerCase().includes(locacaoText);
+                    return matchLocal && matchLocacao;
+                });
+            });
+
+            renderLocacaoTable(results);
+        });
+    }
+
+    if (btnGerarEtiquetaLocacao) {
+        btnGerarEtiquetaLocacao.addEventListener('click', () => {
+            const localId = locacaoFilterLocal.value;
+            const locacaoText = locacaoFilterInput.value.trim();
+
+            const labels = [];
+            const seen = new Set();
+
+            const results = consolidatedData.filter(product => {
+                if (!product.locacoes) return false;
+                return product.locacoes.some(loc => {
+                    const matchLocal = !localId || loc.localId === localId;
+                    const matchLocacao = !locacaoText || (loc.locacao || '').toLowerCase().includes(locacaoText.toLowerCase());
+                    return matchLocal && matchLocacao;
+                });
+            });
+
+            results.forEach(product => {
+                product.locacoes.forEach(loc => {
+                    const matchLocal = !localId || loc.localId === localId;
+                    const matchLocacao = !locacaoText || (loc.locacao || '').toLowerCase().includes(locacaoText.toLowerCase());
+
+                    if (matchLocal && matchLocacao) {
+                        const key = `${loc.localId}-${loc.locacao}`;
+                        if (!seen.has(key)) {
+                            seen.add(key);
+                            labels.push({
+                                localId: loc.localId,
+                                localName: configData.locais[loc.localId]?.nome || 'Desconhecido',
+                                locacao: loc.locacao
+                            });
+                        }
+                    }
+                });
+            });
+
+            if (labels.length === 0) {
+                alert("Nenhuma locação encontrada para gerar etiquetas.");
+                return;
+            }
+
+            localStorage.setItem('etiquetasLocacaoParaImprimir', JSON.stringify(labels));
+            window.open('etiquetas-locacao.html', '_blank');
+        });
+    }
+
+    function renderLocacaoTable(data) {
+        tableBody.innerHTML = '';
+        let totalCustoFiltrado = 0;
+
+        data.forEach(item => {
+             const movements = globalMovementsByProduct[item.id] || [];
+             const reservasPorObra = {};
+
+             movements.forEach(mov => {
+                 if (mov.tipo === 'reserva') {
+                     const obraId = mov.obraId || 'sem_obra';
+                     reservasPorObra[obraId] = (reservasPorObra[obraId] || 0) + mov.quantidade;
+                 } else if (mov.tipo === 'reserva_cancelada') {
+                     const obraId = mov.obraId || 'sem_obra';
+                     reservasPorObra[obraId] = (reservasPorObra[obraId] || 0) - mov.quantidade;
+                 }
+             });
+
+             let reservedString = '';
+             const obrasComReserva = Object.entries(reservasPorObra).filter(([_, qty]) => qty > 0);
+             if (obrasComReserva.length > 0) {
+                 reservedString = obrasComReserva.map(([obraId, qty]) => {
+                     const obraNome = configData.obras[obraId]?.nome || 'Obra Desconhecida';
+                     return `<div style="font-size: 0.85em; white-space: nowrap;">${obraNome}: ${qty}</div>`;
+                 }).join('');
+             } else {
+                 reservedString = '0';
+             }
+
+             totalCustoFiltrado += item.valorTotalEstoque || 0;
+
+             const row = document.createElement('tr');
+             row.className = 'main-row cursor-pointer hover:bg-gray-100';
+             row.onclick = () => openHistoryModal(item);
+
+             row.innerHTML = `
+                <td>${item.codigo}</td>
+                <td>${item.descricao}</td>
+                <td>${item.cor}</td>
+                <td>${(item.estoque || 0).toString().replace('.', ',')}</td>
+                <td>${reservedString}</td>
+                <td>${item.un}</td>
+                <td>${(item.valorMedio || 0).toFixed(3).replace('.', ',')}</td>
+                <td>${(item.valorTotalEstoque || 0).toFixed(2).replace('.', ',')}</td>
+                <td>${item.localDisplay}</td>
+            `;
+            tableBody.appendChild(row);
+        });
+
+        document.getElementById('total-custo-estoque').textContent = totalCustoFiltrado.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' });
+        feather.replace();
     }
 
     // --- Event Listeners para Ordenação ---
