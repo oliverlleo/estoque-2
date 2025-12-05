@@ -956,7 +956,8 @@ input:checked + .slider:before {
 #table-history-modal tr,
 #correcao-fracionada-modal table tr,
 #bulk-transfer-table tr,
-#bulk-location-table tr {
+#bulk-location-table tr,
+#table-locacao-mode tr {
     display: table-row; /* Força o elemento a se comportar como uma linha de tabela */
 }
 
@@ -968,7 +969,8 @@ input:checked + .slider:before {
 #table-history-modal th, #table-history-modal td,
 #correcao-fracionada-modal table th, #correcao-fracionada-modal table td,
 #bulk-transfer-table th, #bulk-transfer-table td,
-#bulk-location-table th, #bulk-location-table td {
+#bulk-location-table th, #bulk-location-table td,
+#table-locacao-mode th, #table-locacao-mode td {
     display: table-cell; /* Força o elemento a se comportar como uma célula de tabela */
 }
 

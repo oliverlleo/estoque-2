@@ -1,0 +1,207 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Etiquetas de Locação</title>
+    <script src="https://cdn.jsdelivr.net/npm/qrcodejs@1.0.0/qrcode.min.js"></script>
+    <link href="https://cdnjs.cloudflare.com/ajax/libs/tailwindcss/2.2.19/tailwind.min.css" rel="stylesheet">
+    <link href="https://fonts.googleapis.com/icon?family=Material+Icons" rel="stylesheet">
+    <style>
+        /* ESTILOS GERAIS E DE CONTROLE */
+        body {
+            font-family: Arial, sans-serif;
+            background-color: #f0f2f5;
+            margin: 0;
+            padding: 20px;
+        }
+        .controls {
+            position: fixed; top: 10px; left: 10px; z-index: 100;
+            background-color: white; padding: 10px; border-radius: 5px; box-shadow: 0 2px 5px rgba(0,0,0,0.2);
+            max-width: 300px;
+        }
+        .controls h3 { margin-top: 0; }
+        .controls button { font-size: 16px; padding: 10px 20px; cursor: pointer; border: 1px solid #ccc; background-color: #f0f0f0; margin-top: 10px; width: 100%; }
+        .controls button.active { background-color: #007bff; color: white; border-color: #007bff; }
+
+        .selection-area {
+            margin-top: 10px;
+            max-height: 400px;
+            overflow-y: auto;
+            border: 1px solid #ddd;
+            padding: 5px;
+        }
+        .location-item {
+            display: flex;
+            align-items: center;
+            padding: 5px;
+            border-bottom: 1px solid #eee;
+        }
+        .location-item:last-child { border-bottom: none; }
+        .location-item input { margin-right: 10px; }
+
+        /* ESTRUTURA RÍGIDA DA ETIQUETA - FORMATO 50x25 (Dupla) ou 50x100?
+           O user pediu para clonar, mas focou em layout otimizado.
+           Vou assumir o formato padrão de etiqueta de gôndola/shelf label.
+           Geralmente etiquetas de locação são pequenas. Vou usar o layout 50x25 como base, mas adaptado.
+           O prompt diz: "Manter a funcionalidade de impressão da página clonada."
+           Então vou manter os dois formatos (50x100 e 50x25).
+        */
+
+        /* FORMATO 50x100 (Single) */
+        .etiqueta-50x100 {
+            background-color: white;
+            width: 100mm;
+            height: 50mm;
+            padding: 4mm;
+            box-sizing: border-box;
+            border: 1px dashed #ccc;
+            margin: 20px auto;
+            display: flex;
+            flex-direction: row; /* QR Left, Text Right */
+            align-items: center;
+            overflow: hidden;
+            position: relative;
+        }
+
+        /* Layout Específico para Locação: QR + Texto Rotacionado */
+        .etiqueta-50x100 .qr-area {
+            width: 45mm;
+            height: 45mm;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+        }
+
+        .etiqueta-50x100 .text-area {
+            flex: 1;
+            height: 100%;
+            display: flex;
+            flex-direction: column; /* Normal layout initially, will rotate content */
+            justify-content: center;
+            align-items: center;
+            position: relative;
+        }
+
+        /* Rotated Text Implementation */
+        .rotated-container {
+            transform: rotate(90deg);
+            white-space: nowrap;
+            text-align: center;
+            width: 40mm; /* Constraint width which becomes height when rotated */
+        }
+
+        .loc-code-large {
+            font-size: 48pt;
+            font-weight: bold;
+            display: block;
+        }
+        .loc-name-small {
+            font-size: 13.5pt;
+            display: block;
+            margin-top: 2px;
+        }
+
+
+        /* FORMATO 50x25 (Double side-by-side) */
+        .etiqueta-50x25-container {
+            width: 106mm;
+            height: 25mm;
+            display: flex;
+            justify-content: flex-start;
+            align-items: stretch;
+            border: 1px dashed #ccc;
+            margin: 20px auto;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        .etiqueta-50x25 {
+            width: 50mm;
+            height: 25mm;
+            box-sizing: border-box;
+            padding: 1mm;
+            display: flex;
+            flex-direction: row;
+            overflow: hidden;
+            align-items: center;
+        }
+
+        .etiqueta-50x25:first-child { margin-left: 0.5mm; margin-right: 5mm; }
+        .etiqueta-50x25:last-child { margin-right: 0.5mm; }
+
+        .etiqueta-50x25 .qr-area {
+            width: 23mm;
+            height: 23mm;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+        }
+
+        .etiqueta-50x25 .text-area {
+            flex: 1;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+        }
+
+        .etiqueta-50x25 .rotated-container {
+            transform: rotate(90deg);
+            white-space: nowrap;
+            text-align: center;
+        }
+
+        .etiqueta-50x25 .loc-code-large { font-size: 24pt; font-weight: bold; }
+        .etiqueta-50x25 .loc-name-small { font-size: 8.5pt; }
+
+        /* IMPRESSÃO */
+        @media print {
+            body { background-color: white; padding: 0; margin: 0; }
+            .controls { display: none !important; }
+            .etiqueta-50x100, .etiqueta-50x25-container { margin: 0; border: none; page-break-after: always; }
+            .etiqueta-50x100:last-child, .etiqueta-50x25-container:last-child { page-break-after: avoid; }
+        }
+
+        @media screen {
+            body.format-50x100 .etiqueta-50x25-container { display: none; }
+            body.format-50x25 .etiqueta-50x100 { display: none; }
+        }
+
+        @page { size: 100mm 50mm; margin: 0; }
+    </style>
+</head>
+<body>
+    <div class="controls">
+        <h3>Etiquetas de Locação</h3>
+        <div>
+            <label>1. Selecione o Local (Galpão):</label>
+            <select id="select-local" class="w-full p-2 border rounded mb-2">
+                <option value="">Carregando...</option>
+            </select>
+        </div>
+        <div>
+            <label>2. Selecione as Locações:</label>
+            <div id="locacoes-list" class="selection-area">
+                <div class="p-2 text-gray-500">Selecione um local acima.</div>
+            </div>
+        </div>
+
+        <div class="mt-4">
+            <button onclick="window.print()">Imprimir</button>
+        </div>
+        <div class="format-options flex gap-2 mt-2">
+            <button id="btn-50x100" class="active text-sm py-1">50x100</button>
+            <button id="btn-50x25" class="text-sm py-1">50x25</button>
+        </div>
+        <div class="mt-4">
+            <a href="index.html" class="text-blue-500 hover:underline">&larr; Voltar ao Dashboard</a>
+        </div>
+    </div>
+
+    <div id="etiquetas-container" style="margin-left: 320px;">
+        <!-- Labels generated here -->
+    </div>
+
+    <script type="module" src="js/etiquetas-locacao.js"></script>
+</body>
+</html>
