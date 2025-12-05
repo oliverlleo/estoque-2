@@ -1,0 +1,149 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Etiquetas de Locação</title>
+    <script src="https://cdn.jsdelivr.net/npm/qrcodejs@1.0.0/qrcode.min.js"></script>
+    <style>
+        /* ESTILOS GERAIS E DE CONTROLE */
+        body {
+            font-family: Arial, sans-serif;
+            background-color: #f0f2f5;
+            margin: 0;
+            padding: 20px;
+        }
+        .controls {
+            position: fixed; top: 10px; left: 10px; z-index: 100;
+            background-color: white; padding: 10px; border-radius: 5px; box-shadow: 0 2px 5px rgba(0,0,0,0.2);
+            display: flex; flex-direction: column; gap: 10px;
+        }
+        .controls button { font-size: 16px; padding: 10px 20px; cursor: pointer; border: 1px solid #ccc; background-color: #f0f0f0; }
+        .controls button.active { background-color: #007bff; color: white; border-color: #007bff; }
+        .controls input, .controls select { padding: 5px; font-size: 14px; }
+
+        /* ESTILO DA ETIQUETA DE LOCAÇÃO (ROTACIONADA) */
+
+        /* Container principal 50x100 (Mas o layout interno será ajustado para o modo paisagem da etiqueta se necessário, ou vertical)
+           User request: "Texto na vertical (deitado), ou seja, rotacionada em 90 graus ao lado do QR Code."
+           Assumindo etiqueta física de 100mm (largura) x 50mm (altura).
+        */
+        .etiqueta-locacao {
+            background-color: white;
+            width: 100mm;
+            height: 50mm;
+            box-sizing: border-box;
+            border: 1px dashed #ccc;
+            margin: 20px auto;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            position: relative;
+            overflow: hidden;
+            padding: 2mm;
+        }
+
+        .etiqueta-content {
+            display: flex;
+            width: 100%;
+            height: 100%;
+            align-items: center;
+            justify-content: space-between;
+        }
+
+        .qr-area {
+            width: 45mm; /* Aprox metade */
+            height: 45mm;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+        }
+        .qr-area img {
+            width: 100%;
+            height: 100%;
+            object-fit: contain;
+        }
+
+        .text-area {
+            flex: 1;
+            height: 100%;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            position: relative;
+        }
+
+        /* Container rotacionado para o texto */
+        .rotated-text-container {
+            transform: rotate(-90deg); /* Texto deitado */
+            transform-origin: center;
+            white-space: nowrap;
+            text-align: center;
+            width: 45mm; /* Largura vira altura visual */
+            /* Precisamos garantir que ele caiba na altura da etiqueta (50mm) que é a largura visual aqui */
+
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+
+            /* Ajustes finos de posicionamento */
+        }
+
+        .codigo-locacao-text {
+            font-size: 28pt;
+            font-weight: 900;
+            line-height: 1;
+            margin-bottom: 2mm;
+            font-family: 'Arial Black', Arial, sans-serif;
+        }
+
+        .nome-local-text {
+            font-size: 12pt;
+            font-weight: bold;
+            color: #333;
+        }
+
+        /* ESTILOS DE IMPRESSÃO */
+        @media print {
+            body { background-color: white; padding: 0; margin: 0; }
+            .controls { display: none !important; }
+
+            .etiqueta-locacao {
+                margin: 0;
+                border: none;
+                page-break-after: always;
+            }
+            .etiqueta-locacao:last-child {
+                page-break-after: avoid;
+            }
+        }
+
+        @page {
+            size: 100mm 50mm;
+            margin: 0;
+        }
+    </style>
+</head>
+<body>
+    <div class="controls">
+        <h3>Gerador de Etiquetas de Locação</h3>
+        <div style="display: flex; flex-direction: column; gap: 5px;">
+            <label>Selecione o Local (Depósito)</label>
+            <select id="select-local"></select>
+
+            <label>Filtrar/Buscar Endereço (Locação)</label>
+            <input type="text" id="input-locacao" placeholder="Ex: A01...">
+
+            <button id="btn-gerar" class="active">Gerar Etiquetas</button>
+            <button onclick="window.print()">Imprimir</button>
+        </div>
+    </div>
+
+    <div id="etiquetas-container">
+        <!-- Etiquetas geradas aqui -->
+    </div>
+
+    <script type="module" src="js/etiquetas-locacao.js"></script>
+</body>
+</html>

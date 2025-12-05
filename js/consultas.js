@@ -5,6 +5,15 @@ document.addEventListener('DOMContentLoaded', async function() {
     console.log("Página de Consultas carregada.");
 
     const tableBody = document.querySelector('#table-consultas tbody');
+    const tableLocacaoBody = document.querySelector('#table-consultas-locacao tbody'); // Body da tabela de locação
+
+    // --- Switch e Containers de Modo ---
+    const modeToggle = document.getElementById('consultas-toggle');
+    const modeProdutoContainer = document.getElementById('mode-produto-container');
+    const modeLocacaoContainer = document.getElementById('mode-locacao-container');
+    const toggleLabelProduto = document.getElementById('toggle-label-produto');
+    const toggleLabelLocacao = document.getElementById('toggle-label-locacao');
+
     const filters = {
         codigo: document.getElementById('filter-codigo'),
         descricao: document.getElementById('filter-descricao'),
@@ -14,9 +23,15 @@ document.addEventListener('DOMContentLoaded', async function() {
         comReserva: document.getElementById('filter-com-reserva')
     };
 
+    const locacaoFilters = {
+        searchInput: document.getElementById('locacao-search-input'),
+        filterLocal: document.getElementById('locacao-filter-local')
+    };
+
     let consolidatedData = [];
     let globalMovementsByProduct = {}; // Armazena as movimentações por produto globalmente
     let configData = {}; // Armazena configurações globais (locais, tipos, etc)
+    let isLocacaoMode = false;
 
     // --- Estado da Ordenação ---
     let sortState = {
@@ -76,13 +91,21 @@ document.addEventListener('DOMContentLoaded', async function() {
 
         configData.locais = {};
         filters.local.innerHTML = '<option value="">Todos os Locais</option>';
+        locacaoFilters.filterLocal.innerHTML = '<option value="">Todos</option>'; // Popula filtro do modo Locação
+
         locaisSnapshot.forEach(doc => {
             configData.locais[doc.id] = doc.data();
-            // Popula o filtro de locais
+            // Popula o filtro de locais (Modo Produto)
             const option = document.createElement('option');
             option.value = doc.id;
             option.textContent = doc.data().nome;
             filters.local.appendChild(option);
+
+            // Popula o filtro de locais (Modo Locação)
+            const optionLoc = document.createElement('option');
+            optionLoc.value = doc.id;
+            optionLoc.textContent = doc.data().nome;
+            locacaoFilters.filterLocal.appendChild(optionLoc);
         });
 
         const conversoesMap = {};
@@ -243,6 +266,181 @@ document.addEventListener('DOMContentLoaded', async function() {
         document.getElementById('total-custo-estoque').textContent = totalCustoFiltrado.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' });
         feather.replace();
     }
+
+    // --- MODO LOCAÇÃO ---
+
+    function handleToggleChange() {
+        isLocacaoMode = modeToggle.checked;
+
+        if (isLocacaoMode) {
+            modeProdutoContainer.style.display = 'none';
+            modeLocacaoContainer.style.display = 'block';
+            toggleLabelProduto.style.fontWeight = 'normal';
+            toggleLabelProduto.style.color = '#6c757d';
+            toggleLabelLocacao.style.fontWeight = 'bold';
+            toggleLabelLocacao.style.color = '#0d6efd';
+            // Renderiza tabela vazia ou filtra se já tiver input
+            filterAndRenderLocacaoTable();
+        } else {
+            modeProdutoContainer.style.display = 'block';
+            modeLocacaoContainer.style.display = 'none';
+            toggleLabelProduto.style.fontWeight = 'bold';
+            toggleLabelProduto.style.color = '#0d6efd';
+            toggleLabelLocacao.style.fontWeight = 'normal';
+            toggleLabelLocacao.style.color = '#6c757d';
+        }
+    }
+
+    modeToggle.addEventListener('change', handleToggleChange);
+
+    function filterAndRenderLocacaoTable() {
+        const searchText = locacaoFilters.searchInput.value.toLowerCase().trim();
+        const selectedLocalId = locacaoFilters.filterLocal.value;
+
+        if (!searchText && !selectedLocalId) {
+            tableLocacaoBody.innerHTML = '<tr><td colspan="9" style="text-align: center; padding: 20px;">Utilize os filtros acima para buscar uma locação.</td></tr>';
+            return;
+        }
+
+        const itemsInLocation = [];
+
+        consolidatedData.forEach(product => {
+            if (!product.locacoes || !Array.isArray(product.locacoes)) return;
+
+            product.locacoes.forEach(loc => {
+                // Filtro Local (Depósito)
+                if (selectedLocalId && loc.localId !== selectedLocalId) return;
+
+                // Filtro Texto Locação (Endereço)
+                const locacaoStr = (loc.locacao || '').toLowerCase();
+                if (searchText && !locacaoStr.includes(searchText)) return;
+
+                // Item encontrado na locação
+                // Calcular reservas detalhadas por Obra
+                const reservasDetalhadas = calculateDetailedReserves(product, loc);
+
+                itemsInLocation.push({
+                    codigo: product.codigo,
+                    descricao: product.descricao,
+                    cor: product.cor,
+                    estoqueLocacao: loc.estoque || 0,
+                    un: product.un,
+                    custoMedio: product.valorMedio,
+                    custoTotalLocacao: (loc.estoque || 0) * product.valorMedio,
+                    locacao: loc.locacao,
+                    reservasDetalhadas: reservasDetalhadas,
+                    productRef: product
+                });
+            });
+        });
+
+        renderLocacaoTable(itemsInLocation);
+    }
+
+    function calculateDetailedReserves(product, locData) {
+        // Precisa olhar no histórico de reservas para ver quais reservas pendentes apontam para esta locação (se aplicável)
+        // O sistema atual de reservas não salva "locação" na reserva pendente no histórico de forma direta sempre,
+        // mas a instrução diz: "Fonte dos Dados: Essa informação deve ser obtida consultando o histórico de movimentação do produto... para agregar as reservas por Obra para o material naquela Locação."
+
+        // Nota: Reservas ativas são 'reserva'. Quando confirmada vira 'saida'.
+        // O problema é que a reserva pode não ter local específico se foi feita genericamente.
+        // Mas assumindo que podemos filtrar reservas que tenham locação especificada ou inferir.
+        // Na implementação atual, a 'reserva' tem 'locacao' salva no documento?
+        // Ver memory: "When creating a reservation movement... system must explicitly save the locacao field".
+        // Então sim, podemos filtrar por locacao.
+
+        const movements = globalMovementsByProduct[product.id] || [];
+        const activeReserves = movements.filter(m => m.tipo === 'reserva');
+
+        const reservesByObra = {};
+        let totalReserved = 0;
+
+        activeReserves.forEach(res => {
+            // Verifica se a reserva é desta locação
+            // Se a reserva tem locacao vazia ou diferente, ignora?
+            // "O valor na coluna 'Reservado (Detalhado)' deve ser a quantidade total reservada para o item na locação"
+
+            // Se locData.locacao for vazia, procuramos reservas com locacao vazia? Sim.
+            // Se locData.locacao tiver valor, procuramos match exato.
+
+            const resLocacao = res.locacao || '';
+            const targetLocacao = locData.locacao || '';
+
+            // Também precisa bater o Local ID se disponível na reserva (idealmente)
+            // Assumindo que a string locação é única ou suficiente no contexto do filtro.
+            // Mas para ser preciso:
+            // A reserva tem localId? Não explicitamente no modelo padrão antigo, mas pode ter sido adicionado.
+            // O `getLocalIdFromMovement` tenta inferir.
+
+            if (resLocacao === targetLocacao) {
+                // Checa localId se possível
+                // Se o produto tem a mesma locação em locais diferentes, isso é um problema de ambiguidade que o sistema já tem.
+                // Mas aqui estamos iterando sobre `product.locacoes`, sabemos o `loc.localId`.
+                // A reserva salva localId? Vamos assumir que sim ou que a locação string é única por contexto visual.
+                // Para garantir, vamos usar a string de locação.
+
+                const obraId = res.obraId;
+                const obraNome = configData.obras[obraId]?.nome || 'Obra Desconhecida';
+                const qtd = res.quantidade || 0;
+
+                if (!reservesByObra[obraNome]) {
+                    reservesByObra[obraNome] = 0;
+                }
+                reservesByObra[obraNome] += qtd;
+                totalReserved += qtd;
+            }
+        });
+
+        // Formata a string
+        if (totalReserved === 0) return "0";
+
+        const detalhes = Object.entries(reservesByObra)
+            .map(([obra, qtd]) => `${obra}: ${qtd}`)
+            .join(', ');
+
+        return `${totalReserved} (${detalhes})`;
+    }
+
+    function renderLocacaoTable(items) {
+        tableLocacaoBody.innerHTML = '';
+        if (items.length === 0) {
+            tableLocacaoBody.innerHTML = '<tr><td colspan="9" style="text-align: center;">Nenhum item encontrado nesta locação.</td></tr>';
+            return;
+        }
+
+        // Sort by locacao then product code
+        items.sort((a, b) => {
+            const locA = (a.locacao || '').toLowerCase();
+            const locB = (b.locacao || '').toLowerCase();
+            if (locA < locB) return -1;
+            if (locA > locB) return 1;
+            return a.codigo.localeCompare(b.codigo);
+        });
+
+        items.forEach(item => {
+            const row = document.createElement('tr');
+            // Reutiliza o modal de histórico ao clicar, passando a referência do produto
+            row.className = 'cursor-pointer hover:bg-gray-100';
+            row.onclick = () => openHistoryModal(item.productRef);
+
+            row.innerHTML = `
+                <td>${item.codigo}</td>
+                <td>${item.descricao}</td>
+                <td>${item.cor}</td>
+                <td>${Number(item.estoqueLocacao).toLocaleString('pt-BR')}</td>
+                <td>${item.reservasDetalhadas}</td>
+                <td>${item.un}</td>
+                <td>${(item.custoMedio || 0).toFixed(3).replace('.', ',')}</td>
+                <td>${(item.custoTotalLocacao || 0).toFixed(2).replace('.', ',')}</td>
+                <td>${item.locacao}</td>
+            `;
+            tableLocacaoBody.appendChild(row);
+        });
+    }
+
+    // Event listeners para filtros de locação
+    locacaoFilters.searchInput.addEventListener('input', filterAndRenderLocacaoTable);
+    locacaoFilters.filterLocal.addEventListener('change', filterAndRenderLocacaoTable);
 
     // --- Funções do Modal de Histórico ---
 

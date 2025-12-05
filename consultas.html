@@ -64,53 +64,107 @@
         </header>
         <section class="content">
             <div class="card">
-                <div class="card-header"><h3>Consulta de Estoque e Valores</h3></div>
-                <div class="card-body">
-                    <div class="filters-container" style="display: grid; grid-template-columns: repeat(auto-fit, minmax(150px, 1fr)); gap: 10px; margin-bottom: 20px;">
-                        <input type="text" id="filter-codigo" class="form-control" placeholder="Filtrar por Código...">
-                        <input type="text" id="filter-descricao" class="form-control" placeholder="Filtrar por Descrição...">
-                        <input type="text" id="filter-cor" class="form-control" placeholder="Filtrar por Cor...">
-                        <select id="filter-local" class="form-control">
-                            <option value="">Todos os Locais</option>
-                        </select>
-                        <input type="text" id="filter-locacao" class="form-control" placeholder="Filtrar por Locação...">
-                        <div style="display: flex; align-items: center; gap: 5px;">
-                            <input type="checkbox" id="filter-com-reserva" style="width: auto; margin: 0;">
-                            <label for="filter-com-reserva" style="margin: 0; white-space: nowrap;">Com Reserva</label>
+                <div class="card-header">
+                    <div style="display: flex; justify-content: space-between; align-items: center;">
+                        <h3>Consulta de Estoque e Valores</h3>
+                        <div class="toggle-container" style="margin-left: 10px; display: flex; align-items: center; gap: 10px;">
+                            <span id="toggle-label-produto" style="font-weight: bold; color: #0d6efd;">Produto</span>
+                            <label class="toggle-switch">
+                                <input type="checkbox" id="consultas-toggle">
+                                <span class="slider"></span>
+                            </label>
+                            <span id="toggle-label-locacao" style="font-weight: normal; color: #6c757d;">Locação</span>
                         </div>
                     </div>
-                    <div class="table-wrapper">
-                        <table id="table-consultas" class="table">
-                            <thead>
-                                <tr>
-                                    <th class="sortable" data-column="codigo">Código</th>
-                                    <th class="sortable" data-column="descricao">Descrição</th>
-                                    <th class="sortable" data-column="cor">Cor</th>
-                                    <th class="sortable" data-column="estoque">Estoque Atual</th>
-                                    <th class="sortable" data-column="reservado">Reservado</th>
-                                    <th class="sortable" data-column="unidade">UN</th>
-                                    <th class="sortable" data-column="custoMedio">Custo Un. Médio</th>
-                                    <th class="sortable" data-column="custoTotal">Custo Total Estoque</th>
-                                    <th class="sortable" data-column="locacao">Locação</th>
-                                </tr>
-                            </thead>
-                            <tbody>
-                                <!-- Data will be loaded here by JS -->
-                            </tbody>
-                            <tfoot>
-                                <tr>
-                                    <td colspan="7" style="text-align: right; font-weight: bold;">Total Custo Estoque (Filtrado):</td>
-                                    <td id="total-custo-estoque" style="font-weight: bold;">R$ 0,00</td>
-                                    <td></td>
-                                </tr>
-                                <tr>
-                                    <td colspan="7" style="text-align: right; font-weight: bold;">Valor Total do Estoque (Geral):</td>
-                                    <td id="total-valor-estoque-geral" style="font-weight: bold;">R$ 0,00</td>
-                                    <td></td>
-                                </tr>
-                            </tfoot>
-                        </table>
+                </div>
+                <div class="card-body">
+                    <!-- MODO PRODUTO -->
+                    <div id="mode-produto-container">
+                        <div class="filters-container" style="display: grid; grid-template-columns: repeat(auto-fit, minmax(150px, 1fr)); gap: 10px; margin-bottom: 20px;">
+                            <input type="text" id="filter-codigo" class="form-control" placeholder="Filtrar por Código...">
+                            <input type="text" id="filter-descricao" class="form-control" placeholder="Filtrar por Descrição...">
+                            <input type="text" id="filter-cor" class="form-control" placeholder="Filtrar por Cor...">
+                            <select id="filter-local" class="form-control">
+                                <option value="">Todos os Locais</option>
+                            </select>
+                            <input type="text" id="filter-locacao" class="form-control" placeholder="Filtrar por Locação...">
+                            <div style="display: flex; align-items: center; gap: 5px;">
+                                <input type="checkbox" id="filter-com-reserva" style="width: auto; margin: 0;">
+                                <label for="filter-com-reserva" style="margin: 0; white-space: nowrap;">Com Reserva</label>
+                            </div>
+                        </div>
+                        <div class="table-wrapper">
+                            <table id="table-consultas" class="table">
+                                <thead>
+                                    <tr>
+                                        <th class="sortable" data-column="codigo">Código</th>
+                                        <th class="sortable" data-column="descricao">Descrição</th>
+                                        <th class="sortable" data-column="cor">Cor</th>
+                                        <th class="sortable" data-column="estoque">Estoque Atual</th>
+                                        <th class="sortable" data-column="reservado">Reservado</th>
+                                        <th class="sortable" data-column="unidade">UN</th>
+                                        <th class="sortable" data-column="custoMedio">Custo Un. Médio</th>
+                                        <th class="sortable" data-column="custoTotal">Custo Total Estoque</th>
+                                        <th class="sortable" data-column="locacao">Locação</th>
+                                    </tr>
+                                </thead>
+                                <tbody>
+                                    <!-- Data will be loaded here by JS -->
+                                </tbody>
+                                <tfoot>
+                                    <tr>
+                                        <td colspan="7" style="text-align: right; font-weight: bold;">Total Custo Estoque (Filtrado):</td>
+                                        <td id="total-custo-estoque" style="font-weight: bold;">R$ 0,00</td>
+                                        <td></td>
+                                    </tr>
+                                    <tr>
+                                        <td colspan="7" style="text-align: right; font-weight: bold;">Valor Total do Estoque (Geral):</td>
+                                        <td id="total-valor-estoque-geral" style="font-weight: bold;">R$ 0,00</td>
+                                        <td></td>
+                                    </tr>
+                                </tfoot>
+                            </table>
+                        </div>
                     </div>
+
+                    <!-- MODO LOCAÇÃO -->
+                    <div id="mode-locacao-container" style="display: none;">
+                        <div class="filters-container" style="display: flex; flex-direction: column; gap: 15px; margin-bottom: 20px;">
+                            <div style="display: flex; gap: 10px;">
+                                <div style="flex-grow: 1;">
+                                    <label for="locacao-search-input" style="font-weight: bold; display: block; margin-bottom: 5px;">Buscar Locação (Endereço)</label>
+                                    <input type="text" id="locacao-search-input" class="form-control" placeholder="Digite o endereço (Ex: A01.01)...">
+                                </div>
+                                <div style="flex-grow: 0; min-width: 200px;">
+                                     <label for="locacao-filter-local" style="font-weight: bold; display: block; margin-bottom: 5px;">Filtrar por Local (Depósito)</label>
+                                     <select id="locacao-filter-local" class="form-control">
+                                        <option value="">Todos</option>
+                                    </select>
+                                </div>
+                            </div>
+                        </div>
+                        <div class="table-wrapper">
+                            <table id="table-consultas-locacao" class="table">
+                                <thead>
+                                    <tr>
+                                        <th>Código</th>
+                                        <th>Descrição</th>
+                                        <th>Cor</th>
+                                        <th>Estoque Atual</th>
+                                        <th>Reservado (Detalhado)</th>
+                                        <th>UN</th>
+                                        <th>Custo Un. Médio</th>
+                                        <th>Custo Total Estoque</th>
+                                        <th>Locação</th>
+                                    </tr>
+                                </thead>
+                                <tbody>
+                                    <!-- Data loaded by JS -->
+                                </tbody>
+                            </table>
+                        </div>
+                    </div>
+
                 </div>
             </div>
         </section>
