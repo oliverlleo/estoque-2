@@ -171,6 +171,7 @@
                                     <a href="#" id="btn-importar-excel">Importar Produtos (Excel)</a>
                                     <a href="#" id="btn-exportar-modelo">Exportar Modelo (Excel)</a>
                                     <a href="#" id="btn-gerar-etiquetas">Gerar Etiquetas</a>
+                                    <a href="#" id="btn-bulk-add-location">Adicionar locação em lote</a>
                                 </div>
                             </div>
                             <input type="file" id="import-excel-input" accept=".xlsx, .xls" style="display: none;">
@@ -217,10 +218,69 @@
             </div>
         </div>
     </div>
+
+    <!-- Modal Adicionar Locação em Lote -->
+    <div id="bulk-location-modal" class="modal">
+        <div class="modal-content" style="max-width: 900px;">
+            <div class="modal-header">
+                <h3>Adicionar Locação em Lote</h3>
+                <span class="close-button" id="bulk-location-modal-close">&times;</span>
+            </div>
+            <div class="modal-body">
+                <div style="margin-bottom: 20px;">
+                    <label for="bulk-location-codes" style="font-weight: bold; display: block; margin-bottom: 5px;">
+                        Insira os Códigos dos Produtos (separados por espaço, vírgula ou nova linha)
+                    </label>
+                    <div style="display: flex; gap: 10px;">
+                        <textarea id="bulk-location-codes" class="form-control" rows="3" placeholder="Ex: PROD001, PROD002 PROD003..." style="flex-grow: 1;"></textarea>
+                        <button id="btn-check-bulk-location" class="btn btn-primary" style="align-self: flex-start;">Verificar Produtos</button>
+                    </div>
+                </div>
+
+                <div id="bulk-location-results-container" style="display: none; margin-bottom: 20px;">
+                    <h4 style="margin-bottom: 10px; font-size: 1rem; color: #495057;">Produtos Encontrados</h4>
+                    <div class="table-wrapper" style="max-height: 250px; overflow-y: auto; margin-bottom: 20px; border: 1px solid #e9ecef; border-radius: 4px;">
+                        <table id="bulk-location-table" class="table" style="margin-bottom: 0;">
+                            <thead>
+                                <tr>
+                                    <th>Código</th>
+                                    <th>Descrição</th>
+                                    <th>Status</th>
+                                </tr>
+                            </thead>
+                            <tbody></tbody>
+                        </table>
+                    </div>
+
+                    <div id="bulk-location-inputs" style="background-color: #f8f9fa; padding: 15px; border-radius: 4px; border: 1px solid #dee2e6;">
+                        <h4 style="margin-bottom: 15px; font-size: 1rem;">Nova Locação para os produtos acima</h4>
+                        <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 15px;">
+                            <div>
+                                <label for="bulk-location-local" style="font-weight: 500;">Local</label>
+                                <select id="bulk-location-local" class="form-control">
+                                    <option value="">Selecione o Local...</option>
+                                </select>
+                            </div>
+                            <div>
+                                <label for="bulk-location-input" style="font-weight: 500;">Locação</label>
+                                <input type="text" id="bulk-location-input" class="form-control" placeholder="Ex: 1-A-01-B">
+                                <small style="color: #6c757d;">Formato: 1, 1-A, 1-A-01 ou 1-A-01-B</small>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <div style="text-align: right; margin-top: 20px;">
+                    <button id="btn-confirm-bulk-location" class="btn btn-success" disabled>Confirmar Adição</button>
+                </div>
+            </div>
+        </div>
+    </div>
+
     <script src="https://unpkg.com/imask"></script>
     <script src="https://cdn.sheetjs.com/xlsx-latest/package/dist/xlsx.full.min.js"></script>
     <script type="module" src="js/main.js"></script>
-    <script type="module" src="js/produtos.js?v=2"></script>
+    <script type="module" src="js/produtos.js?v=3"></script>
     <script type="module" src="js/global-search.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/qrcodejs@1.0.0/qrcode.min.js"></script>
     <script> feather.replace() </script>
