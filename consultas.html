@@ -59,14 +59,23 @@
         </div>
     </aside>
     <main class="main-content flex-1 overflow-y-auto">
-        <header>
+        <header style="display: flex; justify-content: space-between; align-items: center;">
             <h1>Consulta de Estoque</h1>
+            <div class="toggle-container" style="margin-right: 20px;">
+                <span id="toggle-label-produto" style="font-weight: bold; color: #0d6efd;">Produto</span>
+                <label class="toggle-switch">
+                    <input type="checkbox" id="mode-toggle">
+                    <span class="slider"></span>
+                </label>
+                <span id="toggle-label-locacao" style="font-weight: normal; color: #6c757d;">Locação</span>
+            </div>
         </header>
         <section class="content">
             <div class="card">
-                <div class="card-header"><h3>Consulta de Estoque e Valores</h3></div>
+                <div class="card-header"><h3 id="page-title-mode">Consulta de Estoque e Valores</h3></div>
                 <div class="card-body">
-                    <div class="filters-container" style="display: grid; grid-template-columns: repeat(auto-fit, minmax(150px, 1fr)); gap: 10px; margin-bottom: 20px;">
+                    <!-- Filters for Product Mode -->
+                    <div id="filters-produto" class="filters-container mode-specific" style="display: grid; grid-template-columns: repeat(auto-fit, minmax(150px, 1fr)); gap: 10px; margin-bottom: 20px;">
                         <input type="text" id="filter-codigo" class="form-control" placeholder="Filtrar por Código...">
                         <input type="text" id="filter-descricao" class="form-control" placeholder="Filtrar por Descrição...">
                         <input type="text" id="filter-cor" class="form-control" placeholder="Filtrar por Cor...">
@@ -79,8 +88,24 @@
                             <label for="filter-com-reserva" style="margin: 0; white-space: nowrap;">Com Reserva</label>
                         </div>
                     </div>
+
+                    <!-- Filters for Location Mode -->
+                    <div id="filters-locacao" class="filters-container mode-specific" style="display: none; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 10px; margin-bottom: 20px;">
+                         <div style="grid-column: span 2;">
+                            <label for="filter-locacao-mode-input" style="font-weight: bold; display: block; margin-bottom: 5px;">ID da Locação (Endereço)</label>
+                            <input type="text" id="filter-locacao-mode-input" class="form-control" placeholder="Digite a Locação (Ex: A-01)..." style="font-size: 1.2rem; padding: 10px;">
+                         </div>
+                         <div>
+                             <label for="filter-local-mode-select" style="font-weight: bold; display: block; margin-bottom: 5px;">Local (Galpão)</label>
+                             <select id="filter-local-mode-select" class="form-control" style="height: 48px;">
+                                 <option value="">Todos</option>
+                             </select>
+                         </div>
+                    </div>
+
                     <div class="table-wrapper">
-                        <table id="table-consultas" class="table">
+                        <!-- Table for Product Mode -->
+                        <table id="table-consultas" class="table mode-specific">
                             <thead>
                                 <tr>
                                     <th class="sortable" data-column="codigo">Código</th>
@@ -106,6 +131,33 @@
                                 <tr>
                                     <td colspan="7" style="text-align: right; font-weight: bold;">Valor Total do Estoque (Geral):</td>
                                     <td id="total-valor-estoque-geral" style="font-weight: bold;">R$ 0,00</td>
+                                    <td></td>
+                                </tr>
+                            </tfoot>
+                        </table>
+
+                        <!-- Table for Location Mode -->
+                        <table id="table-locacao-mode" class="table mode-specific" style="display: none;">
+                            <thead>
+                                <tr>
+                                    <th class="sortable" data-column="codigo">Código</th>
+                                    <th class="sortable" data-column="descricao">Descrição</th>
+                                    <th class="sortable" data-column="cor">Cor</th>
+                                    <th class="sortable" data-column="estoque">Estoque Atual</th>
+                                    <th>Reservado (Detalhado)</th>
+                                    <th class="sortable" data-column="un">UN</th>
+                                    <th class="sortable" data-column="custoMedio">Custo Un. Médio</th>
+                                    <th class="sortable" data-column="custoTotalLocacao">Custo Total Locação</th>
+                                    <th class="sortable" data-column="locacao">Locação</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                <!-- Data will be loaded here by JS -->
+                            </tbody>
+                             <tfoot>
+                                <tr>
+                                    <td colspan="7" style="text-align: right; font-weight: bold;">Total Valor na Locação:</td>
+                                    <td id="total-valor-locacao-mode" style="font-weight: bold;">R$ 0,00</td>
                                     <td></td>
                                 </tr>
                             </tfoot>
