@@ -1,0 +1,58 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Visualizar Local - Controle de Estoque</title>
+    <link rel="stylesheet" href="css/style.css">
+    <script src="https://cdn.jsdelivr.net/npm/feather-icons/dist/feather.min.js"></script>
+    <link href="https://cdnjs.cloudflare.com/ajax/libs/tailwindcss/2.2.19/tailwind.min.css" rel="stylesheet">
+    <style>
+        .table {
+            width: 100%;
+            border-collapse: collapse;
+        }
+        .table th, .table td {
+            border: 1px solid #ddd;
+            padding: 8px;
+            text-align: left;
+        }
+        .table th {
+            background-color: #f2f2f2;
+            font-weight: bold;
+        }
+    </style>
+</head>
+<body class="bg-gray-100 p-6">
+    <header class="mb-6">
+        <h1 class="text-2xl font-bold" id="page-title">Itens no Local</h1>
+        <p class="text-gray-600" id="local-subtitle">Carregando...</p>
+    </header>
+    <main class="bg-white rounded-lg shadow p-6">
+        <div class="overflow-x-auto">
+            <table id="table-local" class="table w-full">
+                <thead>
+                    <tr>
+                        <th>Código</th>
+                        <th>Descrição</th>
+                        <th>Cor</th>
+                        <th>Estoque Atual</th>
+                        <th>Reservado</th>
+                        <th>UN</th>
+                        <th>Locação</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    <!-- Data will be loaded here by JS -->
+                </tbody>
+            </table>
+        </div>
+        <div class="mt-4 text-center" id="loading-indicator">
+            Carregando dados...
+        </div>
+        <div class="mt-4 text-red-600 text-center" id="error-message" style="display: none;"></div>
+    </main>
+    <script type="module" src="js/ver-local.js"></script>
+    <script> feather.replace() </script>
+</body>
+</html>
