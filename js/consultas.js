@@ -4,8 +4,12 @@ import { collection, getDocs, doc, updateDoc, query, where } from "https://www.g
 document.addEventListener('DOMContentLoaded', async function() {
     console.log("Página de Consultas carregada.");
 
-    const tableBody = document.querySelector('#table-consultas tbody');
-    const filters = {
+    // --- Elementos de UI ---
+    const tableBodyProduto = document.querySelector('#table-consultas tbody');
+    const tableBodyLocacao = document.querySelector('#table-locacao-mode tbody');
+
+    // Filtros Produto
+    const filtersProduto = {
         codigo: document.getElementById('filter-codigo'),
         descricao: document.getElementById('filter-descricao'),
         cor: document.getElementById('filter-cor'),
@@ -14,14 +18,30 @@ document.addEventListener('DOMContentLoaded', async function() {
         comReserva: document.getElementById('filter-com-reserva')
     };
 
+    // Filtros Locação
+    const filtersLocacao = {
+        locacaoInput: document.getElementById('filter-locacao-mode-input'),
+        localSelect: document.getElementById('filter-local-mode-select')
+    };
+
+    // Toggle
+    const modeToggle = document.getElementById('mode-toggle');
+    const filtersProdutoContainer = document.getElementById('filters-produto');
+    const filtersLocacaoContainer = document.getElementById('filters-locacao');
+    const tableProdutoEl = document.getElementById('table-consultas');
+    const tableLocacaoEl = document.getElementById('table-locacao-mode');
+    const pageTitleMode = document.getElementById('page-title-mode');
+
+    // Estado Global
     let consolidatedData = [];
-    let globalMovementsByProduct = {}; // Armazena as movimentações por produto globalmente
-    let configData = {}; // Armazena configurações globais (locais, tipos, etc)
+    let globalMovementsByProduct = {};
+    let configData = {};
+    let currentMode = 'produto'; // 'produto' or 'locacao'
 
     // --- Estado da Ordenação ---
     let sortState = {
         column: null,
-        direction: 'asc' // or 'desc'
+        direction: 'asc'
     };
 
     // --- Elementos do Modal de Histórico ---
@@ -47,6 +67,39 @@ document.addEventListener('DOMContentLoaded', async function() {
         }
     };
 
+    // --- Inicialização do Toggle ---
+    modeToggle.addEventListener('change', () => {
+        currentMode = modeToggle.checked ? 'locacao' : 'produto';
+        updateModeUI();
+        applyFilters(); // Re-render based on new mode
+    });
+
+    function updateModeUI() {
+        if (currentMode === 'produto') {
+            filtersProdutoContainer.style.display = 'grid';
+            filtersLocacaoContainer.style.display = 'none';
+            tableProdutoEl.style.display = 'table';
+            tableLocacaoEl.style.display = 'none';
+            pageTitleMode.textContent = 'Consulta de Estoque e Valores';
+
+            document.getElementById('toggle-label-produto').style.color = '#0d6efd';
+            document.getElementById('toggle-label-produto').style.fontWeight = 'bold';
+            document.getElementById('toggle-label-locacao').style.color = '#6c757d';
+            document.getElementById('toggle-label-locacao').style.fontWeight = 'normal';
+        } else {
+            filtersProdutoContainer.style.display = 'none';
+            filtersLocacaoContainer.style.display = 'grid';
+            tableProdutoEl.style.display = 'none';
+            tableLocacaoEl.style.display = 'table';
+            pageTitleMode.textContent = 'Consulta por Locação / Endereço';
+
+            document.getElementById('toggle-label-produto').style.color = '#6c757d';
+            document.getElementById('toggle-label-produto').style.fontWeight = 'normal';
+            document.getElementById('toggle-label-locacao').style.color = '#0d6efd';
+            document.getElementById('toggle-label-locacao').style.fontWeight = 'bold';
+        }
+    }
+
     async function loadConfigData() {
         const [tiposEntradaSnapshot, tiposSaidaSnapshot, obrasSnapshot] = await Promise.all([
             getDocs(collection(db, 'tipos_entrada')),
@@ -64,9 +117,8 @@ document.addEventListener('DOMContentLoaded', async function() {
     }
 
     async function fetchDataAndCalculate() {
-        await loadConfigData(); // Carrega configs primeiro
+        await loadConfigData();
 
-        // 1. Busca todas as fontes de dados necessárias em paralelo.
         const [productsSnapshot, locaisSnapshot, movementsSnapshot, conversoesSnapshot] = await Promise.all([
             getDocs(query(collection(db, 'produtos'), where("arquivado", "!=", true))),
             getDocs(collection(db, 'locais')),
@@ -75,22 +127,23 @@ document.addEventListener('DOMContentLoaded', async function() {
         ]);
 
         configData.locais = {};
-        filters.local.innerHTML = '<option value="">Todos os Locais</option>';
+        filtersProduto.local.innerHTML = '<option value="">Todos os Locais</option>';
+        filtersLocacao.localSelect.innerHTML = '<option value="">Todos</option>';
+
         locaisSnapshot.forEach(doc => {
             configData.locais[doc.id] = doc.data();
-            // Popula o filtro de locais
-            const option = document.createElement('option');
-            option.value = doc.id;
-            option.textContent = doc.data().nome;
-            filters.local.appendChild(option);
+
+            const optionProd = document.createElement('option');
+            optionProd.value = doc.id;
+            optionProd.textContent = doc.data().nome;
+            filtersProduto.local.appendChild(optionProd);
+
+            const optionLoc = document.createElement('option');
+            optionLoc.value = doc.id;
+            optionLoc.textContent = doc.data().nome;
+            filtersLocacao.localSelect.appendChild(optionLoc);
         });
 
-        const conversoesMap = {};
-        conversoesSnapshot.forEach(doc => {
-            conversoesMap[doc.id] = doc.data();
-        });
-
-        // 2. Processa todas as movimentações para calcular o custo médio e as reservas.
         globalMovementsByProduct = {};
         movementsSnapshot.forEach(doc => {
             const mov = doc.data();
@@ -100,13 +153,11 @@ document.addEventListener('DOMContentLoaded', async function() {
             globalMovementsByProduct[mov.productId].push(mov);
         });
 
-        // 3. Mapeia os dados do produto e calcula os valores derivados.
         consolidatedData = productsSnapshot.docs.map(productDoc => {
             const product = productDoc.data();
             const productId = productDoc.id;
             const productMovements = globalMovementsByProduct[productId] || [];
 
-            // Ordena as movimentações por data para o cálculo correto do custo médio
             productMovements.sort((a, b) => a.data.toMillis() - b.data.toMillis());
 
             let totalQuantity = 0;
@@ -142,71 +193,118 @@ document.addEventListener('DOMContentLoaded', async function() {
             }
 
             return {
-                id: productId, // Adiciona o ID para referência no click
+                id: productId,
                 ...product,
                 estoque: estoqueAtual,
                 cor: product.cor || '-',
                 quantidadeReservada: reservedQuantity,
                 valorMedio: averageCost,
                 valorTotalEstoque: estoqueAtual * averageCost,
-                localDisplay: locacaoCompleta // Usado apenas para exibição na tabela principal
+                localDisplay: locacaoCompleta
             };
         });
 
-        // 4. Renderiza a tabela e calcula o total geral.
-        renderTable(consolidatedData);
-        calculateAndDisplayGlobalTotal(consolidatedData);
+        applyFilters();
     }
 
     // --- Event Listeners para Ordenação ---
     document.querySelectorAll('th.sortable').forEach(th => {
         th.addEventListener('click', () => {
             const column = th.dataset.column;
-
-            // Toggle direction if clicking same column, otherwise reset to asc
             if (sortState.column === column) {
                 sortState.direction = sortState.direction === 'asc' ? 'desc' : 'asc';
             } else {
                 sortState.column = column;
                 sortState.direction = 'asc';
             }
-
-            // Update UI
             document.querySelectorAll('th.sortable').forEach(h => {
                 h.classList.remove('sort-asc', 'sort-desc');
             });
             th.classList.add(`sort-${sortState.direction}`);
-
-            // Apply filters first (which calls renderTable, but we need to pass sorted data)
-            // Easier way: call applyFilters which filters consolidatedData then calls renderTable.
-            // But applyFilters doesn't know about sort.
-            // We should sort INSIDE renderTable or sort consolidatedData/filteredData before rendering.
-
-            // Let's re-apply filters which will trigger a render with the new sort state
             applyFilters();
         });
     });
 
-    function calculateAndDisplayGlobalTotal(data) {
-        const totalValorEstoqueGeral = data.reduce((acc, item) => acc + (item.valorTotalEstoque || 0), 0);
-        document.getElementById('total-valor-estoque-geral').textContent = totalValorEstoqueGeral.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' });
+    function calculateReservedDetailed(productId) {
+        // Find movements for this product that are RESERVATIONS
+        const movements = globalMovementsByProduct[productId] || [];
+        const reservations = movements.filter(m => m.tipo === 'reserva');
+
+        if (reservations.length === 0) return null;
+
+        const totalReserved = reservations.reduce((acc, m) => acc + m.quantidade, 0);
+
+        // Group by Obra
+        const byObra = {};
+        reservations.forEach(m => {
+            const obraName = configData.obras[m.obraId]?.nome || 'Obra Desconhecida';
+            if (!byObra[obraName]) byObra[obraName] = 0;
+            byObra[obraName] += m.quantidade;
+        });
+
+        const details = Object.entries(byObra).map(([name, qty]) => `${name}: ${qty}`).join(', ');
+        return `${totalReserved} (${details})`;
     }
 
-    function renderTable(data) {
-        tableBody.innerHTML = '';
-        let totalCustoFiltrado = 0;
+    function renderTableLocacao(data) {
+        tableBodyLocacao.innerHTML = '';
+        let totalValorLocacao = 0;
 
-        // Apply sorting
+        // Sorting logic similar to main table
         if (sortState.column) {
             data.sort((a, b) => {
                 let valA = a[sortState.column];
                 let valB = b[sortState.column];
-
-                // Handle null/undefined
                 if (valA === null || valA === undefined) valA = '';
                 if (valB === null || valB === undefined) valB = '';
+                if (['estoque', 'reservado', 'custoMedio', 'custoTotalLocacao'].includes(sortState.column)) {
+                    valA = Number(valA) || 0;
+                    valB = Number(valB) || 0;
+                } else {
+                    valA = valA.toString().toLowerCase();
+                    valB = valB.toString().toLowerCase();
+                }
+                if (valA < valB) return sortState.direction === 'asc' ? -1 : 1;
+                if (valA > valB) return sortState.direction === 'asc' ? 1 : -1;
+                return 0;
+            });
+        }
 
-                // Specific column handling if needed (numbers vs strings)
+        data.forEach(item => {
+            totalValorLocacao += item.custoTotalLocacao || 0;
+            const row = document.createElement('tr');
+            row.className = 'main-row cursor-pointer hover:bg-gray-100';
+            row.onclick = () => openHistoryModal(item);
+
+            const reservedDetail = calculateReservedDetailed(item.id);
+
+            row.innerHTML = `
+                <td>${item.codigo}</td>
+                <td>${item.descricao}</td>
+                <td>${item.cor}</td>
+                <td>${(item.estoqueNaLocacao || 0).toString().replace('.', ',')}</td>
+                <td>${reservedDetail || '0'}</td>
+                <td>${item.un}</td>
+                <td>${(item.valorMedio || 0).toFixed(3).replace('.', ',')}</td>
+                <td>${(item.custoTotalLocacao || 0).toFixed(2).replace('.', ',')}</td>
+                <td>${item.locacaoEspecifica} (${item.localNome})</td>
+            `;
+            tableBodyLocacao.appendChild(row);
+        });
+
+        document.getElementById('total-valor-locacao-mode').textContent = totalValorLocacao.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' });
+    }
+
+    function renderTableProduto(data) {
+        tableBodyProduto.innerHTML = '';
+        let totalCustoFiltrado = 0;
+
+        if (sortState.column) {
+            data.sort((a, b) => {
+                let valA = a[sortState.column];
+                let valB = b[sortState.column];
+                if (valA === null || valA === undefined) valA = '';
+                if (valB === null || valB === undefined) valB = '';
                 if (['estoque', 'reservado', 'custoMedio', 'custoTotal'].includes(sortState.column)) {
                     valA = Number(valA) || 0;
                     valB = Number(valB) || 0;
@@ -214,7 +312,6 @@ document.addEventListener('DOMContentLoaded', async function() {
                     valA = valA.toString().toLowerCase();
                     valB = valB.toString().toLowerCase();
                 }
-
                 if (valA < valB) return sortState.direction === 'asc' ? -1 : 1;
                 if (valA > valB) return sortState.direction === 'asc' ? 1 : -1;
                 return 0;
@@ -224,8 +321,8 @@ document.addEventListener('DOMContentLoaded', async function() {
         data.forEach(item => {
             totalCustoFiltrado += item.valorTotalEstoque || 0;
             const row = document.createElement('tr');
-            row.className = 'main-row cursor-pointer hover:bg-gray-100'; // Add cursor pointer for UX
-            row.onclick = () => openHistoryModal(item); // Attach click event
+            row.className = 'main-row cursor-pointer hover:bg-gray-100';
+            row.onclick = () => openHistoryModal(item);
 
             row.innerHTML = `
                 <td>${item.codigo}</td>
@@ -238,33 +335,105 @@ document.addEventListener('DOMContentLoaded', async function() {
                 <td>${(item.valorTotalEstoque || 0).toFixed(2).replace('.', ',')}</td>
                 <td>${item.localDisplay}</td>
             `;
-            tableBody.appendChild(row);
+            tableBodyProduto.appendChild(row);
         });
         document.getElementById('total-custo-estoque').textContent = totalCustoFiltrado.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' });
+        document.getElementById('total-valor-estoque-geral').textContent = consolidatedData.reduce((acc, i) => acc + (i.valorTotalEstoque || 0), 0).toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' });
         feather.replace();
     }
 
-    // --- Funções do Modal de Histórico ---
+    function applyFilters() {
+        if (currentMode === 'produto') {
+            const filterValues = {
+                codigo: filtersProduto.codigo.value.toLowerCase(),
+                descricao: filtersProduto.descricao.value.toLowerCase(),
+                cor: filtersProduto.cor.value.toLowerCase(),
+                local: filtersProduto.local.value,
+                locacao: filtersProduto.locacao.value.toLowerCase(),
+                comReserva: filtersProduto.comReserva.checked
+            };
 
+            const filteredData = consolidatedData.filter(item => {
+                const matchesCodigo = (item.codigo || '').toLowerCase().includes(filterValues.codigo);
+                const matchesDescricao = (item.descricao || '').toLowerCase().includes(filterValues.descricao);
+                const matchesCor = (item.cor || '').toLowerCase().includes(filterValues.cor);
+                if (filterValues.comReserva && (item.quantidadeReservada || 0) <= 0) return false;
+
+                let matchesLocalLocacao = true;
+                if (filterValues.local || filterValues.locacao) {
+                    if (!item.locacoes || item.locacoes.length === 0) {
+                        matchesLocalLocacao = false;
+                    } else {
+                        matchesLocalLocacao = item.locacoes.some(loc => {
+                            const localMatch = !filterValues.local || loc.localId === filterValues.local;
+                            const locacaoMatch = !filterValues.locacao || (loc.locacao || '').toLowerCase().includes(filterValues.locacao);
+                            return localMatch && locacaoMatch;
+                        });
+                    }
+                }
+                return matchesCodigo && matchesDescricao && matchesCor && matchesLocalLocacao;
+            });
+            renderTableProduto(filteredData);
+
+        } else {
+            // Locacao Mode Logic
+            const locacaoSearch = filtersLocacao.locacaoInput.value.toLowerCase();
+            const localFilter = filtersLocacao.localSelect.value;
+
+            if (!locacaoSearch && !localFilter) {
+                // If no filter, show empty or all? Showing empty is safer for performance/cleanliness.
+                // But user might want to see something. Let's show all expanded if they select a Warehouse.
+                // If nothing selected, maybe just return empty or recent.
+                // Requirement: "Lista de Materiais (Tabela): Após a seleção/inserção de uma Locação..."
+                // Implies user MUST search.
+            }
+
+            let flattenedData = [];
+
+            consolidatedData.forEach(product => {
+                if (product.locacoes && Array.isArray(product.locacoes)) {
+                    product.locacoes.forEach(loc => {
+                        const localNome = configData.locais[loc.localId]?.nome || 'Desconhecido';
+                        const locacaoNome = (loc.locacao || '').toLowerCase();
+
+                        // Check filters
+                        const matchesLocal = !localFilter || loc.localId === localFilter;
+                        const matchesLocacao = !locacaoSearch || locacaoNome.includes(locacaoSearch);
+
+                        if (matchesLocal && matchesLocacao) {
+                            flattenedData.push({
+                                ...product,
+                                estoqueNaLocacao: loc.estoque,
+                                locacaoEspecifica: loc.locacao || 'N/A',
+                                localNome: localNome,
+                                custoTotalLocacao: (loc.estoque || 0) * (product.valorMedio || 0)
+                            });
+                        }
+                    });
+                }
+            });
+
+            renderTableLocacao(flattenedData);
+        }
+    }
+
+    // Attach listeners
+    Object.values(filtersProduto).forEach(input => input.addEventListener(input.type === 'checkbox' ? 'change' : 'input', applyFilters));
+    Object.values(filtersLocacao).forEach(input => input.addEventListener('input', applyFilters));
+
+
+    // --- Funções do Modal de Histórico ---
     function openHistoryModal(productItem) {
         currentProductData = productItem;
         historyModalTitle.textContent = `${productItem.codigo} - ${productItem.descricao}`;
         historyModal.style.display = 'block';
-
-        // Carrega movimentos brutos
         const rawMovements = globalMovementsByProduct[productItem.id] || [];
-
-        // Popula filtros iniciais com base nos dados disponíveis
         populateHistoryFilters(productItem, rawMovements);
-
-        // Processa movimentos para exibição (calculando custos históricos)
         currentProductHistory = processMovementsForHistory(rawMovements, productItem);
-
         renderHistoryTable(currentProductHistory);
     }
 
     function populateHistoryFilters(productItem, movements) {
-        // Filtro Local
         historyFilterLocal.innerHTML = '<option value="">Todos</option>';
         if (productItem.locacoes) {
             const locaisIds = [...new Set(productItem.locacoes.map(l => l.localId))];
@@ -274,7 +443,6 @@ document.addEventListener('DOMContentLoaded', async function() {
             });
         }
 
-        // Filtro Locação
         historyFilterLocacao.innerHTML = '<option value="">Todas</option>';
         if (productItem.locacoes) {
             const locacoesNomes = [...new Set(productItem.locacoes.map(l => l.locacao))];
@@ -283,13 +451,11 @@ document.addEventListener('DOMContentLoaded', async function() {
             });
         }
 
-        // Filtro Sub-Tipo (Dinâmico baseado nas configs e uso)
-        historyFilterSubtipo.innerHTML = ''; // Limpa
+        historyFilterSubtipo.innerHTML = '';
         const subTipos = new Set();
         subTipos.add('Importação NF');
         Object.values(configData.tipos_entrada || {}).forEach(t => subTipos.add(t.nome));
         Object.values(configData.tipos_saida || {}).forEach(t => subTipos.add(t.nome));
-
         subTipos.forEach(st => {
             const option = document.createElement('option');
             option.value = st;
@@ -299,9 +465,7 @@ document.addEventListener('DOMContentLoaded', async function() {
     }
 
     function processMovementsForHistory(movements, productItem) {
-        // Ordena por data
         movements.sort((a, b) => a.data.toMillis() - b.data.toMillis());
-
         let totalQuantity = 0;
         let totalCost = 0;
 
@@ -309,34 +473,26 @@ document.addEventListener('DOMContentLoaded', async function() {
             let custoUnitarioMedio = 0;
             let custoTotalMov = 0;
 
-            // Recalcula o custo médio histórico passo-a-passo
             if (mov.tipo === 'entrada' && mov.quantidade > 0) {
-                 // Lógica simplificada de custo total de entrada se não tiver o campo explícito
                 let valorTotalEntrada = mov.custo_total_entrada;
                 if (valorTotalEntrada === undefined) {
                     valorTotalEntrada = (mov.quantidade_compra * (mov.valor_unitario || 0)) + (mov.icms || 0) + (mov.ipi || 0) + (mov.frete || 0);
                 }
-
                 totalCost += valorTotalEntrada;
                 totalQuantity += mov.quantidade;
-
                 custoUnitarioMedio = valorTotalEntrada / mov.quantidade;
                 custoTotalMov = valorTotalEntrada;
 
             } else if (mov.tipo === 'saida') {
                 const currentAvgCost = totalQuantity > 0 ? totalCost / totalQuantity : 0;
-                // Saída usa o custo médio atual
                 custoUnitarioMedio = currentAvgCost;
                 custoTotalMov = mov.quantidade * currentAvgCost;
-
                 totalCost -= custoTotalMov;
                 totalQuantity -= mov.quantidade;
             }
 
-            // Resolve Sub-tipo e Obra
             let subTipo = '-';
             const isXmlImport = mov.observacao && mov.observacao.includes('Importado via XML');
-
             if (isXmlImport) {
                 subTipo = 'Importação NF';
             } else if (mov.tipo === 'entrada' && mov.tipo_entradaId) {
@@ -346,7 +502,6 @@ document.addEventListener('DOMContentLoaded', async function() {
             }
 
             const obraNome = configData.obras?.[mov.obraId]?.nome || '-';
-
             return {
                 raw: mov,
                 data: mov.data ? new Date(mov.data.seconds * 1000).toLocaleString('pt-BR') : '',
@@ -362,46 +517,34 @@ document.addEventListener('DOMContentLoaded', async function() {
                 requisitante: mov.requisitante || '-',
                 obra: obraNome,
                 obs: mov.observacao || '-',
-                localId: getLocalIdFromMovement(mov, productItem), // Helper para tentar identificar o local
-                locacao: mov.locacao // A movimentação tem o campo locacao salvo
+                localId: getLocalIdFromMovement(mov, productItem),
+                locacao: mov.locacao
             };
         });
     }
 
-    // Tenta inferir o Local ID baseada na locação da movimentação e no cadastro do produto
     function getLocalIdFromMovement(mov, product) {
         if (!mov.locacao) return null;
-        // Procura no cadastro do produto uma locação com esse nome
         const locData = product.locacoes?.find(l => l.locacao === mov.locacao);
         return locData ? locData.localId : null;
     }
 
     function renderHistoryTable(historyData) {
         historyTableBody.innerHTML = '';
-
-        // Filtros
         const localFilter = historyFilterLocal.value;
         const locacaoFilter = historyFilterLocacao.value;
-
         const selectedTipos = Array.from(historyFilterTipo.selectedOptions).map(opt => opt.value);
         const selectedSubTipos = Array.from(historyFilterSubtipo.selectedOptions).map(opt => opt.value);
 
         const filteredHistory = historyData.filter(item => {
-            // Filtro de Local (Complexo pois a mov nem sempre tem localId explicito, mas tentamos inferir)
             if (localFilter && item.localId !== localFilter) return false;
-
             if (locacaoFilter && item.locacao !== locacaoFilter) return false;
-
             if (selectedTipos.length > 0 && !selectedTipos.includes(item.tipo)) return false;
-
             if (selectedSubTipos.length > 0 && !selectedSubTipos.includes(item.subTipo)) return false;
-
             return true;
         });
 
-        // Inverte ordem para mostrar mais recente primeiro na tabela
         const displayData = [...filteredHistory].reverse();
-
         displayData.forEach(item => {
             const row = document.createElement('tr');
             row.innerHTML = `
@@ -423,59 +566,14 @@ document.addEventListener('DOMContentLoaded', async function() {
         });
     }
 
-    // Event Listeners para os filtros do modal
+    // Modal listeners
     historyFilterLocal.addEventListener('change', () => renderHistoryTable(currentProductHistory));
     historyFilterLocacao.addEventListener('change', () => renderHistoryTable(currentProductHistory));
     historyFilterTipo.addEventListener('change', () => renderHistoryTable(currentProductHistory));
     historyFilterSubtipo.addEventListener('change', () => renderHistoryTable(currentProductHistory));
 
-
-    function applyFilters() {
-        const filterValues = {
-            codigo: filters.codigo.value.toLowerCase(),
-            descricao: filters.descricao.value.toLowerCase(),
-            cor: filters.cor.value.toLowerCase(),
-            local: filters.local.value, // Select uses exact value (ID)
-            locacao: filters.locacao.value.toLowerCase(),
-            comReserva: filters.comReserva.checked
-        };
-
-        const filteredData = consolidatedData.filter(item => {
-            const matchesCodigo = (item.codigo || '').toLowerCase().includes(filterValues.codigo);
-            const matchesDescricao = (item.descricao || '').toLowerCase().includes(filterValues.descricao);
-            const matchesCor = (item.cor || '').toLowerCase().includes(filterValues.cor);
-
-            // Filtro de Reserva
-            if (filterValues.comReserva && (item.quantidadeReservada || 0) <= 0) {
-                return false;
-            }
-
-            // Filtro de Local e Locação (verifica se alguma das locações do produto atende)
-            // Se não houver filtro de local nem locação, passa direto nesta checagem
-            let matchesLocalLocacao = true;
-
-            if (filterValues.local || filterValues.locacao) {
-                if (!item.locacoes || item.locacoes.length === 0) {
-                    matchesLocalLocacao = false; // Se filtrar por local/locação e produto não tiver, falha
-                } else {
-                    matchesLocalLocacao = item.locacoes.some(loc => {
-                        const localMatch = !filterValues.local || loc.localId === filterValues.local;
-                        const locacaoMatch = !filterValues.locacao || (loc.locacao || '').toLowerCase().includes(filterValues.locacao);
-                        return localMatch && locacaoMatch;
-                    });
-                }
-            }
-
-            return matchesCodigo && matchesDescricao && matchesCor && matchesLocalLocacao;
-        });
-
-        renderTable(filteredData);
-    }
-
-    Object.values(filters).forEach(input => input.addEventListener(input.type === 'checkbox' ? 'change' : 'input', applyFilters));
-
     fetchDataAndCalculate().catch(error => {
         console.error("Erro ao carregar dados da consulta:", error);
-        tableBody.innerHTML = `<tr><td colspan="10" style="text-align:center; color: red;">Erro ao carregar dados: ${error.message}</td></tr>`;
+        tableBodyProduto.innerHTML = `<tr><td colspan="10" style="text-align:center; color: red;">Erro ao carregar dados: ${error.message}</td></tr>`;
     });
 });
