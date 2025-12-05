@@ -4,7 +4,20 @@ import { collection, getDocs, doc, updateDoc, query, where } from "https://www.g
 document.addEventListener('DOMContentLoaded', async function() {
     console.log("Página de Consultas carregada.");
 
+    // --- Elementos UI Gerais ---
     const tableBody = document.querySelector('#table-consultas tbody');
+    const tableHeadersRow = document.getElementById('table-headers');
+
+    // Toggle Switch
+    const toggleSwitch = document.getElementById('consultas-toggle');
+    const labelProduto = document.getElementById('toggle-label-produto');
+    const labelLocacao = document.getElementById('toggle-label-locacao');
+    const filtersProduto = document.getElementById('filters-produto');
+    const filtersLocacao = document.getElementById('filters-locacao');
+    const footerLabelColspan = document.getElementById('footer-label-colspan');
+    const footerGeneralLabelColspan = document.getElementById('footer-general-label-colspan');
+
+    // Filtros Produto
     const filters = {
         codigo: document.getElementById('filter-codigo'),
         descricao: document.getElementById('filter-descricao'),
@@ -14,9 +27,16 @@ document.addEventListener('DOMContentLoaded', async function() {
         comReserva: document.getElementById('filter-com-reserva')
     };
 
-    let consolidatedData = [];
-    let globalMovementsByProduct = {}; // Armazena as movimentações por produto globalmente
-    let configData = {}; // Armazena configurações globais (locais, tipos, etc)
+    // Filtros Locação
+    const filterLocacaoInput = document.getElementById('filter-locacao-mode-input');
+    const locacoesDatalist = document.getElementById('locacoes-datalist');
+
+    // --- Estado da Aplicação ---
+    let currentMode = 'produto'; // 'produto' ou 'locacao'
+    let consolidatedData = []; // Dados processados dos produtos (usado no modo Produto)
+    let globalMovementsByProduct = {}; // Armazena todas movimentações por produto (usado em ambos)
+    let configData = {}; // Configurações globais
+    let allLocationsList = new Set(); // Lista única de todas as locações encontradas nos produtos
 
     // --- Estado da Ordenação ---
     let sortState = {
@@ -46,6 +66,8 @@ document.addEventListener('DOMContentLoaded', async function() {
             historyModal.style.display = 'none';
         }
     };
+
+    // --- Inicialização e Carregamento de Dados ---
 
     async function loadConfigData() {
         const [tiposEntradaSnapshot, tiposSaidaSnapshot, obrasSnapshot] = await Promise.all([
@@ -100,13 +122,15 @@ document.addEventListener('DOMContentLoaded', async function() {
             globalMovementsByProduct[mov.productId].push(mov);
         });
 
+        allLocationsList.clear();
+
         // 3. Mapeia os dados do produto e calcula os valores derivados.
         consolidatedData = productsSnapshot.docs.map(productDoc => {
             const product = productDoc.data();
             const productId = productDoc.id;
             const productMovements = globalMovementsByProduct[productId] || [];
 
-            // Ordena as movimentações por data para o cálculo correto do custo médio
+            // Ordena as movimentações por data
             productMovements.sort((a, b) => a.data.toMillis() - b.data.toMillis());
 
             let totalQuantity = 0;
@@ -133,6 +157,12 @@ document.addEventListener('DOMContentLoaded', async function() {
             let locacaoCompleta = 'N/A';
             if (product.locacoes && Array.isArray(product.locacoes)) {
                 estoqueAtual = product.locacoes.reduce((acc, loc) => acc + (loc.estoque || 0), 0);
+
+                // Coleta todas as locações para o Datalist
+                product.locacoes.forEach(loc => {
+                    if (loc.locacao) allLocationsList.add(loc.locacao);
+                });
+
                 if (product.locacoes.length > 0) {
                     locacaoCompleta = product.locacoes.map(loc => {
                         const localNome = configData.locais[loc.localId]?.nome || 'Desconhecido';
@@ -142,50 +172,291 @@ document.addEventListener('DOMContentLoaded', async function() {
             }
 
             return {
-                id: productId, // Adiciona o ID para referência no click
+                id: productId, // ID do Firestore
                 ...product,
                 estoque: estoqueAtual,
                 cor: product.cor || '-',
                 quantidadeReservada: reservedQuantity,
                 valorMedio: averageCost,
                 valorTotalEstoque: estoqueAtual * averageCost,
-                localDisplay: locacaoCompleta // Usado apenas para exibição na tabela principal
+                localDisplay: locacaoCompleta
             };
         });
 
-        // 4. Renderiza a tabela e calcula o total geral.
-        renderTable(consolidatedData);
+        // Popula o Datalist de Locações
+        locacoesDatalist.innerHTML = '';
+        Array.from(allLocationsList).sort().forEach(loc => {
+            const option = document.createElement('option');
+            option.value = loc;
+            locacoesDatalist.appendChild(option);
+        });
+
+        // Renderiza a tabela inicial (Modo Produto)
+        applyFilters();
         calculateAndDisplayGlobalTotal(consolidatedData);
     }
 
-    // --- Event Listeners para Ordenação ---
-    document.querySelectorAll('th.sortable').forEach(th => {
-        th.addEventListener('click', () => {
-            const column = th.dataset.column;
+    // --- Lógica de Toggle (Alternar Modos) ---
+    toggleSwitch.addEventListener('change', function() {
+        if (this.checked) {
+            // Modo Locação
+            currentMode = 'locacao';
+            labelProduto.style.color = '#6c757d';
+            labelProduto.style.fontWeight = 'normal';
+            labelLocacao.style.color = '#0d6efd';
+            labelLocacao.style.fontWeight = 'bold';
 
-            // Toggle direction if clicking same column, otherwise reset to asc
-            if (sortState.column === column) {
-                sortState.direction = sortState.direction === 'asc' ? 'desc' : 'asc';
-            } else {
-                sortState.column = column;
-                sortState.direction = 'asc';
-            }
+            filtersProduto.style.display = 'none';
+            filtersLocacao.style.display = 'grid';
 
-            // Update UI
-            document.querySelectorAll('th.sortable').forEach(h => {
-                h.classList.remove('sort-asc', 'sort-desc');
-            });
-            th.classList.add(`sort-${sortState.direction}`);
+            // Limpa tabela até selecionar locação
+            tableBody.innerHTML = '<tr><td colspan="9" style="text-align:center; padding: 20px;">Selecione ou digite um endereço acima para visualizar os itens.</td></tr>';
+            document.getElementById('total-custo-estoque').textContent = 'R$ 0,00';
 
-            // Apply filters first (which calls renderTable, but we need to pass sorted data)
-            // Easier way: call applyFilters which filters consolidatedData then calls renderTable.
-            // But applyFilters doesn't know about sort.
-            // We should sort INSIDE renderTable or sort consolidatedData/filteredData before rendering.
+            // Re-render Headers para Modo Locação
+            renderHeadersForLocationMode();
 
-            // Let's re-apply filters which will trigger a render with the new sort state
+        } else {
+            // Modo Produto
+            currentMode = 'produto';
+            labelProduto.style.color = '#0d6efd';
+            labelProduto.style.fontWeight = 'bold';
+            labelLocacao.style.color = '#6c757d';
+            labelLocacao.style.fontWeight = 'normal';
+
+            filtersLocacao.style.display = 'none';
+            filtersProduto.style.display = 'grid';
+
+            // Re-render Headers para Modo Produto
+            renderHeadersForProductMode();
+
+            // Re-aplica filtros e renderiza dados de produto
             applyFilters();
-        });
+        }
     });
+
+    function renderHeadersForProductMode() {
+        tableHeadersRow.innerHTML = `
+            <th class="sortable" data-column="codigo">Código</th>
+            <th class="sortable" data-column="descricao">Descrição</th>
+            <th class="sortable" data-column="cor">Cor</th>
+            <th class="sortable" data-column="estoque">Estoque Atual</th>
+            <th class="sortable" data-column="reservado">Reservado</th>
+            <th class="sortable" data-column="unidade">UN</th>
+            <th class="sortable" data-column="custoMedio">Custo Un. Médio</th>
+            <th class="sortable" data-column="custoTotal">Custo Total Estoque</th>
+            <th class="sortable" data-column="locacao">Locação</th>
+        `;
+        setupSortListeners();
+        footerLabelColspan.setAttribute('colspan', '7');
+        footerGeneralLabelColspan.setAttribute('colspan', '7');
+    }
+
+    function renderHeadersForLocationMode() {
+        tableHeadersRow.innerHTML = `
+            <th class="sortable" data-column="codigo">Código</th>
+            <th class="sortable" data-column="descricao">Descrição</th>
+            <th class="sortable" data-column="cor">Cor</th>
+            <th class="sortable" data-column="estoqueLocacao">Estoque Local</th>
+            <th class="sortable" data-column="reservadoDetalhado">Reservado (Detalhado)</th>
+            <th class="sortable" data-column="unidade">UN</th>
+            <th class="sortable" data-column="custoMedio">Custo Un. Médio</th>
+            <th class="sortable" data-column="custoTotalLocacao">Custo Total Local</th>
+            <th class="sortable" data-column="locacaoConfirmacao">Locação</th>
+        `;
+        setupSortListeners();
+        footerLabelColspan.setAttribute('colspan', '7');
+        footerGeneralLabelColspan.setAttribute('colspan', '7');
+    }
+
+    function setupSortListeners() {
+        document.querySelectorAll('th.sortable').forEach(th => {
+            th.addEventListener('click', () => {
+                const column = th.dataset.column;
+                if (sortState.column === column) {
+                    sortState.direction = sortState.direction === 'asc' ? 'desc' : 'asc';
+                } else {
+                    sortState.column = column;
+                    sortState.direction = 'asc';
+                }
+                document.querySelectorAll('th.sortable').forEach(h => h.classList.remove('sort-asc', 'sort-desc'));
+                th.classList.add(`sort-${sortState.direction}`);
+
+                if (currentMode === 'produto') {
+                    applyFilters();
+                } else {
+                    filterByLocation(filterLocacaoInput.value);
+                }
+            });
+        });
+    }
+
+    // --- Lógica de Filtro Modo Locação ---
+    filterLocacaoInput.addEventListener('input', (e) => {
+        const locacao = e.target.value;
+        if (locacao && locacao.length > 0) {
+            filterByLocation(locacao);
+        } else {
+             tableBody.innerHTML = '<tr><td colspan="9" style="text-align:center; padding: 20px;">Selecione ou digite um endereço acima para visualizar os itens.</td></tr>';
+             document.getElementById('total-custo-estoque').textContent = 'R$ 0,00';
+        }
+    });
+
+    function filterByLocation(locacaoSearch) {
+        if (!locacaoSearch) return;
+        const searchNormal = locacaoSearch.toLowerCase().trim();
+
+        // 1. Filtra produtos que tenham a locação exata ou parcial?
+        // O requisito diz "Lista de Materiais... presentes naquele endereço específico".
+        // Vamos buscar match exato primeiro, ou startsWith para ser mais útil (ex: '1-A' traz '1-A-01'?)
+        // O prompt diz "Selecionar ou digitar o ID da Locação". "Tabela deve ser carregada listando todos os materiais presentes naquele endereço específico".
+        // Vou assumir que deve ser um match mais estrito para ser uma "Consulta de Endereço".
+        // Mas para usabilidade, 'includes' é melhor. Vamos usar 'includes' para flexibilidade.
+
+        const locationData = [];
+
+        consolidatedData.forEach(product => {
+            if (!product.locacoes) return;
+
+            // Encontra se o produto tem estoque na locação pesquisada
+            // Pode haver multiplas entradas de locação para o mesmo produto? Sim (locais diferentes).
+            // Mas aqui estamos filtrando POR LOCACAO (string de endereço).
+
+            // Filtra as entradas de locação deste produto que batem com a pesquisa
+            const matchingLocs = product.locacoes.filter(loc =>
+                (loc.locacao || '').toLowerCase() === searchNormal ||
+                (loc.locacao || '').toLowerCase().includes(searchNormal)
+            );
+
+            if (matchingLocs.length > 0) {
+                // Calcula estoque TOTAL NESTA LOCAÇÃO (pode ter duplicidade se filtro for amplo, mas normalmente é 1 por produto/local)
+                const estoqueNestaLocacao = matchingLocs.reduce((acc, l) => acc + (l.estoque || 0), 0);
+
+                if (estoqueNestaLocacao > 0 || product.quantidadeReservada > 0) { // Mostra se tem estoque OU reserva?
+                    // Requisito: "listando todos os materiais presentes naquele endereço" -> Implica estoque > 0.
+                    // Mas e se tiver reserva mas estoque 0? Pode estar "presente" logisticamente. Vamos manter se estoque > 0.
+                    if (estoqueNestaLocacao <= 0) return;
+
+                    // Calcula Reservado Detalhado
+                    const { totalReservado, detalheReserva } = calculateDetailedReservations(product, searchNormal);
+
+                    locationData.push({
+                        ...product,
+                        estoqueLocacao: estoqueNestaLocacao,
+                        custoTotalLocacao: estoqueNestaLocacao * product.valorMedio,
+                        locacaoConfirmacao: matchingLocs.map(l => l.locacao).join(', '),
+                        reservadoDetalhadoTotal: totalReservado,
+                        reservadoDetalhadoDesc: detalheReserva
+                    });
+                }
+            }
+        });
+
+        renderLocationTable(locationData);
+    }
+
+    function calculateDetailedReservations(product, locacaoFilter) {
+        // "Fonte dos Dados: Histórico de movimentação... agregar as reservas por Obra para o material NAQUELA LOCAÇÃO."
+        // Isso é difícil pois 'reserva' não necessariamente tem 'locacao' preenchida se for uma reserva geral.
+        // Mas o sistema salva locação na reserva se especificado.
+        // Se a reserva não tiver locação, ela conta para o produto como um todo.
+        // Se a instrução diz "para o material naquela Locação", devo filtrar movs de reserva que tenham ESSA locação?
+        // Memória: "When creating a reservation... system must explicitly save the locacao field".
+        // Então podemos filtrar movs de reserva pela locacao também.
+
+        const movements = globalMovementsByProduct[product.id] || [];
+        const reservationsByObra = {};
+        let totalReservado = 0;
+
+        movements.forEach(mov => {
+            if (mov.tipo === 'reserva') {
+                // Verifica se a reserva é para esta locação (ou se locação é vazia/nula conta? Melhor ser estrito se o filtro é por endereço)
+                // Se filtro for '1-A', e reserva for '1-A', conta.
+                const movLoc = (mov.locacao || '').toLowerCase();
+                if (movLoc.includes(locacaoFilter)) {
+                    totalReservado += mov.quantidade;
+                    const obraName = configData.obras[mov.obraId]?.nome || 'Sem Obra';
+                    reservationsByObra[obraName] = (reservationsByObra[obraName] || 0) + mov.quantidade;
+                }
+            }
+        });
+
+        // Formata detalhe: "15 (Obra A: 10, Obra B: 5)"
+        let descParts = [];
+        for (const [obra, qtd] of Object.entries(reservationsByObra)) {
+            descParts.push(`${obra}: ${qtd}`);
+        }
+
+        let detalheStr = totalReservado.toString();
+        if (descParts.length > 0) {
+            detalheStr += ` (${descParts.join(', ')})`;
+        } else if (totalReservado > 0) {
+            // Se tem reserva mas não achou obra (improvável)
+             detalheStr += ` (Geral)`;
+        }
+
+        return { totalReservado, detalheReserva: detalheStr };
+    }
+
+    function renderLocationTable(data) {
+        tableBody.innerHTML = '';
+        let totalCustoLocacao = 0;
+
+        // Apply sorting
+        if (sortState.column) {
+            data.sort((a, b) => {
+                let valA = a[sortState.column];
+                let valB = b[sortState.column];
+
+                // Mapeia colunas especificas
+                if (sortState.column === 'reservadoDetalhado') {
+                    valA = a.reservadoDetalhadoTotal;
+                    valB = b.reservadoDetalhadoTotal;
+                }
+
+                if (valA === null || valA === undefined) valA = '';
+                if (valB === null || valB === undefined) valB = '';
+
+                if (['estoqueLocacao', 'reservadoDetalhadoTotal', 'custoMedio', 'custoTotalLocacao'].includes(sortState.column) || typeof valA === 'number') {
+                    valA = Number(valA) || 0;
+                    valB = Number(valB) || 0;
+                } else {
+                    valA = valA.toString().toLowerCase();
+                    valB = valB.toString().toLowerCase();
+                }
+
+                if (valA < valB) return sortState.direction === 'asc' ? -1 : 1;
+                if (valA > valB) return sortState.direction === 'asc' ? 1 : -1;
+                return 0;
+            });
+        }
+
+        data.forEach(item => {
+            totalCustoLocacao += item.custoTotalLocacao || 0;
+            const row = document.createElement('tr');
+            row.className = 'main-row cursor-pointer hover:bg-gray-100';
+            row.onclick = () => openHistoryModal(item);
+
+            row.innerHTML = `
+                <td>${item.codigo}</td>
+                <td>${item.descricao}</td>
+                <td>${item.cor}</td>
+                <td style="font-weight: bold;">${(item.estoqueLocacao || 0).toString().replace('.', ',')}</td>
+                <td>${item.reservadoDetalhadoDesc || '0'}</td>
+                <td>${item.un}</td>
+                <td>${(item.valorMedio || 0).toFixed(3).replace('.', ',')}</td>
+                <td>${(item.custoTotalLocacao || 0).toFixed(2).replace('.', ',')}</td>
+                <td>${item.locacaoConfirmacao}</td>
+            `;
+            tableBody.appendChild(row);
+        });
+
+        document.getElementById('total-custo-estoque').textContent = totalCustoLocacao.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' });
+        feather.replace();
+    }
+
+
+    // --- Funções Comuns e Modo Produto (Originais) ---
 
     function calculateAndDisplayGlobalTotal(data) {
         const totalValorEstoqueGeral = data.reduce((acc, item) => acc + (item.valorTotalEstoque || 0), 0);
@@ -193,6 +464,8 @@ document.addEventListener('DOMContentLoaded', async function() {
     }
 
     function renderTable(data) {
+        if (currentMode !== 'produto') return;
+
         tableBody.innerHTML = '';
         let totalCustoFiltrado = 0;
 
@@ -202,11 +475,9 @@ document.addEventListener('DOMContentLoaded', async function() {
                 let valA = a[sortState.column];
                 let valB = b[sortState.column];
 
-                // Handle null/undefined
                 if (valA === null || valA === undefined) valA = '';
                 if (valB === null || valB === undefined) valB = '';
 
-                // Specific column handling if needed (numbers vs strings)
                 if (['estoque', 'reservado', 'custoMedio', 'custoTotal'].includes(sortState.column)) {
                     valA = Number(valA) || 0;
                     valB = Number(valB) || 0;
@@ -224,8 +495,8 @@ document.addEventListener('DOMContentLoaded', async function() {
         data.forEach(item => {
             totalCustoFiltrado += item.valorTotalEstoque || 0;
             const row = document.createElement('tr');
-            row.className = 'main-row cursor-pointer hover:bg-gray-100'; // Add cursor pointer for UX
-            row.onclick = () => openHistoryModal(item); // Attach click event
+            row.className = 'main-row cursor-pointer hover:bg-gray-100';
+            row.onclick = () => openHistoryModal(item);
 
             row.innerHTML = `
                 <td>${item.codigo}</td>
@@ -251,20 +522,13 @@ document.addEventListener('DOMContentLoaded', async function() {
         historyModalTitle.textContent = `${productItem.codigo} - ${productItem.descricao}`;
         historyModal.style.display = 'block';
 
-        // Carrega movimentos brutos
         const rawMovements = globalMovementsByProduct[productItem.id] || [];
-
-        // Popula filtros iniciais com base nos dados disponíveis
         populateHistoryFilters(productItem, rawMovements);
-
-        // Processa movimentos para exibição (calculando custos históricos)
         currentProductHistory = processMovementsForHistory(rawMovements, productItem);
-
         renderHistoryTable(currentProductHistory);
     }
 
     function populateHistoryFilters(productItem, movements) {
-        // Filtro Local
         historyFilterLocal.innerHTML = '<option value="">Todos</option>';
         if (productItem.locacoes) {
             const locaisIds = [...new Set(productItem.locacoes.map(l => l.localId))];
@@ -274,7 +538,6 @@ document.addEventListener('DOMContentLoaded', async function() {
             });
         }
 
-        // Filtro Locação
         historyFilterLocacao.innerHTML = '<option value="">Todas</option>';
         if (productItem.locacoes) {
             const locacoesNomes = [...new Set(productItem.locacoes.map(l => l.locacao))];
@@ -283,8 +546,7 @@ document.addEventListener('DOMContentLoaded', async function() {
             });
         }
 
-        // Filtro Sub-Tipo (Dinâmico baseado nas configs e uso)
-        historyFilterSubtipo.innerHTML = ''; // Limpa
+        historyFilterSubtipo.innerHTML = '';
         const subTipos = new Set();
         subTipos.add('Importação NF');
         Object.values(configData.tipos_entrada || {}).forEach(t => subTipos.add(t.nome));
@@ -299,7 +561,6 @@ document.addEventListener('DOMContentLoaded', async function() {
     }
 
     function processMovementsForHistory(movements, productItem) {
-        // Ordena por data
         movements.sort((a, b) => a.data.toMillis() - b.data.toMillis());
 
         let totalQuantity = 0;
@@ -309,31 +570,24 @@ document.addEventListener('DOMContentLoaded', async function() {
             let custoUnitarioMedio = 0;
             let custoTotalMov = 0;
 
-            // Recalcula o custo médio histórico passo-a-passo
             if (mov.tipo === 'entrada' && mov.quantidade > 0) {
-                 // Lógica simplificada de custo total de entrada se não tiver o campo explícito
                 let valorTotalEntrada = mov.custo_total_entrada;
                 if (valorTotalEntrada === undefined) {
                     valorTotalEntrada = (mov.quantidade_compra * (mov.valor_unitario || 0)) + (mov.icms || 0) + (mov.ipi || 0) + (mov.frete || 0);
                 }
-
                 totalCost += valorTotalEntrada;
                 totalQuantity += mov.quantidade;
-
                 custoUnitarioMedio = valorTotalEntrada / mov.quantidade;
                 custoTotalMov = valorTotalEntrada;
 
             } else if (mov.tipo === 'saida') {
                 const currentAvgCost = totalQuantity > 0 ? totalCost / totalQuantity : 0;
-                // Saída usa o custo médio atual
                 custoUnitarioMedio = currentAvgCost;
                 custoTotalMov = mov.quantidade * currentAvgCost;
-
                 totalCost -= custoTotalMov;
                 totalQuantity -= mov.quantidade;
             }
 
-            // Resolve Sub-tipo e Obra
             let subTipo = '-';
             const isXmlImport = mov.observacao && mov.observacao.includes('Importado via XML');
 
@@ -362,44 +616,33 @@ document.addEventListener('DOMContentLoaded', async function() {
                 requisitante: mov.requisitante || '-',
                 obra: obraNome,
                 obs: mov.observacao || '-',
-                localId: getLocalIdFromMovement(mov, productItem), // Helper para tentar identificar o local
-                locacao: mov.locacao // A movimentação tem o campo locacao salvo
+                localId: getLocalIdFromMovement(mov, productItem),
+                locacao: mov.locacao
             };
         });
     }
 
-    // Tenta inferir o Local ID baseada na locação da movimentação e no cadastro do produto
     function getLocalIdFromMovement(mov, product) {
         if (!mov.locacao) return null;
-        // Procura no cadastro do produto uma locação com esse nome
         const locData = product.locacoes?.find(l => l.locacao === mov.locacao);
         return locData ? locData.localId : null;
     }
 
     function renderHistoryTable(historyData) {
         historyTableBody.innerHTML = '';
-
-        // Filtros
         const localFilter = historyFilterLocal.value;
         const locacaoFilter = historyFilterLocacao.value;
-
         const selectedTipos = Array.from(historyFilterTipo.selectedOptions).map(opt => opt.value);
         const selectedSubTipos = Array.from(historyFilterSubtipo.selectedOptions).map(opt => opt.value);
 
         const filteredHistory = historyData.filter(item => {
-            // Filtro de Local (Complexo pois a mov nem sempre tem localId explicito, mas tentamos inferir)
             if (localFilter && item.localId !== localFilter) return false;
-
             if (locacaoFilter && item.locacao !== locacaoFilter) return false;
-
             if (selectedTipos.length > 0 && !selectedTipos.includes(item.tipo)) return false;
-
             if (selectedSubTipos.length > 0 && !selectedSubTipos.includes(item.subTipo)) return false;
-
             return true;
         });
 
-        // Inverte ordem para mostrar mais recente primeiro na tabela
         const displayData = [...filteredHistory].reverse();
 
         displayData.forEach(item => {
@@ -423,7 +666,6 @@ document.addEventListener('DOMContentLoaded', async function() {
         });
     }
 
-    // Event Listeners para os filtros do modal
     historyFilterLocal.addEventListener('change', () => renderHistoryTable(currentProductHistory));
     historyFilterLocacao.addEventListener('change', () => renderHistoryTable(currentProductHistory));
     historyFilterTipo.addEventListener('change', () => renderHistoryTable(currentProductHistory));
@@ -431,11 +673,13 @@ document.addEventListener('DOMContentLoaded', async function() {
 
 
     function applyFilters() {
+        if (currentMode !== 'produto') return;
+
         const filterValues = {
             codigo: filters.codigo.value.toLowerCase(),
             descricao: filters.descricao.value.toLowerCase(),
             cor: filters.cor.value.toLowerCase(),
-            local: filters.local.value, // Select uses exact value (ID)
+            local: filters.local.value,
             locacao: filters.locacao.value.toLowerCase(),
             comReserva: filters.comReserva.checked
         };
@@ -445,18 +689,14 @@ document.addEventListener('DOMContentLoaded', async function() {
             const matchesDescricao = (item.descricao || '').toLowerCase().includes(filterValues.descricao);
             const matchesCor = (item.cor || '').toLowerCase().includes(filterValues.cor);
 
-            // Filtro de Reserva
             if (filterValues.comReserva && (item.quantidadeReservada || 0) <= 0) {
                 return false;
             }
 
-            // Filtro de Local e Locação (verifica se alguma das locações do produto atende)
-            // Se não houver filtro de local nem locação, passa direto nesta checagem
             let matchesLocalLocacao = true;
-
             if (filterValues.local || filterValues.locacao) {
                 if (!item.locacoes || item.locacoes.length === 0) {
-                    matchesLocalLocacao = false; // Se filtrar por local/locação e produto não tiver, falha
+                    matchesLocalLocacao = false;
                 } else {
                     matchesLocalLocacao = item.locacoes.some(loc => {
                         const localMatch = !filterValues.local || loc.localId === filterValues.local;

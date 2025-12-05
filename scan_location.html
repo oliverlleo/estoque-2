@@ -1,0 +1,150 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Detalhes da Locação</title>
+    <link href="https://cdnjs.cloudflare.com/ajax/libs/tailwindcss/2.2.19/tailwind.min.css" rel="stylesheet">
+    <link href="https://fonts.googleapis.com/icon?family=Material+Icons" rel="stylesheet">
+    <style>
+        body { background-color: #f8f9fa; }
+        .card { background-color: white; border-radius: 8px; box-shadow: 0 2px 4px rgba(0,0,0,0.1); margin-bottom: 15px; overflow: hidden; }
+        .card-header { padding: 15px; border-bottom: 1px solid #eee; background-color: #343a40; color: white; }
+        .card-body { padding: 15px; }
+        .item-row { display: flex; justify-content: space-between; align-items: center; padding: 10px 0; border-bottom: 1px solid #eee; }
+        .item-row:last-child { border-bottom: none; }
+        .stock-badge { background-color: #28a745; color: white; padding: 2px 8px; border-radius: 12px; font-weight: bold; font-size: 0.9em; }
+        .reserved-badge { background-color: #ffc107; color: black; padding: 2px 8px; border-radius: 12px; font-weight: bold; font-size: 0.8em; margin-left: 5px; }
+    </style>
+</head>
+<body class="p-4">
+    <div id="loading" class="text-center mt-10">
+        <span class="material-icons animate-spin text-4xl text-gray-500">loop</span>
+        <p>Carregando locação...</p>
+    </div>
+
+    <div id="content" style="display: none;">
+        <div class="card">
+            <div class="card-header text-center">
+                <h1 class="text-2xl font-bold" id="locacao-codigo">-</h1>
+                <p class="text-sm opacity-75" id="locacao-local">-</p>
+            </div>
+            <div class="card-body">
+                <div class="flex justify-between text-sm text-gray-600 mb-2">
+                    <span>Itens na Posição</span>
+                    <span id="total-itens">0 itens</span>
+                </div>
+            </div>
+        </div>
+
+        <div id="items-list">
+            <!-- Items injected here -->
+        </div>
+
+        <button onclick="window.history.back()" class="w-full bg-gray-600 text-white py-3 rounded-lg mt-4 font-bold shadow-lg">
+            Voltar
+        </button>
+    </div>
+
+    <script type="module">
+        import { db } from './js/firebase-config.js';
+        import { collection, getDocs, doc, getDoc, query, where } from "https://www.gstatic.com/firebasejs/9.6.1/firebase-firestore.js";
+
+        const urlParams = new URLSearchParams(window.location.search);
+        const shortId = urlParams.get('q');
+
+        async function loadData() {
+            if (!shortId) {
+                alert("Código de locação inválido.");
+                return;
+            }
+
+            try {
+                // 1. Resolve Short ID to Locação String
+                const locDocRef = doc(db, 'locacoes_enderecos', shortId);
+                const locDoc = await getDoc(locDocRef);
+
+                if (!locDoc.exists()) {
+                    document.getElementById('loading').innerHTML = '<p class="text-red-500">Locação não encontrada.</p>';
+                    return;
+                }
+
+                const locData = locDoc.data();
+                const locacaoStr = locData.locacao;
+                const localId = locData.localId;
+
+                // Update Header
+                document.getElementById('locacao-codigo').textContent = locacaoStr;
+
+                // Fetch Local Name
+                if (localId && localId !== 'unknown') {
+                    const localDoc = await getDoc(doc(db, 'locais', localId));
+                    if (localDoc.exists()) {
+                         document.getElementById('locacao-local').textContent = localDoc.data().nome;
+                    }
+                } else {
+                    document.getElementById('locacao-local').textContent = 'Local Indefinido';
+                }
+
+                // 2. Find Products in this Location
+                // Need to query products where 'locacoes' array contains object with locacao == locacaoStr
+                // Since Firestore cannot query array of objects easily for a specific field value without exact match of the whole object,
+                // we have to fetch 'all products' (or products with non-zero stock) and filter client side.
+                // Given the constraint "Mobile First" and likely network limits, fetching ALL products is heavy.
+                // OPTIMIZATION: If we had a collection group query or 'items_por_locacao' collection, it would be better.
+                // For now, consistent with other parts of the app, we fetch active products.
+
+                const productsSnapshot = await getDocs(query(collection(db, 'produtos'), where("arquivado", "!=", true)));
+                const items = [];
+
+                productsSnapshot.forEach(doc => {
+                    const prod = doc.data();
+                    if (prod.locacoes) {
+                        const match = prod.locacoes.find(l => l.locacao === locacaoStr);
+                        if (match && (match.estoque > 0)) { // Only show items with stock? Or reserves?
+                             items.push({
+                                 id: doc.id,
+                                 ...prod,
+                                 estoqueLocal: match.estoque
+                             });
+                        }
+                    }
+                });
+
+                document.getElementById('total-itens').textContent = `${items.length} itens encontrados`;
+
+                // Render Items
+                const listContainer = document.getElementById('items-list');
+                listContainer.innerHTML = '';
+
+                items.forEach(item => {
+                    const card = document.createElement('div');
+                    card.className = 'card';
+                    card.innerHTML = `
+                        <div class="card-body flex justify-between items-center">
+                            <div>
+                                <div class="font-bold text-lg text-gray-800">${item.codigo}</div>
+                                <div class="text-gray-600 text-sm">${item.descricao}</div>
+                                <div class="text-xs text-gray-400 mt-1">${item.cor || ''}</div>
+                            </div>
+                            <div class="text-right">
+                                <div class="stock-badge">${item.estoqueLocal} ${item.un}</div>
+                            </div>
+                        </div>
+                    `;
+                    listContainer.appendChild(card);
+                });
+
+                document.getElementById('loading').style.display = 'none';
+                document.getElementById('content').style.display = 'block';
+
+            } catch (error) {
+                console.error(error);
+                document.getElementById('loading').innerHTML = `<p class="text-red-500">Erro: ${error.message}</p>`;
+            }
+        }
+
+        loadData();
+    </script>
+</body>
+</html>

@@ -1,0 +1,148 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Etiquetas de Locação</title>
+    <script src="https://cdn.jsdelivr.net/npm/qrcodejs@1.0.0/qrcode.min.js"></script>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            background-color: #f0f2f5;
+            margin: 0;
+            padding: 20px;
+        }
+        .controls {
+            position: fixed; top: 10px; left: 10px; z-index: 100;
+            background-color: white; padding: 15px; border-radius: 5px; box-shadow: 0 2px 5px rgba(0,0,0,0.2);
+            max-width: 300px;
+        }
+        .controls h3 { margin-top: 0; }
+        .controls button { font-size: 16px; padding: 10px 20px; cursor: pointer; border: 1px solid #ccc; background-color: #f0f0f0; width: 100%; margin-top: 10px;}
+        .controls input { width: 100%; padding: 8px; margin-bottom: 10px; box-sizing: border-box; }
+        .controls button.active { background-color: #007bff; color: white; border-color: #007bff; }
+
+        /* FORMATO 100x50mm */
+        .etiqueta-locacao-container {
+            width: 100mm;
+            height: 50mm;
+            background-color: white;
+            border: 1px dashed #ccc;
+            margin: 20px auto;
+            display: flex;
+            overflow: hidden;
+            box-sizing: border-box;
+            padding: 2mm;
+        }
+
+        /* Área do QR Code */
+        .qr-area {
+            width: 46mm; /* Aproximadamente metade */
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            padding-right: 2mm;
+        }
+        .qr-area img {
+            width: 100%;
+            height: auto;
+        }
+
+        /* Área do Texto (Rotacionado) */
+        .text-area {
+            flex: 1;
+            position: relative;
+            /* Para rotacionar o conteúdo, precisamos de um container interno transformado */
+            display: flex;
+            align-items: center;
+            justify-content: center;
+        }
+
+        .rotated-content {
+            /* Rotação de 90 graus */
+            transform: rotate(90deg);
+            transform-origin: center;
+            width: 46mm; /* A altura vira largura após rotação */
+            height: 50mm; /* A largura vira altura após rotação */
+
+            display: flex;
+            flex-direction: column; /* Ordem inversa pois está rotacionado? Não, visualmente Código em cima, Nome em baixo */
+            /* Se rotacionar 90deg, o topo vira direita. */
+            /* Queremos o texto "deitado". */
+            /*
+               A ----------
+               B | QR | TXT |
+               C ----------
+
+               Texto "Deitado" na vertical:
+               O topo das letras aponta para a ESQUERDA (em direção ao QR Code) ou DIREITA?
+               Normalmente para etiquetas de prateleira, o texto corre de baixo para cima ou cima para baixo.
+               Instrução: "rotacionado em 90 graus ao lado do QR Code".
+
+               Se rotacionar 90deg (horário), o texto desce.
+               Se rotacionar -90deg (anti-horário), o texto sobe.
+
+               Vamos assumir -90deg (leitura de baixo para cima) ou 90deg (cima para baixo)?
+               Geralmente etiquetas verticais se leem com a cabeça virada para a esquerda (-90deg).
+               Mas vamos testar. O prompt diz "disposta na vertical (deitada)".
+
+               Linha Superior (Maior): Código.
+               Linha Inferior (Menor): Nome.
+
+               Layout Visual desejado (Rotacionado):
+               [ QR CODE ]  [ CÓDIGO ]
+                            [  NOME  ]
+
+               Se o usuário diz "rotacionado em 90 graus", o texto fica na vertical.
+            */
+            align-items: center;
+            justify-content: center;
+            text-align: center;
+            /* Ajuste posicional para compensar a rotação */
+            position: absolute;
+        }
+
+        .codigo-locacao {
+            font-size: 28pt;
+            font-weight: bold;
+            line-height: 1.1;
+            margin-bottom: 5px;
+            white-space: nowrap;
+        }
+
+        .nome-local {
+            font-size: 14pt;
+            font-weight: normal;
+            line-height: 1.2;
+        }
+
+        @media print {
+            body { background-color: white; padding: 0; margin: 0; }
+            .controls { display: none !important; }
+            .etiqueta-locacao-container {
+                border: none;
+                margin: 0;
+                page-break-after: always;
+            }
+        }
+
+        @page {
+            size: 100mm 50mm;
+            margin: 0;
+        }
+    </style>
+</head>
+<body>
+    <div class="controls">
+        <h3>Gerar Etiquetas de Locação</h3>
+        <label>Digite as Locações (1 por linha):</label>
+        <textarea id="input-locacoes" rows="5" placeholder="Ex: 1-A-01&#10;1-A-02"></textarea>
+        <button id="btn-gerar">Gerar Etiquetas</button>
+        <button onclick="window.print()" style="margin-top: 20px; background-color: #28a745; color: white;">Imprimir</button>
+    </div>
+
+    <div id="etiquetas-container"></div>
+
+    <script type="module" src="js/etiquetas-locacao.js"></script>
+</body>
+</html>
