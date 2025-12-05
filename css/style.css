@@ -413,232 +413,6 @@ body {
     left: 0;
     right: 0;
     bottom: 0;
-    background-color: #dc3545; /* Cor de Saída (vermelho) */
-    transition: .4s;
-    border-radius: 34px;
-}
-
-.slider:before {
-    position: absolute;
-    content: "";
-    height: 26px;
-    width: 26px;
-    left: 4px;
-    bottom: 4px;
-    background-color: white;
-    transition: .4s;
-    border-radius: 50%;
-}
-
-input:checked + .slider {
-    background-color: #198754; /* Cor de Entrada (verde) */
-}
-
-input:checked + .slider:before {
-    transform: translateX(26px);
-}
-
-/* Estilo para campos de formulário inválidos */
-.form-control.is-invalid {
-    border-color: #dc3545; /* Usa o mesmo vermelho do botão de perigo */
-    box-shadow: 0 0 0 0.2rem rgba(220, 53, 69, 0.25);
-}
-
-#info-modal-header {
-    background-color: #0d6efd; /* Azul informativo do Bootstrap */
-}
-
-/* Estilos para Célula de Tipo na Tabela de Movimentações (VERSÃO CORRIGIDA) */
-
-#table-movimentacoes td.entrada,
-#table-movimentacoes td.saida,
-#table-history-modal td.entrada,
-#table-history-modal td.saida {
-    color: white;
-    text-align: center;
-    font-weight: 600;
-    border-radius: 4px;
-    border-bottom: 2px solid #fff;
-}
-
-#table-movimentacoes td.entrada,
-#table-history-modal td.entrada {
-    background-color: #198754; /* Verde (btn-success) */
-}
-
-#table-movimentacoes td.saida,
-#table-history-modal td.saida {
-    background-color: #dc3545; /* Vermelho (btn-danger) */
-}
-
-/* Estilo para Reservas Pendentes na Tabela de Movimentações */
-#table-movimentacoes td.reserva,
-#table-history-modal td.reserva {
-    background-color: #0d6efd; /* Azul informativo do Bootstrap */
-    color: white;
-    text-align: center;
-    font-weight: 600;
-    border-radius: 4px;
-    border-bottom: 2px solid #fff;
-}
-
-/* Mantém a cor da célula mesmo com o efeito hover da linha da tabela.
-  Esta regra é mais específica e por isso prevalece sobre a regra de hover genérica.
-*/
-#table-movimentacoes tr:hover td.entrada,
-#table-history-modal tr:hover td.entrada {
-    background-color: #198754;
-}
-
-#table-movimentacoes tr:hover td.saida,
-#table-history-modal tr:hover td.saida {
-    background-color: #dc3545;
-}
-
-#table-movimentacoes tr:hover td.reserva,
-#table-history-modal tr:hover td.reserva {
-    background-color: #0b5ed7; /* Azul um pouco mais escuro no hover */
-}
-
-/* --- Estilos CORRIGIDOS para o Componente Dropdown --- */
-.dropdown {
-    position: relative;
-    display: inline-block;
-}
-
-/* O conteúdo do dropdown fica oculto por padrão */
-.dropdown-content {
-    display: none;
-    position: absolute;
-    right: 0;
-    background-color: #f9f9f9;
-    min-width: 180px;
-    box-shadow: 0px 8px 16px 0px rgba(0,0,0,0.2);
-    z-index: 10;
-    border-radius: 4px;
-    overflow: hidden; /* Garante que os cantos arredondados sejam aplicados nos links */
-}
-
-/* Mostra o conteúdo quando o dropdown tem a classe .active */
-.dropdown.active .dropdown-content {
-    display: block;
-}
-
-.dropdown-content a {
-    color: black;
-    padding: 12px 16px;
-    text-decoration: none;
-    display: block;
-    font-size: 0.9rem;
-}
-
-.dropdown-content a:hover {
-    background-color: #0d6efd;
-    color: white;
-}
-
-.dropdown .btn {
-  color: white;
-}
-
-/* --- Estilos para o Componente Multi-Select --- */
-.multiselect-container {
-    position: relative;
-}
-
-.multiselect-display-area {
-    display: flex;
-    justify-content: space-between;
-    align-items: center;
-    cursor: pointer;
-    height: calc(1.5em + 1rem + 2px); /* Altura igual ao .form-control */
-    user-select: none;
-}
-
-.multiselect-display-area .multiselect-placeholder,
-.multiselect-display-area .multiselect-selected-text {
-    white-space: nowrap;
-    overflow: hidden;
-    text-overflow: ellipsis;
-}
-
-.multiselect-arrow {
-    border: solid #555;
-    border-width: 0 2px 2px 0;
-    display: inline-block;
-    padding: 3px;
-    transform: rotate(45deg);
-    -webkit-transform: rotate(45deg);
-    margin-left: 10px;
-}
-
-.multiselect-options {
-    display: none;
-    position: absolute;
-    background-color: #fff;
-    border: 1px solid #ced4da;
-    border-radius: 0.25rem;
-    width: 100%;
-    max-height: 200px;
-    overflow-y: auto;
-    z-index: 100;
-    margin-top: 4px;
-}
-
-.multiselect-options ul {
-    list-style: none;
-    margin: 0;
-    padding: 0;
-}
-
-.multiselect-options li {
-    padding: 8px 12px;
-    cursor: pointer;
-    display: flex;
-    align-items: center;
-}
-
-.multiselect-options li:hover {
-    background-color: #f1f2f6;
-}
-
-.multiselect-options input[type="checkbox"] {
-    margin-right: 10px;
-}
-
-/* Ajusta a largura do campo de descrição no formulário de produtos */
-#form-produto #produto-descricao {
-    grid-column: span 2; /* Faz o campo ocupar duas colunas do grid */
-}
-
-/* Estilos para o Interruptor (Toggle Switch) */
-.toggle-container {
-    display: flex;
-    align-items: center;
-    gap: 10px;
-    margin-bottom: 20px;
-}
-
-.toggle-switch {
-    position: relative;
-    display: inline-block;
-    width: 60px;
-    height: 34px;
-}
-
-.toggle-switch input {
-    opacity: 0;
-    width: 0;
-    height: 0;
-}
-
-.slider {
-    position: absolute;
-    cursor: pointer;
-    top: 0;
-    left: 0;
-    right: 0;
-    bottom: 0;
     background-color: #6c757d; /* Cor padrão */
     transition: .4s;
     border-radius: 34px;
@@ -955,7 +729,8 @@ input:checked + .slider:before {
 #table-implementacao tr,
 #table-history-modal tr,
 #correcao-fracionada-modal table tr,
-#bulk-transfer-table tr {
+#bulk-transfer-table tr,
+#bulk-location-table tr {
     display: table-row; /* Força o elemento a se comportar como uma linha de tabela */
 }
 
@@ -966,7 +741,8 @@ input:checked + .slider:before {
 #table-implementacao th, #table-implementacao td,
 #table-history-modal th, #table-history-modal td,
 #correcao-fracionada-modal table th, #correcao-fracionada-modal table td,
-#bulk-transfer-table th, #bulk-transfer-table td {
+#bulk-transfer-table th, #bulk-transfer-table td,
+#bulk-location-table th, #bulk-location-table td {
     display: table-cell; /* Força o elemento a se comportar como uma célula de tabela */
 }
 
@@ -1211,4 +987,43 @@ input:checked + .slider:before {
     margin-top: 2rem;
     border-top: 1px solid #dee2e6;
     padding-top: 1.5rem;
+}
+
+/* ========================================================== */
+/* FORCEFUL OVERRIDE FOR BULK LOCATION TABLE TO FIX LAYOUT    */
+/* This table must behave like a standard HTML table.         */
+/* ========================================================== */
+
+#bulk-location-table {
+    display: table !important;
+    width: 100% !important;
+    border-collapse: collapse !important;
+    table-layout: auto !important;
+}
+
+#bulk-location-table thead {
+    display: table-header-group !important;
+}
+
+#bulk-location-table tbody {
+    display: table-row-group !important;
+}
+
+#bulk-location-table tr {
+    display: table-row !important;
+    border-bottom: 1px solid #dee2e6 !important;
+}
+
+#bulk-location-table th,
+#bulk-location-table td {
+    display: table-cell !important;
+    padding: 10px !important;
+    text-align: left !important;
+    vertical-align: middle !important;
+    border: none !important; /* Reset individual borders to rely on tr border */
+}
+
+#bulk-location-table th {
+    background-color: #f8f9fa !important;
+    font-weight: 600 !important;
 }

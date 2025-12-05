@@ -1,5 +1,5 @@
 import { db } from './firebase-config.js';
-import { collection, getDocs, addDoc, onSnapshot, doc, setDoc, deleteDoc, query, where, runTransaction, serverTimestamp, getDoc } from "https://www.gstatic.com/firebasejs/9.6.1/firebase-firestore.js";
+import { collection, getDocs, addDoc, onSnapshot, doc, setDoc, deleteDoc, query, where, runTransaction, serverTimestamp, getDoc, writeBatch } from "https://www.gstatic.com/firebasejs/9.6.1/firebase-firestore.js";
 
 document.addEventListener('DOMContentLoaded', async function() {
     console.log("Página de Produtos carregada.");
@@ -1050,6 +1050,169 @@ document.addEventListener('DOMContentLoaded', async function() {
         };
         reader.readAsArrayBuffer(file);
     }
+
+    // --- LÓGICA DE ADICIONAR LOCAÇÃO EM LOTE ---
+    const btnBulkAddLocation = document.getElementById('btn-bulk-add-location');
+    const bulkLocationModal = document.getElementById('bulk-location-modal');
+    const bulkLocationModalClose = document.getElementById('bulk-location-modal-close');
+    const bulkLocationCodesInput = document.getElementById('bulk-location-codes');
+    const btnCheckBulkLocation = document.getElementById('btn-check-bulk-location');
+    const bulkLocationResultsContainer = document.getElementById('bulk-location-results-container');
+    const bulkLocationTableBody = document.querySelector('#bulk-location-table tbody');
+    const bulkLocationLocalSelect = document.getElementById('bulk-location-local');
+    const bulkLocationInput = document.getElementById('bulk-location-input');
+    const btnConfirmBulkLocation = document.getElementById('btn-confirm-bulk-location');
+
+    let bulkFoundProducts = []; // Armazena os produtos encontrados para uso na confirmação
+
+    btnBulkAddLocation.addEventListener('click', (e) => {
+        e.preventDefault();
+        // Popula o dropdown de locais
+        bulkLocationLocalSelect.innerHTML = '<option value="">Selecione o Local...</option>';
+        if (configData.locais) {
+            for (const [id, data] of Object.entries(configData.locais)) {
+                const option = document.createElement('option');
+                option.value = id;
+                option.textContent = data.nome;
+                bulkLocationLocalSelect.appendChild(option);
+            }
+        }
+        bulkLocationModal.style.display = 'block';
+    });
+
+    bulkLocationModalClose.addEventListener('click', () => {
+        bulkLocationModal.style.display = 'none';
+        resetBulkLocationForm();
+    });
+
+    window.addEventListener('click', (event) => {
+        if (event.target == bulkLocationModal) {
+            bulkLocationModal.style.display = 'none';
+            resetBulkLocationForm();
+        }
+    });
+
+    function resetBulkLocationForm() {
+        bulkLocationCodesInput.value = '';
+        bulkLocationResultsContainer.style.display = 'none';
+        bulkLocationTableBody.innerHTML = '';
+        bulkLocationLocalSelect.value = '';
+        bulkLocationInput.value = '';
+        btnConfirmBulkLocation.disabled = true;
+        bulkFoundProducts = [];
+    }
+
+    // Máscara para o input de locação em lote
+    const bulkLocacaoDefinitions = {
+        'L': { mask: /[A-Z]/ }
+    };
+    IMask(bulkLocationInput, {
+        mask: [
+            { mask: '0' },
+            { mask: '0-L', definitions: bulkLocacaoDefinitions },
+            { mask: '0-L-00', definitions: bulkLocacaoDefinitions },
+            { mask: '0-L-00-L', definitions: bulkLocacaoDefinitions }
+        ],
+        prepare: function (str) {
+            return str.toUpperCase();
+        },
+    });
+
+    btnCheckBulkLocation.addEventListener('click', () => {
+        const input = bulkLocationCodesInput.value;
+        if (!input.trim()) return;
+
+        const codes = input.split(/[\s,]+/).filter(c => c.trim() !== '');
+        bulkLocationTableBody.innerHTML = '';
+        bulkFoundProducts = [];
+        let hasValidItems = false;
+
+        codes.forEach(code => {
+            const product = productsData.find(p => p.data.codigo.toLowerCase() === code.toLowerCase());
+            const row = document.createElement('tr');
+
+            if (!product) {
+                row.innerHTML = `
+                    <td>${code}</td>
+                    <td>-</td>
+                    <td style="color: #dc3545; font-weight: bold;">Não encontrado</td>
+                `;
+            } else {
+                hasValidItems = true;
+                bulkFoundProducts.push(product);
+                row.innerHTML = `
+                    <td>${product.data.codigo}</td>
+                    <td>${product.data.descricao}</td>
+                    <td style="color: #198754; font-weight: bold;">Encontrado</td>
+                `;
+            }
+            bulkLocationTableBody.appendChild(row);
+        });
+
+        bulkLocationResultsContainer.style.display = 'block';
+        btnConfirmBulkLocation.disabled = !hasValidItems;
+    });
+
+    btnConfirmBulkLocation.addEventListener('click', async () => {
+        const localId = bulkLocationLocalSelect.value;
+        const locacao = bulkLocationInput.value.toUpperCase();
+
+        if (!localId || !locacao) {
+            alert('Por favor, selecione o Local e preencha a Locação.');
+            return;
+        }
+
+        const locacaoPattern = /^[0-9]{1}(-[A-Z]{1}(-[0-9]{2}(-[A-Z]{1})?)?)?$/;
+        if (!locacaoPattern.test(locacao)) {
+            alert(`O formato da locação "${locacao}" é inválido. Use formatos como 1, 1-A, 1-A-02 ou 1-A-02-B.`);
+            return;
+        }
+
+        if (bulkFoundProducts.length === 0) {
+            alert('Nenhum produto válido para adicionar locação.');
+            return;
+        }
+
+        if (!confirm(`Confirma adicionar a locação "${locacao}" para ${bulkFoundProducts.length} produto(s)?`)) {
+            return;
+        }
+
+        try {
+            const batch = writeBatch(db);
+            let updateCount = 0;
+
+            bulkFoundProducts.forEach(product => {
+                const productRef = doc(db, 'produtos', product.id);
+                const currentLocacoes = product.data.locacoes || [];
+
+                // Verifica se já existe essa combinação de local e locação
+                const exists = currentLocacoes.some(l => l.localId === localId && l.locacao === locacao);
+
+                if (!exists) {
+                    const newLocacoes = [...currentLocacoes, {
+                        localId: localId,
+                        locacao: locacao,
+                        estoque: 0
+                    }];
+                    batch.update(productRef, { locacoes: newLocacoes });
+                    updateCount++;
+                }
+            });
+
+            if (updateCount > 0) {
+                await batch.commit();
+                alert(`Locação adicionada com sucesso para ${updateCount} produtos!`);
+                bulkLocationModal.style.display = 'none';
+                resetBulkLocationForm();
+            } else {
+                alert('Todos os produtos selecionados já possuem esta locação.');
+            }
+
+        } catch (error) {
+            console.error("Erro ao adicionar locação em lote:", error);
+            alert(`Erro ao processar: ${error.message}`);
+        }
+    });
 });
 
 // Substitua a função exportarModeloExcel antiga por esta
