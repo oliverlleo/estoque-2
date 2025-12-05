@@ -64,9 +64,20 @@
         </header>
         <section class="content">
             <div class="card">
-                <div class="card-header"><h3>Consulta de Estoque e Valores</h3></div>
+                <div class="card-header" style="display: flex; justify-content: space-between; align-items: center;">
+                    <h3>Consulta de Estoque e Valores</h3>
+                    <div class="toggle-container" style="margin-left: 10px; display: flex; align-items: center;">
+                        <span id="toggle-label-produto" style="font-weight: bold; color: #0d6efd; margin-right: 10px;">Produto</span>
+                        <label class="toggle-switch">
+                            <input type="checkbox" id="consultas-toggle">
+                            <span class="slider"></span>
+                        </label>
+                        <span id="toggle-label-locacao" style="font-weight: normal; color: #6c757d; margin-left: 10px;">Locação</span>
+                    </div>
+                </div>
                 <div class="card-body">
-                    <div class="filters-container" style="display: grid; grid-template-columns: repeat(auto-fit, minmax(150px, 1fr)); gap: 10px; margin-bottom: 20px;">
+                    <!-- Filtros Modo Produto -->
+                    <div id="filters-produto" class="filters-container" style="display: grid; grid-template-columns: repeat(auto-fit, minmax(150px, 1fr)); gap: 10px; margin-bottom: 20px;">
                         <input type="text" id="filter-codigo" class="form-control" placeholder="Filtrar por Código...">
                         <input type="text" id="filter-descricao" class="form-control" placeholder="Filtrar por Descrição...">
                         <input type="text" id="filter-cor" class="form-control" placeholder="Filtrar por Cor...">
@@ -79,10 +90,21 @@
                             <label for="filter-com-reserva" style="margin: 0; white-space: nowrap;">Com Reserva</label>
                         </div>
                     </div>
+
+                    <!-- Filtros Modo Locação (Inicialmente Oculto) -->
+                    <div id="filters-locacao" class="filters-container" style="display: none; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 10px; margin-bottom: 20px;">
+                        <div style="grid-column: span 2;">
+                            <label for="filter-locacao-mode-input" style="font-weight: bold; display: block; margin-bottom: 5px;">Selecionar Locação / Endereço</label>
+                            <input type="text" id="filter-locacao-mode-input" class="form-control" placeholder="Digite o endereço (Ex: 1-A-01)..." list="locacoes-datalist">
+                            <datalist id="locacoes-datalist"></datalist>
+                        </div>
+                    </div>
+
                     <div class="table-wrapper">
                         <table id="table-consultas" class="table">
                             <thead>
-                                <tr>
+                                <!-- Cabeçalhos serão injetados dinamicamente via JS dependendo do modo -->
+                                <tr id="table-headers">
                                     <th class="sortable" data-column="codigo">Código</th>
                                     <th class="sortable" data-column="descricao">Descrição</th>
                                     <th class="sortable" data-column="cor">Cor</th>
@@ -99,12 +121,12 @@
                             </tbody>
                             <tfoot>
                                 <tr>
-                                    <td colspan="7" style="text-align: right; font-weight: bold;">Total Custo Estoque (Filtrado):</td>
+                                    <td id="footer-label-colspan" colspan="7" style="text-align: right; font-weight: bold;">Total Custo Estoque (Filtrado):</td>
                                     <td id="total-custo-estoque" style="font-weight: bold;">R$ 0,00</td>
                                     <td></td>
                                 </tr>
                                 <tr>
-                                    <td colspan="7" style="text-align: right; font-weight: bold;">Valor Total do Estoque (Geral):</td>
+                                    <td id="footer-general-label-colspan" colspan="7" style="text-align: right; font-weight: bold;">Valor Total do Estoque (Geral):</td>
                                     <td id="total-valor-estoque-geral" style="font-weight: bold;">R$ 0,00</td>
                                     <td></td>
                                 </tr>
