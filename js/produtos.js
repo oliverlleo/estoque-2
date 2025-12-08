@@ -691,7 +691,11 @@ document.addEventListener('DOMContentLoaded', async function() {
             let locaisHtml = 'N/A';
             let locacoesHtml = 'N/A';
             if (pData.locacoes && pData.locacoes.length > 0) {
-                locaisHtml = pData.locacoes.map(loc => configData.locais[loc.localId]?.nome || 'Desconhecido').join('<br>');
+                locaisHtml = pData.locacoes.map(loc => {
+                    const localName = configData.locais[loc.localId]?.nome || 'Desconhecido';
+                    const estoque = loc.estoque !== undefined ? loc.estoque : 0;
+                    return `<span title="Estoque: ${estoque}">${localName}</span>`;
+                }).join('<br>');
                 locacoesHtml = pData.locacoes.map(loc => loc.locacao).join('<br>');
             }
 
