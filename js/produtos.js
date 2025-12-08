@@ -567,6 +567,8 @@ document.addEventListener('DOMContentLoaded', async function() {
             cor: document.getElementById('produto-cor').value,
             fornecedorId: document.getElementById('produto-fornecedor').value,
             grupoId: document.getElementById('produto-grupo').value,
+            imagem: document.getElementById('produto-imagem').value, // Novo campo
+            descricao_detalhada: document.getElementById('produto-descricao-detalhada').value, // Novo campo
             aplicacaoIds: aplicacaoSelect.getSelectedIds(),
             conjuntoIds: conjuntoSelect.getSelectedIds(),
             conversaoId: document.getElementById('produto-conversao').value,
@@ -828,6 +830,8 @@ document.addEventListener('DOMContentLoaded', async function() {
             document.getElementById('produto-cor').value = product.data.cor;
             document.getElementById('produto-fornecedor').value = product.data.fornecedorId;
             document.getElementById('produto-grupo').value = product.data.grupoId;
+            document.getElementById('produto-imagem').value = product.data.imagem || ""; // Novo campo
+            document.getElementById('produto-descricao-detalhada').value = product.data.descricao_detalhada || ""; // Novo campo
             document.getElementById('produto-conversao').value = product.data.conversaoId || "";
 
             aplicacaoSelect.setSelectedIds(product.data.aplicacaoIds);
@@ -1066,6 +1070,59 @@ document.addEventListener('DOMContentLoaded', async function() {
     const bulkLocationLocalSelect = document.getElementById('bulk-location-local');
     const bulkLocationInput = document.getElementById('bulk-location-input');
     const btnConfirmBulkLocation = document.getElementById('btn-confirm-bulk-location');
+
+    // --- VIEW PRODUCT MODAL LOGIC ---
+    const viewProductModal = document.getElementById('view-product-modal');
+    const viewProductModalClose = document.getElementById('view-product-modal-close');
+    const viewProductImage = document.getElementById('view-product-image');
+    const viewProductDescription = document.getElementById('view-product-description');
+    const viewProductTitle = document.getElementById('view-product-title');
+
+    viewProductModalClose.addEventListener('click', () => {
+        viewProductModal.style.display = 'none';
+    });
+
+    window.addEventListener('click', (event) => {
+        if (event.target == viewProductModal) {
+            viewProductModal.style.display = 'none';
+        }
+    });
+
+    // Delegate click event on the table to open the modal
+    tableBody.addEventListener('click', (e) => {
+        // Ignora cliques no checkbox ou no cabeçalho (se houver propagação estranha)
+        if (e.target.classList.contains('produto-checkbox') || e.target.tagName === 'INPUT') {
+            return;
+        }
+
+        const row = e.target.closest('tr');
+        if (!row) return;
+
+        // Pega o ID do produto a partir do checkbox dentro da linha
+        const checkbox = row.querySelector('.produto-checkbox');
+        if (!checkbox) return;
+
+        const productId = checkbox.dataset.id;
+        const product = productsData.find(p => p.id === productId);
+
+        if (product) {
+            const pData = product.data;
+            viewProductTitle.textContent = `${pData.codigo} - ${pData.descricao}`;
+
+            if (pData.imagem) {
+                viewProductImage.src = pData.imagem;
+                viewProductImage.style.display = 'block';
+            } else {
+                viewProductImage.style.display = 'none';
+                viewProductImage.src = '';
+            }
+
+            viewProductDescription.textContent = pData.descricao_detalhada || 'Nenhuma descrição detalhada disponível.';
+
+            viewProductModal.style.display = 'block';
+        }
+    });
+    // --- END VIEW PRODUCT MODAL LOGIC ---
 
     let bulkFoundProducts = []; // Armazena os produtos encontrados para uso na confirmação
 

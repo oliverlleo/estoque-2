@@ -90,6 +90,11 @@
                             </select>
                             <select id="produto-fornecedor" required class="form-control"><option value="">Selecione o Fornecedor...</option></select>
                             <select id="produto-grupo" required class="form-control"><option value="">Selecione o Grupo...</option></select>
+
+                            <!-- Novos Campos -->
+                            <input type="url" id="produto-imagem" placeholder="URL da Imagem (https://...)" class="form-control" style="grid-column: 1 / -1;">
+                            <textarea id="produto-descricao-detalhada" placeholder="Descrição Detalhada / Observações" class="form-control" rows="3" style="grid-column: 1 / -1;"></textarea>
+
                             <div class="multiselect-container" id="multiselect-aplicacao">
                                 <div class="multiselect-display-area form-control">
                                     <span class="multiselect-placeholder">Selecione a Aplicação...</span>
@@ -205,6 +210,20 @@
             </div>
         </section>
     </main>
+    <!-- Modal Visualizar Produto -->
+    <div id="view-product-modal" class="modal">
+        <div class="modal-content" style="max-width: 600px; background-color: #2D2D44; color: #F5F5F5;">
+            <div class="modal-header" style="border-bottom: 1px solid #444466;">
+                <h3 id="view-product-title">Detalhes do Produto</h3>
+                <span class="close-button" id="view-product-modal-close" style="color: #A0A0B9;">&times;</span>
+            </div>
+            <div class="modal-body" style="text-align: center;">
+                <img id="view-product-image" src="" alt="Imagem do Produto" style="max-width: 100%; max-height: 300px; border-radius: 8px; margin-bottom: 20px; display: none; object-fit: contain;">
+                <div id="view-product-description" style="text-align: left; background-color: rgba(255,255,255,0.05); padding: 15px; border-radius: 8px; white-space: pre-wrap;"></div>
+            </div>
+        </div>
+    </div>
+
     <div id="import-progress-modal" class="modal">
         <div class="modal-content" style="max-width: 500px;">
             <div class="modal-header">
