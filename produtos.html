@@ -92,7 +92,15 @@
                             <select id="produto-grupo" required class="form-control"><option value="">Selecione o Grupo...</option></select>
 
                             <!-- Novos Campos -->
-                            <input type="url" id="produto-imagem" placeholder="URL da Imagem (https://...)" class="form-control" style="grid-column: 1 / -1;">
+                            <div style="grid-column: 1 / -1; display: flex; flex-direction: column; gap: 5px;">
+                                <label for="produto-imagem-upload" style="font-size: 0.9em; color: #6c757d;">Imagem do Produto</label>
+                                <input type="file" id="produto-imagem-upload" accept="image/*" class="form-control">
+                                <input type="hidden" id="produto-imagem"> <!-- Armazena o Base64 -->
+                                <div id="preview-container" style="display: none; margin-top: 10px; text-align: center;">
+                                    <img id="imagem-preview" src="" alt="Prévia" style="max-height: 200px; border-radius: 8px; border: 1px solid #dee2e6;">
+                                    <button type="button" id="btn-remover-imagem" class="btn btn-sm btn-delete" style="margin-top: 5px;">Remover Imagem</button>
+                                </div>
+                            </div>
                             <textarea id="produto-descricao-detalhada" placeholder="Descrição Detalhada / Observações" class="form-control" rows="3" style="grid-column: 1 / -1;"></textarea>
 
                             <div class="multiselect-container" id="multiselect-aplicacao">
