@@ -1,40 +1,34 @@
 import { initializeApp } from "https://www.gstatic.com/firebasejs/9.6.1/firebase-app.js";
 import { getFirestore } from "https://www.gstatic.com/firebasejs/9.6.1/firebase-firestore.js";
-import { initializeAppCheck, ReCaptchaV3Provider } from "https://www.gstatic.com/firebasejs/9.6.1/firebase-app-check.js";
 
-async function carregarChaves() {
+// Busca as chaves no seu "cofre" do Firebase
+async function buscarChaves() {
     try {
-        // Pede as chaves para o servidor do Firebase
-        const response = await fetch('/__/firebase/init.json');
-        if (!response.ok) throw new Error("Erro ao buscar chaves.");
+        // Pede o arquivo json que você subiu no passo anterior
+        const response = await fetch('https://estoque-d3354.web.app/chaves.json');
+        
+        if (!response.ok) throw new Error("Falha ao buscar chaves no servidor.");
+        
         return await response.json();
     } catch (e) {
-        console.error("Erro crítico: Site não está rodando no Firebase Hosting.", e);
+        console.error("Erro crítico de conexão:", e);
         return null;
     }
 }
 
 let db = null;
 
-// Inicializa assim que a chave chegar do servidor
-(async () => {
-    try {
-        const config = await carregarChaves();
-        if (config) {
-            const app = initializeApp(config);
-            
-            // Ative isso APENAS se já configurou o App Check no painel do Firebase
-            // const appCheck = initializeAppCheck(app, {
-            //    provider: new ReCaptchaV3Provider('SUA_CHAVE_SITE_KEY_RECAPTCHA'),
-            //    isTokenAutoRefreshEnabled: true
-            // });
-
-            db = getFirestore(app);
-            console.log("Conectado ao projeto:", config.projectId);
-        }
-    } catch (erro) {
-        console.error("Falha ao iniciar:", erro);
+// Inicia o sistema
+try {
+    const config = await buscarChaves();
+    
+    if (config) {
+        const app = initializeApp(config);
+        db = getFirestore(app);
+        console.log("Sistema conectado via Cloudflare -> Firebase.");
     }
-})();
+} catch (erro) {
+    console.error("Falha ao iniciar:", erro);
+}
 
 export { db };
