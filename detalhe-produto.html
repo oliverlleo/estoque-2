@@ -98,6 +98,52 @@
             color: var(--secondary-text-color);
             margin-right: 15px; /* Espaço entre o rótulo e o valor */
         }
+
+        /* Estilos para a nova seção de imagem e descrição */
+        .product-visuals {
+            margin-top: 25px;
+            background-color: var(--surface-color);
+            border-radius: 8px;
+            border: 1px solid var(--border-color);
+            overflow: hidden;
+            display: none; /* Oculto por padrão, mostra via JS se tiver dados */
+        }
+
+        .product-image-container {
+            width: 100%;
+            text-align: center;
+            background-color: #000; /* Fundo preto para destaque da imagem */
+            padding: 10px;
+        }
+
+        .product-image-container img {
+            max-width: 100%;
+            max-height: 400px;
+            height: auto;
+            display: block;
+            margin: 0 auto;
+        }
+
+        .product-description-container {
+            padding: 20px;
+            background-color: var(--surface-color);
+            color: #FFFFFF; /* Texto branco como solicitado */
+            border-top: 1px solid var(--border-color);
+        }
+
+        .product-description-container h3 {
+            margin-bottom: 10px;
+            font-size: 1.1rem;
+            color: var(--secondary-text-color);
+            text-transform: uppercase;
+            font-weight: 600;
+        }
+
+        .product-description-text {
+            white-space: pre-wrap;
+            line-height: 1.6;
+            font-size: 1rem;
+        }
         
         /* Botão Principal */
         .btn {
@@ -281,6 +327,18 @@
                      <p><strong>Estoque Total:</strong> <span id="estoque-total-texto" style="cursor: pointer;">Carregando...</span></p>
                 </div>
             </div>
+
+            <!-- Nova Seção: Imagem e Descrição Detalhada -->
+            <div id="product-visuals" class="product-visuals">
+                <div id="image-container" class="product-image-container" style="display: none;">
+                    <img id="detail-product-image" src="" alt="Imagem do Produto">
+                </div>
+                <div id="description-container" class="product-description-container" style="display: none;">
+                    <h3>Descrição Detalhada</h3>
+                    <div id="detail-product-description" class="product-description-text"></div>
+                </div>
+            </div>
+
             <button id="btn-abrir-modal-baixa" class="btn btn-danger">Dar Baixa desta Locação</button>
         </section>
     </main>
