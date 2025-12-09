@@ -21,6 +21,74 @@ document.addEventListener('DOMContentLoaded', async function() {
     const btnAddLocacao = document.getElementById('btn-add-locacao');
     const locacoesContainer = document.getElementById('locacoes-container');
 
+    // Elementos de Imagem
+    const imageUploadInput = document.getElementById('produto-imagem-upload');
+    const hiddenImageInput = document.getElementById('produto-imagem');
+    const previewContainer = document.getElementById('preview-container');
+    const imagePreview = document.getElementById('imagem-preview');
+    const btnRemoverImagem = document.getElementById('btn-remover-imagem');
+
+    // --- LÓGICA DE UPLOAD DE IMAGEM (BASE64) ---
+    imageUploadInput.addEventListener('change', function(e) {
+        const file = e.target.files[0];
+        if (!file) return;
+
+        // Limite simples de tamanho antes de processar (ex: 5MB)
+        if (file.size > 5 * 1024 * 1024) {
+            alert("A imagem é muito grande. Por favor, escolha uma imagem menor que 5MB.");
+            this.value = ''; // Limpa o input
+            return;
+        }
+
+        const reader = new FileReader();
+        reader.onload = function(event) {
+            const img = new Image();
+            img.onload = function() {
+                // Redimensionar e comprimir
+                const canvas = document.createElement('canvas');
+                const ctx = canvas.getContext('2d');
+
+                const MAX_WIDTH = 800;
+                const MAX_HEIGHT = 800;
+                let width = img.width;
+                let height = img.height;
+
+                if (width > height) {
+                    if (width > MAX_WIDTH) {
+                        height *= MAX_WIDTH / width;
+                        width = MAX_WIDTH;
+                    }
+                } else {
+                    if (height > MAX_HEIGHT) {
+                        width *= MAX_HEIGHT / height;
+                        height = MAX_HEIGHT;
+                    }
+                }
+
+                canvas.width = width;
+                canvas.height = height;
+                ctx.drawImage(img, 0, 0, width, height);
+
+                // Converte para JPEG com qualidade 0.7 para reduzir tamanho da string
+                const base64String = canvas.toDataURL('image/jpeg', 0.7);
+
+                hiddenImageInput.value = base64String;
+                imagePreview.src = base64String;
+                previewContainer.style.display = 'block';
+            };
+            img.src = event.target.result;
+        };
+        reader.readAsDataURL(file);
+    });
+
+    btnRemoverImagem.addEventListener('click', () => {
+        imageUploadInput.value = '';
+        hiddenImageInput.value = '';
+        imagePreview.src = '';
+        previewContainer.style.display = 'none';
+    });
+    // --- FIM DA LÓGICA DE IMAGEM ---
+
 
     function applyFilters() {
         const generalSearchTerm = filterInput.value.toLowerCase();
@@ -567,6 +635,8 @@ document.addEventListener('DOMContentLoaded', async function() {
             cor: document.getElementById('produto-cor').value,
             fornecedorId: document.getElementById('produto-fornecedor').value,
             grupoId: document.getElementById('produto-grupo').value,
+            imagem: document.getElementById('produto-imagem').value, // Salva o Base64
+            descricao_detalhada: document.getElementById('produto-descricao-detalhada').value,
             aplicacaoIds: aplicacaoSelect.getSelectedIds(),
             conjuntoIds: conjuntoSelect.getSelectedIds(),
             conversaoId: document.getElementById('produto-conversao').value,
@@ -634,6 +704,12 @@ document.addEventListener('DOMContentLoaded', async function() {
             locacoesContainer.innerHTML = ''; // Limpa as locações dinâmicas
             document.getElementById('produto-id').value = '';
             codigoInput.classList.remove('is-invalid');
+            // Limpa campos de imagem
+            document.getElementById('produto-imagem').value = '';
+            document.getElementById('produto-imagem-upload').value = '';
+            document.getElementById('preview-container').style.display = 'none';
+            document.getElementById('imagem-preview').src = '';
+
             filterInput.value = '';
             applyFilters();
 
@@ -828,6 +904,20 @@ document.addEventListener('DOMContentLoaded', async function() {
             document.getElementById('produto-cor').value = product.data.cor;
             document.getElementById('produto-fornecedor').value = product.data.fornecedorId;
             document.getElementById('produto-grupo').value = product.data.grupoId;
+
+            // Preenche e exibe a imagem se existir
+            const imagemBase64 = product.data.imagem || "";
+            document.getElementById('produto-imagem').value = imagemBase64;
+            if (imagemBase64) {
+                document.getElementById('imagem-preview').src = imagemBase64;
+                document.getElementById('preview-container').style.display = 'block';
+            } else {
+                document.getElementById('preview-container').style.display = 'none';
+                document.getElementById('imagem-preview').src = '';
+            }
+            document.getElementById('produto-imagem-upload').value = ''; // Reseta o input file
+
+            document.getElementById('produto-descricao-detalhada').value = product.data.descricao_detalhada || "";
             document.getElementById('produto-conversao').value = product.data.conversaoId || "";
 
             aplicacaoSelect.setSelectedIds(product.data.aplicacaoIds);
@@ -1066,6 +1156,59 @@ document.addEventListener('DOMContentLoaded', async function() {
     const bulkLocationLocalSelect = document.getElementById('bulk-location-local');
     const bulkLocationInput = document.getElementById('bulk-location-input');
     const btnConfirmBulkLocation = document.getElementById('btn-confirm-bulk-location');
+
+    // --- VIEW PRODUCT MODAL LOGIC ---
+    const viewProductModal = document.getElementById('view-product-modal');
+    const viewProductModalClose = document.getElementById('view-product-modal-close');
+    const viewProductImage = document.getElementById('view-product-image');
+    const viewProductDescription = document.getElementById('view-product-description');
+    const viewProductTitle = document.getElementById('view-product-title');
+
+    viewProductModalClose.addEventListener('click', () => {
+        viewProductModal.style.display = 'none';
+    });
+
+    window.addEventListener('click', (event) => {
+        if (event.target == viewProductModal) {
+            viewProductModal.style.display = 'none';
+        }
+    });
+
+    // Delegate click event on the table to open the modal
+    tableBody.addEventListener('click', (e) => {
+        // Ignora cliques no checkbox ou no cabeçalho (se houver propagação estranha)
+        if (e.target.classList.contains('produto-checkbox') || e.target.tagName === 'INPUT') {
+            return;
+        }
+
+        const row = e.target.closest('tr');
+        if (!row) return;
+
+        // Pega o ID do produto a partir do checkbox dentro da linha
+        const checkbox = row.querySelector('.produto-checkbox');
+        if (!checkbox) return;
+
+        const productId = checkbox.dataset.id;
+        const product = productsData.find(p => p.id === productId);
+
+        if (product) {
+            const pData = product.data;
+            viewProductTitle.textContent = `${pData.codigo} - ${pData.descricao}`;
+
+            if (pData.imagem) {
+                viewProductImage.src = pData.imagem;
+                viewProductImage.style.display = 'block';
+            } else {
+                viewProductImage.style.display = 'none';
+                viewProductImage.src = '';
+            }
+
+            viewProductDescription.textContent = pData.descricao_detalhada || 'Nenhuma descrição detalhada disponível.';
+
+            viewProductModal.style.display = 'block';
+        }
+    });
+    // --- END VIEW PRODUCT MODAL LOGIC ---
 
     let bulkFoundProducts = []; // Armazena os produtos encontrados para uso na confirmação
 

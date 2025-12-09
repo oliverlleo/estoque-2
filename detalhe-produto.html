@@ -91,6 +91,26 @@
             padding-bottom: 0;
         }
 
+        #produto-imagem-detalhe {
+            max-width: 100%;
+            height: auto;
+            border-radius: 8px;
+            margin-bottom: 20px;
+            display: none; /* Oculto por padrão, mostra se tiver URL */
+        }
+
+        #produto-descricao-detalhada-detalhe {
+            color: #F5F5F5; /* Branco escrito */
+            white-space: pre-wrap;
+            margin-bottom: 20px;
+            font-size: 1rem;
+            line-height: 1.6;
+            background-color: rgba(255, 255, 255, 0.05);
+            padding: 15px;
+            border-radius: 8px;
+            display: none; /* Oculto se vazio */
+        }
+
         #details-container strong {
             display: inline-block; /* Permite definir largura e margem */
             width: 130px; /* Largura fixa para os rótulos, criando alinhamento de coluna */
@@ -279,6 +299,13 @@
                      <p><strong>Locação:</strong> <span id="locacao-completa">Carregando...</span></p>
                      <p><strong>Estoque na Locação:</strong> <span id="locacao-estoque">Carregando...</span></p>
                      <p><strong>Estoque Total:</strong> <span id="estoque-total-texto" style="cursor: pointer;">Carregando...</span></p>
+
+                     <!-- Imagem e Descrição Detalhada movidos para baixo conforme solicitado -->
+                     <hr>
+                     <div style="text-align: center; margin-top: 20px;">
+                        <img id="produto-imagem-detalhe" src="" alt="Imagem do Produto">
+                    </div>
+                    <div id="produto-descricao-detalhada-detalhe"></div>
                 </div>
             </div>
             <button id="btn-abrir-modal-baixa" class="btn btn-danger">Dar Baixa desta Locação</button>

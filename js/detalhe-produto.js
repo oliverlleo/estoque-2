@@ -9,6 +9,8 @@ document.addEventListener('DOMContentLoaded', async function() {
     const medidaEl = document.getElementById('produto-medida');
     const fornecedorEl = document.getElementById('produto-fornecedor');
     const corEl = document.getElementById('produto-cor');
+    const imagemEl = document.getElementById('produto-imagem-detalhe');
+    const descricaoDetalhadaEl = document.getElementById('produto-descricao-detalhada-detalhe');
     const locacaoCompletaEl = document.getElementById('locacao-completa');
     const locacaoEstoqueEl = document.getElementById('locacao-estoque');
     const estoqueTotalTextoEl = document.getElementById('estoque-total-texto');
@@ -92,6 +94,21 @@ document.addEventListener('DOMContentLoaded', async function() {
         descricaoEl.style.cursor = 'pointer';
         descricaoEl.title = 'Clique para ver as sobras deste produto';
         corEl.textContent = pData.cor || 'N/A';
+
+        // Atualiza Imagem e Descrição Detalhada
+        if (pData.imagem) {
+            imagemEl.src = pData.imagem;
+            imagemEl.style.display = 'inline-block';
+        } else {
+            imagemEl.style.display = 'none';
+        }
+
+        if (pData.descricao_detalhada) {
+            descricaoDetalhadaEl.textContent = pData.descricao_detalhada;
+            descricaoDetalhadaEl.style.display = 'block';
+        } else {
+            descricaoDetalhadaEl.style.display = 'none';
+        }
 
         const fornecedorNome = configData.fornecedores[pData.fornecedorId]?.nome || 'Desconhecido';
         fornecedorEl.textContent = fornecedorNome;
