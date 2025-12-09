@@ -22,6 +22,40 @@ document.addEventListener('DOMContentLoaded', () => {
     let filterState = {};
     let sortState = { column: 'data', direction: 'desc' }; // Default sort
 
+    // Modal Image Elements
+    const imageModal = document.getElementById('product-image-modal');
+    const imageModalClose = document.getElementById('product-image-modal-close');
+    const imageDisplay = document.getElementById('product-image-display');
+    const imagePlaceholder = document.getElementById('product-image-placeholder');
+    const imageTitle = document.getElementById('product-image-title');
+
+    imageModalClose.onclick = () => {
+        imageModal.style.display = 'none';
+    };
+
+    window.onclick = (event) => {
+        if (event.target == imageModal) {
+            imageModal.style.display = 'none';
+        }
+        if (event.target == confirmModal) {
+            closeConfirmModal();
+        }
+    };
+
+    function openImageModal(product) {
+        if (!product) return;
+        imageTitle.textContent = `${product.codigo} - ${product.descricao}`;
+        if (product.imagem) {
+            imageDisplay.src = product.imagem;
+            imageDisplay.style.display = 'inline-block';
+            imagePlaceholder.style.display = 'none';
+        } else {
+            imageDisplay.style.display = 'none';
+            imagePlaceholder.style.display = 'block';
+        }
+        imageModal.style.display = 'block';
+    }
+
     async function loadInitialData() {
         // Carregar produtos
         const productsSnapshot = await getDocs(collection(db, 'produtos'));
@@ -146,6 +180,14 @@ document.addEventListener('DOMContentLoaded', () => {
 
             const row = document.createElement('tr');
 
+            // Add click listener for opening image modal (except action buttons)
+            row.addEventListener('click', (e) => {
+                if (!e.target.closest('.actions')) {
+                    openImageModal(product);
+                }
+            });
+            row.style.cursor = 'pointer'; // Indicate clickability
+
             const statusClass = `status-${mov.tipo.replace('reserva_', '')}`;
             const statusText = mov.tipo.replace('reserva_', 'RESERVA ').toUpperCase();
 
@@ -231,14 +273,17 @@ document.addEventListener('DOMContentLoaded', () => {
 
     btnCloseModal.onclick = closeConfirmModal;
     btnCancelConfirm.onclick = closeConfirmModal;
-    window.addEventListener('click', (event) => {
-        if (event.target == confirmModal) closeConfirmModal();
-    });
+    // Window click listener merged above
 
     // Event Delegation for action buttons
     tableBody.addEventListener('click', async (e) => {
         const target = e.target;
         const movId = target.dataset.id;
+
+        // Prevent row click if button is clicked
+        if (target.classList.contains('btn') || target.closest('.btn')) {
+            e.stopPropagation();
+        }
 
         if (!movId) return;
 
