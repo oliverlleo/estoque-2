@@ -179,69 +179,93 @@
 
     <!-- Modal de Histórico de Movimentações -->
     <div id="history-modal" class="modal">
-        <div class="modal-content" style="max-width: 1400px; width: 95%;">
+        <div class="modal-content" style="max-width: 1600px; width: 98%; background-color: #fff;">
             <div class="modal-header">
                 <h3>Histórico de Movimentações - <span id="history-modal-product-title"></span></h3>
                 <span class="close-button" id="history-modal-close">&times;</span>
             </div>
-            <div class="modal-body">
-                <div class="filters-container" style="display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 15px; margin-bottom: 20px;">
-                    <div>
-                        <label for="history-filter-local" class="block text-sm font-medium text-gray-700">Local</label>
-                        <select id="history-filter-local" class="form-control w-full mt-1">
-                            <option value="">Todos</option>
-                        </select>
-                    </div>
-                    <div>
-                        <label for="history-filter-locacao" class="block text-sm font-medium text-gray-700">Locação</label>
-                        <select id="history-filter-locacao" class="form-control w-full mt-1">
-                            <option value="">Todas</option>
-                        </select>
-                    </div>
-                    <div>
-                        <label for="history-filter-tipo" class="block text-sm font-medium text-gray-700">Tipo (Múltipla Seleção - Segure Ctrl)</label>
-                        <select id="history-filter-tipo" class="form-control w-full mt-1" multiple style="height: 80px;">
-                            <option value="entrada">Entrada</option>
-                            <option value="saida">Saída</option>
-                            <option value="transferencia">Transferência</option>
-                            <option value="reserva">Reserva</option>
-                            <option value="reserva_cancelada">Reserva Cancelada</option>
-                        </select>
-                    </div>
-                    <div>
-                        <label for="history-filter-subtipo" class="block text-sm font-medium text-gray-700">Sub-Tipo (Múltipla Seleção - Segure Ctrl)</label>
-                        <select id="history-filter-subtipo" class="form-control w-full mt-1" multiple style="height: 80px;">
-                            <!-- Populated dynamically -->
-                        </select>
-                    </div>
+
+            <!-- Flex container for Image + Content -->
+            <div class="modal-body" style="display: flex; gap: 20px;">
+
+                <!-- Left: Product Image -->
+                <div style="flex-shrink: 0; width: 300px; display: flex; flex-direction: column; align-items: center;">
+                     <div style="width: 100%; height: 300px; background-color: #f8f9fa; border: 1px solid #dee2e6; border-radius: 8px; overflow: hidden; display: flex; align-items: center; justify-content: center; cursor: pointer;">
+                        <img id="history-product-image" src="" alt="Imagem do Produto" style="width: 100%; height: 100%; object-fit: cover; display: none;">
+                        <span id="history-product-image-placeholder" style="color: #adb5bd; font-size: 0.9em; text-align: center; padding: 10px;">Sem Imagem</span>
+                     </div>
+                     <p style="font-size: 0.85em; color: #6c757d; margin-top: 5px; text-align: center;">Clique na imagem para ampliar</p>
                 </div>
 
-                <div class="table-wrapper" style="max-height: 500px; overflow-y: auto;">
-                    <table id="table-history-modal" class="table">
-                        <thead>
-                            <tr>
-                                <th>Data</th>
-                                <th>Tipo</th>
-                                <th>Sub-Tipo</th>
-                                <th>Código</th>
-                                <th>Descrição</th>
-                                <th>UN</th>
-                                <th>Qtde</th>
-                                <th>Nº NF</th>
-                                <th>Custo Médio Unit.</th>
-                                <th>Custo Total</th>
-                                <th>Requisitante</th>
-                                <th>Obra</th>
-                                <th>Obs.</th>
-                            </tr>
-                        </thead>
-                        <tbody>
-                            <!-- Data populated by JS -->
-                        </tbody>
-                    </table>
+                <!-- Right: Existing Filters and Table -->
+                <div style="flex-grow: 1; display: flex; flex-direction: column; overflow: hidden;">
+                    <div class="filters-container" style="display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 15px; margin-bottom: 20px;">
+                        <div>
+                            <label for="history-filter-local" class="block text-sm font-medium text-gray-700">Local</label>
+                            <select id="history-filter-local" class="form-control w-full mt-1">
+                                <option value="">Todos</option>
+                            </select>
+                        </div>
+                        <div>
+                            <label for="history-filter-locacao" class="block text-sm font-medium text-gray-700">Locação</label>
+                            <select id="history-filter-locacao" class="form-control w-full mt-1">
+                                <option value="">Todas</option>
+                            </select>
+                        </div>
+                        <div>
+                            <label for="history-filter-tipo" class="block text-sm font-medium text-gray-700">Tipo (Múltipla Seleção - Segure Ctrl)</label>
+                            <select id="history-filter-tipo" class="form-control w-full mt-1" multiple style="height: 80px;">
+                                <option value="entrada">Entrada</option>
+                                <option value="saida">Saída</option>
+                                <option value="transferencia">Transferência</option>
+                                <option value="reserva">Reserva</option>
+                                <option value="reserva_cancelada">Reserva Cancelada</option>
+                            </select>
+                        </div>
+                        <div>
+                            <label for="history-filter-subtipo" class="block text-sm font-medium text-gray-700">Sub-Tipo (Múltipla Seleção - Segure Ctrl)</label>
+                            <select id="history-filter-subtipo" class="form-control w-full mt-1" multiple style="height: 80px;">
+                                <!-- Populated dynamically -->
+                            </select>
+                        </div>
+                    </div>
+
+                    <div class="table-wrapper" style="max-height: 500px; overflow: auto;">
+                        <table id="table-history-modal" class="table">
+                            <thead>
+                                <tr>
+                                    <th>Data</th>
+                                    <th>Tipo</th>
+                                    <th>Sub-Tipo</th>
+                                    <th>Código</th>
+                                    <th>Descrição</th>
+                                    <th>UN</th>
+                                    <th>Qtde</th>
+                                    <th>Nº NF</th>
+                                    <th>Custo Médio Unit.</th>
+                                    <th>Custo Total</th>
+                                    <th>Requisitante</th>
+                                    <th>Obra</th>
+                                    <th>Obs.</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                <!-- Data populated by JS -->
+                            </tbody>
+                        </table>
+                    </div>
                 </div>
             </div>
         </div>
     </div>
+
+    <!-- Modal Zoom Imagem -->
+    <div id="image-zoom-modal" class="modal" style="z-index: 2000;">
+        <div class="modal-content" style="max-width: 90%; max-height: 90%; width: auto; height: auto; background-color: transparent; border: none; box-shadow: none; display: flex; align-items: center; justify-content: center;">
+            <span class="close-button" id="image-zoom-modal-close" style="position: absolute; top: 10px; right: 20px; color: white; font-size: 40px; text-shadow: 0 0 5px black;">&times;</span>
+            <img id="image-zoom-full" src="" alt="Imagem Ampliada" style="max-width: 100%; max-height: 90vh; border-radius: 8px; box-shadow: 0 4px 15px rgba(0,0,0,0.5);">
+        </div>
+    </div>
+
 </body>
 </html>

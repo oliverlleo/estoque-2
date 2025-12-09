@@ -50,6 +50,16 @@ document.addEventListener('DOMContentLoaded', async function() {
     const historyTableBody = document.querySelector('#table-history-modal tbody');
     const historyModalTitle = document.getElementById('history-modal-product-title');
 
+    // Elementos da Imagem no Modal de Histórico
+    const historyProductImage = document.getElementById('history-product-image');
+    const historyProductImagePlaceholder = document.getElementById('history-product-image-placeholder');
+    const imageContainer = historyProductImage.parentElement;
+
+    // Elementos do Modal de Zoom
+    const imageZoomModal = document.getElementById('image-zoom-modal');
+    const imageZoomFull = document.getElementById('image-zoom-full');
+    const imageZoomClose = document.getElementById('image-zoom-modal-close');
+
     // Filtros do Modal
     const historyFilterLocal = document.getElementById('history-filter-local');
     const historyFilterLocacao = document.getElementById('history-filter-locacao');
@@ -65,7 +75,22 @@ document.addEventListener('DOMContentLoaded', async function() {
         if (event.target == historyModal) {
             historyModal.style.display = 'none';
         }
+        if (event.target == imageZoomModal) {
+            imageZoomModal.style.display = 'none';
+        }
     };
+
+    // Zoom da Imagem
+    imageContainer.onclick = () => {
+        if (historyProductImage.src && historyProductImage.style.display !== 'none') {
+            imageZoomFull.src = historyProductImage.src;
+            imageZoomModal.style.display = 'flex'; // Use flex to center
+        }
+    };
+    imageZoomClose.onclick = () => {
+        imageZoomModal.style.display = 'none';
+    }
+
 
     // --- Inicialização do Toggle ---
     modeToggle.addEventListener('change', () => {
@@ -426,6 +451,18 @@ document.addEventListener('DOMContentLoaded', async function() {
     function openHistoryModal(productItem) {
         currentProductData = productItem;
         historyModalTitle.textContent = `${productItem.codigo} - ${productItem.descricao}`;
+
+        // Atualiza a imagem
+        if (productItem.imagem) {
+            historyProductImage.src = productItem.imagem;
+            historyProductImage.style.display = 'block';
+            historyProductImagePlaceholder.style.display = 'none';
+        } else {
+            historyProductImage.src = '';
+            historyProductImage.style.display = 'none';
+            historyProductImagePlaceholder.style.display = 'block';
+        }
+
         historyModal.style.display = 'block';
         const rawMovements = globalMovementsByProduct[productItem.id] || [];
         populateHistoryFilters(productItem, rawMovements);
