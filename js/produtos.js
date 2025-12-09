@@ -21,6 +21,20 @@ document.addEventListener('DOMContentLoaded', async function() {
     const btnAddLocacao = document.getElementById('btn-add-locacao');
     const locacoesContainer = document.getElementById('locacoes-container');
 
+    // Novos elementos para imagem e descrição
+    const imagemInput = document.getElementById('produto-imagem');
+    const descricaoDetalhadaInput = document.getElementById('produto-descricao-detalhada');
+    const imagePreviewContainer = document.getElementById('image-preview-container');
+    const imagePreview = document.getElementById('image-preview');
+
+    // Elementos do Modal de Visualização
+    const viewModal = document.getElementById('product-view-modal');
+    const viewModalClose = document.getElementById('product-view-modal-close');
+    const viewImage = document.getElementById('view-product-image');
+    const viewNoImage = document.getElementById('view-no-image');
+    const viewDescription = document.getElementById('view-product-description');
+    const viewTitle = document.getElementById('view-modal-title');
+
 
     function applyFilters() {
         const generalSearchTerm = filterInput.value.toLowerCase();
@@ -63,6 +77,56 @@ document.addEventListener('DOMContentLoaded', async function() {
             codigoInput.classList.remove('is-invalid');
         }
     });
+
+    // Preview da imagem ao selecionar
+    imagemInput.addEventListener('change', function(e) {
+        const file = e.target.files[0];
+        if (file) {
+            const reader = new FileReader();
+            reader.onload = function(e) {
+                imagePreview.src = e.target.result;
+                imagePreviewContainer.style.display = 'block';
+            }
+            reader.readAsDataURL(file);
+        } else {
+            imagePreview.src = '';
+            imagePreviewContainer.style.display = 'none';
+        }
+    });
+
+    /**
+     * Redimensiona uma imagem para uma largura máxima, mantendo a proporção.
+     * Retorna uma Promise que resolve com a string Base64 da imagem redimensionada.
+     */
+    function resizeImage(file, maxWidth = 800, quality = 0.7) {
+        return new Promise((resolve, reject) => {
+            const reader = new FileReader();
+            reader.readAsDataURL(file);
+            reader.onload = (event) => {
+                const img = new Image();
+                img.src = event.target.result;
+                img.onload = () => {
+                    const canvas = document.createElement('canvas');
+                    let width = img.width;
+                    let height = img.height;
+
+                    if (width > maxWidth) {
+                        height = (maxWidth * height) / width;
+                        width = maxWidth;
+                    }
+
+                    canvas.width = width;
+                    canvas.height = height;
+                    const ctx = canvas.getContext('2d');
+                    ctx.drawImage(img, 0, 0, width, height);
+
+                    resolve(canvas.toDataURL('image/jpeg', quality));
+                };
+                img.onerror = (err) => reject(err);
+            };
+            reader.onerror = (err) => reject(err);
+        });
+    }
 
     formToggle.addEventListener('change', () => {
         const isProduto = formToggle.checked;
@@ -560,6 +624,18 @@ document.addEventListener('DOMContentLoaded', async function() {
             }
         }
 
+        // Processamento da Imagem
+        let imagemBase64 = null;
+        if (imagemInput.files && imagemInput.files[0]) {
+            try {
+                imagemBase64 = await resizeImage(imagemInput.files[0]);
+            } catch (err) {
+                console.error("Erro ao processar imagem:", err);
+                alert("Erro ao processar a imagem. Tente novamente.");
+                return;
+            }
+        }
+
         const product = {
             codigo: document.getElementById('produto-codigo').value,
             descricao: document.getElementById('produto-descricao').value,
@@ -571,13 +647,30 @@ document.addEventListener('DOMContentLoaded', async function() {
             conjuntoIds: conjuntoSelect.getSelectedIds(),
             conversaoId: document.getElementById('produto-conversao').value,
             locacoes: locacoes, // NOVO CAMPO
+            descricao_detalhada: descricaoDetalhadaInput.value, // NOVO CAMPO
             arquivado: false
         };
+
+        // Se uma nova imagem foi carregada, adiciona ao objeto.
+        // Se não, e for edição, a imagem antiga será mantida pelo merge (se não enviarmos nada)
+        // OU precisamos explicitamente manter se formos sobrescrever tudo.
+        // Como estamos usando setDoc com merge: true, se não passarmos o campo, ele mantém o antigo.
+        // Mas para novos produtos, se imagemBase64 for null, não salva nada.
+        if (imagemBase64) {
+            product.imagem = imagemBase64;
+        }
 
         try {
             if (productId) {
                 // Ao atualizar, precisamos manter o estoque existente.
                 const originalProduct = productsData.find(p => p.id === productId)?.data;
+
+                // Mantém a imagem antiga se não houver nova
+                if (!imagemBase64 && originalProduct.imagem) {
+                    // Não precisa fazer nada se usar merge: true e não incluir a chave 'imagem' no objeto 'product'
+                    // Mas para garantir consistência no objeto 'product' local se quiséssemos usá-lo depois:
+                    // product.imagem = originalProduct.imagem;
+                }
 
                 if (originalProduct && originalProduct.locacoes) {
                     // Mapeia as novas locações preservando o estoque das originais correspondentes
@@ -634,6 +727,12 @@ document.addEventListener('DOMContentLoaded', async function() {
             locacoesContainer.innerHTML = ''; // Limpa as locações dinâmicas
             document.getElementById('produto-id').value = '';
             codigoInput.classList.remove('is-invalid');
+
+            // Limpa preview da imagem
+            imagemInput.value = '';
+            imagePreview.src = '';
+            imagePreviewContainer.style.display = 'none';
+
             filterInput.value = '';
             applyFilters();
 
@@ -703,11 +802,67 @@ document.addEventListener('DOMContentLoaded', async function() {
                 .map(id => configData.aplicacoes[id]?.nome || 'N/A')
                 .join(', ');
 
+            // Adiciona cursor-pointer às células que abrem o modal
+            const cellStyle = 'cursor: pointer;';
+
             row.innerHTML = `
                 <td><input type="checkbox" class="produto-checkbox" data-id="${product.id}"></td>
-                <td>${pData.codigo}</td>
-                <td>${pData.descricao}</td>
-                <td>${pData.un}</td>
+                <td style="${cellStyle}" class="clickable-cell" data-id="${product.id}">${pData.codigo}</td>
+                <td style="${cellStyle}" class="clickable-cell" data-id="${product.id}">${pData.descricao}</td>
+                <td style="${cellStyle}" class="clickable-cell" data-id="${product.id}">${pData.un}</td>
+                <td style="${cellStyle}" class="clickable-cell" data-id="${product.id}">${pData.cor}</td>
+                <td style="${cellStyle}" class="clickable-cell" data-id="${product.id}">${fornecedor}</td>
+                <td style="${cellStyle}" class="clickable-cell" data-id="${product.id}">${grupo}</td>
+                <td style="${cellStyle}" class="clickable-cell" data-id="${product.id}">${conversao}</td>
+                <td style="${cellStyle}" class="clickable-cell" data-id="${product.id}">${aplicacoesNomes}</td>
+                <td style="${cellStyle}" class="clickable-cell" data-id="${product.id}">${locaisHtml}</td>
+                <td style="${cellStyle}" class="clickable-cell" data-id="${product.id}">${locacoesHtml}</td>
+                <td style="${cellStyle}" class="clickable-cell" data-id="${product.id}">${pData.medida_sobra || '-'}</td>
+            `;
+            tableBody.appendChild(row);
+        });
+    };
+
+    // Listener para cliques nas células da tabela (Abrir Modal de Visualização)
+    tableBody.addEventListener('click', (e) => {
+        // Ignora se o clique foi no checkbox
+        if (e.target.classList.contains('produto-checkbox') || e.target.tagName === 'INPUT') return;
+
+        const cell = e.target.closest('.clickable-cell');
+        if (cell) {
+            const id = cell.dataset.id;
+            const product = productsData.find(p => p.id === id);
+
+            if (product) {
+                viewTitle.textContent = `${product.data.codigo} - ${product.data.descricao}`;
+                viewDescription.textContent = product.data.descricao_detalhada || 'Nenhuma descrição detalhada disponível.';
+
+                if (product.data.imagem) {
+                    viewImage.src = product.data.imagem;
+                    viewImage.style.display = 'block';
+                    viewNoImage.style.display = 'none';
+                } else {
+                    viewImage.src = '';
+                    viewImage.style.display = 'none';
+                    viewNoImage.style.display = 'block';
+                }
+
+                viewModal.style.display = 'block';
+            }
+        }
+    });
+
+    viewModalClose.addEventListener('click', () => {
+        viewModal.style.display = 'none';
+    });
+
+    window.addEventListener('click', (event) => {
+        if (event.target == viewModal) {
+            viewModal.style.display = 'none';
+        }
+    });
+
+    // 4. Listen for real-time updates
                 <td>${pData.cor}</td>
                 <td>${fornecedor}</td>
                 <td>${grupo}</td>
@@ -829,6 +984,17 @@ document.addEventListener('DOMContentLoaded', async function() {
             document.getElementById('produto-fornecedor').value = product.data.fornecedorId;
             document.getElementById('produto-grupo').value = product.data.grupoId;
             document.getElementById('produto-conversao').value = product.data.conversaoId || "";
+
+            // Novos campos
+            descricaoDetalhadaInput.value = product.data.descricao_detalhada || '';
+
+            if (product.data.imagem) {
+                imagePreview.src = product.data.imagem;
+                imagePreviewContainer.style.display = 'block';
+            } else {
+                imagePreview.src = '';
+                imagePreviewContainer.style.display = 'none';
+            }
 
             aplicacaoSelect.setSelectedIds(product.data.aplicacaoIds);
             conjuntoSelect.setSelectedIds(product.data.conjuntoIds);
