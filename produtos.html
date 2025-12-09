@@ -83,6 +83,25 @@
                             <input type="hidden" id="produto-id">
                             <input type="text" id="produto-codigo" placeholder="Código" required class="form-control">
                             <input type="text" id="produto-descricao" placeholder="Descrição" required class="form-control">
+
+                            <!-- NOVOS CAMPOS (Realocados para destaque) -->
+                            <div style="grid-column: 1 / -1; background-color: #f8f9fa; padding: 15px; border-radius: 5px; border: 1px solid #e9ecef; margin-bottom: 10px;">
+                                <label style="display: block; margin-bottom: 5px; font-weight: bold; color: #495057;">Informações Adicionais (Imagem e Detalhes)</label>
+
+                                <label for="produto-imagem-upload" style="font-size: 0.9em; color: #6c757d; display: block; margin-top: 5px;">Imagem do Produto</label>
+                                <input type="file" id="produto-imagem-upload" accept="image/*" class="form-control" style="margin-bottom: 10px;">
+                                <input type="hidden" id="produto-imagem">
+
+                                <div id="preview-container" style="display: none; margin-top: 10px; text-align: center; margin-bottom: 10px;">
+                                    <img id="imagem-preview" src="" alt="Prévia" style="max-height: 200px; border-radius: 8px; border: 1px solid #dee2e6; display: inline-block;">
+                                    <br>
+                                    <button type="button" id="btn-remover-imagem" class="btn btn-sm btn-delete" style="margin-top: 5px;">Remover Imagem</button>
+                                </div>
+
+                                <textarea id="produto-descricao-detalhada" placeholder="Descrição Detalhada / Observações" class="form-control" rows="3"></textarea>
+                            </div>
+                            <!-- FIM NOVOS CAMPOS -->
+
                             <input type="text" id="produto-un" placeholder="UN Estocável" required class="form-control">
                             <input type="text" id="produto-cor" placeholder="Cor" class="form-control">
                             <select id="produto-conversao" class="form-control">
@@ -90,18 +109,6 @@
                             </select>
                             <select id="produto-fornecedor" required class="form-control"><option value="">Selecione o Fornecedor...</option></select>
                             <select id="produto-grupo" required class="form-control"><option value="">Selecione o Grupo...</option></select>
-
-                            <!-- Novos Campos -->
-                            <div style="grid-column: 1 / -1; display: flex; flex-direction: column; gap: 5px;">
-                                <label for="produto-imagem-upload" style="font-size: 0.9em; color: #6c757d;">Imagem do Produto</label>
-                                <input type="file" id="produto-imagem-upload" accept="image/*" class="form-control">
-                                <input type="hidden" id="produto-imagem"> <!-- Armazena o Base64 -->
-                                <div id="preview-container" style="display: none; margin-top: 10px; text-align: center;">
-                                    <img id="imagem-preview" src="" alt="Prévia" style="max-height: 200px; border-radius: 8px; border: 1px solid #dee2e6;">
-                                    <button type="button" id="btn-remover-imagem" class="btn btn-sm btn-delete" style="margin-top: 5px;">Remover Imagem</button>
-                                </div>
-                            </div>
-                            <textarea id="produto-descricao-detalhada" placeholder="Descrição Detalhada / Observações" class="form-control" rows="3" style="grid-column: 1 / -1;"></textarea>
 
                             <div class="multiselect-container" id="multiselect-aplicacao">
                                 <div class="multiselect-display-area form-control">
@@ -307,7 +314,7 @@
     <script src="https://unpkg.com/imask"></script>
     <script src="https://cdn.sheetjs.com/xlsx-latest/package/dist/xlsx.full.min.js"></script>
     <script type="module" src="js/main.js"></script>
-    <script type="module" src="js/produtos.js?v=3"></script>
+    <script type="module" src="js/produtos.js?v=100"></script>
     <script type="module" src="js/global-search.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/qrcodejs@1.0.0/qrcode.min.js"></script>
     <script> feather.replace() </script>
