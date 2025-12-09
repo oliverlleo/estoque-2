@@ -93,6 +93,7 @@
 
         #produto-imagem-detalhe {
             max-width: 100%;
+            max-height: 200px; /* Reduzido para ficar menor */
             height: auto;
             border-radius: 8px;
             margin-bottom: 20px;
@@ -290,6 +291,12 @@
             <div class="card">
                  <div class="card-body" id="details-container">
                     <!-- Conteúdo será preenchido por JS -->
+
+                    <!-- Imagem movida para cima -->
+                    <div style="text-align: center; margin-bottom: 20px;">
+                        <img id="produto-imagem-detalhe" src="" alt="Imagem do Produto">
+                    </div>
+
                      <p><strong>Código:</strong> <span id="produto-codigo">Carregando...</span></p>
                      <p><strong>Descrição:</strong> <span id="produto-descricao">Carregando...</span></p>
                      <p><strong>Medida:</strong> <span id="produto-medida">Carregando...</span></p>
@@ -300,11 +307,7 @@
                      <p><strong>Estoque na Locação:</strong> <span id="locacao-estoque">Carregando...</span></p>
                      <p><strong>Estoque Total:</strong> <span id="estoque-total-texto" style="cursor: pointer;">Carregando...</span></p>
 
-                     <!-- Imagem e Descrição Detalhada movidos para baixo conforme solicitado -->
                      <hr>
-                     <div style="text-align: center; margin-top: 20px;">
-                        <img id="produto-imagem-detalhe" src="" alt="Imagem do Produto">
-                    </div>
                     <div id="produto-descricao-detalhada-detalhe"></div>
                 </div>
             </div>

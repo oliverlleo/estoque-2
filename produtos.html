@@ -84,24 +84,7 @@
                             <input type="text" id="produto-codigo" placeholder="Código" required class="form-control">
                             <input type="text" id="produto-descricao" placeholder="Descrição" required class="form-control">
 
-                            <!-- NOVOS CAMPOS (Realocados para destaque) -->
-                            <div style="grid-column: 1 / -1; background-color: #f8f9fa; padding: 15px; border-radius: 5px; border: 1px solid #e9ecef; margin-bottom: 10px;">
-                                <label style="display: block; margin-bottom: 5px; font-weight: bold; color: #495057;">Informações Adicionais (Imagem e Detalhes)</label>
-
-                                <label for="produto-imagem-upload" style="font-size: 0.9em; color: #6c757d; display: block; margin-top: 5px;">Imagem do Produto</label>
-                                <input type="file" id="produto-imagem-upload" accept="image/*" class="form-control" style="margin-bottom: 10px;">
-                                <input type="hidden" id="produto-imagem">
-
-                                <div id="preview-container" style="display: none; margin-top: 10px; text-align: center; margin-bottom: 10px;">
-                                    <img id="imagem-preview" src="" alt="Prévia" style="max-height: 200px; border-radius: 8px; border: 1px solid #dee2e6; display: inline-block;">
-                                    <br>
-                                    <button type="button" id="btn-remover-imagem" class="btn btn-sm btn-delete" style="margin-top: 5px;">Remover Imagem</button>
-                                </div>
-
-                                <textarea id="produto-descricao-detalhada" placeholder="Descrição Detalhada / Observações" class="form-control" rows="3"></textarea>
-                            </div>
-                            <!-- FIM NOVOS CAMPOS -->
-
+                            <!-- REORDENAÇÃO: Campos de dados movidos para cima -->
                             <input type="text" id="produto-un" placeholder="UN Estocável" required class="form-control">
                             <input type="text" id="produto-cor" placeholder="Cor" class="form-control">
                             <select id="produto-conversao" class="form-control">
@@ -127,6 +110,24 @@
                                 <div class="multiselect-options">
                                     </div>
                             </div>
+
+                            <!-- NOVOS CAMPOS (Agora abaixo dos campos de seleção) -->
+                            <div style="grid-column: 1 / -1; background-color: #f8f9fa; padding: 15px; border-radius: 5px; border: 1px solid #e9ecef; margin-bottom: 10px;">
+                                <label style="display: block; margin-bottom: 5px; font-weight: bold; color: #495057;">Informações Adicionais (Imagem e Detalhes)</label>
+
+                                <label for="produto-imagem-upload" style="font-size: 0.9em; color: #6c757d; display: block; margin-top: 5px;">Imagem do Produto</label>
+                                <input type="file" id="produto-imagem-upload" accept="image/*" class="form-control" style="margin-bottom: 10px;">
+                                <input type="hidden" id="produto-imagem">
+
+                                <div id="preview-container" style="display: none; margin-top: 10px; text-align: center; margin-bottom: 10px;">
+                                    <img id="imagem-preview" src="" alt="Prévia" style="max-height: 200px; border-radius: 8px; border: 1px solid #dee2e6; display: inline-block;">
+                                    <br>
+                                    <button type="button" id="btn-remover-imagem" class="btn btn-sm btn-delete" style="margin-top: 5px;">Remover Imagem</button>
+                                </div>
+
+                                <textarea id="produto-descricao-detalhada" placeholder="Descrição Detalhada / Observações" class="form-control" rows="3"></textarea>
+                            </div>
+                            <!-- FIM NOVOS CAMPOS -->
 
                             <div id="locacoes-container" style="grid-column: 1 / -1; display: flex; flex-direction: column; gap: 10px; border-top: 1px solid #eee; padding-top: 15px; margin-top: 15px;">
                                 <!-- As locações dinâmicas serão adicionadas aqui -->
