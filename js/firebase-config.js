@@ -1,26 +1,40 @@
-// Adicione aqui as suas configurações do Firebase
-// NOTA: Este é um exemplo e deve ser substituído pelas suas chaves reais.
-// For Firebase JS SDK v7.20.0 and later, measurementId is optional
-const firebaseConfig = {
-  apiKey: "AIzaSyC3DT4WwCJbeguyZ8myyZ3H0alTJUpn-bE",
-  authDomain: "estoque-d3354.firebaseapp.com",
-  databaseURL: "https://estoque-d3354-default-rtdb.firebaseio.com",
-  projectId: "estoque-d3354",
-  storageBucket: "estoque-d3354.firebasestorage.app",
-  messagingSenderId: "1051581921795",
-  appId: "1:1051581921795:web:5ff083ef333d35c890ec36",
-  measurementId: "G-5WQV7SHDZC"
-};
-
-// Importa as funções do Firebase SDK
 import { initializeApp } from "https://www.gstatic.com/firebasejs/9.6.1/firebase-app.js";
 import { getFirestore } from "https://www.gstatic.com/firebasejs/9.6.1/firebase-firestore.js";
+import { initializeAppCheck, ReCaptchaV3Provider } from "https://www.gstatic.com/firebasejs/9.6.1/firebase-app-check.js";
 
-// Inicializa o Firebase
-const app = initializeApp(firebaseConfig);
-const db = getFirestore(app);
+async function carregarChaves() {
+    try {
+        // Pede as chaves para o servidor do Firebase
+        const response = await fetch('/__/firebase/init.json');
+        if (!response.ok) throw new Error("Erro ao buscar chaves.");
+        return await response.json();
+    } catch (e) {
+        console.error("Erro crítico: Site não está rodando no Firebase Hosting.", e);
+        return null;
+    }
+}
 
-// Exporta a instância do Firestore para ser usada em outros módulos
+let db = null;
+
+// Inicializa assim que a chave chegar do servidor
+(async () => {
+    try {
+        const config = await carregarChaves();
+        if (config) {
+            const app = initializeApp(config);
+            
+            // Ative isso APENAS se já configurou o App Check no painel do Firebase
+            // const appCheck = initializeAppCheck(app, {
+            //    provider: new ReCaptchaV3Provider('SUA_CHAVE_SITE_KEY_RECAPTCHA'),
+            //    isTokenAutoRefreshEnabled: true
+            // });
+
+            db = getFirestore(app);
+            console.log("Conectado ao projeto:", config.projectId);
+        }
+    } catch (erro) {
+        console.error("Falha ao iniciar:", erro);
+    }
+})();
+
 export { db };
-
-console.log("Firebase inicializado. Certifique-se de que suas credenciais em firebase-config.js estão corretas.");
