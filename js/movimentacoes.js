@@ -2477,6 +2477,45 @@ document.addEventListener('DOMContentLoaded', async function() {
         updateTable();
         popularDropdownsCadastroModal();
         popularFiltros(); // Popula os filtros
+
+        // Handle URL parameters
+        const urlParams = new URLSearchParams(window.location.search);
+
+        // Handle Obra Filter
+        const obraId = urlParams.get('obraId');
+        if (obraId) {
+            const obraSelect = document.getElementById('filtro-obra');
+            if (obraSelect) {
+                // Wait for options to populate if needed, but popularFiltros() is called before
+                // Note: popularFiltros populates with Names as values?? Let's check popularFiltros implementation.
+                // In popularFiltros: `filtroObra.innerHTML += `<option value="${obra.nome}">${obra.nome}</option>`;`
+                // Wait, the existing code uses Name as value?
+                // `Object.values(configData.obras || {}).forEach(obra => { filtroObra.innerHTML += `<option value="${obra.nome}">${obra.nome}</option>`; });`
+                // This is weird. Usually IDs are used.
+                // Let's verify popularFiltros in this file.
+
+                // If it uses names, we must find the name from the ID.
+                const obraData = configData.obras ? configData.obras[obraId] : null;
+                if (obraData) {
+                    obraSelect.value = obraData.nome;
+                    filterState['obraId'] = obraData.nome; // The filter logic likely filters by the cell value which is Name.
+                    updateTable();
+                }
+            }
+        }
+
+        // Handle Action Type (Entrada/Saida)
+        const tipoAcao = urlParams.get('tipo');
+        if (tipoAcao) {
+             if (tipoAcao === 'entrada' && !toggle.checked) {
+                // Already entrada by default usually, but ensure
+                toggle.checked = true;
+                handleToggleChange();
+            } else if (tipoAcao === 'saida' && toggle.checked) {
+                toggle.click(); // Trigger change
+            }
+        }
+
         // Exibe o formulário que estava oculto por padrão
         document.getElementById('movement-wrapper').style.display = 'block';
         loadingOverlay.style.display = 'none'; // Esconde o loader

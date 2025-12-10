@@ -177,6 +177,31 @@ document.addEventListener('DOMContentLoaded', async function() {
         });
 
         applyFilters();
+        handleUrlParams();
+    }
+
+    function handleUrlParams() {
+        const urlParams = new URLSearchParams(window.location.search);
+
+        // Product Code or ID search
+        const search = urlParams.get('search') || urlParams.get('codigo');
+        const id = urlParams.get('id');
+
+        if (id) {
+            // If ID is present (direct click), we rely on applyFilters to handle it via URL param reading
+            // We do NOT set the code filter, to avoid conflicts.
+        } else if (search) {
+            filtersProduto.codigo.value = search;
+        }
+
+        const locacao = urlParams.get('locacao');
+        if (locacao) {
+            filtersProduto.locacao.value = locacao;
+        }
+
+        if (search || locacao || id) {
+            applyFilters();
+        }
     }
 
     // --- Event Listeners para Ordenação ---
@@ -272,6 +297,9 @@ document.addEventListener('DOMContentLoaded', async function() {
     }
 
     function applyFilters() {
+        const urlParams = new URLSearchParams(window.location.search);
+        const searchId = urlParams.get('id'); // Special param for direct ID lookup
+
         const filterValues = {
             codigo: filtersProduto.codigo.value.toLowerCase(),
             descricao: filtersProduto.descricao.value.toLowerCase(),
@@ -282,6 +310,11 @@ document.addEventListener('DOMContentLoaded', async function() {
         };
 
         const filteredData = consolidatedData.filter(item => {
+            // If filtering by ID (exact match from search click)
+            if (searchId && item.id === searchId && !filterValues.codigo) {
+                return true;
+            }
+
             const matchesCodigo = (item.codigo || '').toLowerCase().includes(filterValues.codigo);
             const matchesDescricao = (item.descricao || '').toLowerCase().includes(filterValues.descricao);
             const matchesCor = (item.cor || '').toLowerCase().includes(filterValues.cor);
