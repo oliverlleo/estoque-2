@@ -31,6 +31,14 @@ document.addEventListener('DOMContentLoaded', async function() {
     const sobrasSearchInput = document.getElementById('sobra-search-input');
     const sobrasListContainer = document.getElementById('sobras-list-container');
 
+    // Elementos Zoom Imagem
+    const imagemZoomModal = document.getElementById('imagem-zoom-modal');
+    const imagemZoomModalClose = document.getElementById('imagem-zoom-modal-close');
+    const imagemZoomContent = document.getElementById('imagem-zoom-content');
+    const btnZoomIn = document.getElementById('btn-zoom-in');
+    const btnZoomOut = document.getElementById('btn-zoom-out');
+    const zoomContainer = document.getElementById('zoom-container');
+
     let currentProduct = null;
     let currentLocacao = null;
     let configData = {};
@@ -258,6 +266,107 @@ document.addEventListener('DOMContentLoaded', async function() {
 
     sobrasModalClose.addEventListener('click', () => sobrasModal.style.display = 'none');
 
+    // --- ZOOM LÓGICA ---
+    let currentScale = 1;
+    let isDragging = false;
+    let startX, startY;
+    let translateX = 0, translateY = 0;
+    let initialDistance = null;
+    let initialScale = 1;
+
+    function updateZoom() {
+        // Aplica translação e escala. A ordem importa.
+        // translate primeiro permite mover a imagem, scale depois aumenta ela no lugar.
+        imagemZoomContent.style.transform = `translate(${translateX}px, ${translateY}px) scale(${currentScale})`;
+    }
+
+    if (imagemEl) {
+        imagemEl.addEventListener('click', () => {
+            if (!imagemEl.src || imagemEl.style.display === 'none') return;
+            imagemZoomContent.src = imagemEl.src;
+            imagemZoomModal.style.display = 'block';
+
+            // Reset zoom state
+            currentScale = 1;
+            translateX = 0;
+            translateY = 0;
+            updateZoom();
+        });
+    }
+
+    imagemZoomModalClose.addEventListener('click', () => {
+        imagemZoomModal.style.display = 'none';
+    });
+
+    btnZoomIn.addEventListener('click', (e) => {
+        e.stopPropagation();
+        currentScale += 0.5;
+        updateZoom();
+    });
+
+    btnZoomOut.addEventListener('click', (e) => {
+        e.stopPropagation();
+        if (currentScale > 0.5) {
+            currentScale -= 0.5;
+            updateZoom();
+        }
+    });
+
+    // Pinch Zoom & Pan
+    zoomContainer.addEventListener('touchstart', (e) => {
+        if (e.touches.length === 2) {
+            // Pinch start
+            e.preventDefault(); // Evita zoom da página inteira
+            initialDistance = Math.hypot(
+                e.touches[0].pageX - e.touches[1].pageX,
+                e.touches[0].pageY - e.touches[1].pageY
+            );
+            initialScale = currentScale;
+        } else if (e.touches.length === 1 && currentScale > 1) {
+            // Drag start (apenas se estiver com zoom)
+            isDragging = true;
+            startX = e.touches[0].clientX - translateX;
+            startY = e.touches[0].clientY - translateY;
+        }
+    });
+
+    zoomContainer.addEventListener('touchmove', (e) => {
+        if (e.touches.length === 2 && initialDistance) {
+            // Pinch move
+            e.preventDefault();
+            const currentDistance = Math.hypot(
+                e.touches[0].pageX - e.touches[1].pageX,
+                e.touches[0].pageY - e.touches[1].pageY
+            );
+            const scaleChange = currentDistance / initialDistance;
+            currentScale = initialScale * scaleChange;
+            if (currentScale < 0.5) currentScale = 0.5;
+            updateZoom();
+        } else if (e.touches.length === 1 && isDragging) {
+            // Drag move
+            e.preventDefault();
+            translateX = e.touches[0].clientX - startX;
+            translateY = e.touches[0].clientY - startY;
+            updateZoom();
+        }
+    });
+
+    zoomContainer.addEventListener('touchend', () => {
+        initialDistance = null;
+        isDragging = false;
+    });
+
+    // Wheel Zoom (Mouse)
+    zoomContainer.addEventListener('wheel', (e) => {
+        e.preventDefault();
+        if (e.deltaY < 0) {
+            currentScale += 0.1;
+        } else {
+            if (currentScale > 0.5) currentScale -= 0.1;
+        }
+        updateZoom();
+    });
+
     btnAbrirModalBaixa.addEventListener('click', () => {
         if (!currentLocacao) {
             alert("Não é possível dar baixa pois nenhuma locação específica foi identificada pela etiqueta.");
@@ -298,6 +407,7 @@ document.addEventListener('DOMContentLoaded', async function() {
         if (event.target == baixaModal) baixaModal.style.display = 'none';
         if (event.target == estoqueTotalModal) estoqueTotalModal.style.display = 'none';
         if (event.target == sobrasModal) sobrasModal.style.display = 'none';
+        if (event.target == imagemZoomModal) imagemZoomModal.style.display = 'none';
     });
 
     formBaixa.addEventListener('submit', async (e) => {

@@ -294,8 +294,10 @@
 
                     <!-- Imagem movida para cima -->
                     <div style="text-align: center; margin-bottom: 20px;">
-                        <img id="produto-imagem-detalhe" src="" alt="Imagem do Produto">
+                        <img id="produto-imagem-detalhe" src="" alt="Imagem do Produto" style="cursor: zoom-in;">
                     </div>
+
+                    <div id="produto-descricao-detalhada-detalhe"></div>
 
                      <p><strong>Código:</strong> <span id="produto-codigo">Carregando...</span></p>
                      <p><strong>Descrição:</strong> <span id="produto-descricao">Carregando...</span></p>
@@ -306,9 +308,6 @@
                      <p><strong>Locação:</strong> <span id="locacao-completa">Carregando...</span></p>
                      <p><strong>Estoque na Locação:</strong> <span id="locacao-estoque">Carregando...</span></p>
                      <p><strong>Estoque Total:</strong> <span id="estoque-total-texto" style="cursor: pointer;">Carregando...</span></p>
-
-                     <hr>
-                    <div id="produto-descricao-detalhada-detalhe"></div>
                 </div>
             </div>
             <button id="btn-abrir-modal-baixa" class="btn btn-danger">Dar Baixa desta Locação</button>
@@ -329,6 +328,23 @@
                     </div>
                     <button type="submit" id="btn-confirmar-baixa" class="btn btn-danger">Confirmar Saída</button>
                 </form>
+            </div>
+        </div>
+    </div>
+
+    <!-- NOVO MODAL: Zoom da Imagem -->
+    <div id="imagem-zoom-modal" class="modal" style="background-color: rgba(0,0,0,0.9);">
+        <div class="modal-content" style="background: transparent; border: none; width: 100%; height: 100%; max-width: 100%; display: flex; flex-direction: column; align-items: center; justify-content: center;">
+            <span id="imagem-zoom-modal-close" class="close-button" style="position: absolute; top: 20px; right: 20px; color: white; font-size: 40px; z-index: 1001;">&times;</span>
+
+            <div id="zoom-container" style="overflow: hidden; touch-action: none; width: 100%; height: 100%; display: flex; align-items: center; justify-content: center;">
+                <img id="imagem-zoom-content" src="" style="max-width: 95%; max-height: 95%; transition: transform 0.1s ease-out; cursor: grab;">
+            </div>
+
+            <!-- Controles de Zoom -->
+            <div style="position: absolute; bottom: 30px; display: flex; gap: 20px; z-index: 1001;">
+                <button id="btn-zoom-out" style="width: 50px; height: 50px; border-radius: 50%; border: 2px solid white; background: rgba(0,0,0,0.5); color: white; font-size: 24px; cursor: pointer;">-</button>
+                <button id="btn-zoom-in" style="width: 50px; height: 50px; border-radius: 50%; border: 2px solid white; background: rgba(0,0,0,0.5); color: white; font-size: 24px; cursor: pointer;">+</button>
             </div>
         </div>
     </div>
