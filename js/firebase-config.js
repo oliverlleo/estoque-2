@@ -1,34 +1,26 @@
+// Adicione aqui as suas configurações do Firebase
+// NOTA: Este é um exemplo e deve ser substituído pelas suas chaves reais.
+// For Firebase JS SDK v7.20.0 and later, measurementId is optional
+const firebaseConfig = {
+  apiKey: "AIzaSyC3DT4WwCJbeguyZ8myyZ3H0alTJUpn-bE",
+  authDomain: "estoque-d3354.firebaseapp.com",
+  databaseURL: "https://estoque-d3354-default-rtdb.firebaseio.com",
+  projectId: "estoque-d3354",
+  storageBucket: "estoque-d3354.firebasestorage.app",
+  messagingSenderId: "1051581921795",
+  appId: "1:1051581921795:web:5ff083ef333d35c890ec36",
+  measurementId: "G-5WQV7SHDZC"
+};
+
+// Importa as funções do Firebase SDK
 import { initializeApp } from "https://www.gstatic.com/firebasejs/9.6.1/firebase-app.js";
 import { getFirestore } from "https://www.gstatic.com/firebasejs/9.6.1/firebase-firestore.js";
 
-// Busca as chaves no seu "cofre" do Firebase
-async function buscarChaves() {
-    try {
-        // Pede o arquivo json que você subiu no passo anterior
-        const response = await fetch('https://estoque-d3354.web.app/chaves.json');
-        
-        if (!response.ok) throw new Error("Falha ao buscar chaves no servidor.");
-        
-        return await response.json();
-    } catch (e) {
-        console.error("Erro crítico de conexão:", e);
-        return null;
-    }
-}
+// Inicializa o Firebase
+const app = initializeApp(firebaseConfig);
+const db = getFirestore(app);
 
-let db = null;
-
-// Inicia o sistema
-try {
-    const config = await buscarChaves();
-    
-    if (config) {
-        const app = initializeApp(config);
-        db = getFirestore(app);
-        console.log("Sistema conectado via Cloudflare -> Firebase.");
-    }
-} catch (erro) {
-    console.error("Falha ao iniciar:", erro);
-}
-
+// Exporta a instância do Firestore para ser usada em outros módulos
 export { db };
+
+console.log("Firebase inicializado. Certifique-se de que suas credenciais em firebase-config.js estão corretas.");
