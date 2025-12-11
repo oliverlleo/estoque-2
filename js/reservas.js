@@ -94,9 +94,16 @@ document.addEventListener('DOMContentLoaded', () => {
     }
 
     function applyFilters() {
+        const showCancelled = document.getElementById('show-cancelled').checked;
+
         const filteredData = allReservas.filter(mov => {
             const product = productsMap[mov.productId] || {};
             const obra = obrasMap[mov.obraId] || {};
+
+            // Filtro de Canceladas
+            if (!showCancelled && mov.tipo === 'reserva_cancelada') {
+                return false;
+            }
 
             const matchesCodigo = (product.codigo || '').toLowerCase().includes((filterState.codigo || '').toLowerCase());
             const matchesDescricao = (product.descricao || '').toLowerCase().includes((filterState.descricao || '').toLowerCase());
@@ -106,6 +113,8 @@ document.addEventListener('DOMContentLoaded', () => {
         });
         renderTable(filteredData);
     }
+
+    document.getElementById('show-cancelled').addEventListener('change', applyFilters);
 
     filtersContainer.addEventListener('input', (e) => {
         if (e.target.classList.contains('form-control')) {
