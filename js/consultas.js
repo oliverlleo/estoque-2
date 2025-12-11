@@ -20,6 +20,7 @@ document.addEventListener('DOMContentLoaded', async function() {
 
     // Estado Global
     let consolidatedData = [];
+    let currentFilteredData = []; // Store current filtered data for export
     let globalMovementsByProduct = {};
     let configData = {};
 
@@ -55,6 +56,14 @@ document.addEventListener('DOMContentLoaded', async function() {
     let currentProductHistory = [];
     let currentProductData = null;
 
+    // PDF Modal Elements
+    const pdfModal = document.getElementById('pdf-columns-modal');
+    const pdfModalClose = document.getElementById('pdf-columns-modal-close');
+    const pdfColumnsList = document.getElementById('pdf-columns-list');
+    const btnGeneratePdf = document.getElementById('btn-generate-pdf');
+    const btnExportExcel = document.getElementById('btn-export-excel');
+    const btnExportPdf = document.getElementById('btn-export-pdf');
+
     historyModalClose.onclick = () => { historyModal.style.display = 'none'; };
     window.onclick = (event) => {
         if (event.target == historyModal) {
@@ -63,7 +72,12 @@ document.addEventListener('DOMContentLoaded', async function() {
         if (event.target == imageZoomModal) {
             imageZoomModal.style.display = 'none';
         }
+        if (event.target == pdfModal) {
+            pdfModal.style.display = 'none';
+        }
     };
+
+    pdfModalClose.onclick = () => { pdfModal.style.display = 'none'; };
 
     // Zoom da Imagem
     imageContainer.onclick = () => {
@@ -334,6 +348,7 @@ document.addEventListener('DOMContentLoaded', async function() {
             }
             return matchesCodigo && matchesDescricao && matchesCor && matchesLocalLocacao;
         });
+        currentFilteredData = filteredData; // Update current filtered data
         renderTableProduto(filteredData);
     }
 
@@ -502,6 +517,149 @@ document.addEventListener('DOMContentLoaded', async function() {
     historyFilterLocacao.addEventListener('change', () => renderHistoryTable(currentProductHistory));
     historyFilterTipo.addEventListener('change', () => renderHistoryTable(currentProductHistory));
     historyFilterSubtipo.addEventListener('change', () => renderHistoryTable(currentProductHistory));
+
+    // --- Export Functions ---
+
+    // Column definitions for exports
+    const exportColumns = [
+        { key: 'codigo', label: 'Código' },
+        { key: 'descricao', label: 'Descrição' },
+        { key: 'cor', label: 'Cor' },
+        { key: 'estoque', label: 'Estoque Atual' },
+        { key: 'quantidadeReservada', label: 'Reservado' },
+        { key: 'un', label: 'UN' },
+        { key: 'valorMedio', label: 'Custo Un. Médio' },
+        { key: 'valorTotalEstoque', label: 'Custo Total Estoque' },
+        { key: 'localDisplay', label: 'Locação' }
+    ];
+
+    function exportToExcel() {
+        if (!currentFilteredData || currentFilteredData.length === 0) {
+            alert("Não há dados para exportar.");
+            return;
+        }
+
+        const dataToExport = currentFilteredData.map(item => {
+            let reservedDisplay = (item.quantidadeReservada || 0);
+            // Simplification: Detailed reservation info is complex for Excel, just using number or pre-calc string
+            // But user asked for "same column as table", table shows details if checkbox checked.
+            // Let's stick to the raw value or simple string for Excel to keep it clean, or use the logic if needed.
+            // For Excel, usually raw numbers are better. But "Locação" has HTML. We need to strip HTML.
+
+            const locacaoText = item.localDisplay.replace(/<[^>]*>?/gm, ' ').replace(/\s+/g, ' ').trim();
+
+            return {
+                'Código': item.codigo,
+                'Descrição': item.descricao,
+                'Cor': item.cor,
+                'Estoque Atual': item.estoque,
+                'Reservado': item.quantidadeReservada,
+                'UN': item.un,
+                'Custo Un. Médio': item.valorMedio,
+                'Custo Total Estoque': item.valorTotalEstoque,
+                'Locação': locacaoText
+            };
+        });
+
+        const ws = XLSX.utils.json_to_sheet(dataToExport);
+
+        // Auto-width columns
+        const wscols = Object.keys(dataToExport[0]).map(k => ({ wch: Math.max(k.length, 15) }));
+        ws['!cols'] = wscols;
+
+        const wb = XLSX.utils.book_new();
+        XLSX.utils.book_append_sheet(wb, ws, "Estoque");
+        XLSX.writeFile(wb, `Estoque_${new Date().toLocaleDateString().replace(/\//g, '-')}.xlsx`);
+    }
+
+    function openPdfModal() {
+        pdfColumnsList.innerHTML = '';
+        exportColumns.forEach((col, index) => {
+            const div = document.createElement('div');
+            div.style.display = 'flex';
+            div.style.alignItems = 'center';
+            div.innerHTML = `
+                <input type="checkbox" id="pdf-col-${index}" value="${col.key}" checked style="margin-right: 8px;">
+                <label for="pdf-col-${index}">${col.label}</label>
+            `;
+            pdfColumnsList.appendChild(div);
+        });
+        pdfModal.style.display = 'block';
+    }
+
+    function generatePdf() {
+        const selectedKeys = [];
+        exportColumns.forEach((col, index) => {
+            if (document.getElementById(`pdf-col-${index}`).checked) {
+                selectedKeys.push(col.key);
+            }
+        });
+
+        if (selectedKeys.length === 0) {
+            alert("Selecione pelo menos uma coluna.");
+            return;
+        }
+
+        const { jsPDF } = window.jspdf;
+        const doc = new jsPDF({ orientation: 'landscape' });
+
+        const tableHead = [selectedKeys.map(key => exportColumns.find(c => c.key === key).label)];
+        const tableBody = currentFilteredData.map(item => {
+            return selectedKeys.map(key => {
+                let val = item[key];
+                if (key === 'localDisplay') {
+                    // Strip HTML
+                     val = val ? val.replace(/<[^>]*>?/gm, ' ').replace(/\s+/g, ' ').trim() : '';
+                } else if (['estoque', 'quantidadeReservada'].includes(key)) {
+                    val = (val || 0).toString().replace('.', ',');
+                } else if (['valorMedio', 'valorTotalEstoque'].includes(key)) {
+                    val = (val || 0).toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' });
+                }
+                return val == null ? '' : val;
+            });
+        });
+
+        doc.setFontSize(18);
+        doc.setTextColor(40);
+        doc.text("Relatório de Estoque", 14, 22);
+
+        doc.setFontSize(10);
+        doc.setTextColor(100);
+        doc.text(`Gerado em: ${new Date().toLocaleString('pt-BR')}`, 14, 28);
+
+        doc.autoTable({
+            head: tableHead,
+            body: tableBody,
+            startY: 35,
+            theme: 'striped',
+            styles: {
+                font: 'helvetica',
+                fontSize: 8,
+                cellPadding: 3,
+                valign: 'middle',
+                overflow: 'linebreak'
+            },
+            headStyles: {
+                fillColor: [41, 128, 185], // Nice blue
+                textColor: 255,
+                fontStyle: 'bold'
+            },
+            alternateRowStyles: {
+                fillColor: [245, 245, 245]
+            },
+            columnStyles: {
+                // You can specify specific widths if needed based on key index
+            }
+        });
+
+        doc.save(`Relatorio_Estoque_${new Date().toLocaleDateString().replace(/\//g, '-')}.pdf`);
+        pdfModal.style.display = 'none';
+    }
+
+    // Attach listeners for export
+    btnExportExcel.addEventListener('click', exportToExcel);
+    btnExportPdf.addEventListener('click', openPdfModal);
+    btnGeneratePdf.addEventListener('click', generatePdf);
 
     fetchDataAndCalculate().catch(error => {
         console.error("Erro ao carregar dados da consulta:", error);
