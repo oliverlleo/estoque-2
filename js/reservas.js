@@ -338,11 +338,9 @@ document.addEventListener('DOMContentLoaded', () => {
             option.textContent = label;
 
             // Check availability
-            if ((loc.estoque || 0) < movData.quantidade) {
+            if ((loc.estoque || 0) <= 0) {
                 option.style.color = 'red';
-                option.disabled = true; // Disable if insufficient stock? Or let user pick and fail?
-                // Better to disable or show warning. Let's disable for safety in this modal flow.
-                // Wait, if I disable the reserved one, I must force user to pick another.
+                option.disabled = true;
             } else {
                 hasStock = true;
             }
@@ -351,14 +349,9 @@ document.addEventListener('DOMContentLoaded', () => {
 
             // Pre-select logic
             if (loc.locacao === movData.locacao) {
-                if ((loc.estoque || 0) >= movData.quantidade) {
-                    option.selected = true;
-                    reservedLocationValid = true;
-                } else {
-                    // Reserved location has insufficient stock
-                    alertBox.classList.remove('hidden');
-                    alertMsg.textContent = `A locação reservada (${loc.locacao}) tem estoque insuficiente (${loc.estoque}). Selecione outra.`;
-                }
+                // Pre-select even if stock is insufficient initially, user might lower the quantity
+                option.selected = true;
+                reservedLocationValid = true;
             }
         });
 
@@ -370,7 +363,7 @@ document.addEventListener('DOMContentLoaded', () => {
             btnFinalizeConfirm.disabled = true;
         } else if (!hasStock) {
             alertBox.classList.remove('hidden');
-            alertMsg.textContent = "Nenhuma locação possui estoque suficiente para esta reserva!";
+            alertMsg.textContent = "Nenhuma locação possui estoque positivo para esta reserva!";
             btnFinalizeConfirm.disabled = true;
         } else if (!movData.locacao && !reservedLocationValid) {
              // Legacy or missing location

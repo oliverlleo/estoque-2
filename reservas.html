@@ -99,35 +99,65 @@
             </div>
         </section>
     </main>
-    <div id="reservation-confirm-modal" class="modal">
-        <div class="modal-content">
-            <span class="close-modal" id="reservation-modal-close">&times;</span>
-            <h2>Confirmar Reserva</h2>
-            <div class="modal-body">
-                <p><strong>Produto:</strong> <span id="res-modal-produto"></span></p>
-                <p><strong>Quantidade Reservada:</strong> <span id="res-modal-quantidade-original"></span></p>
+    <!-- Modal de Confirmação de Reserva - Moderno e Minimalista -->
+    <div id="reservation-confirm-modal" class="fixed inset-0 z-50 overflow-auto bg-black bg-opacity-50 hidden flex items-center justify-center backdrop-filter backdrop-blur-sm">
+        <div class="relative bg-white rounded-xl shadow-2xl w-full max-w-lg mx-auto m-4 overflow-hidden border border-gray-100">
+            <!-- Header Minimalista com cor do sistema -->
+            <div class="px-6 py-4 border-b border-gray-100 flex justify-between items-center" style="background-color: #34495e;">
+                <h2 class="text-xl font-semibold text-white tracking-wide">Confirmar Reserva</h2>
+                <span class="cursor-pointer text-white hover:text-gray-200 transition-colors text-2xl leading-none" id="reservation-modal-close">&times;</span>
+            </div>
 
-                <div class="form-group">
-                    <label for="res-modal-quantidade-input">Quantidade a Confirmar:</label>
-                    <input type="number" id="res-modal-quantidade-input" class="form-control" min="0" step="any">
+            <div class="p-6 space-y-6">
+                <!-- Card de Informação do Produto -->
+                <div class="bg-gray-50 rounded-lg p-4 border border-gray-200">
+                    <p class="text-xs font-bold text-gray-500 uppercase tracking-wider mb-1">Produto Selecionado</p>
+                    <p class="text-lg font-medium text-gray-800 break-words" id="res-modal-produto">Product Name</p>
                 </div>
 
-                <div id="res-modal-alert" class="alert-box hidden" style="background-color: #fee2e2; color: #b91c1c; padding: 10px; border-radius: 5px; margin-bottom: 10px;">
-                    <span class="material-icons text-sm" style="vertical-align: middle;">warning</span>
-                    <span id="res-modal-alert-msg"></span>
+                <!-- Grid de Quantidades -->
+                <div class="grid grid-cols-2 gap-4">
+                    <div class="bg-blue-50 p-4 rounded-lg border border-blue-100 text-center">
+                        <label class="block text-xs font-bold text-blue-600 uppercase mb-1">Qtd. Reservada</label>
+                        <span id="res-modal-quantidade-original" class="text-2xl font-bold text-blue-800 block">0</span>
+                    </div>
+
+                    <div>
+                        <label for="res-modal-quantidade-input" class="block text-xs font-bold text-gray-600 uppercase mb-1 ml-1">Qtd. a Confirmar</label>
+                        <input type="number" id="res-modal-quantidade-input" class="w-full text-center text-xl font-bold text-gray-800 bg-white border border-gray-300 rounded-lg py-3 focus:outline-none focus:ring-2 focus:ring-green-500 focus:border-transparent transition-all" min="0" step="any">
+                    </div>
                 </div>
 
-                <div class="form-group">
-                    <label for="res-modal-locacao-select">Retirar de (Locação / Local):</label>
-                    <select id="res-modal-locacao-select" class="form-control">
-                        <!-- Options populated via JS -->
-                    </select>
+                <!-- Alerta de Erro -->
+                <div id="res-modal-alert" class="hidden bg-red-50 border-l-4 border-red-500 p-4 rounded-r-md">
+                    <div class="flex items-start">
+                        <span class="material-icons text-red-500 mr-2 text-sm">error_outline</span>
+                        <p id="res-modal-alert-msg" class="text-sm text-red-700 font-medium"></p>
+                    </div>
                 </div>
 
-                <div class="modal-footer" style="margin-top: 20px; text-align: right;">
-                    <button class="btn btn-secondary" id="btn-cancelar-confirmacao">Cancelar</button>
-                    <button class="btn btn-success" id="btn-finalizar-confirmacao">Confirmar Saída</button>
+                <!-- Seleção de Locação -->
+                <div>
+                    <label for="res-modal-locacao-select" class="block text-sm font-semibold text-gray-700 mb-2">Retirar de (Locação / Local)</label>
+                    <div class="relative">
+                        <select id="res-modal-locacao-select" class="block w-full pl-3 pr-10 py-3 text-base border-gray-300 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 rounded-lg shadow-sm bg-white text-gray-700">
+                            <!-- Options populated via JS -->
+                        </select>
+                        <div class="pointer-events-none absolute inset-y-0 right-0 flex items-center px-2 text-gray-700">
+                            <span class="material-icons text-gray-400">expand_more</span>
+                        </div>
+                    </div>
                 </div>
+            </div>
+
+            <!-- Footer com Botões -->
+            <div class="px-6 py-4 bg-gray-50 border-t border-gray-100 flex justify-end gap-3">
+                <button class="px-5 py-2.5 rounded-lg text-sm font-medium text-gray-600 hover:text-gray-800 hover:bg-gray-200 transition-colors focus:outline-none" id="btn-cancelar-confirmacao">
+                    Cancelar
+                </button>
+                <button class="px-5 py-2.5 rounded-lg text-sm font-medium text-white shadow-md hover:shadow-lg focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-green-600 transition-all transform hover:-translate-y-0.5" id="btn-finalizar-confirmacao" style="background-color: #198754;">
+                    Confirmar Saída
+                </button>
             </div>
         </div>
     </div>
