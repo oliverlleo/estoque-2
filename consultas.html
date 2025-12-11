@@ -69,7 +69,17 @@
         </header>
         <section class="content">
             <div class="card">
-                <div class="card-header"><h3 id="page-title-mode">Consulta de Estoque e Valores</h3></div>
+                <div class="card-header" style="display: flex; justify-content: space-between; align-items: center;">
+                    <h3 id="page-title-mode">Consulta de Estoque e Valores</h3>
+                    <div class="export-buttons">
+                        <button id="btn-export-excel" class="btn btn-success" style="background-color: #198754; color: white; margin-right: 10px;">
+                             <span class="material-icons" style="font-size: 16px; vertical-align: middle; margin-right: 5px;">table_view</span> Excel
+                        </button>
+                        <button id="btn-export-pdf" class="btn btn-danger" style="background-color: #dc3545; color: white;">
+                             <span class="material-icons" style="font-size: 16px; vertical-align: middle; margin-right: 5px;">picture_as_pdf</span> PDF
+                        </button>
+                    </div>
+                </div>
                 <div class="card-body">
                     <!-- Filters for Product Mode -->
                     <div id="filters-produto" class="filters-container mode-specific" style="display: grid; grid-template-columns: repeat(auto-fit, minmax(150px, 1fr)); gap: 10px; margin-bottom: 20px;">
@@ -129,6 +139,9 @@
             </div>
         </section>
     </main>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf-autotable/3.5.29/jspdf.plugin.autotable.min.js"></script>
     <script type="module" src="js/main.js"></script>
     <script type="module" src="js/consultas.js"></script>
     <script type="module" src="js/global-search.js"></script>
@@ -221,6 +234,25 @@
         <div class="modal-content" style="max-width: 90%; max-height: 90%; width: auto; height: auto; background-color: transparent; border: none; box-shadow: none; display: flex; align-items: center; justify-content: center;">
             <span class="close-button" id="image-zoom-modal-close" style="position: absolute; top: 10px; right: 20px; color: white; font-size: 40px; text-shadow: 0 0 5px black;">&times;</span>
             <img id="image-zoom-full" src="" alt="Imagem Ampliada" style="max-width: 100%; max-height: 90vh; border-radius: 8px; box-shadow: 0 4px 15px rgba(0,0,0,0.5);">
+        </div>
+    </div>
+
+    <!-- Modal Exportar PDF (Selecionar Colunas) -->
+    <div id="pdf-columns-modal" class="modal" style="display: none; z-index: 2000;">
+        <div class="modal-content" style="max-width: 500px;">
+            <div class="modal-header">
+                <h3>Exportar PDF - Selecionar Colunas</h3>
+                <span class="close-button" id="pdf-columns-modal-close">&times;</span>
+            </div>
+            <div class="modal-body">
+                <p style="margin-bottom: 15px;">Selecione as colunas que deseja incluir no relatório PDF:</p>
+                <div id="pdf-columns-list" style="display: grid; grid-template-columns: 1fr 1fr; gap: 10px; margin-bottom: 20px;">
+                    <!-- Checkboxes injected by JS -->
+                </div>
+                <div style="text-align: right;">
+                    <button id="btn-generate-pdf" class="btn btn-primary">Gerar PDF</button>
+                </div>
+            </div>
         </div>
     </div>
 
