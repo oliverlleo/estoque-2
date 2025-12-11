@@ -200,7 +200,15 @@
                     </div>
                 </div>
                  <div class="card-body">
-                    <input type="text" id="filter-produtos" class="form-control" placeholder="Filtrar produtos..." style="margin-bottom: 15px;">
+                    <div style="display: flex; gap: 15px; align-items: center; margin-bottom: 15px; flex-wrap: wrap;">
+                        <input type="text" id="filter-produtos" class="form-control" placeholder="Filtrar produtos..." style="flex: 1; min-width: 200px;">
+                        <label style="display: flex; align-items: center; gap: 5px; cursor: pointer;">
+                            <input type="checkbox" id="filter-sem-imagem"> Sem Imagem
+                        </label>
+                        <label style="display: flex; align-items: center; gap: 5px; cursor: pointer;">
+                            <input type="checkbox" id="filter-sem-descricao"> Sem Descrição Detalhada
+                        </label>
+                    </div>
                     <div class="table-wrapper">
                         <table id="table-produtos" class="table">
                             <thead>

@@ -7,6 +7,8 @@ document.addEventListener('DOMContentLoaded', async function() {
     const form = document.getElementById('form-produto');
     const tableBody = document.querySelector('#table-produtos tbody');
     const filterInput = document.getElementById('filter-produtos');
+    const filterSemImagem = document.getElementById('filter-sem-imagem');
+    const filterSemDescricao = document.getElementById('filter-sem-descricao');
     const formToggle = document.getElementById('form-toggle');
     const formWrapperProduto = document.getElementById('form-wrapper-produto');
     const formWrapperSobra = document.getElementById('form-wrapper-sobra');
@@ -92,6 +94,8 @@ document.addEventListener('DOMContentLoaded', async function() {
 
     function applyFilters() {
         const generalSearchTerm = filterInput.value.toLowerCase();
+        const semImagemChecked = filterSemImagem.checked;
+        const semDescricaoChecked = filterSemDescricao.checked;
 
         const filteredData = productsData.filter(product => {
             const pData = product.data;
@@ -100,6 +104,16 @@ document.addEventListener('DOMContentLoaded', async function() {
             const matchesGeneral = generalSearchTerm === '' || Object.values(pData).some(value =>
                 String(value).toLowerCase().includes(generalSearchTerm)
             );
+
+            // Filtro: Sem Imagem (se marcado, mostra SÓ quem NÃO TEM imagem)
+            if (semImagemChecked && pData.imagem) {
+                return false;
+            }
+
+            // Filtro: Sem Descrição Detalhada (se marcado, mostra SÓ quem NÃO TEM descrição ou ela é vazia)
+            if (semDescricaoChecked && pData.descricao_detalhada && pData.descricao_detalhada.trim() !== '') {
+                return false;
+            }
 
             return matchesGeneral;
         });
@@ -936,6 +950,8 @@ document.addEventListener('DOMContentLoaded', async function() {
     });
 
     filterInput.addEventListener('input', applyFilters);
+    filterSemImagem.addEventListener('change', applyFilters);
+    filterSemDescricao.addEventListener('change', applyFilters);
 
     document.getElementById('btn-gerar-etiquetas').addEventListener('click', (e) => {
         e.preventDefault(); // Previne o comportamento padrão do link
