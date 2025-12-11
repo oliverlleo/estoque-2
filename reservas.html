@@ -105,7 +105,12 @@
             <h2>Confirmar Reserva</h2>
             <div class="modal-body">
                 <p><strong>Produto:</strong> <span id="res-modal-produto"></span></p>
-                <p><strong>Quantidade Reservada:</strong> <span id="res-modal-quantidade"></span></p>
+                <p><strong>Quantidade Reservada:</strong> <span id="res-modal-quantidade-original"></span></p>
+
+                <div class="form-group">
+                    <label for="res-modal-quantidade-input">Quantidade a Confirmar:</label>
+                    <input type="number" id="res-modal-quantidade-input" class="form-control" min="0" step="any">
+                </div>
 
                 <div id="res-modal-alert" class="alert-box hidden" style="background-color: #fee2e2; color: #b91c1c; padding: 10px; border-radius: 5px; margin-bottom: 10px;">
                     <span class="material-icons text-sm" style="vertical-align: middle;">warning</span>
