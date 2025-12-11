@@ -170,11 +170,15 @@ document.addEventListener('DOMContentLoaded', async function() {
             let locacaoCompleta = 'N/A';
             if (product.locacoes && Array.isArray(product.locacoes)) {
                 estoqueAtual = product.locacoes.reduce((acc, loc) => acc + (loc.estoque || 0), 0);
-                if (product.locacoes.length > 0) {
-                    locacaoCompleta = product.locacoes.map(loc => {
+
+                const activeLocations = product.locacoes.filter(loc => (loc.estoque || 0) > 0);
+                if (activeLocations.length > 0) {
+                    locacaoCompleta = activeLocations.map(loc => {
                         const localNome = configData.locais[loc.localId]?.nome || 'Desconhecido';
                         return `${loc.locacao} (${localNome}) - <b>Estoque: ${loc.estoque || 0}</b>`;
                     }).join('<br>');
+                } else {
+                    locacaoCompleta = '-';
                 }
             }
 
@@ -546,7 +550,7 @@ document.addEventListener('DOMContentLoaded', async function() {
             // Let's stick to the raw value or simple string for Excel to keep it clean, or use the logic if needed.
             // For Excel, usually raw numbers are better. But "Locação" has HTML. We need to strip HTML.
 
-            const locacaoText = item.localDisplay.replace(/<[^>]*>?/gm, ' ').replace(/\s+/g, ' ').trim();
+            const locacaoText = (item.localDisplay || "").replace(/<[^>]*>?/gm, ' ').replace(/\s+/g, ' ').trim();
 
             return {
                 'Código': item.codigo,
@@ -609,7 +613,7 @@ document.addEventListener('DOMContentLoaded', async function() {
                 let val = item[key];
                 if (key === 'localDisplay') {
                     // Strip HTML
-                     val = val ? val.replace(/<[^>]*>?/gm, ' ').replace(/\s+/g, ' ').trim() : '';
+                     val = val ? (val.toString().replace(/<[^>]*>?/gm, ' ').replace(/\s+/g, ' ').trim()) : '';
                 } else if (['estoque', 'quantidadeReservada'].includes(key)) {
                     val = (val || 0).toString().replace('.', ',');
                 } else if (['valorMedio', 'valorTotalEstoque'].includes(key)) {
