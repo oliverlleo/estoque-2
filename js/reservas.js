@@ -326,7 +326,8 @@ document.addEventListener('DOMContentLoaded', () => {
         locacoes.forEach(loc => {
             const localName = locaisMap[loc.localId]?.nome || 'Local Desconhecido';
             const option = document.createElement('option');
-            option.value = loc.locacao; // We use the sub-location string as value
+            // Use JSON for unique identification
+            option.value = JSON.stringify({ localId: loc.localId, locacao: loc.locacao });
 
             let label = `${loc.locacao} (${localName}) - Estoque: ${loc.estoque}`;
 
@@ -390,11 +391,23 @@ document.addEventListener('DOMContentLoaded', () => {
 
     btnFinalizeConfirm.onclick = async () => {
         if (!currentConfirmMovId) return;
-        const selectedLocacao = selectLocacao.value;
+        const selectedValue = selectLocacao.value;
 
-        // Validação corrigida para aceitar string vazia (locação sem nome)
-        if (selectedLocacao === null || selectedLocacao === undefined) {
+        if (!selectedValue) {
             alert('Selecione uma locação.');
+            return;
+        }
+
+        let targetLocalId = null;
+        let targetLocacao = null;
+
+        try {
+            const parsed = JSON.parse(selectedValue);
+            targetLocalId = parsed.localId;
+            targetLocacao = parsed.locacao;
+        } catch (e) {
+            console.error("Erro ao ler locação selecionada:", e);
+            alert('Erro na seleção da locação.');
             return;
         }
 
@@ -412,9 +425,9 @@ document.addEventListener('DOMContentLoaded', () => {
                 const pData = productDoc.data();
                 const locacoes = pData.locacoes || [];
 
-                const locacaoIndex = locacoes.findIndex(l => l.locacao === selectedLocacao);
+                const locacaoIndex = locacoes.findIndex(l => l.locacao === targetLocacao && l.localId === targetLocalId);
                 if (locacaoIndex === -1) {
-                    throw new Error(`Locação selecionada (${selectedLocacao}) não encontrada no produto.`);
+                    throw new Error(`Locação selecionada (${targetLocacao}) não encontrada no produto.`);
                 }
 
                 if ((locacoes[locacaoIndex].estoque || 0) < movData.quantidade) {
@@ -431,7 +444,7 @@ document.addEventListener('DOMContentLoaded', () => {
                 transaction.update(movRef, {
                     tipo: 'saida',
                     reserva_confirmada: true,
-                    locacao: selectedLocacao, // Atualiza para a locação REAL utilizada
+                    locacao: targetLocacao, // Atualiza para a locação REAL utilizada (apenas a string)
                     valorMedioHistorico: valorMedio,
                     custoTotal: custoTotal // Salva o custo total
                 });
