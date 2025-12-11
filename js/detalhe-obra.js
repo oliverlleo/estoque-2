@@ -32,7 +32,7 @@ document.addEventListener('DOMContentLoaded', () => {
         return;
     }
 
-    function renderFinancialTable(orcadoMap, negociadoMap, realizadoMap) {
+    function renderFinancialTable(orcadoMap, negociadoMap, realizadoMap, vendidoMap) {
         const tableBody = document.getElementById('financial-details-body');
         const tableFooter = document.getElementById('financial-details-footer');
 
@@ -45,12 +45,14 @@ document.addEventListener('DOMContentLoaded', () => {
         const allGroupIds = new Set([
             ...Object.keys(orcadoMap || {}),
             ...Object.keys(negociadoMap || {}),
-            ...Object.keys(realizadoMap || {})
+            ...Object.keys(realizadoMap || {}),
+            ...Object.keys(vendidoMap || {})
         ]);
 
         let totalOrcado = 0;
         let totalNegociado = 0;
         let totalRealizado = 0;
+        let totalVendido = 0;
 
         // Consolidar dados para renderização
         const rowsToRender = [];
@@ -58,6 +60,7 @@ document.addEventListener('DOMContentLoaded', () => {
             orcado: 0,
             negociado: 0,
             realizado: 0,
+            vendido: 0,
             hasData: false
         };
 
@@ -65,9 +68,10 @@ document.addEventListener('DOMContentLoaded', () => {
             const valOrcado = orcadoMap && orcadoMap[groupId] ? parseFloat(orcadoMap[groupId]) : 0;
             const valNegociado = negociadoMap && negociadoMap[groupId] ? parseFloat(negociadoMap[groupId]) : 0;
             const valRealizado = realizadoMap[groupId] || 0;
+            const valVendido = vendidoMap && vendidoMap[groupId] ? parseFloat(vendidoMap[groupId]) : 0;
 
             // Se todos os valores forem zero, ignora esta linha
-            if (valOrcado === 0 && valNegociado === 0 && valRealizado === 0) {
+            if (valOrcado === 0 && valNegociado === 0 && valRealizado === 0 && valVendido === 0) {
                 return;
             }
 
@@ -80,13 +84,15 @@ document.addEventListener('DOMContentLoaded', () => {
                     nome: groupName,
                     valOrcado,
                     valNegociado,
-                    valRealizado
+                    valRealizado,
+                    valVendido
                 });
             } else {
                 // Grupo desconhecido ou 'sem_grupo' -> Consolidar
                 semGrupoTotals.orcado += valOrcado;
                 semGrupoTotals.negociado += valNegociado;
                 semGrupoTotals.realizado += valRealizado;
+                semGrupoTotals.vendido += valVendido;
                 semGrupoTotals.hasData = true;
             }
         });
@@ -98,12 +104,17 @@ document.addEventListener('DOMContentLoaded', () => {
                 nome: 'Sem Grupo/Outros',
                 valOrcado: semGrupoTotals.orcado,
                 valNegociado: semGrupoTotals.negociado,
-                valRealizado: semGrupoTotals.realizado
+                valRealizado: semGrupoTotals.realizado,
+                valVendido: semGrupoTotals.vendido
             });
         }
 
         // Ordenar alfabeticamente
         rowsToRender.sort((a, b) => a.nome.localeCompare(b.nome));
+
+        // Formatação (SEM CIFRÃO)
+        const fmtBRL = (val) => val.toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+        const fmtPerc = (val) => val.toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 }) + '%';
 
         // Renderizar linhas
         rowsToRender.forEach(rowInfo => {
@@ -112,6 +123,7 @@ document.addEventListener('DOMContentLoaded', () => {
             totalOrcado += rowInfo.valOrcado;
             totalNegociado += rowInfo.valNegociado;
             totalRealizado += rowInfo.valRealizado;
+            totalVendido += rowInfo.valVendido;
 
             // Cálculos de porcentagem
             let percNegOrc = 0;
@@ -124,49 +136,32 @@ document.addEventListener('DOMContentLoaded', () => {
                 percRealNeg = (rowInfo.valRealizado / rowInfo.valNegociado) * 100;
             }
 
-            // Formatação
-            const fmtBRL = (val) => val.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' });
-            const fmtPerc = (val) => val.toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 }) + '%';
+            let percRealVend = 0;
+            if (rowInfo.valVendido > 0) {
+                percRealVend = (rowInfo.valRealizado / rowInfo.valVendido) * 100;
+            }
 
             const row = document.createElement('tr');
             row.className = `bg-white border-b hover:bg-gray-50 cursor-pointer transition-colors ${selectedGroupId === groupId ? 'bg-blue-50 border-l-4 border-blue-500' : ''}`;
             row.innerHTML = `
-                <td class="px-6 py-4 font-medium text-gray-900">${rowInfo.nome}</td>
-                <td class="px-6 py-4 text-right">${fmtBRL(rowInfo.valOrcado)}</td>
-                <td class="px-6 py-4 text-center font-semibold ${percNegOrc > 100 ? 'text-red-600' : 'text-green-600'}">${fmtPerc(percNegOrc)}</td>
-                <td class="px-6 py-4 text-right">${fmtBRL(rowInfo.valNegociado)}</td>
-                <td class="px-6 py-4 text-center font-semibold ${percRealNeg > 100 ? 'text-red-600' : 'text-green-600'}">${fmtPerc(percRealNeg)}</td>
-                <td class="px-6 py-4 text-right font-bold">${fmtBRL(rowInfo.valRealizado)}</td>
+                <td class="px-6 py-4 font-medium text-black">${rowInfo.nome}</td>
+                <td class="px-6 py-4 text-right text-black">${fmtBRL(rowInfo.valOrcado)}</td>
+                <td class="px-6 py-4 text-center font-semibold text-black ${percNegOrc > 100 ? 'text-red-600' : 'text-green-600'}">${fmtPerc(percNegOrc)}</td>
+                <td class="px-6 py-4 text-right text-black">${fmtBRL(rowInfo.valNegociado)}</td>
+                <td class="px-6 py-4 text-center font-semibold text-black ${percRealNeg > 100 ? 'text-red-600' : 'text-green-600'}">${fmtPerc(percRealNeg)}</td>
+                <td class="px-6 py-4 text-right font-bold text-black">${fmtBRL(rowInfo.valRealizado)}</td>
+                <td class="px-6 py-4 text-center font-semibold text-black ${percRealVend > 100 ? 'text-red-600' : 'text-green-600'}">${fmtPerc(percRealVend)}</td>
+                <td class="px-6 py-4 text-right font-bold text-black">${fmtBRL(rowInfo.valVendido)}</td>
             `;
 
             row.addEventListener('click', () => {
-                // Se for a linha consolidada, precisamos decidir como filtrar.
-                // Se selecionarmos 'sem_grupo_consolidado', applyFilters deve saber lidar.
-                // Atualmente applyFilters compara selectedGroupId com item.grupoId.
-                // Se item.grupoId for indefinido ou 'sem_grupo', e selectedGroupId for 'sem_grupo_consolidado'?
-                // Precisamos ajustar o ID usado.
-                // Mas wait, se existirem multiplos IDs desconhecidos que foram consolidados,
-                // clicar nessa linha deveria mostrar itens de TODOS esses IDs?
-                // Seria complexo.
-                // Simplificação: Se item.grupoId não estiver em gruposMap, ele é considerado Sem Grupo.
-                // Mas applyFilters nao tem acesso facil a gruposMap.
-
-                // Vamos assumir que 'sem_grupo_consolidado' deve mapear para 'sem_grupo' ou IDs desconhecidos.
-                // Mas a maioria dos casos 'sem_grupo' vem de item.grupoId = null.
-                // Então vamos usar 'sem_grupo' como ID se for consolidado E o ID original fosse 'sem_grupo'.
-                // Se for um ID desconhecido (deletado), ele não vai bater com item.grupoId (que seria esse ID deletado).
-
-                // Melhor abordagem: selectedGroupId armazena o ID exato se for linha normal.
-                // Se for linha consolidada, armazena 'sem_grupo_consolidado'.
-                // E applyFilters trata esse caso especial.
-
                 if (selectedGroupId === groupId) {
                     selectedGroupId = null; // Toggle off
                 } else {
                     selectedGroupId = groupId; // Select
                 }
                 applyFilters();
-                renderFinancialTable(orcadoMap, negociadoMap, realizadoMap);
+                renderFinancialTable(orcadoMap, negociadoMap, realizadoMap, vendidoMap);
             });
 
             tableBody.appendChild(row);
@@ -179,24 +174,26 @@ document.addEventListener('DOMContentLoaded', () => {
         let totalPercRealNeg = 0;
         if (totalNegociado > 0) totalPercRealNeg = (totalRealizado / totalNegociado) * 100;
 
-        const fmtBRL = (val) => val.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' });
-        const fmtPerc = (val) => val.toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 }) + '%';
+        let totalPercRealVend = 0;
+        if (totalVendido > 0) totalPercRealVend = (totalRealizado / totalVendido) * 100;
 
         const footerRow = document.createElement('tr');
         footerRow.className = 'cursor-pointer hover:bg-gray-100 transition-colors'; // Add visual feedback
         footerRow.innerHTML = `
-            <td class="px-6 py-4 font-bold">TOTAL</td>
-            <td class="px-6 py-4 text-right font-bold">${fmtBRL(totalOrcado)}</td>
-            <td class="px-6 py-4 text-center font-bold">${fmtPerc(totalPercNegOrc)}</td>
-            <td class="px-6 py-4 text-right font-bold">${fmtBRL(totalNegociado)}</td>
-            <td class="px-6 py-4 text-center font-bold">${fmtPerc(totalPercRealNeg)}</td>
-            <td class="px-6 py-4 text-right font-bold text-blue-600">${fmtBRL(totalRealizado)}</td>
+            <td class="px-6 py-4 font-bold text-black">TOTAL</td>
+            <td class="px-6 py-4 text-right font-bold text-black">${fmtBRL(totalOrcado)}</td>
+            <td class="px-6 py-4 text-center font-bold text-black">${fmtPerc(totalPercNegOrc)}</td>
+            <td class="px-6 py-4 text-right font-bold text-black">${fmtBRL(totalNegociado)}</td>
+            <td class="px-6 py-4 text-center font-bold text-black">${fmtPerc(totalPercRealNeg)}</td>
+            <td class="px-6 py-4 text-right font-bold text-black" style="color: #0d6efd !important;">${fmtBRL(totalRealizado)}</td>
+            <td class="px-6 py-4 text-center font-bold text-black">${fmtPerc(totalPercRealVend)}</td>
+            <td class="px-6 py-4 text-right font-bold text-black">${fmtBRL(totalVendido)}</td>
         `;
 
         footerRow.addEventListener('click', () => {
             selectedGroupId = null; // Clear filter
             applyFilters();
-            renderFinancialTable(orcadoMap, negociadoMap, realizadoMap); // Re-render to clear selection highlights
+            renderFinancialTable(orcadoMap, negociadoMap, realizadoMap, vendidoMap); // Re-render to clear selection highlights
         });
 
         tableFooter.appendChild(footerRow);
@@ -601,16 +598,16 @@ document.addEventListener('DOMContentLoaded', () => {
             const valorMedioFmt = (item.valorMedio || 0).toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' });
             const valorTotalFmt = (item.valorTotal || 0).toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' });
             row.innerHTML = `
-                <td class="px-6 py-4 font-medium text-gray-900 whitespace-nowrap">${item.codigo}</td>
-                <td class="px-6 py-4">${item.descricao}</td>
-                <td class="px-6 py-4">${item.un}</td>
-                <td class="px-6 py-4">${item.cor}</td>
-                <td class="px-6 py-4">${item.fornecedor}</td>
-                <td class="px-6 py-4">${item.grupo}</td>
-                <td class="px-6 py-4">${item.aplicacoes}</td>
-                <td class="px-6 py-4 text-right">${item.qtde}</td>
-                <td class="px-6 py-4">${item.observacao}</td>
-                <td class="px-6 py-4 text-right">${valorMedioFmt}</td>
+                <td class="px-6 py-4 font-medium text-black whitespace-nowrap">${item.codigo}</td>
+                <td class="px-6 py-4 text-black">${item.descricao}</td>
+                <td class="px-6 py-4 text-black">${item.un}</td>
+                <td class="px-6 py-4 text-black">${item.cor}</td>
+                <td class="px-6 py-4 text-black">${item.fornecedor}</td>
+                <td class="px-6 py-4 text-black">${item.grupo}</td>
+                <td class="px-6 py-4 text-black">${item.aplicacoes}</td>
+                <td class="px-6 py-4 text-right text-black">${item.qtde}</td>
+                <td class="px-6 py-4 text-black">${item.observacao}</td>
+                <td class="px-6 py-4 text-right text-black">${valorMedioFmt}</td>
                 <td class="px-6 py-4 font-bold text-blue-600 text-right">${valorTotalFmt}</td>
             `;
             tabelaBody.appendChild(row);
