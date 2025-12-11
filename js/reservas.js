@@ -310,7 +310,8 @@ document.addEventListener('DOMContentLoaded', () => {
 
         // Populate Modal UI
         document.getElementById('res-modal-produto').textContent = `${productData.codigo} - ${productData.descricao}`;
-        document.getElementById('res-modal-quantidade').textContent = movData.quantidade;
+        document.getElementById('res-modal-quantidade-original').textContent = movData.quantidade;
+        document.getElementById('res-modal-quantidade-input').value = movData.quantidade;
 
         // Populate Select
         selectLocacao.innerHTML = '';
@@ -392,9 +393,16 @@ document.addEventListener('DOMContentLoaded', () => {
     btnFinalizeConfirm.onclick = async () => {
         if (!currentConfirmMovId) return;
         const selectedValue = selectLocacao.value;
+        const quantityInput = document.getElementById('res-modal-quantidade-input');
+        const confirmQuantity = parseFloat(quantityInput.value);
 
         if (!selectedValue) {
             alert('Selecione uma locação.');
+            return;
+        }
+
+        if (isNaN(confirmQuantity) || confirmQuantity <= 0) {
+            alert('A quantidade a confirmar deve ser maior que zero.');
             return;
         }
 
@@ -430,15 +438,15 @@ document.addEventListener('DOMContentLoaded', () => {
                     throw new Error(`Locação selecionada (${targetLocacao}) não encontrada no produto.`);
                 }
 
-                if ((locacoes[locacaoIndex].estoque || 0) < movData.quantidade) {
-                    throw new Error("Estoque insuficiente na locação selecionada.");
+                if ((locacoes[locacaoIndex].estoque || 0) < confirmQuantity) {
+                    throw new Error(`Estoque insuficiente na locação selecionada. Disponível: ${locacoes[locacaoIndex].estoque || 0}`);
                 }
 
                 // Deduz estoque
-                locacoes[locacaoIndex].estoque -= movData.quantidade;
+                locacoes[locacaoIndex].estoque -= confirmQuantity;
 
                 const valorMedio = parseFloat(pData.valorMedio) || 0;
-                const custoTotal = valorMedio * movData.quantidade;
+                const custoTotal = valorMedio * confirmQuantity;
 
                 transaction.update(productRef, { locacoes: locacoes });
                 transaction.update(movRef, {
@@ -446,7 +454,8 @@ document.addEventListener('DOMContentLoaded', () => {
                     reserva_confirmada: true,
                     locacao: targetLocacao, // Atualiza para a locação REAL utilizada (apenas a string)
                     valorMedioHistorico: valorMedio,
-                    custoTotal: custoTotal // Salva o custo total
+                    custoTotal: custoTotal, // Salva o custo total
+                    quantidade: confirmQuantity // Atualiza a quantidade confirmada
                 });
             });
             alert('Reserva confirmada e estoque atualizado com sucesso!');
