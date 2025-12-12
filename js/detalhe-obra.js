@@ -486,7 +486,23 @@ document.addEventListener('DOMContentLoaded', () => {
 
             const orcamentoElement = document.getElementById('obra-orcamento');
             if (orcamentoElement) {
-                orcamentoElement.innerHTML = `Orçamento: <span class="font-semibold" style="color: red;">${totalOrcamentoExibicao.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' })}</span>`;
+                // Ensure text-red-600 logic is maintained or replaced. Using inline style as per original, but class text-red-600 is better if possible.
+                // Keeping original style attribute to be safe as per user strictness, but adding class for consistency with new layout.
+                orcamentoElement.innerHTML = `Orçamento: <span class="font-semibold ml-2" style="color: red;">${totalOrcamentoExibicao.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' })}</span>`;
+            }
+
+            // Calculate and display Total Vendido
+            const totalVendido = Object.values(obraInfo.vendido || {}).reduce((a, b) => a + parseFloat(b || 0), 0);
+            const vendidoElement = document.getElementById('obra-vendido-total');
+            if (vendidoElement) {
+                vendidoElement.innerHTML = `Vendido: <span class="font-semibold text-green-600 ml-2">${totalVendido.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' })}</span>`;
+            }
+
+            // Calculate and display Total Negociado
+            const totalNegociado = Object.values(obraInfo.negociado || {}).reduce((a, b) => a + parseFloat(b || 0), 0);
+            const negociadoElement = document.getElementById('obra-negociado-total');
+            if (negociadoElement) {
+                negociadoElement.innerHTML = `Negociado: <span class="font-semibold text-yellow-600 ml-2">${totalNegociado.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' })}</span>`;
             }
 
             // Função para update da UI do Toggle Financeiro (precisa estar aqui para acessar activeDataset/obraInfo que são locais ao escopo DOMContentLoaded, mas fora desta função?)
@@ -664,7 +680,7 @@ document.addEventListener('DOMContentLoaded', () => {
         // Update Total Cost
         const custoTotalElement = document.getElementById('obra-custo-total');
         if (custoTotalElement) {
-             custoTotalElement.innerHTML = `Custo Total: <span class="font-semibold text-blue-600">${financials.total.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' })}</span>`;
+             custoTotalElement.innerHTML = `Custo Total: <span class="font-semibold text-blue-600 ml-2">${financials.total.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' })}</span>`;
         }
 
         // Update Charts
