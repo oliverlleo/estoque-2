@@ -79,7 +79,6 @@
         /* Rotated Text Implementation */
         .rotated-container {
             transform: rotate(90deg);
-            white-space: nowrap;
             text-align: center;
             width: 46mm; /* Increased to use full vertical height */
             /* Ensure rotation pivot is center */
@@ -93,11 +92,14 @@
             font-size: 32pt; /* Slightly smaller for potential long codes */
             font-weight: bold;
             display: block;
+            white-space: nowrap;
         }
         .loc-name-small {
             font-size: 13.5pt;
             display: block;
             margin-top: 2px;
+            white-space: normal;
+            line-height: 1.1;
         }
 
 
