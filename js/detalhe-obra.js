@@ -5,6 +5,7 @@ document.addEventListener('DOMContentLoaded', () => {
     const params = new URLSearchParams(window.location.search);
     const obraId = params.get('id');
     const btnExportExcel = document.getElementById('btn-export-excel');
+    const btnEtiquetaObra = document.getElementById('btn-etiqueta-obra');
     const filterCodigo = document.getElementById('filter-codigo-produto');
     const filterDescricao = document.getElementById('filter-descricao-produto');
     const viewToggle = document.getElementById('view-toggle');
@@ -745,6 +746,12 @@ document.addEventListener('DOMContentLoaded', () => {
     filterCodigo.addEventListener('input', applyFilters);
     filterDescricao.addEventListener('input', applyFilters);
     btnExportExcel.addEventListener('click', exportToExcel);
+
+    if (btnEtiquetaObra) {
+        btnEtiquetaObra.addEventListener('click', () => {
+            window.location.href = `etiquetas-obra.html?obraId=${obraId}`;
+        });
+    }
 
     document.getElementById('detalhe-obra-headers').addEventListener('click', (e) => {
         if (e.target.classList.contains('sortable')) {
