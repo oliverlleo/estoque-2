@@ -146,7 +146,11 @@ function renderList(searchTerm = '') {
     // Sort
     items.sort((a, b) => (a.details.descricao || '').localeCompare(b.details.descricao || ''));
 
-    document.getElementById('total-items').textContent = items.length;
+    const totalEl = document.getElementById('total-items');
+    totalEl.textContent = items.length;
+    // Update total count color based on mode
+    totalEl.classList.remove('text-red-600', 'text-green-600');
+    totalEl.classList.add(isPendente ? 'text-red-600' : 'text-green-600');
 
     if (items.length === 0) {
         container.innerHTML = '<div class="text-center text-gray-500 py-10">Nenhum item encontrado.</div>';
@@ -172,7 +176,7 @@ function renderList(searchTerm = '') {
                 <div class="flex gap-4 text-right">
                      <div>
                         <span class="block text-xs text-gray-500">Qtd</span>
-                        <span class="text-2xl font-bold ${isPendente ? 'text-blue-600' : 'text-red-600'}">${item.qty}</span>
+                        <span class="text-2xl font-bold ${isPendente ? 'text-red-600' : 'text-green-600'}">${item.qty}</span>
                     </div>
                 </div>
             </div>
