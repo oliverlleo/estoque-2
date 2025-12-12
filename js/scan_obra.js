@@ -125,15 +125,15 @@ function renderList(searchTerm = '') {
     const grouped = {};
     allMovements.forEach(m => {
         if (m.tipo !== targetType) return;
-        if (!m.produtoId) return;
+        if (!m.productId) return;
 
-        if (!grouped[m.produtoId]) {
-            grouped[m.produtoId] = {
+        if (!grouped[m.productId]) {
+            grouped[m.productId] = {
                 qty: 0,
-                details: productsMap[m.produtoId] || { codigo: '???', descricao: 'Produto Desconhecido' }
+                details: productsMap[m.productId] || { codigo: '???', descricao: 'Produto Desconhecido' }
             };
         }
-        grouped[m.produtoId].qty += (Number(m.quantidade) || 0);
+        grouped[m.productId].qty += (Number(m.quantidade) || 0);
     });
 
     // Convert to array and filter by search
