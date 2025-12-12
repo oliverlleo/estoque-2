@@ -492,14 +492,20 @@ document.addEventListener('DOMContentLoaded', () => {
             }
 
             // Calculate and display Total Vendido
-            const totalVendido = Object.values(obraInfo.vendido || {}).reduce((a, b) => a + parseFloat(b || 0), 0);
+            const totalVendido = Object.values(obraInfo.vendido || {}).reduce((acc, curr) => {
+                const val = typeof curr === 'string' ? parseFloat(curr.replace(',', '.')) : Number(curr);
+                return acc + (isNaN(val) ? 0 : val);
+            }, 0);
             const vendidoElement = document.getElementById('obra-vendido-total');
             if (vendidoElement) {
                 vendidoElement.innerHTML = `Vendido: <span class="font-semibold text-green-600 ml-2">${totalVendido.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' })}</span>`;
             }
 
             // Calculate and display Total Negociado
-            const totalNegociado = Object.values(obraInfo.negociado || {}).reduce((a, b) => a + parseFloat(b || 0), 0);
+            const totalNegociado = Object.values(obraInfo.negociado || {}).reduce((acc, curr) => {
+                const val = typeof curr === 'string' ? parseFloat(curr.replace(',', '.')) : Number(curr);
+                return acc + (isNaN(val) ? 0 : val);
+            }, 0);
             const negociadoElement = document.getElementById('obra-negociado-total');
             if (negociadoElement) {
                 negociadoElement.innerHTML = `Negociado: <span class="font-semibold text-yellow-600 ml-2">${totalNegociado.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' })}</span>`;
