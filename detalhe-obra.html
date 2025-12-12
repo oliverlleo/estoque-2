@@ -65,9 +65,15 @@
     <main class="flex-1 p-6 lg:p-12 overflow-y-auto bg-gray-50">
         <header class="flex justify-between items-center mb-8">
             <div>
-                <h1 id="obra-titulo" class="text-3xl font-bold text-gray-800">Carregando...</h1>
-                <p id="obra-custo-total" class="text-gray-500 text-lg">Custo Total: <span class="font-semibold text-blue-600">R$ 0,00</span></p>
-                <p id="obra-orcamento" class="text-gray-500 text-lg"></p>
+                <h1 id="obra-titulo" class="text-3xl font-bold text-gray-800 mb-2">Carregando...</h1>
+                <div class="flex flex-wrap gap-x-8 gap-y-1 text-lg text-gray-500">
+                    <div id="obra-custo-total" class="flex items-center">Custo Total: <span class="font-semibold text-blue-600 ml-2">R$ 0,00</span></div>
+                    <div id="obra-vendido-total" class="flex items-center">Vendido: <span class="font-semibold text-green-600 ml-2">R$ 0,00</span></div>
+                </div>
+                <div class="flex flex-wrap gap-x-8 gap-y-1 text-lg text-gray-500">
+                    <div id="obra-orcamento" class="flex items-center"></div>
+                    <div id="obra-negociado-total" class="flex items-center">Negociado: <span class="font-semibold text-yellow-600 ml-2">R$ 0,00</span></div>
+                </div>
             </div>
             <div class="flex items-center space-x-4">
                 <div class="flex items-center space-x-2">
@@ -123,14 +129,16 @@
                 <div id="financial-data-view" class="hidden">
                     <div class="overflow-x-auto">
                         <table class="w-full text-sm text-left text-gray-500" id="table-financial-details">
-                            <thead class="text-xs text-gray-700 uppercase bg-gray-100">
+                            <thead class="text-xs text-black uppercase bg-gray-100">
                                 <tr>
-                                    <th class="px-6 py-3">Categoria</th>
-                                    <th class="px-6 py-3 text-right">Orçado</th>
-                                    <th class="px-6 py-3 text-center">% (Neg/Orc)</th>
-                                    <th class="px-6 py-3 text-right">Negociado</th>
-                                    <th class="px-6 py-3 text-center">% (Real/Neg)</th>
-                                    <th class="px-6 py-3 text-right">Realizado</th>
+                                    <th class="px-6 py-3 text-black">Categoria</th>
+                                    <th class="px-6 py-3 text-right text-black">Orçado</th>
+                                    <th class="px-6 py-3 text-center text-black">% (Neg/Orc)</th>
+                                    <th class="px-6 py-3 text-right text-black">Negociado</th>
+                                    <th class="px-6 py-3 text-center text-black">% (Real/Neg)</th>
+                                    <th class="px-6 py-3 text-right text-black">Realizado</th>
+                                    <th class="px-6 py-3 text-center text-black">% (Real/Vend)</th>
+                                    <th class="px-6 py-3 text-right text-black">Vendido</th>
                                 </tr>
                             </thead>
                             <tbody id="financial-details-body">
