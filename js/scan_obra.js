@@ -4,6 +4,7 @@ import { collection, getDocs, getDoc, doc, query, where } from "https://www.gsta
 let currentObraId = null;
 let allMovements = [];
 let productsMap = {}; // { productId: { codigo, descricao, imagem, ... } }
+let gruposMap = {}; // { grupoId: nome }
 let isPendente = false; // default to Separados (false)
 
 document.addEventListener('DOMContentLoaded', async () => {
@@ -26,6 +27,19 @@ document.addEventListener('DOMContentLoaded', async () => {
         const obraData = obraDoc.data();
         document.getElementById('obra-nome').textContent = obraData.nome || 'Sem Nome';
         document.getElementById('obra-codigo').textContent = obraData.codigo || 'S/C';
+
+        // 1.1 Fetch Grupos
+        const gruposSnapshot = await getDocs(collection(db, 'grupos'));
+        const grupoSelect = document.getElementById('filter-group');
+        gruposSnapshot.forEach(doc => {
+            const data = doc.data();
+            gruposMap[doc.id] = data.nome;
+
+            const option = document.createElement('option');
+            option.value = doc.id;
+            option.textContent = data.nome;
+            grupoSelect.appendChild(option);
+        });
 
         // 2. Fetch All Products (for details)
         const productsSnapshot = await getDocs(query(collection(db, 'produtos'), where("arquivado", "!=", true)));
@@ -82,8 +96,13 @@ function setupListeners() {
     });
 
     // Search
-    document.getElementById('search-input').addEventListener('input', (e) => {
-        renderList(e.target.value);
+    document.getElementById('search-input').addEventListener('input', () => {
+        renderList();
+    });
+
+    // Group Filter
+    document.getElementById('filter-group').addEventListener('change', () => {
+        renderList();
     });
 
     // Modal
@@ -112,7 +131,9 @@ function updateToggleLabels() {
     }
 }
 
-function renderList(searchTerm = '') {
+function renderList() {
+    const searchTerm = document.getElementById('search-input').value || '';
+    const groupFilter = document.getElementById('filter-group').value || '';
     const container = document.getElementById('items-list');
     container.innerHTML = '';
 
@@ -136,17 +157,28 @@ function renderList(searchTerm = '') {
         grouped[m.productId].qty += (Number(m.quantidade) || 0);
     });
 
-    // Convert to array and filter by search
+    // Convert to array and filter by search and group
     let items = Object.values(grouped).filter(item => {
         const term = searchTerm.toLowerCase();
-        return (item.details.codigo || '').toLowerCase().includes(term) ||
-               (item.details.descricao || '').toLowerCase().includes(term);
+        const matchesSearch = (item.details.codigo || '').toLowerCase().includes(term) ||
+                              (item.details.descricao || '').toLowerCase().includes(term);
+
+        let matchesGroup = true;
+        if (groupFilter) {
+            matchesGroup = item.details.grupoId === groupFilter;
+        }
+
+        return matchesSearch && matchesGroup;
     });
 
     // Sort
     items.sort((a, b) => (a.details.descricao || '').localeCompare(b.details.descricao || ''));
 
-    document.getElementById('total-items').textContent = items.length;
+    const totalEl = document.getElementById('total-items');
+    totalEl.textContent = items.length;
+    // Update total count color based on mode
+    totalEl.classList.remove('text-red-600', 'text-green-600');
+    totalEl.classList.add(isPendente ? 'text-red-600' : 'text-green-600');
 
     if (items.length === 0) {
         container.innerHTML = '<div class="text-center text-gray-500 py-10">Nenhum item encontrado.</div>';
@@ -172,7 +204,7 @@ function renderList(searchTerm = '') {
                 <div class="flex gap-4 text-right">
                      <div>
                         <span class="block text-xs text-gray-500">Qtd</span>
-                        <span class="text-2xl font-bold ${isPendente ? 'text-blue-600' : 'text-red-600'}">${item.qty}</span>
+                        <span class="text-2xl font-bold ${isPendente ? 'text-red-600' : 'text-green-600'}">${item.qty}</span>
                     </div>
                 </div>
             </div>
