@@ -56,3 +56,6 @@
 127.0.0.1 - - [12/Dec/2025 16:31:34] "GET /scan_obra.html?id=test_id HTTP/1.1" 200 -
 127.0.0.1 - - [12/Dec/2025 16:31:34] "GET /js/scan_obra.js HTTP/1.1" 200 -
 127.0.0.1 - - [12/Dec/2025 16:31:34] "GET /js/firebase-config.js HTTP/1.1" 200 -
+127.0.0.1 - - [12/Dec/2025 16:49:12] "GET /scan_obra.html?id=test_id HTTP/1.1" 200 -
+127.0.0.1 - - [12/Dec/2025 16:49:12] "GET /js/scan_obra.js HTTP/1.1" 200 -
+127.0.0.1 - - [12/Dec/2025 16:49:12] "GET /js/firebase-config.js HTTP/1.1" 200 -
