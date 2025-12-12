@@ -250,7 +250,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
                             // Força update da tabela se estiver no modo tabela
                             if (financialToggle.checked) {
-                                renderFinancialTable(obraInfo.orcado, obraInfo.negociado, custoPorGrupo);
+                                renderFinancialTable(obraInfo.orcado, obraInfo.negociado, custoPorGrupo, obraInfo.vendido);
                             }
                         } else {
                             // Clicked outside segments (background) -> Clear filter
@@ -258,7 +258,7 @@ document.addEventListener('DOMContentLoaded', () => {
                             applyFilters();
 
                             if (financialToggle.checked) {
-                                renderFinancialTable(obraInfo.orcado, obraInfo.negociado, custoPorGrupo);
+                                renderFinancialTable(obraInfo.orcado, obraInfo.negociado, custoPorGrupo, obraInfo.vendido);
                             }
                         }
                     },
@@ -459,7 +459,8 @@ document.addEventListener('DOMContentLoaded', () => {
                 codigo: obraData.codigo || 'S/C',
                 nome: obraData.nome,
                 orcado: obraData.orcado || {},
-                negociado: obraData.negociado || {}
+                negociado: obraData.negociado || {},
+                vendido: obraData.vendido || {}
             };
 
             document.getElementById('obra-titulo').textContent = `${obraInfo.codigo} - ${obraInfo.nome}`;
@@ -508,7 +509,7 @@ document.addEventListener('DOMContentLoaded', () => {
                     dataView.classList.remove('hidden');
 
                     const financials = calculateFinancials(activeDataset);
-                    renderFinancialTable(obraInfo.orcado, obraInfo.negociado, financials.porGrupo);
+                    renderFinancialTable(obraInfo.orcado, obraInfo.negociado, financials.porGrupo, obraInfo.vendido);
 
                 } else {
                     // Modo GRÁFICO
@@ -671,7 +672,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
         // Update Table if visible
         if (financialToggle.checked) {
-            renderFinancialTable(obraInfo.orcado, obraInfo.negociado, financials.porGrupo);
+            renderFinancialTable(obraInfo.orcado, obraInfo.negociado, financials.porGrupo, obraInfo.vendido);
         }
 
         applyFilters(); // Re-renderiza com filtros atuais
