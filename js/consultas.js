@@ -41,6 +41,10 @@ document.addEventListener('DOMContentLoaded', async function() {
     const historyProductImagePlaceholder = document.getElementById('history-product-image-placeholder');
     const imageContainer = historyProductImage.parentElement;
 
+    // Elementos de Similares e Substitutos no Modal
+    const historyModalSimilares = document.getElementById('history-modal-similares');
+    const historyModalSubstitutos = document.getElementById('history-modal-substitutos');
+
     // Elementos do Modal de Zoom
     const imageZoomModal = document.getElementById('image-zoom-modal');
     const imageZoomFull = document.getElementById('image-zoom-full');
@@ -376,11 +380,54 @@ document.addEventListener('DOMContentLoaded', async function() {
             historyProductImagePlaceholder.style.display = 'block';
         }
 
+        // Carregar Similares e Substitutos
+        renderRelationsLists(productItem);
+
         historyModal.style.display = 'block';
         const rawMovements = globalMovementsByProduct[productItem.id] || [];
         populateHistoryFilters(productItem, rawMovements);
         currentProductHistory = processMovementsForHistory(rawMovements, productItem);
         renderHistoryTable(currentProductHistory);
+    }
+
+    function renderRelationsLists(productItem) {
+        historyModalSimilares.innerHTML = '';
+        historyModalSubstitutos.innerHTML = '';
+
+        const similaresIds = productItem.similarIds || [];
+        const substitutosIds = productItem.substitutoIds || [];
+
+        let countSimilares = 0;
+        similaresIds.forEach(id => {
+            const product = consolidatedData.find(p => p.id === id);
+            if (product && !product.arquivado) {
+                const li = document.createElement('li');
+                li.textContent = `${product.codigo} - ${product.descricao}`;
+                li.style.marginBottom = '4px';
+                historyModalSimilares.appendChild(li);
+                countSimilares++;
+            }
+        });
+
+        if (countSimilares === 0) {
+            historyModalSimilares.innerHTML = '<li style="color: #6c757d; font-style: italic;">Nenhum similar cadastrado</li>';
+        }
+
+        let countSubstitutos = 0;
+        substitutosIds.forEach(id => {
+            const product = consolidatedData.find(p => p.id === id);
+            if (product && !product.arquivado) {
+                const li = document.createElement('li');
+                li.textContent = `${product.codigo} - ${product.descricao}`;
+                li.style.marginBottom = '4px';
+                historyModalSubstitutos.appendChild(li);
+                countSubstitutos++;
+            }
+        });
+
+        if (countSubstitutos === 0) {
+            historyModalSubstitutos.innerHTML = '<li style="color: #6c757d; font-style: italic;">Nenhum substituto cadastrado</li>';
+        }
     }
 
     function populateHistoryFilters(productItem, movements) {

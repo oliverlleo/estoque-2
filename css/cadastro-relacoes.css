@@ -1,0 +1,157 @@
+/* Estilos específicos para a página de Relações de Produtos */
+
+.relacoes-container {
+    display: flex;
+    flex-direction: column;
+    gap: 20px;
+}
+
+.search-section {
+    position: relative;
+    margin-bottom: 15px;
+}
+
+.search-results-dropdown {
+    position: absolute;
+    top: 100%;
+    left: 0;
+    width: 100%;
+    background-color: white;
+    border: 1px solid #ced4da;
+    border-top: none;
+    border-radius: 0 0 4px 4px;
+    box-shadow: 0 4px 6px rgba(0,0,0,0.1);
+    z-index: 1000;
+    max-height: 250px;
+    overflow-y: auto;
+    display: none;
+}
+
+.search-result-item {
+    padding: 10px 15px;
+    cursor: pointer;
+    border-bottom: 1px solid #f1f3f5;
+}
+
+.search-result-item:last-child {
+    border-bottom: none;
+}
+
+.search-result-item:hover {
+    background-color: #f8f9fa;
+    color: #0d6efd;
+}
+
+.search-result-item .item-codigo {
+    font-weight: bold;
+    margin-right: 10px;
+}
+
+.search-result-item .item-descricao {
+    color: #495057;
+}
+
+.selected-product-card {
+    background-color: #e9ecef;
+    padding: 15px;
+    border-radius: 6px;
+    border-left: 4px solid #0d6efd;
+    margin-bottom: 20px;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+}
+
+.selected-product-info {
+    font-size: 1.1rem;
+}
+
+.selected-product-info strong {
+    color: #212529;
+}
+
+.chips-container {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 10px;
+    min-height: 45px;
+    padding: 10px;
+    border: 1px dashed #ced4da;
+    border-radius: 4px;
+    background-color: #f8f9fa;
+}
+
+.chip {
+    display: inline-flex;
+    align-items: center;
+    background-color: #e2e8f0; /* Default gray for chips */
+    color: #1a202c;
+    padding: 6px 12px;
+    border-radius: 16px;
+    font-size: 0.9rem;
+    font-weight: 500;
+}
+
+.chip.similar-chip {
+    background-color: #cce5ff; /* Light blue */
+    border: 1px solid #b8daff;
+    color: #004085;
+}
+
+.chip.substituto-chip {
+    background-color: #d4edda; /* Light green */
+    border: 1px solid #c3e6cb;
+    color: #155724;
+}
+
+.chip-remove {
+    margin-left: 8px;
+    cursor: pointer;
+    color: #6c757d;
+    font-weight: bold;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: 20px;
+    height: 20px;
+    border-radius: 50%;
+    transition: background-color 0.2s, color 0.2s;
+}
+
+.chip-remove:hover {
+    background-color: rgba(0,0,0,0.1);
+    color: #dc3545;
+}
+
+.relationship-section {
+    background-color: #fff;
+    border: 1px solid #dee2e6;
+    border-radius: 6px;
+    padding: 20px;
+    margin-bottom: 20px;
+}
+
+.relationship-section h4 {
+    margin-top: 0;
+    margin-bottom: 15px;
+    color: #495057;
+    font-size: 1.1rem;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+}
+
+.relationship-section .material-icons {
+    color: #6c757d;
+}
+
+/* Specific empty state for chips container */
+.chips-container:empty::before {
+    content: 'Nenhum item selecionado';
+    color: #adb5bd;
+    font-style: italic;
+    font-size: 0.9rem;
+    display: flex;
+    align-items: center;
+    height: 100%;
+}
