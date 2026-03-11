@@ -5,6 +5,7 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Produtos - Controle de Estoque</title>
     <link rel="stylesheet" href="css/style.css">
+    <link rel="stylesheet" href="css/global-search.css">
     <script src="https://cdn.jsdelivr.net/npm/feather-icons/dist/feather.min.js"></script>
     <link href="https://cdnjs.cloudflare.com/ajax/libs/tailwindcss/2.2.19/tailwind.min.css" rel="stylesheet">
     <link href="https://fonts.googleapis.com/icon?family=Material+Icons" rel="stylesheet">
@@ -27,6 +28,10 @@
                 <span class="material-icons mr-3">inventory_2</span>
                 Produtos
             </a>
+            <a href="cadastro-relacoes.html" class="flex items-center px-4 py-2 text-gray-300 hover:bg-gray-700 rounded-md">
+                <span class="material-icons mr-3">compare_arrows</span>
+                Similares / Substitutos
+            </a>
             <a href="movimentacoes.html" class="flex items-center px-4 py-2 text-gray-300 hover:bg-gray-700 rounded-md">
                 <span class="material-icons mr-3">sync_alt</span>
                 Movimentações
@@ -45,9 +50,17 @@
             </a>
             <a href="implementacao.html" class="flex items-center px-4 py-2 text-gray-300 hover:bg-gray-700 rounded-md">
                 <span class="material-icons mr-3">build</span>
-                Implementação
+                Inventario
             </a>
         </nav>
+        <div class="p-4">
+            <div class="relative">
+                <span class="absolute inset-y-0 left-0 flex items-center pl-3">
+                    <span class="material-icons text-gray-400">search</span>
+                </span>
+                <input type="text" id="global-search" placeholder="Buscar em tudo..." class="w-full py-2 pl-10 pr-4 bg-gray-700 border border-gray-600 rounded-md text-white placeholder-gray-400 focus:outline-none focus:bg-gray-600 focus:ring-1 focus:ring-blue-500">
+            </div>
+        </div>
     </aside>
     <main class="main-content flex-1 overflow-y-auto">
         <header>
@@ -74,6 +87,8 @@
                             <input type="hidden" id="produto-id">
                             <input type="text" id="produto-codigo" placeholder="Código" required class="form-control">
                             <input type="text" id="produto-descricao" placeholder="Descrição" required class="form-control">
+
+                            <!-- REORDENAÇÃO: Campos de dados movidos para cima -->
                             <input type="text" id="produto-un" placeholder="UN Estocável" required class="form-control">
                             <input type="text" id="produto-cor" placeholder="Cor" class="form-control">
                             <select id="produto-conversao" class="form-control">
@@ -81,6 +96,7 @@
                             </select>
                             <select id="produto-fornecedor" required class="form-control"><option value="">Selecione o Fornecedor...</option></select>
                             <select id="produto-grupo" required class="form-control"><option value="">Selecione o Grupo...</option></select>
+
                             <div class="multiselect-container" id="multiselect-aplicacao">
                                 <div class="multiselect-display-area form-control">
                                     <span class="multiselect-placeholder">Selecione a Aplicação...</span>
@@ -98,6 +114,24 @@
                                 <div class="multiselect-options">
                                     </div>
                             </div>
+
+                            <!-- NOVOS CAMPOS (Agora abaixo dos campos de seleção) -->
+                            <div style="grid-column: 1 / -1; background-color: #f8f9fa; padding: 15px; border-radius: 5px; border: 1px solid #e9ecef; margin-bottom: 10px;">
+                                <label style="display: block; margin-bottom: 5px; font-weight: bold; color: #495057;">Informações Adicionais (Imagem e Detalhes)</label>
+
+                                <label for="produto-imagem-upload" style="font-size: 0.9em; color: #6c757d; display: block; margin-top: 5px;">Imagem do Produto</label>
+                                <input type="file" id="produto-imagem-upload" accept="image/*" class="form-control" style="margin-bottom: 10px;">
+                                <input type="hidden" id="produto-imagem">
+
+                                <div id="preview-container" style="display: none; margin-top: 10px; text-align: center; margin-bottom: 10px;">
+                                    <img id="imagem-preview" src="" alt="Prévia" style="max-height: 200px; border-radius: 8px; border: 1px solid #dee2e6; display: inline-block;">
+                                    <br>
+                                    <button type="button" id="btn-remover-imagem" class="btn btn-sm btn-delete" style="margin-top: 5px;">Remover Imagem</button>
+                                </div>
+
+                                <textarea id="produto-descricao-detalhada" placeholder="Descrição Detalhada / Observações" class="form-control" rows="3"></textarea>
+                            </div>
+                            <!-- FIM NOVOS CAMPOS -->
 
                             <div id="locacoes-container" style="grid-column: 1 / -1; display: flex; flex-direction: column; gap: 10px; border-top: 1px solid #eee; padding-top: 15px; margin-top: 15px;">
                                 <!-- As locações dinâmicas serão adicionadas aqui -->
@@ -162,6 +196,7 @@
                                     <a href="#" id="btn-importar-excel">Importar Produtos (Excel)</a>
                                     <a href="#" id="btn-exportar-modelo">Exportar Modelo (Excel)</a>
                                     <a href="#" id="btn-gerar-etiquetas">Gerar Etiquetas</a>
+                                    <a href="#" id="btn-bulk-add-location">Adicionar locação em lote</a>
                                 </div>
                             </div>
                             <input type="file" id="import-excel-input" accept=".xlsx, .xls" style="display: none;">
@@ -169,21 +204,31 @@
                     </div>
                 </div>
                  <div class="card-body">
-                    <input type="text" id="filter-produtos" class="form-control" placeholder="Filtrar produtos..." style="margin-bottom: 15px;">
+                    <div style="display: flex; gap: 15px; align-items: center; margin-bottom: 15px; flex-wrap: wrap;">
+                        <input type="text" id="filter-produtos" class="form-control" placeholder="Filtrar produtos..." style="flex: 1; min-width: 200px;">
+                        <label style="display: flex; align-items: center; gap: 5px; cursor: pointer;">
+                            <input type="checkbox" id="filter-sem-imagem"> Sem Imagem
+                        </label>
+                        <label style="display: flex; align-items: center; gap: 5px; cursor: pointer;">
+                            <input type="checkbox" id="filter-sem-descricao"> Sem Descrição Detalhada
+                        </label>
+                    </div>
                     <div class="table-wrapper">
                         <table id="table-produtos" class="table">
                             <thead>
-                                <tr>
+                                <tr id="product-table-headers">
                                     <th><input type="checkbox" id="checkbox-mestre"></th>
-                                    <th>Código</th>
-                                    <th>Descrição</th>
-                                    <th>UN</th>
-                                    <th>Cor</th>
-                                    <th>Fornecedor</th>
-                                    <th>Grupo</th>
-                                    <th>Aplicações</th>
-                                    <th>Locação</th>
-                                    <th>Medida (Sobra)</th>
+                                    <th class="sortable" data-column="codigo">Código</th>
+                                    <th class="sortable" data-column="descricao">Descrição</th>
+                                    <th class="sortable" data-column="un">UN</th>
+                                    <th class="sortable" data-column="cor">Cor</th>
+                                    <th class="sortable" data-column="fornecedorId">Fornecedor</th>
+                                    <th class="sortable" data-column="grupoId">Grupo</th>
+                                    <th class="sortable" data-column="conversaoId">Regra de Conversão</th>
+                                    <th class="sortable" data-column="aplicacaoIds">Aplicações</th>
+                                    <th class="sortable" data-column="local">Local</th>
+                                    <th class="sortable" data-column="locacao">Locação</th>
+                                    <th class="sortable" data-column="medida_sobra">Medida (Sobra)</th>
                                 </tr>
                             </thead>
                             <tbody></tbody>
@@ -193,6 +238,20 @@
             </div>
         </section>
     </main>
+    <!-- Modal Visualizar Produto -->
+    <div id="view-product-modal" class="modal">
+        <div class="modal-content" style="max-width: 600px; background-color: #2D2D44; color: #F5F5F5;">
+            <div class="modal-header" style="border-bottom: 1px solid #444466;">
+                <h3 id="view-product-title">Detalhes do Produto</h3>
+                <span class="close-button" id="view-product-modal-close" style="color: #A0A0B9;">&times;</span>
+            </div>
+            <div class="modal-body" style="text-align: center;">
+                <img id="view-product-image" src="" alt="Imagem do Produto" style="max-width: 100%; max-height: 300px; border-radius: 8px; margin-bottom: 20px; display: none; object-fit: contain;">
+                <div id="view-product-description" style="text-align: left; background-color: rgba(255,255,255,0.05); padding: 15px; border-radius: 8px; white-space: pre-wrap;"></div>
+            </div>
+        </div>
+    </div>
+
     <div id="import-progress-modal" class="modal">
         <div class="modal-content" style="max-width: 500px;">
             <div class="modal-header">
@@ -206,9 +265,70 @@
             </div>
         </div>
     </div>
+
+    <!-- Modal Adicionar Locação em Lote -->
+    <div id="bulk-location-modal" class="modal">
+        <div class="modal-content" style="max-width: 900px;">
+            <div class="modal-header">
+                <h3>Adicionar Locação em Lote</h3>
+                <span class="close-button" id="bulk-location-modal-close">&times;</span>
+            </div>
+            <div class="modal-body">
+                <div style="margin-bottom: 20px;">
+                    <label for="bulk-location-codes" style="font-weight: bold; display: block; margin-bottom: 5px;">
+                        Insira os Códigos dos Produtos (separados por espaço, vírgula ou nova linha)
+                    </label>
+                    <div style="display: flex; gap: 10px;">
+                        <textarea id="bulk-location-codes" class="form-control" rows="3" placeholder="Ex: PROD001, PROD002 PROD003..." style="flex-grow: 1;"></textarea>
+                        <button id="btn-check-bulk-location" class="btn btn-primary" style="align-self: flex-start;">Verificar Produtos</button>
+                    </div>
+                </div>
+
+                <div id="bulk-location-results-container" style="display: none; margin-bottom: 20px;">
+                    <h4 style="margin-bottom: 10px; font-size: 1rem; color: #495057;">Produtos Encontrados</h4>
+                    <div class="table-wrapper" style="max-height: 250px; overflow-y: auto; margin-bottom: 20px; border: 1px solid #e9ecef; border-radius: 4px;">
+                        <table id="bulk-location-table" class="table" style="margin-bottom: 0;">
+                            <thead>
+                                <tr>
+                                    <th>Código</th>
+                                    <th>Descrição</th>
+                                    <th>Status</th>
+                                </tr>
+                            </thead>
+                            <tbody></tbody>
+                        </table>
+                    </div>
+
+                    <div id="bulk-location-inputs" style="background-color: #f8f9fa; padding: 15px; border-radius: 4px; border: 1px solid #dee2e6;">
+                        <h4 style="margin-bottom: 15px; font-size: 1rem;">Nova Locação para os produtos acima</h4>
+                        <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 15px;">
+                            <div>
+                                <label for="bulk-location-local" style="font-weight: 500;">Local</label>
+                                <select id="bulk-location-local" class="form-control">
+                                    <option value="">Selecione o Local...</option>
+                                </select>
+                            </div>
+                            <div>
+                                <label for="bulk-location-input" style="font-weight: 500;">Locação</label>
+                                <input type="text" id="bulk-location-input" class="form-control" placeholder="Ex: 1-A-01-B">
+                                <small style="color: #6c757d;">Formato: 1, 1-A, 1-A-01 ou 1-A-01-B</small>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <div style="text-align: right; margin-top: 20px;">
+                    <button id="btn-confirm-bulk-location" class="btn btn-success" disabled>Confirmar Adição</button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script src="https://unpkg.com/imask"></script>
     <script src="https://cdn.sheetjs.com/xlsx-latest/package/dist/xlsx.full.min.js"></script>
     <script type="module" src="js/main.js"></script>
-    <script type="module" src="js/produtos.js"></script>
+    <script type="module" src="js/produtos.js?v=100"></script>
+    <script type="module" src="js/global-search.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/qrcodejs@1.0.0/qrcode.min.js"></script>
     <script> feather.replace() </script>
 </body>

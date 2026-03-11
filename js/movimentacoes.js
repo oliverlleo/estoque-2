@@ -20,7 +20,12 @@ async function calcularCustoMedioProduto(produtoId) {
     let totalQuantityForAvg = 0;
 
     entryMovements.forEach(m => {
-        totalCost += m.custo_total_entrada;
+        let custoEntrada = m.custo_total_entrada;
+        if (custoEntrada === undefined || custoEntrada === null) {
+            // Fallback para entradas antigas
+            custoEntrada = (m.quantidade_compra * (m.valor_unitario || 0)) + (m.icms || 0) + (m.ipi || 0) + (m.frete || 0);
+        }
+        totalCost += custoEntrada;
         totalQuantityForAvg += m.quantidade;
     });
 
@@ -29,6 +34,7 @@ async function calcularCustoMedioProduto(produtoId) {
 
 
 document.addEventListener('DOMContentLoaded', async function() {
+    const loadingOverlay = document.getElementById('loading-overlay');
     // Lógica para fechar o modal de informação
     const infoModal = document.getElementById('info-modal');
     const infoModalClose = document.getElementById('info-modal-close');
@@ -60,6 +66,7 @@ document.addEventListener('DOMContentLoaded', async function() {
     const formNovoProdutoModal = document.getElementById('form-novo-produto-modal');
     const btnFecharModalCadastro = document.getElementById('cadastro-produto-modal-close');
     let linhaAtualParaAtualizar = null; // Guarda a referência da linha da tabela
+    let lastUsedValues = {}; // Objeto para armazenar os últimos valores
 
     // --- Campos do Formulário ---
     const entradaFields = [
@@ -78,6 +85,55 @@ document.addEventListener('DOMContentLoaded', async function() {
     // --- Table State ---
     let sortState = { column: 'data', direction: 'desc' };
     let filterState = {};
+
+    function saveLembrarValues() {
+        const checkbox = document.getElementById('lembrar-registro-mov');
+        if (!checkbox.checked) {
+            localStorage.removeItem('movimentacao_lembrar_config');
+            return;
+        }
+
+        const isEntrada = toggle.checked;
+        const data = {
+            tipo: isEntrada ? 'entrada' : 'saida',
+            checked: true
+        };
+
+        if (isEntrada) {
+            data.tipoEntrada = document.getElementById('mov-tipo-entrada').value;
+            data.observacao = document.getElementById('mov-observacao-entrada').value;
+        } else {
+            data.tipoSaida = document.getElementById('mov-tipo-saida').value;
+            data.requisitante = document.getElementById('mov-requisitante').value;
+            data.obra = document.getElementById('mov-obra').value;
+            data.observacao = document.getElementById('mov-observacao-saida').value;
+        }
+
+        localStorage.setItem('movimentacao_lembrar_config', JSON.stringify(data));
+    }
+
+    function restoreLembrarValues() {
+        const stored = localStorage.getItem('movimentacao_lembrar_config');
+        if (!stored) return;
+
+        const data = JSON.parse(stored);
+        const checkbox = document.getElementById('lembrar-registro-mov');
+
+        checkbox.checked = data.checked;
+
+        const isEntrada = toggle.checked;
+        if (isEntrada && data.tipo === 'entrada') {
+             if(data.tipoEntrada) document.getElementById('mov-tipo-entrada').value = data.tipoEntrada;
+             if(data.observacao) document.getElementById('mov-observacao-entrada').value = data.observacao;
+             toggleValorUnitarioRequirement();
+        } else if (!isEntrada && data.tipo === 'saida') {
+             if(data.tipoSaida) document.getElementById('mov-tipo-saida').value = data.tipoSaida;
+             if(data.requisitante) document.getElementById('mov-requisitante').value = data.requisitante;
+             if(data.obra) document.getElementById('mov-obra').value = data.obra;
+             if(data.observacao) document.getElementById('mov-observacao-saida').value = data.observacao;
+             toggleObraRequirement();
+        }
+    }
 
     function toggleValorUnitarioRequirement() {
         const isEntrada = toggle.checked;
@@ -122,17 +178,67 @@ document.addEventListener('DOMContentLoaded', async function() {
         }
     }
 
-    function updateProductInfo() {
+    const localSelect = document.getElementById('mov-local');
+    const locacaoSelect = document.getElementById('mov-locacao');
+
+    function updateLocacaoRequirement() {
+        const localValue = localSelect.value;
+        if (localValue) {
+            locacaoSelect.required = false;
+        } else {
+            locacaoSelect.required = false;
+        }
+    }
+
+    function populateLocacoes(product, selectedLocalId) {
+        const isEntrada = document.getElementById('movement-toggle').checked;
+        locacaoSelect.innerHTML = '<option value="">Carregando...</option>';
+
+        if (product && selectedLocalId) {
+            const locacoesFiltradas = product.locacoes.filter(l => l.localId === selectedLocalId);
+            locacaoSelect.innerHTML = '<option value="">Locação...</option>';
+            locacoesFiltradas.forEach(loc => {
+                const option = document.createElement('option');
+                option.value = loc.locacao === "" ? "_EMPTY_" : loc.locacao;
+                let text = loc.locacao;
+                 if (!isEntrada) {
+                    text += ` (Estoque: ${loc.estoque || 0})`;
+                }
+                option.textContent = text;
+                locacaoSelect.appendChild(option);
+            });
+            locacaoSelect.disabled = false;
+            // Pre-seleciona a primeira locação
+            if (locacaoSelect.options.length > 1) {
+                locacaoSelect.selectedIndex = 1;
+            }
+        } else {
+            locacaoSelect.innerHTML = '<option value="">Selecione o Local...</option>';
+            locacaoSelect.disabled = true;
+        }
+        updateLocacaoRequirement();
+    }
+
+    localSelect.addEventListener('change', () => {
         const productId = document.getElementById('mov-produto-id').value;
         const product = productsMap[productId];
-        const locacaoSelect = document.getElementById('mov-locacao');
+        populateLocacoes(product, localSelect.value);
+        updateLocacaoRequirement();
+    });
+
+    async function updateProductInfo() {
+        const productId = document.getElementById('mov-produto-id').value;
+        const product = productsMap[productId];
         const isEntrada = document.getElementById('movement-toggle').checked;
+        const unitSelect = document.getElementById('mov-unidade-selecao');
 
-        // Limpa e desabilita o select de locação
-        locacaoSelect.innerHTML = '<option value="">Selecione a Locação...</option>';
+        // Reset fields
+        localSelect.innerHTML = '<option value="">Local...</option>';
+        localSelect.disabled = true;
+        locacaoSelect.innerHTML = '<option value="">Locação...</option>';
         locacaoSelect.disabled = true;
-
-        // Esconde o display de estoque antigo
+        unitSelect.innerHTML = '';
+        unitSelect.style.display = 'none';
         document.getElementById('mov-estoque-display-wrapper').style.display = 'none';
 
         if (product) {
@@ -140,22 +246,41 @@ document.addEventListener('DOMContentLoaded', async function() {
             document.getElementById('mov-descricao-display').textContent = product.descricao;
             document.getElementById('mov-un-display').textContent = product.un;
 
+            // Populate locais
             if (product.locacoes && product.locacoes.length > 0) {
-                product.locacoes.forEach(loc => {
-                    const option = document.createElement('option');
-                    option.value = loc.locacao; // Usar o código da locação como valor
-
-                    let text = loc.locacao;
-                    if (!isEntrada) { // Se for SAÍDA, mostra o estoque
-                        text += ` (Estoque: ${loc.estoque || 0})`;
-                    }
-                    option.textContent = text;
-                    locacaoSelect.appendChild(option);
+                const locaisUnicos = [...new Set(product.locacoes.map(l => l.localId))];
+                localSelect.innerHTML = '<option value="">Local...</option>';
+                locaisUnicos.forEach(localId => {
+                    const localNome = configData.locais[localId]?.nome || 'Desconhecido';
+                    localSelect.innerHTML += `<option value="${localId}">${localNome}</option>`;
                 });
-                locacaoSelect.disabled = false;
+                localSelect.disabled = false;
+
+                // Pre-seleciona o primeiro local e dispara a populacao de locacoes
+                if (localSelect.options.length > 1) {
+                    localSelect.selectedIndex = 1;
+                    populateLocacoes(product, localSelect.value);
+                }
             }
+
+            // --- Handle Unit Selection Dropdown ---
+            if (isEntrada && product.conversaoId && configData.conversoes[product.conversaoId]) {
+                const conversao = configData.conversoes[product.conversaoId];
+                const purchaseUnit = conversao.medida_compra;
+                const standardUnit = conversao.medida_padrao;
+
+                if (purchaseUnit && standardUnit) {
+                    unitSelect.innerHTML = `
+                        <option value="${standardUnit}">${standardUnit}</option>
+                        <option value="${purchaseUnit}">${purchaseUnit}</option>
+                    `;
+                    unitSelect.style.display = 'inline-block';
+                }
+            }
+            // --- END OF NEW FEATURE ---
+
         } else {
-            // Limpa os campos se nenhum produto for selecionado
+            // Clear fields if no product is selected
             document.getElementById('mov-codigo-display').textContent = '-';
             document.getElementById('mov-descricao-display').textContent = '-';
             document.getElementById('mov-un-display').textContent = '-';
@@ -167,26 +292,82 @@ document.addEventListener('DOMContentLoaded', async function() {
         const valorUnitarioInput = document.getElementById('mov-valor-unitario');
 
         if (isEntrada) {
-            // Desabilita/habilita todos os campos de custo com base em isSobra
+            // Limpa os campos de custo para qualquer produto selecionado
             costFields.forEach(fieldId => {
-                const field = document.getElementById(fieldId);
-                field.disabled = isSobra;
-                field.value = ''; // Limpa todos para começar
+                document.getElementById(fieldId).value = '';
             });
 
-            quantField.disabled = isSobra;
-
             if (isSobra) {
-                // Se for sobra, preenche o valor unitário com o valor médio e fixa a quantidade em 1
-                valorUnitarioInput.value = product.valorMedio ? product.valorMedio.toFixed(2) : '0.00';
-                quantField.value = 1;
-                quantField.placeholder = "Entrada de sobra é sempre 1 Unidade";
-            } else {
-                // Se não for sobra, reabilita os campos e reseta o placeholder de quantidade
+                // Para sobras, a quantidade é editável.
+                quantField.value = '';
+                quantField.disabled = false;
                 quantField.placeholder = "Quantidade";
+
+                // Os campos de custo NÃO são desabilitados.
+                costFields.forEach(fieldId => {
+                    document.getElementById(fieldId).disabled = false;
+                });
+
+                // Preenche o valor unitário com o novo cálculo proporcional.
+                valorUnitarioInput.value = '...'; // Valor padrão enquanto calcula
+                try {
+                    const productRef = doc(db, "produtos", productId);
+                    const productSnap = await getDoc(productRef);
+                    const sobraData = productSnap.data();
+
+                    if (productSnap.exists() && sobraData.originalProductId) {
+                        const originalProductId = sobraData.originalProductId;
+                        const originalProduct = productsMap[originalProductId];
+
+                        if (!originalProduct) {
+                            throw new Error(`Produto original com ID ${originalProductId} não encontrado no cache local.`);
+                        }
+
+                        const custoMedioOriginal = originalProduct.valorMedio || 0;
+
+                        if (!originalProduct.conversaoId) {
+                            throw new Error('O produto original não possui regra de conversão para determinar o tamanho total.');
+                        }
+                        const conversao = configData.conversoes[originalProduct.conversaoId];
+                        if (!conversao) {
+                            throw new Error(`Regra de conversão com ID ${originalProduct.conversaoId} não encontrada.`);
+                        }
+
+                        const tamanhoSobra = parseFloat(String(sobraData.medida_sobra).replace(',', '.'));
+                        const tamanhoBarraInteira = parseFloat(String(conversao.fator_conversao_sobra).replace(',', '.'));
+
+                        console.log('--- Cálculo Custo Sobra ---');
+                        console.log('Tamanho da Sobra (medida_sobra):', tamanhoSobra);
+                        console.log('Tamanho da Barra Inteira (fator_conversao_sobra):', tamanhoBarraInteira);
+                        console.log('Custo Médio do Original:', custoMedioOriginal);
+
+                        if (isNaN(tamanhoSobra) || isNaN(tamanhoBarraInteira) || tamanhoBarraInteira === 0) {
+                             throw new Error('O "Fator Conversão Sobra" na regra de conversão é inválido ou não foi encontrado.');
+                        }
+
+                        const valorProporcional = (tamanhoSobra / tamanhoBarraInteira) * custoMedioOriginal;
+                        valorUnitarioInput.value = valorProporcional.toFixed(3);
+
+                    } else {
+                        valorUnitarioInput.value = '0.000';
+                        console.warn(`Sobra ${productId} não tem um originalProductId ou não foi encontrada.`);
+                    }
+                } catch (error) {
+                    console.error("Erro ao calcular o custo proporcional da sobra:", error);
+                    valorUnitarioInput.value = '0.00';
+                    showInfoModal(`Não foi possível calcular o valor da sobra: ${error.message}`);
+                }
+
+            } else {
+                // Para produtos normais, a quantidade é editável.
+                quantField.value = '';
+                quantField.disabled = false;
+                quantField.placeholder = "Quantidade";
+                costFields.forEach(fieldId => {
+                    document.getElementById(fieldId).disabled = false;
+                });
             }
-        } else {
-            // Se for SAÍDA, todos os campos de custo e quantidade são habilitados
+        } else { // Se for Saída
             costFields.forEach(fieldId => document.getElementById(fieldId).disabled = false);
             quantField.disabled = false;
             quantField.placeholder = "Quantidade";
@@ -206,8 +387,9 @@ document.addEventListener('DOMContentLoaded', async function() {
                     valorTotal = (mov.quantidade_compra * (mov.valor_unitario || 0)) + (mov.icms || 0) + (mov.ipi || 0) + (mov.frete || 0);
                 }
                 custoUnitario = valorTotal / mov.quantidade;
-            } else if (mov.tipo === 'saida') {
-                custoUnitario = mov.valorMedioHistorico || 0;
+            } else if (mov.tipo === 'saida' || mov.tipo === 'reserva') {
+                // Para reservas, usamos o valor salvo ou o do produto (fallback visual)
+                custoUnitario = mov.valorMedioHistorico || product.valorMedio || 0;
             }
 
             const isXmlImport = mov.observacao && mov.observacao.includes('Importado via XML');
@@ -228,11 +410,21 @@ document.addEventListener('DOMContentLoaded', async function() {
             }
 
             const quantidadeDisplay = isXmlImport ? mov.quantidade_compra : mov.quantidade;
-            const unidadeDisplay = isXmlImport ? mov.un_compra : product.un;
+            const unidadeDisplay = mov.un_compra || product.un;
+
+            const custoTotal = custoUnitario * mov.quantidade;
+            let valorUnitEstoque = 0;
+            if (mov.tipo === 'entrada' && product.conversaoId && configData.conversoes[product.conversaoId]) {
+                const conversao = configData.conversoes[product.conversaoId];
+                const fator_qtd_compra = parseFloat(String(conversao.qtd_compra).replace(',', '.'));
+                valorUnitEstoque = fator_qtd_compra * (mov.valor_unitario || 0);
+            }
 
             const processedMov = {
                 ...mov,
+                valorUnitEstoque: valorUnitEstoque,
                 custoUnitario: custoUnitario,
+                custoTotal: custoTotal,
                 icmsUnit: icmsUnit,
                 ipiUnit: ipiUnit,
                 freteUnit: freteUnit,
@@ -246,13 +438,16 @@ document.addEventListener('DOMContentLoaded', async function() {
                     quantidade: quantidadeDisplay?.toString() || '',
                     nf: mov.nf || '',
                     valor_unitario: (mov.valor_unitario || 0).toString(),
+                    valor_unit_estoque: (mov.valorUnitEstoque || 0).toString(),
                     icms: (mov.icms || 0).toString(),
                     ipi: (mov.ipi || 0).toString(),
                     frete: (mov.frete || 0).toString(),
-                    custoUnitario: custoUnitario > 0 ? custoUnitario.toFixed(2) : '0.00',
+                    custoUnitario: custoUnitario > 0 ? custoUnitario.toFixed(3) : '0.000',
+                    custoTotal: mov.custoTotal > 0 ? mov.custoTotal.toFixed(2) : '0.00',
                     requisitante: mov.requisitante || '',
                     obraId: configData.obras?.[mov.obraId]?.nome || '',
-                    observacao: mov.observacao || ''
+                    observacao: mov.observacao || '',
+                    fornecedorId: product.fornecedorId || ''
                 }
             };
             return processedMov;
@@ -285,12 +480,26 @@ document.addEventListener('DOMContentLoaded', async function() {
                 // Pula as chaves de data que já foram tratadas
                 if (column === 'data-inicio' || column === 'data-fim') continue;
 
-                const filterValue = filterState[column]?.toLowerCase();
+                const filterValue = filterState[column];
                 if (!filterValue) continue;
 
-                const cellValue = mov._search_data[column]?.toLowerCase();
-                if (cellValue === undefined || !cellValue.includes(filterValue)) {
-                    return false;
+                const lowerCaseFilterValue = filterValue.toLowerCase();
+                const cellValue = mov._search_data[column];
+
+                if (column === 'fornecedorId') {
+                    if (cellValue !== filterValue) {
+                        return false;
+                    }
+                } else if (column === 'nf') {
+                    const lowerCaseCellValue = cellValue?.toLowerCase();
+                    if (lowerCaseCellValue === undefined || !lowerCaseCellValue.includes(lowerCaseFilterValue)) {
+                        return false;
+                    }
+                } else {
+                    const lowerCaseCellValue = cellValue?.toLowerCase();
+                    if (lowerCaseCellValue === undefined || !lowerCaseCellValue.includes(lowerCaseFilterValue)) {
+                        return false;
+                    }
                 }
             }
             return true;
@@ -303,7 +512,7 @@ document.addEventListener('DOMContentLoaded', async function() {
                 valA = a.data ? a.data.toMillis() : 0;
                 valB = b.data ? b.data.toMillis() : 0;
             }
-            const numericColumns = ['quantidade', 'valor_unitario', 'icms', 'ipi', 'frete', 'custoUnitario'];
+            const numericColumns = ['quantidade', 'valor_unitario', 'icms', 'ipi', 'frete', 'custoUnitario', 'custoTotal'];
             if (numericColumns.includes(sortState.column)) {
                 valA = parseFloat(valA) || 0;
                 valB = parseFloat(valB) || 0;
@@ -317,19 +526,59 @@ document.addEventListener('DOMContentLoaded', async function() {
     }
 
     function renderTable(data) {
+        // Update header classes for visual indicators
+        const headers = document.querySelectorAll('#headers-row .sortable');
+        headers.forEach(header => {
+            header.classList.remove('sort-asc', 'sort-desc');
+            if (header.dataset.column === sortState.column) {
+                header.classList.add(sortState.direction === 'asc' ? 'sort-asc' : 'sort-desc');
+            }
+        });
+
         tableBody.innerHTML = '';
+        let totalEntrada = 0;
+        let totalSaida = 0;
+
         data.forEach(mov => {
+            if (mov.tipo === 'entrada') {
+                if (mov.custoTotal && mov.custoTotal > 0) {
+                    totalEntrada += mov.custoTotal;
+                }
+            } else if (mov.tipo === 'saida') {
+                // Ensure reservations are not counted as saida here if they slipped through
+                if (mov.custoTotal && mov.custoTotal > 0) {
+                    totalSaida += mov.custoTotal;
+                }
+            }
+            // Reservations and cancellations are ignored for totals
+
             const row = document.createElement('tr');
             const searchData = mov._search_data;
-            const valorUnitarioFmt = mov.valor_unitario ? parseFloat(mov.valor_unitario).toFixed(2) : '-';
-            const icmsFmt = mov.icms ? parseFloat(mov.icms).toFixed(2) : '-';
-            const ipiFmt = mov.ipi ? parseFloat(mov.ipi).toFixed(2) : '-';
-            const freteFmt = mov.frete ? parseFloat(mov.frete).toFixed(2) : '-';
-            const custoUnitarioFmt = mov.custoUnitario > 0 ? mov.custoUnitario.toFixed(2) : '-';
+            const product = productsMap[mov.productId] || {};
+            const standardUnit = product.un || '';
 
-            const icmsTitle = mov.icmsUnit > 0 ? `Valor Unit.: ${mov.icmsUnit.toFixed(2)}` : '';
-            const ipiTitle = mov.ipiUnit > 0 ? `Valor Unit.: ${mov.ipiUnit.toFixed(2)}` : '';
-            const freteTitle = mov.freteUnit > 0 ? `Valor Unit.: ${mov.freteUnit.toFixed(2)}` : '';
+            let quantidadeCellHtml = '';
+            // Use toFixed to avoid floating point comparison issues
+            const qtyCompra = mov.quantidade_compra ? Number(mov.quantidade_compra).toFixed(4) : null;
+            const qtyEstoque = mov.quantidade ? Number(mov.quantidade).toFixed(4) : null;
+
+            if (mov.tipo === 'entrada' && qtyCompra && mov.un_compra && qtyCompra !== qtyEstoque) {
+                quantidadeCellHtml = `${Number(mov.quantidade_compra).toLocaleString('pt-BR')} ${mov.un_compra} <span style="color: red; font-weight: bold;">&rarr;</span> ${Number(mov.quantidade).toLocaleString('pt-BR', { minimumFractionDigits: 3, maximumFractionDigits: 3 })} ${standardUnit}`;
+            } else {
+                quantidadeCellHtml = Number(mov.quantidade).toLocaleString('pt-BR');
+            }
+
+            const valorUnitarioFmt = mov.valor_unitario ? parseFloat(mov.valor_unitario).toFixed(3).replace('.', ',') : '-';
+            const valorUnitEstoqueFmt = mov.valorUnitEstoque > 0 ? mov.valorUnitEstoque.toFixed(2).replace('.', ',') : '-';
+            const icmsFmt = mov.icms ? parseFloat(mov.icms).toFixed(2).replace('.', ',') : '-';
+            const ipiFmt = mov.ipi ? parseFloat(mov.ipi).toFixed(2).replace('.', ',') : '-';
+            const freteFmt = mov.frete ? parseFloat(mov.frete).toFixed(2).replace('.', ',') : '-';
+            const custoUnitarioFmt = mov.custoUnitario > 0 ? mov.custoUnitario.toFixed(3).replace('.', ',') : '-';
+            const custoTotalFmt = mov.custoTotal > 0 ? mov.custoTotal.toFixed(2).replace('.', ',') : '-';
+
+            const icmsTitle = mov.icmsUnit > 0 ? `Valor Unit.: ${mov.icmsUnit.toFixed(2).replace('.', ',')}` : '';
+            const ipiTitle = mov.ipiUnit > 0 ? `Valor Unit.: ${mov.ipiUnit.toFixed(2).replace('.', ',')}` : '';
+            const freteTitle = mov.freteUnit > 0 ? `Valor Unit.: ${mov.freteUnit.toFixed(2).replace('.', ',')}` : '';
 
             row.innerHTML = `
                 <td>${searchData.data}</td>
@@ -338,25 +587,39 @@ document.addEventListener('DOMContentLoaded', async function() {
                 <td>${searchData.codigo || 'N/A'}</td>
                 <td>${searchData.descricao || 'Produto não encontrado'}</td>
                 <td>${searchData.un || 'N/A'}</td>
-                <td>${searchData.quantidade}</td>
+                <td>${quantidadeCellHtml}</td>
                 <td>${searchData.nf || '-'}</td>
                 <td>${valorUnitarioFmt}</td>
+                <td>${valorUnitEstoqueFmt}</td>
                 <td title="${icmsTitle}">${icmsFmt}</td>
                 <td title="${ipiTitle}">${ipiFmt}</td>
                 <td title="${freteTitle}">${freteFmt}</td>
                 <td>${custoUnitarioFmt}</td>
+                <td>${custoTotalFmt}</td>
                 <td>${searchData.requisitante || '-'}</td>
                 <td>${searchData.obraId || '-'}</td>
                 <td>${searchData.observacao || '-'}</td>
             `;
             tableBody.appendChild(row);
         });
+
+        const totalEntradaEl = document.getElementById('total-entrada-valor');
+        if (totalEntradaEl) {
+            totalEntradaEl.textContent = totalEntrada.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' });
+        }
+
+        const totalSaidaEl = document.getElementById('total-saida-valor');
+        if (totalSaidaEl) {
+            totalSaidaEl.textContent = totalSaida.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' });
+        }
     }
 
-    function handleToggleChange() {
+    async function handleToggleChange() {
         const isEntrada = toggle.checked;
         btnImportarXml.style.display = isEntrada ? 'inline-block' : 'none';
         btnTransferencia.style.display = isEntrada ? 'none' : 'inline-block';
+        const btnBulkTransfer = document.getElementById('btn-bulk-transfer');
+        if (btnBulkTransfer) btnBulkTransfer.style.display = isEntrada ? 'none' : 'inline-block';
         entradaFields.forEach(el => el.style.display = isEntrada ? '' : 'none');
         saidaFields.forEach(el => el.style.display = isEntrada ? 'none' : '');
 
@@ -375,9 +638,10 @@ document.addEventListener('DOMContentLoaded', async function() {
             document.getElementById('toggle-label-entrada').style.fontWeight = 'normal';
             document.getElementById('toggle-label-entrada').style.color = '#6c757d';
         }
-        updateProductInfo();
+        await updateProductInfo();
         toggleObraRequirement();
         toggleValorUnitarioRequirement();
+        restoreLembrarValues();
     }
 
     toggle.addEventListener('change', handleToggleChange);
@@ -389,15 +653,45 @@ document.addEventListener('DOMContentLoaded', async function() {
         e.preventDefault();
         const isEntrada = toggle.checked;
         const productId = document.getElementById('mov-produto-id').value;
-        const locacaoSelecionada = document.getElementById('mov-locacao').value;
+        const rawLocacao = document.getElementById('mov-locacao').value;
+        const locacaoSelecionada = rawLocacao === "_EMPTY_" ? "" : rawLocacao;
+        const localSelecionado = document.getElementById('mov-local').value;
         const quantidade = parseFloat(document.getElementById('mov-quantidade').value);
 
-        if (!productId || !locacaoSelecionada || isNaN(quantidade) || quantidade <= 0) {
-            alert('Por favor, preencha o produto, a locação e a quantidade corretamente.');
-            return;
+        if (isEntrada) {
+            if (!productId || isNaN(quantidade) || quantidade <= 0) {
+                alert('Por favor, preencha o produto e a quantidade corretamente.');
+                return;
+            }
+        } else { // Saída
+            const product = productsMap[productId];
+            if (!product) {
+                alert('Por favor, selecione um produto válido.');
+                return;
+            }
+
+            // Verifica se existem locações REAIS (com nome) cadastradas para o produto.
+            const hasRealLocacoes = product.locacoes && product.locacoes.some(l => l.locacao);
+
+            if (isNaN(quantidade) || quantidade <= 0) {
+                alert('Para saídas, a quantidade é obrigatória.');
+                return;
+            }
+
+            // A locação só é obrigatória se o produto tiver locações cadastradas.
+            if (hasRealLocacoes && rawLocacao === "") {
+                alert('Para produtos com locação, a locação é obrigatória para saídas.');
+                return;
+            }
         }
 
+
         if (isEntrada) {
+            const tipoEntradaId = document.getElementById('mov-tipo-entrada').value;
+            if (!tipoEntradaId) {
+                alert('Por favor, selecione o Tipo de Entrada.');
+                return;
+            }
             // LÓGICA DE ENTRADA NORMAL (a lógica de sobra foi ignorada por enquanto)
             try {
                 await runTransaction(db, async (transaction) => {
@@ -406,25 +700,27 @@ document.addEventListener('DOMContentLoaded', async function() {
                     if (!productDoc.exists()) { throw new Error("Produto não encontrado!"); }
 
                     const productData = productDoc.data();
-                    const locacoes = productData.locacoes || [];
-                    const locacaoIndex = locacoes.findIndex(l => l.locacao === locacaoSelecionada);
+                    let locacoes = productData.locacoes || [];
 
-                    if (locacaoIndex === -1) {
-                        throw new Error("Locação selecionada não encontrada no produto.");
-                    }
-
-                    // Lógica de conversão (mantida)
+                    // Lógica de conversão condicional
                     const conversaoId = productData.conversaoId;
                     let quantidadeParaEstoque = quantidade;
+
                     if (conversaoId) {
                         const conversaoRef = doc(db, 'conversoes', conversaoId);
-                        const conversaoDoc = await transaction.get(conversaoRef); // Usar transaction.get
+                        const conversaoDoc = await transaction.get(conversaoRef);
                         if (conversaoDoc.exists()) {
                             const regra = conversaoDoc.data();
-                            const fator_qtd_compra = parseFloat(String(regra.qtd_compra).replace(',', '.'));
-                            const fator_qtd_padrao = parseFloat(String(regra.qtd_padrao).replace(',', '.'));
-                            if (fator_qtd_compra > 0) {
-                                quantidadeParaEstoque = (quantidade / fator_qtd_compra) * fator_qtd_padrao;
+                            const selectedUnit = document.getElementById('mov-unidade-selecao').value;
+                            const purchaseUnit = regra.medida_compra;
+
+                            // Only run conversion if the selected unit is the purchase unit
+                            if (selectedUnit === purchaseUnit) {
+                                const fator_qtd_compra = parseFloat(String(regra.qtd_compra).replace(',', '.'));
+                                const fator_qtd_padrao = parseFloat(String(regra.qtd_padrao).replace(',', '.'));
+                                if (fator_qtd_compra > 0) {
+                                    quantidadeParaEstoque = (quantidade / fator_qtd_compra) * fator_qtd_padrao;
+                                }
                             }
                         }
                     }
@@ -433,8 +729,20 @@ document.addEventListener('DOMContentLoaded', async function() {
                     const tipoEntradaConfig = configData.tipos_entrada[tipoEntradaId];
 
                     if (tipoEntradaConfig && tipoEntradaConfig.movimenta_estoque == true) {
-                        locacoes[locacaoIndex].estoque = (locacoes[locacaoIndex].estoque || 0) + quantidadeParaEstoque;
-                        transaction.update(productRef, { locacoes: locacoes });
+                        const localSelecionado = document.getElementById('mov-local').value;
+                        if (localSelecionado) {
+                            // Se um local (e, por extensão, uma locação) for selecionado, atualiza o estoque nessa locação
+                            const locacaoIndex = locacoes.findIndex(l => l.localId === localSelecionado && l.locacao === locacaoSelecionada);
+                            if (locacaoIndex === -1) {
+                                throw new Error("A combinação de Local e Locação selecionada não foi encontrada no cadastro do produto.");
+                            }
+                            locacoes[locacaoIndex].estoque = (locacoes[locacaoIndex].estoque || 0) + quantidadeParaEstoque;
+                            transaction.update(productRef, { locacoes: locacoes });
+                        } else {
+                            // Se nenhum local for selecionado, atualiza o estoque geral (sem locação)
+                            const novoEstoque = (productData.estoque || 0) + quantidadeParaEstoque;
+                            transaction.update(productRef, { estoque: novoEstoque });
+                        }
                     }
 
                     // Cálculo de custo (mantido)
@@ -445,11 +753,13 @@ document.addEventListener('DOMContentLoaded', async function() {
                     let custoTotalEntrada = (quantidade * valorUnitario) + icms + ipi + frete;
 
                     // Criação do documento de movimentação
+                    const selectedUnit = document.getElementById('mov-unidade-selecao').value;
                     const movementRef = doc(collection(db, 'movimentacoes'));
                     const movementData = {
                         tipo: 'entrada',
                         productId,
                         locacao: locacaoSelecionada, // Campo novo
+                        un_compra: selectedUnit || productData.un, // Salva a unidade de compra selecionada
                         data: serverTimestamp(),
                         tipo_entradaId: tipoEntradaId,
                         nf: document.getElementById('mov-nf').value,
@@ -480,7 +790,9 @@ document.addEventListener('DOMContentLoaded', async function() {
                     productsMap[productId] = { id: productId, ...updatedDoc.data() };
                 }
 
+                saveLembrarValues();
                 formMovimentacao.reset();
+                restoreLembrarValues();
                 handleToggleChange();
             } catch (error) {
                 console.error("Erro na transação de entrada:", error);
@@ -488,24 +800,46 @@ document.addEventListener('DOMContentLoaded', async function() {
             }
         } else { // Saída
             const tipoSaidaId = document.getElementById('mov-tipo-saida').value;
+            if (!tipoSaidaId) {
+                alert('Por favor, selecione o Tipo de Saída.');
+                return;
+            }
             const tipoSaidaConfig = configData.tipos_saida[tipoSaidaId];
 
             if (tipoSaidaConfig && tipoSaidaConfig.reservar_estoque == true) {
                 // Lógica de Reserva
                 try {
+                    // Validar se tem locação selecionada se o produto tiver locações
+                    const productData = productsMap[productId];
+                    const hasRealLocacoes = productData.locacoes && productData.locacoes.some(l => l.locacao);
+
+                    if (hasRealLocacoes && rawLocacao === "") {
+                         alert('Para produtos com locação, a locação é obrigatória para fazer a reserva.');
+                         return;
+                    }
+
+                    // Busca o produto atualizado para obter o valorMedio
+                    const productDocForReserva = await getDoc(doc(db, 'produtos', productId));
+                    const pDataReserva = productDocForReserva.exists() ? productDocForReserva.data() : productData;
+                    const valorMedioReserva = pDataReserva.valorMedio || 0;
+
                     await addDoc(collection(db, 'movimentacoes'), {
                         tipo: 'reserva',
                         productId,
-                        locacao: locacaoSelecionada, // Campo novo
+                        locacao: locacaoSelecionada || '', // Garante que salva o local, mesmo que vazio
                         quantidade,
                         data: serverTimestamp(),
                         tipo_saidaId: tipoSaidaId,
                         requisitante: document.getElementById('mov-requisitante').value,
                         obraId: document.getElementById('mov-obra').value,
                         observacao: document.getElementById('mov-observacao-saida').value,
+                        valorMedioHistorico: valorMedioReserva,
+                        custoTotal: valorMedioReserva * quantidade
                     });
                     alert('Reserva registrada com sucesso!');
+                    saveLembrarValues();
                     formMovimentacao.reset();
+                    restoreLembrarValues();
                     handleToggleChange();
                 } catch (error) {
                     console.error("Erro ao registrar reserva:", error);
@@ -515,7 +849,7 @@ document.addEventListener('DOMContentLoaded', async function() {
                 // Lógica de Saída Normal
                 // Validação de estoque ANTES da transação
                 const productData = productsMap[productId];
-                const locacaoData = productData.locacoes.find(l => l.locacao === locacaoSelecionada);
+            const locacaoData = productData.locacoes.find(l => l.locacao === locacaoSelecionada && l.localId === localSelecionado);
                 if (!locacaoData || (locacaoData.estoque || 0) < quantidade) {
                     alert(`Estoque insuficiente na locação ${locacaoSelecionada}! Disponível: ${locacaoData?.estoque || 0}`);
                     return;
@@ -529,7 +863,7 @@ document.addEventListener('DOMContentLoaded', async function() {
 
                         const pData = productDoc.data();
                         const locacoes = pData.locacoes || [];
-                        const locacaoIndex = locacoes.findIndex(l => l.locacao === locacaoSelecionada);
+                    const locacaoIndex = locacoes.findIndex(l => l.locacao === locacaoSelecionada && l.localId === localSelecionado);
 
                         if (locacaoIndex === -1) {
                             throw new Error("Locação selecionada não encontrada no produto.");
@@ -568,7 +902,9 @@ document.addEventListener('DOMContentLoaded', async function() {
                     if (updatedDoc.exists()) {
                         productsMap[productId] = { id: productId, ...updatedDoc.data() };
                     }
+                    saveLembrarValues();
                     formMovimentacao.reset();
+                    restoreLembrarValues();
                     handleToggleChange();
                 } catch (error) {
                     console.error("Erro ao registrar saída:", error);
@@ -578,45 +914,112 @@ document.addEventListener('DOMContentLoaded', async function() {
         }
     });
 
+
     // --- LÓGICA PARA TRANSFERÊNCIA DE ESTOQUE ---
     const transferenciaModal = document.getElementById('transferencia-modal');
     const btnTransferencia = document.getElementById('btn-transferencia');
     const closeTransferenciaModal = document.getElementById('transferencia-modal-close');
     const formTransferencia = document.getElementById('form-transferencia');
-    const transfProdutoSelect = document.getElementById('transf-produto');
+
+    // Updated elements for product search
+    const transfProdutoSearch = document.getElementById('transf-produto-search');
+    const transfProdutoId = document.getElementById('transf-produto-id');
+    const transfProdutoResults = document.getElementById('transf-produto-results');
+
     const transfOrigemSelect = document.getElementById('transf-locacao-origem');
-    const transfDestinoSelect = document.getElementById('transf-locacao-destino');
+    const btnAddDestination = document.getElementById('btn-add-destination');
+    const destinationsList = document.getElementById('destinations-list');
+    const transfTotalDisplay = document.getElementById('transf-total-display');
 
     // Abre o modal
     btnTransferencia.addEventListener('click', () => {
         transferenciaModal.style.display = 'block';
-        // Popula o dropdown de produtos no modal, se ainda não estiver populado
-        if (transfProdutoSelect.options.length <= 1) {
-            for (const productId in productsMap) {
-                const product = productsMap[productId];
-                const option = document.createElement('option');
-                option.value = productId;
-                option.textContent = `${product.codigo} - ${product.descricao}`;
-                transfProdutoSelect.appendChild(option);
-            }
-        }
     });
 
     // Fecha o modal
-    closeTransferenciaModal.addEventListener('click', () => {
+    const closeTransferencia = () => {
         transferenciaModal.style.display = 'none';
+        // Limpar campos
+        transfProdutoSearch.value = '';
+        transfProdutoId.value = '';
+        transfProdutoResults.innerHTML = '';
+        transfProdutoResults.style.display = 'none';
+        // Resetar UI de transferência
+        transfOrigemSelect.innerHTML = '<option value="">Origem...</option>';
+        transfOrigemSelect.disabled = true;
+        destinationsList.innerHTML = '';
+        updateTotalTransferencia();
+        document.getElementById('transf-estoque-origem-display').textContent = '0';
+        document.getElementById('transf-codigo-display').textContent = '-';
+        document.getElementById('transf-descricao-display').textContent = '-';
+    };
+    closeTransferenciaModal.addEventListener('click', closeTransferencia);
+    const btnCancelarTransferencia = document.getElementById('btn-cancelar-transferencia');
+    if (btnCancelarTransferencia) {
+        btnCancelarTransferencia.addEventListener('click', closeTransferencia);
+    }
+
+    // Lógica de busca de produto para transferência
+    const showAndFilterTransferProducts = () => {
+        const searchTerm = transfProdutoSearch.value.toLowerCase();
+        transfProdutoResults.innerHTML = '';
+        transfProdutoResults.style.display = 'none';
+
+        if (searchTerm.length < 1) return;
+
+        const filteredProducts = Object.values(productsMap).filter(p =>
+            p.codigo.toLowerCase().includes(searchTerm) ||
+            p.descricao.toLowerCase().includes(searchTerm)
+        );
+
+        if (filteredProducts.length > 0) {
+            transfProdutoResults.style.display = 'block';
+            filteredProducts.forEach(p => {
+                const div = document.createElement('div');
+                div.className = 'search-result-item';
+                div.textContent = `${p.codigo} - ${p.descricao}`;
+                div.dataset.id = p.id;
+                div.style.padding = '8px';
+                div.style.cursor = 'pointer';
+                div.addEventListener('mouseover', () => div.style.backgroundColor = '#f0f0f0');
+                div.addEventListener('mouseout', () => div.style.backgroundColor = 'white');
+                transfProdutoResults.appendChild(div);
+            });
+        }
+    };
+
+    transfProdutoSearch.addEventListener('input', showAndFilterTransferProducts);
+    transfProdutoSearch.addEventListener('focus', showAndFilterTransferProducts);
+
+    transfProdutoResults.addEventListener('click', (e) => {
+         if (e.target.classList.contains('search-result-item')) {
+            const productId = e.target.dataset.id;
+            const product = productsMap[productId];
+
+            transfProdutoSearch.value = `${product.codigo} - ${product.descricao}`;
+            transfProdutoId.value = productId;
+            transfProdutoResults.style.display = 'none';
+
+            handleTransferProductSelection(productId);
+         }
     });
 
-    // Lógica de seleção de produto no modal de transferência
-    transfProdutoSelect.addEventListener('change', () => {
-        const productId = transfProdutoSelect.value;
+    // Fecha resultados ao clicar fora
+    document.addEventListener('click', (e) => {
+        if (!e.target.closest('#transf-produto-search') && !e.target.closest('#transf-produto-results')) {
+            transfProdutoResults.style.display = 'none';
+        }
+    });
+
+    // Lógica de seleção de produto no modal de transferência (Refatorada)
+    function handleTransferProductSelection(productId) {
         const product = productsMap[productId];
 
         // Limpa e desabilita os selects de locação
-        transfOrigemSelect.innerHTML = '<option value="">Selecione a origem...</option>';
+        transfOrigemSelect.innerHTML = '<option value="">Origem...</option>';
         transfOrigemSelect.disabled = true;
-        transfDestinoSelect.innerHTML = '<option value="">Selecione o destino...</option>';
-        transfDestinoSelect.disabled = true;
+        destinationsList.innerHTML = ''; // Limpa os destinos
+        updateTotalTransferencia();
         document.getElementById('transf-estoque-origem-display').textContent = '0';
         document.getElementById('transf-codigo-display').textContent = '-';
         document.getElementById('transf-descricao-display').textContent = '-';
@@ -625,137 +1028,310 @@ document.addEventListener('DOMContentLoaded', async function() {
             document.getElementById('transf-codigo-display').textContent = product.codigo;
             document.getElementById('transf-descricao-display').textContent = product.descricao;
 
+            // Popula locações de ORIGEM (apenas com estoque)
             if (product.locacoes && product.locacoes.length > 0) {
-                // Popula locações de ORIGEM (apenas com estoque)
                 product.locacoes.forEach(loc => {
                     if (loc.estoque > 0) {
+                        const localNome = configData.locais[loc.localId]?.nome || 'Desconhecido';
                         const option = document.createElement('option');
-                        option.value = loc.locacao;
-                        option.textContent = `${loc.locacao} (Estoque: ${loc.estoque})`;
+                        // Use JSON for unique identification
+                        option.value = JSON.stringify({ localId: loc.localId, locacao: loc.locacao });
+                        const locacaoTexto = loc.locacao ? loc.locacao : '';
+                        option.textContent = `${locacaoTexto} (${localNome}) (Estoque: ${loc.estoque})`;
                         transfOrigemSelect.appendChild(option);
                     }
                 });
-
-                // Popula locações de DESTINO (todas)
-                product.locacoes.forEach(loc => {
-                    const option = document.createElement('option');
-                    option.value = loc.locacao;
-                    option.textContent = loc.locacao;
-                    transfDestinoSelect.appendChild(option);
-                });
-
-                transfOrigemSelect.disabled = false;
-                transfDestinoSelect.disabled = false;
             }
+
+            // Adiciona a opção "Sem Origem" se houver estoque sem locação
+            if (product.estoque > 0) {
+                const option = document.createElement('option');
+                option.value = 'sem_origem';
+                option.textContent = `Sem Origem (Estoque: ${product.estoque})`;
+                transfOrigemSelect.appendChild(option);
+            }
+
+            // Habilita o select de origem se houver alguma opção
+            if (transfOrigemSelect.options.length > 1) {
+                transfOrigemSelect.disabled = false;
+            }
+
+            // Adiciona uma linha de destino inicial
+            addDestinationRow();
         }
-    });
+    }
 
     // Lógica de seleção de locação de origem
     transfOrigemSelect.addEventListener('change', () => {
-        const productId = transfProdutoSelect.value;
+        const productId = transfProdutoId.value;
         const product = productsMap[productId];
-        const origem = transfOrigemSelect.value;
+        const origemValue = transfOrigemSelect.value;
+        const estoqueDisplay = document.getElementById('transf-estoque-origem-display');
 
-        if (product && origem) {
-            const locacaoData = product.locacoes.find(l => l.locacao === origem);
-            document.getElementById('transf-estoque-origem-display').textContent = locacaoData ? locacaoData.estoque : '0';
-        } else {
-            document.getElementById('transf-estoque-origem-display').textContent = '0';
-        }
+        let origemLocalId = null;
+        let origemLocacao = null;
 
-        // Filtra o select de destino para não mostrar a origem
-        const destino = transfDestinoSelect.value;
-        transfDestinoSelect.innerHTML = '<option value="">Selecione o destino...</option>';
-        product.locacoes.forEach(loc => {
-            if (loc.locacao !== origem) {
-                const option = document.createElement('option');
-                option.value = loc.locacao;
-                option.textContent = loc.locacao;
-                transfDestinoSelect.appendChild(option);
+        if (product && origemValue) {
+            if (origemValue === 'sem_origem') {
+                estoqueDisplay.textContent = product.estoque || '0';
+            } else {
+                try {
+                    const origemObj = JSON.parse(origemValue);
+                    origemLocalId = origemObj.localId;
+                    origemLocacao = origemObj.locacao;
+
+                    const locacaoData = product.locacoes.find(l => l.localId === origemLocalId && l.locacao === origemLocacao);
+                    estoqueDisplay.textContent = locacaoData ? locacaoData.estoque : '0';
+                } catch (e) {
+                    console.error("Erro ao parsear origem", e);
+                    estoqueDisplay.textContent = '0';
+                }
             }
-        });
-        // Restaura a seleção se possível
-        if (destino && destino !== origem) {
-            transfDestinoSelect.value = destino;
+        } else {
+            estoqueDisplay.textContent = '0';
         }
+
+        // Atualiza todas as linhas de destino para filtrar a origem selecionada
+        const destSelects = destinationsList.querySelectorAll('.transf-dest-select');
+        destSelects.forEach(select => {
+            populateDestinationSelect(select, product, origemValue);
+        });
     });
+
+    btnAddDestination.addEventListener('click', () => {
+        addDestinationRow();
+    });
+
+    function addDestinationRow() {
+        const productId = transfProdutoId.value;
+        const product = productsMap[productId];
+        const origemValue = transfOrigemSelect.value;
+
+        if (!product) return;
+
+        const row = document.createElement('div');
+        row.className = 'destination-row';
+        // Note: The CSS class .destination-row in style.css handles the grid layout now
+
+        const select = document.createElement('select');
+        select.className = 'form-control transf-dest-select';
+        select.required = true;
+
+        populateDestinationSelect(select, product, origemValue);
+
+        const input = document.createElement('input');
+        input.type = 'number';
+        input.className = 'form-control transf-dest-qty';
+        input.placeholder = '0.00';
+        input.required = true;
+        input.step = 'any';
+        input.addEventListener('input', updateTotalTransferencia);
+
+        const removeBtn = document.createElement('button');
+        removeBtn.type = 'button';
+        removeBtn.className = 'btn btn-danger btn-sm';
+        removeBtn.innerHTML = '<span class="material-icons" style="font-size: 18px; vertical-align: middle;">delete_outline</span>';
+        removeBtn.title = "Remover destino";
+        removeBtn.style.height = "38px"; // Match input height
+        removeBtn.onclick = () => {
+            row.remove();
+            updateTotalTransferencia();
+        };
+
+        row.appendChild(select);
+        row.appendChild(input);
+        row.appendChild(removeBtn);
+
+        destinationsList.appendChild(row);
+    }
+
+    function populateDestinationSelect(select, product, origemValue) {
+        const currentValue = select.value;
+        select.innerHTML = '<option value="">Destino...</option>';
+
+        let origemLocalId = null;
+        let origemLocacao = null;
+
+        if (origemValue && origemValue !== 'sem_origem') {
+             try {
+                const o = JSON.parse(origemValue);
+                origemLocalId = o.localId;
+                origemLocacao = o.locacao;
+            } catch (e) {}
+        }
+
+        if (product && product.locacoes) {
+            product.locacoes.forEach(loc => {
+                try {
+                    // Se a origem for uma locação, não a mostre no destino
+                    if (origemValue !== 'sem_origem' && String(loc.localId) === String(origemLocalId) && String(loc.locacao) === String(origemLocacao)) {
+                        return;
+                    }
+
+                    const localNome = (configData.locais && configData.locais[loc.localId]) ? configData.locais[loc.localId].nome : 'Desconhecido';
+                    const option = document.createElement('option');
+                    option.value = JSON.stringify({ localId: loc.localId, locacao: loc.locacao });
+
+                    const locacaoTexto = loc.locacao ? loc.locacao : '';
+                    option.textContent = `${locacaoTexto} (${localNome})`;
+
+                    select.appendChild(option);
+                } catch (err) {
+                    console.error("Erro no loop de destino", err);
+                }
+            });
+        }
+
+        if (currentValue) {
+            // Verifica se a opção ainda existe
+             const exists = Array.from(select.options).some(o => o.value === currentValue);
+             if(exists) select.value = currentValue;
+        }
+    }
+
+    function updateTotalTransferencia() {
+        const inputs = destinationsList.querySelectorAll('.transf-dest-qty');
+        let total = 0;
+        inputs.forEach(input => {
+            total += parseFloat(input.value) || 0;
+        });
+        transfTotalDisplay.textContent = total.toLocaleString('pt-BR');
+    }
 
     // Lógica de submissão do formulário de transferência
     formTransferencia.addEventListener('submit', async (e) => {
         e.preventDefault();
 
-        const productId = transfProdutoSelect.value;
-        const origem = transfOrigemSelect.value;
-        const destino = transfDestinoSelect.value;
-        const quantidade = parseFloat(document.getElementById('transf-quantidade').value);
+        const productId = transfProdutoId.value;
+        const origemValue = transfOrigemSelect.value;
+
+        // Coleta destinos
+        const destRows = destinationsList.querySelectorAll('.destination-row');
+        const transfers = [];
+        let totalQuantidade = 0;
+
+        destRows.forEach(row => {
+            const destValue = row.querySelector('.transf-dest-select').value;
+            const qty = parseFloat(row.querySelector('.transf-dest-qty').value);
+
+            if (destValue && qty > 0) {
+                transfers.push({ destValue, qty });
+                totalQuantidade += qty;
+            }
+        });
+
+        if (transfers.length === 0) {
+            alert('Adicione pelo menos um destino com quantidade válida.');
+            return;
+        }
 
         // Validação
-        if (!productId || !origem || !destino || !quantidade || quantidade <= 0) {
+        if (!productId || !origemValue) {
             alert('Por favor, preencha todos os campos corretamente.');
             return;
         }
-        if (origem === destino) {
-            alert('A locação de origem e destino não podem ser as mesmas.');
+
+        const product = productsMap[productId];
+
+        // Parse Origem
+        let origemLocalId, origemLocacao;
+        try {
+            if (origemValue !== 'sem_origem') {
+                const o = JSON.parse(origemValue);
+                origemLocalId = o.localId;
+                origemLocacao = o.locacao;
+            }
+        } catch (err) {
+            alert('Erro ao processar dados da origem.');
             return;
         }
-        const product = productsMap[productId];
-        const locacaoOrigemData = product.locacoes.find(l => l.locacao === origem);
-        if (!locacaoOrigemData || locacaoOrigemData.estoque < quantidade) {
-            alert(`Quantidade a transferir excede o estoque disponível na origem (${locacaoOrigemData.estoque || 0}).`);
-            return;
+
+        // Validação de estoque
+        let estoqueDisponivel = 0;
+        let locacaoOrigemData = null;
+
+        if (origemValue === 'sem_origem') {
+            estoqueDisponivel = product.estoque || 0;
+        } else {
+            locacaoOrigemData = product.locacoes.find(l => l.localId === origemLocalId && l.locacao === origemLocacao);
+            estoqueDisponivel = locacaoOrigemData ? locacaoOrigemData.estoque : 0;
+        }
+
+        if (estoqueDisponivel < totalQuantidade) {
+             alert(`Quantidade total (${totalQuantidade}) excede o estoque disponível (${estoqueDisponivel}).`);
+             return;
         }
 
         try {
             await runTransaction(db, async (transaction) => {
                 const productRef = doc(db, 'produtos', productId);
                 const productDoc = await transaction.get(productRef);
-                if (!productDoc.exists()) {
-                    throw new Error('Produto não encontrado no banco de dados.');
-                }
+                if (!productDoc.exists()) throw new Error('Produto não encontrado.');
 
                 const pData = productDoc.data();
                 const locacoes = pData.locacoes || [];
-                const origemIndex = locacoes.findIndex(l => l.locacao === origem);
-                const destinoIndex = locacoes.findIndex(l => l.locacao === destino);
 
-                if (origemIndex === -1 || destinoIndex === -1) {
-                    throw new Error('Locação de origem ou destino não encontrada.');
+                // Decrementa Origem (uma única vez pelo total)
+                if (origemValue === 'sem_origem') {
+                    if ((pData.estoque || 0) < totalQuantidade) {
+                        throw new Error('Estoque Sem Origem insuficiente durante transação.');
+                    }
+                    transaction.update(productRef, { estoque: (pData.estoque || 0) - totalQuantidade });
+                } else {
+                    const origemIndex = locacoes.findIndex(l => l.localId === origemLocalId && l.locacao === origemLocacao);
+                    if (origemIndex === -1) throw new Error('Locação de origem não encontrada.');
+
+                    if ((locacoes[origemIndex].estoque || 0) < totalQuantidade) {
+                        throw new Error('Estoque na origem insuficiente durante transação.');
+                    }
+                    locacoes[origemIndex].estoque -= totalQuantidade;
                 }
 
-                // Re-valida o estoque dentro da transação
-                if (locacoes[origemIndex].estoque < quantidade) {
-                    throw new Error('Estoque insuficiente na origem. A transação foi cancelada.');
+                // Incrementa Destinos e Cria Movimentações
+                for (const transfer of transfers) {
+                    const d = JSON.parse(transfer.destValue);
+                    const destLocalId = d.localId;
+                    const destLocacao = d.locacao;
+
+                    const destinoIndex = locacoes.findIndex(l => l.localId === destLocalId && l.locacao === destLocacao);
+                    if (destinoIndex === -1) throw new Error(`Locação de destino não encontrada.`);
+
+                    locacoes[destinoIndex].estoque = (locacoes[destinoIndex].estoque || 0) + transfer.qty;
+
+                    // Cria registro de movimentação para este trecho
+                    const origemNome = origemValue === 'sem_origem' ? 'Sem Origem' : `${origemLocacao || ''} (${configData.locais[origemLocalId]?.nome || '?'})`;
+                    const destinoNome = `${destLocacao || ''} (${configData.locais[destLocalId]?.nome || '?'})`;
+
+                    const observacao = `Transferência de ${origemNome} para ${destinoNome}.`;
+                    const movementRef = doc(collection(db, 'movimentacoes'));
+
+                    // Nota: O set dentro do loop é permitido em transações
+                    transaction.set(movementRef, {
+                        tipo: 'transferencia',
+                        productId,
+                        quantidade: transfer.qty,
+                        data: serverTimestamp(),
+                        observacao: observacao
+                    });
                 }
 
-                // Realiza a transferência
-                locacoes[origemIndex].estoque -= quantidade;
-                locacoes[destinoIndex].estoque += quantidade;
-
+                // Atualiza locacoes array (agora com todas as alterações aplicadas)
                 transaction.update(productRef, { locacoes: locacoes });
-
-                // Cria um registro de movimentação
-                const movementRef = doc(collection(db, 'movimentacoes'));
-                transaction.set(movementRef, {
-                    tipo: 'transferencia',
-                    productId,
-                    quantidade,
-                    data: serverTimestamp(),
-                    observacao: `Transferência da locação ${origem} para ${destino}.`
-                });
             });
 
             alert('Transferência realizada com sucesso!');
 
-            // Atualiza o mapa local para refletir a mudança (FORMA ROBUSTA)
+            // Atualiza o mapa local para refletir a mudança
             const productRef = doc(db, 'produtos', productId);
             const updatedDoc = await getDoc(productRef);
             if (updatedDoc.exists()) {
                 productsMap[productId] = { id: productId, ...updatedDoc.data() };
             }
-
             formTransferencia.reset();
+            destinationsList.innerHTML = ''; // Limpa a lista visual
+            transfTotalDisplay.textContent = '0';
             transferenciaModal.style.display = 'none';
-            updateProductInfo(); // Atualiza a info do produto principal se estiver selecionado
+            await updateProductInfo(); // Atualiza a info do produto principal se estiver selecionado
         } catch (error) {
             console.error("Erro na transferência de estoque:", error);
             alert(`Erro ao realizar a transferência: ${error.message}`);
@@ -765,33 +1341,489 @@ document.addEventListener('DOMContentLoaded', async function() {
 
     // --- FIM DA LÓGICA DE TRANSFERÊNCIA ---
 
+    // --- LÓGICA PARA ADICIONAR NOVA LOCAÇÃO (NOVA FEATURE) ---
+    const btnNewLocation = document.getElementById('btn-new-location');
+    const addLocationModal = document.getElementById('add-location-modal');
+    const closeAddLocationModal = document.getElementById('add-location-modal-close');
+    const formAddLocation = document.getElementById('form-add-location');
+    const newLocationLocalSelect = document.getElementById('new-location-local');
+    const newLocationInput = document.getElementById('new-location-input');
+
+    // Inicializa o IMask para o campo de nova locação
+    const newLocacaoDefinitions = {
+        'L': { mask: /[A-Z]/ }
+    };
+    IMask(newLocationInput, {
+        mask: [
+            { mask: '0' },
+            { mask: '0-L', definitions: newLocacaoDefinitions },
+            { mask: '0-L-00', definitions: newLocacaoDefinitions },
+            { mask: '0-L-00-L', definitions: newLocacaoDefinitions }
+        ],
+        prepare: function (str) {
+            return str.toUpperCase();
+        },
+    });
+
+    btnNewLocation.addEventListener('click', () => {
+        const productId = transfProdutoId.value;
+        if (!productId) {
+            alert('Por favor, selecione um produto primeiro.');
+            return;
+        }
+
+        // Popula o dropdown de locais
+        newLocationLocalSelect.innerHTML = '<option value="">Selecione o Local...</option>';
+        if (configData.locais) {
+            for (const [id, data] of Object.entries(configData.locais)) {
+                const option = document.createElement('option');
+                option.value = id;
+                option.textContent = data.nome;
+                newLocationLocalSelect.appendChild(option);
+            }
+        }
+
+        formAddLocation.reset();
+        addLocationModal.style.display = 'block';
+    });
+
+    closeAddLocationModal.addEventListener('click', () => {
+        addLocationModal.style.display = 'none';
+    });
+
+    formAddLocation.addEventListener('submit', async (e) => {
+        e.preventDefault();
+        const productId = transfProdutoId.value;
+        const localId = newLocationLocalSelect.value;
+        const locacao = newLocationInput.value.toUpperCase();
+
+        if (!productId || !localId || !locacao) {
+            alert('Preencha todos os campos.');
+            return;
+        }
+
+        // Validação de Regex
+        const locacaoPattern = /^[0-9]{1}(-[A-Z]{1}(-[0-9]{2}(-[A-Z]{1})?)?)?$/;
+        if (!locacaoPattern.test(locacao)) {
+            alert(`O formato da locação "${locacao}" é inválido. Use formatos como 1, 1-A, 1-A-02 ou 1-A-02-B.`);
+            return;
+        }
+
+        try {
+            await runTransaction(db, async (transaction) => {
+                const productRef = doc(db, 'produtos', productId);
+                const productDoc = await transaction.get(productRef);
+                if (!productDoc.exists()) throw new Error('Produto não encontrado.');
+
+                const pData = productDoc.data();
+                const locacoes = pData.locacoes || [];
+
+                // Verifica duplicidade
+                const exists = locacoes.some(l => l.localId === localId && l.locacao === locacao);
+                if (exists) {
+                    throw new Error('Esta locação já existe para este produto.');
+                }
+
+                // Adiciona nova locação
+                locacoes.push({
+                    localId: localId,
+                    locacao: locacao,
+                    estoque: 0
+                });
+
+                transaction.update(productRef, { locacoes: locacoes });
+            });
+
+            alert('Locação adicionada com sucesso!');
+            addLocationModal.style.display = 'none';
+
+            // Atualiza o mapa local
+            const productRef = doc(db, 'produtos', productId);
+            const updatedDoc = await getDoc(productRef);
+            if (updatedDoc.exists()) {
+                productsMap[productId] = { id: productId, ...updatedDoc.data() };
+            }
+
+            // Atualiza as opções de destino
+            // Re-renderiza as opções de todos os selects de destino existentes
+            const destSelects = destinationsList.querySelectorAll('.transf-dest-select');
+            const origemValue = transfOrigemSelect.value;
+            destSelects.forEach(select => {
+                populateDestinationSelect(select, productsMap[productId], origemValue);
+            });
+
+            // Se não houver destinos, adiciona uma linha automaticamente (opcional, mas bom para UX)
+            if (destinationsList.children.length === 0) {
+                addDestinationRow();
+            }
+
+        } catch (error) {
+            console.error("Erro ao adicionar locação:", error);
+            alert(error.message);
+        }
+    });
+
+    // --- LÓGICA DE TRANSFERÊNCIA EM LOTE ---
+    const btnBulkTransfer = document.getElementById('btn-bulk-transfer');
+    const bulkTransferModal = document.getElementById('bulk-transfer-modal');
+    const closeBulkTransferModal = document.getElementById('bulk-transfer-modal-close');
+    const btnLoadBulk = document.getElementById('btn-load-bulk');
+    const bulkCodesInput = document.getElementById('bulk-codes-input');
+    const bulkTransferTableBody = document.querySelector('#bulk-transfer-table tbody');
+    const btnConfirmBulk = document.getElementById('btn-confirm-bulk');
+
+    btnBulkTransfer.addEventListener('click', () => {
+        bulkTransferModal.style.display = 'block';
+    });
+
+    closeBulkTransferModal.addEventListener('click', () => {
+        bulkTransferModal.style.display = 'none';
+        bulkCodesInput.value = '';
+        bulkTransferTableBody.innerHTML = '';
+        btnConfirmBulk.disabled = true;
+    });
+
+    // Helper to format origin
+    function formatOriginOption(loc) {
+        const localNome = configData.locais[loc.localId]?.nome || 'Desconhecido';
+        return `${loc.locacao} (${localNome}) (Estoque: ${loc.estoque})`;
+    }
+
+    btnLoadBulk.addEventListener('click', () => {
+        const input = bulkCodesInput.value;
+        if (!input.trim()) return;
+
+        // Split by space, comma, or newline and filter empty
+        const codes = input.split(/[\s,]+/).filter(c => c.trim() !== '');
+        bulkTransferTableBody.innerHTML = '';
+        let hasValidItems = false;
+
+        codes.forEach(code => {
+            // Find product by code (case insensitive)
+            const product = Object.values(productsMap).find(p => p.codigo.toLowerCase() === code.toLowerCase());
+            const row = document.createElement('tr');
+
+            if (!product) {
+                row.style.backgroundColor = '#ffdddd'; // Red highlight for not found
+                row.innerHTML = `
+                    <td>${code}</td>
+                    <td colspan="6" style="color: #dc3545; font-weight: bold;">Produto não encontrado</td>
+                `;
+            } else {
+                hasValidItems = true;
+                const productId = product.id;
+
+                // Origin Select
+                let originOptions = '<option value="">Selecione Origem...</option>';
+                let hasStock = false;
+                if (product.locacoes) {
+                    product.locacoes.forEach(loc => {
+                        if (loc.estoque > 0) {
+                            hasStock = true;
+                            originOptions += `<option value='${JSON.stringify({localId: loc.localId, locacao: loc.locacao})}'>${formatOriginOption(loc)}</option>`;
+                        }
+                    });
+                }
+                if (product.estoque > 0) { // Fallback for legacy "sem origem"
+                     hasStock = true;
+                     originOptions += `<option value="sem_origem">Sem Origem (Estoque: ${product.estoque})</option>`;
+                }
+
+                // Destination Select (Dropdown with Existing Locations)
+                let destOptions = '<option value="">Selecione Destino...</option>';
+                if (product.locacoes) {
+                    product.locacoes.forEach(loc => {
+                        const localNome = configData.locais[loc.localId]?.nome || 'Desconhecido';
+                        // Value is JSON string to match origin select structure for easy parsing
+                        destOptions += `<option value='${JSON.stringify({localId: loc.localId, locacao: loc.locacao})}'>${loc.locacao || ''} (${localNome})</option>`;
+                    });
+                }
+
+                row.dataset.productId = productId;
+                row.className = 'bulk-transfer-row'; // Marker class
+
+                row.innerHTML = `
+                    <td>${product.codigo}</td>
+                    <td>${product.descricao}</td>
+                    <td>
+                        <select class="form-control bulk-origin-select" ${!hasStock ? 'disabled' : ''}>
+                            ${hasStock ? originOptions : '<option>Sem Estoque</option>'}
+                        </select>
+                    </td>
+                    <td>
+                        <select class="form-control bulk-dest-select" required>
+                            ${destOptions}
+                        </select>
+                    </td>
+                    <td>
+                        <input type="number" class="form-control bulk-qty-input" placeholder="Qtd" step="any" min="0">
+                    </td>
+                    <td class="status-cell">
+                        <button class="btn btn-sm btn-danger btn-remove-row" onclick="this.closest('tr').remove()">
+                            <span class="material-icons" style="font-size: 16px;">delete</span>
+                        </button>
+                    </td>
+                `;
+            }
+            bulkTransferTableBody.appendChild(row);
+        });
+
+        btnConfirmBulk.disabled = !hasValidItems;
+    });
+
+    btnConfirmBulk.addEventListener('click', async () => {
+        const rows = document.querySelectorAll('.bulk-transfer-row');
+        const transfers = [];
+        let validationError = null;
+
+        rows.forEach(row => {
+            const originSelect = row.querySelector('.bulk-origin-select');
+            const destSelect = row.querySelector('.bulk-dest-select');
+            const qtyInput = row.querySelector('.bulk-qty-input');
+
+            const originValue = originSelect.value;
+            const destValue = destSelect.value;
+            const qty = parseFloat(qtyInput.value);
+
+            if (!originValue || !destValue || isNaN(qty) || qty <= 0) {
+                row.style.border = '2px solid red';
+                validationError = "Preencha todos os campos corretamente.";
+                return;
+            } else {
+                row.style.border = 'none';
+            }
+
+            let destObj;
+            try {
+                destObj = JSON.parse(destValue);
+            } catch (e) {
+                row.style.border = '2px solid red';
+                validationError = "Erro no destino selecionado.";
+                return;
+            }
+
+            transfers.push({
+                productId: row.dataset.productId,
+                originValue,
+                destLocalId: destObj.localId,
+                destLocacao: destObj.locacao,
+                qty
+            });
+        });
+
+        if (validationError) {
+            alert(validationError);
+            return;
+        }
+
+        if (transfers.length === 0) {
+            alert("Nenhuma transferência válida para processar.");
+            return;
+        }
+
+        if (!confirm(`Confirma a transferência de ${transfers.length} item(ns)?`)) return;
+
+        try {
+            await runTransaction(db, async (transaction) => {
+                // Cache product reads to avoid reading same doc multiple times if multiple lines for same product
+                const productDocs = {};
+                const uniqueProductIds = [...new Set(transfers.map(t => t.productId))];
+
+                for (const pid of uniqueProductIds) {
+                    const ref = doc(db, 'produtos', pid);
+                    const snap = await transaction.get(ref);
+                    if (!snap.exists()) throw new Error(`Produto ${pid} não encontrado.`);
+                    productDocs[pid] = { ref, data: snap.data() };
+                }
+
+                // Process transfers
+                for (const transfer of transfers) {
+                    const productCtx = productDocs[transfer.productId];
+                    const pData = productCtx.data;
+                    const locacoes = pData.locacoes || [];
+
+                    // 1. Deduct from Origin
+                    if (transfer.originValue === 'sem_origem') {
+                        if ((pData.estoque || 0) < transfer.qty) {
+                            throw new Error(`Estoque insuficiente (Sem Origem) para ${pData.codigo}.`);
+                        }
+                        pData.estoque = (pData.estoque || 0) - transfer.qty;
+                    } else {
+                        const originObj = JSON.parse(transfer.originValue);
+                        const originIndex = locacoes.findIndex(l => l.localId === originObj.localId && l.locacao === originObj.locacao);
+
+                        if (originIndex === -1) throw new Error(`Origem não encontrada para ${pData.codigo}.`);
+                        if ((locacoes[originIndex].estoque || 0) < transfer.qty) {
+                            throw new Error(`Estoque insuficiente na origem para ${pData.codigo}.`);
+                        }
+                        locacoes[originIndex].estoque -= transfer.qty;
+                    }
+
+                    // 2. Add to Destination
+                    let destIndex = locacoes.findIndex(l => l.localId === transfer.destLocalId && l.locacao === transfer.destLocacao);
+                    if (destIndex === -1) {
+                        locacoes.push({
+                            localId: transfer.destLocalId,
+                            locacao: transfer.destLocacao,
+                            estoque: transfer.qty
+                        });
+                    } else {
+                        locacoes[destIndex].estoque = (locacoes[destIndex].estoque || 0) + transfer.qty;
+                    }
+
+                    // 3. Create Movement Record
+                    // Note: set() inside loop is fine for batch/transaction
+                    const originLabel = transfer.originValue === 'sem_origem' ? 'Sem Origem' : JSON.parse(transfer.originValue).locacao;
+                    const destLabel = transfer.destLocacao;
+                    const localDestName = configData.locais[transfer.destLocalId]?.nome;
+
+                    const movementRef = doc(collection(db, 'movimentacoes'));
+                    transaction.set(movementRef, {
+                        tipo: 'transferencia',
+                        productId: transfer.productId,
+                        quantidade: transfer.qty,
+                        data: serverTimestamp(),
+                        observacao: `Transferência em Lote: ${originLabel} -> ${destLabel} (${localDestName})`
+                    });
+                }
+
+                // Write back all updates
+                for (const pid of uniqueProductIds) {
+                    const ctx = productDocs[pid];
+                    const updatePayload = { locacoes: ctx.data.locacoes || [] };
+                    if (ctx.data.estoque !== undefined) updatePayload.estoque = ctx.data.estoque; // For legacy/sem_origem handling
+                    transaction.update(ctx.ref, updatePayload);
+                }
+            });
+
+            alert("Transferências realizadas com sucesso!");
+            bulkTransferModal.style.display = 'none';
+
+            // Refresh main table if visible? Or just reload logic?
+            // Since we updated DB, real-time listeners should handle main view updates if applicable.
+            // But we should refresh local maps just in case.
+            // Actually, listeners will do it.
+
+        } catch (error) {
+            console.error("Erro na transferência em lote:", error);
+            alert(`Erro: ${error.message}`);
+        }
+    });
 
     // --- Lógica do Modal de Importação XML ---
     btnImportarXml.addEventListener('click', () => { xmlImportModal.style.display = 'block'; });
-    xmlModalClose.addEventListener('click', () => { xmlImportModal.style.display = 'none'; });
+    xmlModalClose.addEventListener('click', () => {
+        xmlImportModal.style.display = 'none';
+        lastUsedValues = {}; // Limpa os valores ao fechar o modal
+    });
     window.addEventListener('click', (event) => {
-        if (event.target == xmlImportModal) xmlImportModal.style.display = 'none';
-        if (event.target == cadastroProdutoModal) cadastroProdutoModal.style.display = 'none';
+        if (event.target == xmlImportModal) {
+            xmlImportModal.style.display = 'none';
+            lastUsedValues = {}; // Limpa os valores ao fechar o modal
+        }
+        if (event.target == cadastroProdutoModal) {
+            cadastroProdutoModal.style.display = 'none';
+        }
     });
 
     xmlFileInput.addEventListener('change', (event) => {
         const file = event.target.files[0];
         if (!file) return;
+
+        // Limpa os valores ao carregar um novo arquivo
+        lastUsedValues = {};
+        document.getElementById('xml-total-value').textContent = 'R$ 0,00';
+
         const reader = new FileReader();
         reader.onload = (e) => parseNFeXML(e.target.result);
         reader.readAsText(file);
     });
 
-    function parseNFeXML(xmlText) {
+    function updateTotalValue() {
+        const rows = document.querySelectorAll('#xml-products-table tbody tr');
+        let totalValue = 0;
+
+        rows.forEach(row => {
+            const quantity = parseFloat(row.cells[3].querySelector('input').value) || 0;
+            const unitValue = parseFloat(row.cells[4].querySelector('input').value) || 0;
+            const icms = parseFloat(row.cells[5].querySelector('input').value) || 0;
+            const ipi = parseFloat(row.cells[6].querySelector('input').value) || 0;
+            const frete = parseFloat(row.cells[7].querySelector('input').value) || 0;
+
+            totalValue += (quantity * unitValue) + icms + ipi + frete;
+        });
+
+        document.getElementById('xml-total-value').textContent = totalValue.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' });
+    }
+
+    xmlProductsTableBody.addEventListener('input', (e) => {
+        // Atualiza o valor total se qualquer input dentro da tabela for modificado
+        if (e.target.tagName === 'INPUT') {
+            updateTotalValue();
+        }
+    });
+    // Event listener para os dropdowns de Local na tabela de importação
+    xmlProductsTableBody.addEventListener('change', (e) => {
+        if (e.target.classList.contains('xml-local-select')) {
+            const row = e.target.closest('tr');
+            const productId = row.dataset.productId;
+            const selectedLocalId = e.target.value;
+            const locacaoSelect = row.querySelector('.xml-locacao-select');
+            const product = productsMap[productId];
+
+            locacaoSelect.innerHTML = '<option value="">Carregando...</option>';
+
+            if (product && selectedLocalId) {
+                const locacoesFiltradas = product.locacoes.filter(l => l.localId === selectedLocalId);
+                locacaoSelect.innerHTML = '<option value="">Locação...</option>';
+                locacoesFiltradas.forEach(loc => {
+                    locacaoSelect.innerHTML += `<option value="${loc.locacao}">${loc.locacao}</option>`;
+                });
+
+                // Pre-seleciona a primeira locação
+                if (locacaoSelect.options.length > 1) {
+                    locacaoSelect.selectedIndex = 1;
+                }
+                locacaoSelect.required = true;
+
+            } else {
+                locacaoSelect.innerHTML = '<option value="">Locação...</option>';
+                locacaoSelect.required = false;
+            }
+        }
+    });
+
+
+    async function parseNFeXML(xmlText) {
         const parser = new DOMParser();
         const xmlDoc = parser.parseFromString(xmlText, "text/xml");
         xmlProductsTableBody.innerHTML = '';
-        inputNfeNumero.value = xmlDoc.querySelector('nNF')?.textContent || '';
+        const nfeNumero = xmlDoc.querySelector('nNF')?.textContent || '';
+        inputNfeNumero.value = nfeNumero;
+
+        let itensJaImportados = new Set();
+        if (nfeNumero) {
+            const q = query(collection(db, 'movimentacoes'), where("nf", "==", nfeNumero), where("tipo", "==", "entrada"));
+            const querySnapshot = await getDocs(q);
+            querySnapshot.forEach(doc => {
+                const data = doc.data();
+                if (data.nItem) {
+                    // Garante que não haja espaços em branco extras
+                    itensJaImportados.add(String(data.nItem).trim());
+                }
+            });
+        }
+
         const totalFrete = parseFloat(xmlDoc.querySelector('ICMSTot vFrete')?.textContent || 0);
         const totalProdutos = parseFloat(xmlDoc.querySelector('ICMSTot vProd')?.textContent || 0);
-        const items = xmlDoc.querySelectorAll('det');
+        const items = xmlDoc.getElementsByTagName('det');
 
-        items.forEach(item => {
+        Array.from(items).forEach(item => {
+            const nItem = String(item.getAttribute('nItem')).trim(); // Limpa a string do XML
+            if (itensJaImportados.has(nItem)) {
+                return; // Pula este item, pois já foi importado
+            }
+
             const cProd = item.querySelector('cProd')?.textContent;
             const xProd = item.querySelector('xProd')?.textContent;
             const uCom = item.querySelector('uCom')?.textContent;
@@ -807,44 +1839,59 @@ document.addEventListener('DOMContentLoaded', async function() {
                 acaoHtml = `<button class="btn btn-edit btn-cadastrar-produto" data-dados='${JSON.stringify(dadosDoXml)}'>Cadastrar</button>`;
             }
 
-            let locacaoDropdownHtml = `<select class="form-control" required ${!produtoNoSistema ? 'disabled' : ''}>`;
+            // Prepara dropdown de Local
+            let localDropdownHtml = `<select class="form-control xml-local-select" ${!produtoNoSistema ? 'disabled' : ''}>`;
             if (produtoNoSistema && produtoNoSistema.locacoes) {
-                locacaoDropdownHtml += '<option value="">Selecione...</option>';
-                produtoNoSistema.locacoes.forEach(loc => {
-                    locacaoDropdownHtml += `<option value="${loc.locacao}">${loc.locacao}</option>`;
+                const locaisUnicos = [...new Set(produtoNoSistema.locacoes.map(l => l.localId))];
+                localDropdownHtml += '<option value="">Local...</option>';
+                locaisUnicos.forEach(localId => {
+                    const localNome = configData.locais[localId]?.nome || 'Desconhecido';
+                    localDropdownHtml += `<option value="${localId}">${localNome}</option>`;
                 });
             } else {
-                locacaoDropdownHtml += '<option value="">Nenhuma</option>';
+                localDropdownHtml += '<option value="">Nenhum</option>';
             }
-            locacaoDropdownHtml += `</select>`;
+            localDropdownHtml += `</select>`;
+
+            // Prepara dropdown de Locação (inicialmente vazio)
+            let locacaoDropdownHtml = `<select class="form-control xml-locacao-select" ${!produtoNoSistema ? 'disabled' : ''}><option value="">Locação...</option></select>`;
 
             const row = xmlProductsTableBody.insertRow();
             if (!produtoNoSistema) row.style.backgroundColor = '#ffdddd';
             row.dataset.productId = produtoIdSistema;
-            row.dataset.unidadeCompra = uCom; // Salva a unidade da nota
+            row.dataset.unidadeCompra = uCom;
+            row.dataset.nItem = nItem; // Adiciona o nItem à linha
 
             row.innerHTML = `
                 <td><input type="text" class="form-control" value="${cProd}" disabled></td>
                 <td><input type="text" class="form-control" value="${descricaoSistema}" disabled></td>
                 <td><input type="text" class="form-control" value="${uCom}" disabled></td>
                 <td><input type="number" step="any" class="form-control" value="${parseFloat(item.querySelector('qCom')?.textContent || 0)}"></td>
-                <td><input type="number" step="any" class="form-control" value="${parseFloat(item.querySelector('vUnCom')?.textContent || 0)}"></td>
-                <td><input type="number" step="any" class="form-control" value="${parseFloat(item.querySelector('vICMS')?.textContent || 0)}"></td>
+                <td><input type="number" step="0.001" class="form-control" value="${parseFloat(item.querySelector('vUnCom')?.textContent || 0)}"></td>
+                <td><input type="number" step="any" class="form-control" value="0"></td>
                 <td><input type="number" step="any" class="form-control" value="${parseFloat(item.querySelector('vIPI')?.textContent || 0)}"></td>
                 <td><input type="number" step="any" class="form-control" value="${freteRateado.toFixed(2)}"></td>
+                <td>${localDropdownHtml}</td>
                 <td>${locacaoDropdownHtml}</td>
                 <td>${acaoHtml}</td>
             `;
         });
+
+        // Pre-seleciona o primeiro local e locação para cada linha
+        xmlProductsTableBody.querySelectorAll('tr').forEach(row => {
+            const localSelect = row.querySelector('.xml-local-select');
+            if (localSelect && localSelect.options.length > 1) {
+                localSelect.selectedIndex = 1; // Seleciona a primeira opção válida
+                localSelect.dispatchEvent(new Event('change', { bubbles: true })); // Dispara o evento para popular a locação
+            }
+        });
+        updateTotalValue(); // Calcula o valor total inicial
     }
 
     btnConfirmarXmlImport.addEventListener('click', async () => {
+        const loader = document.getElementById('xml-import-loader');
         const nf = document.getElementById('xml-nfe-numero').value;
         const rows = document.querySelectorAll('#xml-products-table tbody tr');
-        let sucessoCount = 0;
-        let erroCount = 0;
-        const produtosParaAtualizarCusto = new Set();
-        let falhas = [];
 
         if (rows.length === 0) {
             return alert("Não há produtos para importar.");
@@ -852,119 +1899,249 @@ document.addEventListener('DOMContentLoaded', async function() {
 
         // Validação prévia
         for (const row of rows) {
-             const productId = row.dataset.productId;
-             if (!productId) continue; // Pula não cadastrados
-             const locacaoSelect = row.cells[8].querySelector('select');
-             if (!locacaoSelect || !locacaoSelect.value) {
-                 alert(`Por favor, selecione uma locação para todos os produtos cadastrados (Código: ${row.cells[0].querySelector('input').value}).`);
-                 return;
-             }
+            const productId = row.dataset.productId;
+            if (!productId) continue; // Pula não cadastrados
+
+            const localSelect = row.cells[8].querySelector('select');
+            const locacaoSelect = row.cells[9].querySelector('select');
+            const codigoProduto = row.cells[0].querySelector('input').value;
         }
 
 
         if (confirm(`Confirmar a entrada de ${rows.length} item(ns) da NF-e ${nf}?`)) {
+            loader.style.display = 'flex';
+            btnConfirmarXmlImport.disabled = true;
+
+            let itensComProblema = [];
+            let itensParaImportar = [];
+            let sucessoCount = 0;
+            let erroCount = 0;
+            let falhas = [];
+
+            // Primeira passada: Validar e separar os itens
             for (const row of rows) {
                 const productId = row.dataset.productId;
-                if (!productId) continue; // Pula não cadastrados
+                if (!productId) continue;
 
-                const locacaoSelecionada = row.cells[8].querySelector('select').value;
-                const unidadeCompra = row.dataset.unidadeCompra;
+                const produto = productsMap[productId];
+                const quantidadeInformada = parseFloat(row.cells[3].querySelector('input').value);
+                let quantidadeParaEstoque = quantidadeInformada;
 
-                try {
-                    const quantidadeInformada = parseFloat(row.cells[3].querySelector('input').value);
-                    const valorUnitario = parseFloat(row.cells[4].querySelector('input').value);
-                    const icms = parseFloat(row.cells[5].querySelector('input').value) || 0;
-                    const ipi = parseFloat(row.cells[6].querySelector('input').value) || 0;
-                    const frete = parseFloat(row.cells[7].querySelector('input').value) || 0;
-
-                    if (isNaN(quantidadeInformada) || quantidadeInformada <= 0 || isNaN(valorUnitario) || !locacaoSelecionada) {
-                        throw new Error("Dados inválidos ou locação não selecionada.");
+                // Lógica de Conversão
+                if (produto.conversaoId) {
+                    const regra = configData.conversoes[produto.conversaoId];
+                    if (regra) {
+                        const fator_qtd_compra = parseFloat(String(regra.qtd_compra).replace(',', '.'));
+                        const fator_qtd_padrao = parseFloat(String(regra.qtd_padrao).replace(',', '.'));
+                        if (fator_qtd_compra > 0) {
+                            quantidadeParaEstoque = (quantidadeInformada / fator_qtd_compra) * fator_qtd_padrao;
+                        }
                     }
+                }
 
-                    await runTransaction(db, async (transaction) => {
-                        const productRef = doc(db, 'produtos', productId);
-                        const productDoc = await transaction.get(productRef);
-                        if (!productDoc.exists()) {
-                            throw new Error(`Produto com ID ${productId} não encontrado.`);
-                        }
+                const itemData = {
+                    row: row, // Mantém a referência à linha da tabela
+                    productId: productId,
+                    productData: produto,
+                    quantidadeInformada: quantidadeInformada,
+                    valorUnitario: parseFloat(row.cells[4].querySelector('input').value),
+                    icms: parseFloat(row.cells[5].querySelector('input').value) || 0,
+                    ipi: parseFloat(row.cells[6].querySelector('input').value) || 0,
+                    frete: parseFloat(row.cells[7].querySelector('input').value) || 0,
+                    localSelecionado: row.cells[8].querySelector('select').value,
+                    locacaoSelecionada: row.cells[9].querySelector('select').value,
+                    unidadeCompra: row.dataset.unidadeCompra,
+                    nItem: row.dataset.nItem
+                };
 
-                        const productData = productDoc.data();
-                        let quantidadeParaEstoque = quantidadeInformada;
-
-                        // 1. Lógica de Conversão
-                        if (productData.conversaoId) {
-                            const conversaoRef = doc(db, 'conversoes', productData.conversaoId);
-                            const conversaoDoc = await transaction.get(conversaoRef);
-                            if (conversaoDoc.exists()) {
-                                const regra = conversaoDoc.data();
-                                const fator_qtd_compra = parseFloat(String(regra.qtd_compra).replace(',', '.'));
-                                const fator_qtd_padrao = parseFloat(String(regra.qtd_padrao).replace(',', '.'));
-                                if (fator_qtd_compra > 0) {
-                                    quantidadeParaEstoque = (quantidadeInformada / fator_qtd_compra) * fator_qtd_padrao;
-                                }
-                            }
-                        }
-
-                        // 2. Lógica de Custo Total
-                        let custoTotalEntrada = (quantidadeInformada * valorUnitario) + icms + ipi + frete;
-                        // ... (outras lógicas de custo, se houver)
-
-                        // 3. Atualiza Estoque na Locação Correta
-                        const locacoes = productData.locacoes || [];
-                        const locacaoIndex = locacoes.findIndex(l => l.locacao === locacaoSelecionada);
-                        if (locacaoIndex === -1) {
-                            throw new Error(`Locação '${locacaoSelecionada}' não encontrada para o produto.`);
-                        }
-                        locacoes[locacaoIndex].estoque = (locacoes[locacaoIndex].estoque || 0) + quantidadeParaEstoque;
-                        transaction.update(productRef, { locacoes: locacoes });
-
-
-                        // 4. Cria o Registro de Movimentação
-                        const movementRef = doc(collection(db, 'movimentacoes'));
-                        const movementData = {
-                            tipo: 'entrada',
-                            productId,
-                            locacao: locacaoSelecionada,
-                            un_compra: unidadeCompra, // SALVA A UNIDADE DA NOTA
-                            data: serverTimestamp(),
-                            nf: nf,
-                            valor_unitario: valorUnitario,
-                            icms: icms,
-                            ipi: ipi,
-                            frete: frete,
-                            observacao: `Importado via XML da NF-e ${nf}`,
-                            quantidade: quantidadeParaEstoque,
-                            quantidade_compra: quantidadeInformada,
-                            custo_total_entrada: custoTotalEntrada
-                        };
-                        transaction.set(movementRef, movementData);
-                    });
-
-                    produtosParaAtualizarCusto.add(productId);
-                    sucessoCount++;
-                } catch (error) {
-                    erroCount++;
-                    const codigoProduto = row.cells[0].querySelector('input').value;
-                    falhas.push(`Produto ${codigoProduto}: ${error.message}`);
-                    console.error(`Falha ao importar produto com ID ${productId}:`, error);
+                if (quantidadeParaEstoque % 1 !== 0) {
+                    itemData.quantidadeCalculada = quantidadeParaEstoque;
+                    itensComProblema.push(itemData);
+                } else {
+                    itemData.quantidadeParaEstoque = quantidadeParaEstoque;
+                    itensParaImportar.push(itemData);
                 }
             }
 
-            // 5. Atualiza o Custo Médio
-            for (const id of produtosParaAtualizarCusto) {
-                await atualizarCustoMedioProduto(id);
+            // Processar itens sem problemas em segundo plano
+            for (const item of itensParaImportar) {
+                try {
+                    await processarItemImportacao(item, nf);
+                    sucessoCount++;
+                } catch (error) {
+                    erroCount++;
+                    falhas.push(`Produto ${item.productData.codigo}: ${error.message}`);
+                }
             }
 
-            let alertMessage = `${sucessoCount} produto(s) importado(s) com sucesso!`;
+            // Exibir modal se houver itens com problema
+            if (itensComProblema.length > 0) {
+                exibirModalCorrecao(itensComProblema, nf);
+            }
+
+            // Esconder o loader e reativar o botão se não houver modal
+            if (itensComProblema.length === 0) {
+                loader.style.display = 'none';
+                btnConfirmarXmlImport.disabled = false;
+                xmlImportModal.style.display = 'none';
+
+                let alertMessage = `${sucessoCount} produto(s) importado(s) com sucesso!`;
+                if (erroCount > 0) {
+                    alertMessage += `\n\n${erroCount} produto(s) falharam:\n- ${falhas.join('\n- ')}`;
+                }
+                alert(alertMessage);
+            }
+        }
+    });
+
+    async function processarItemImportacao(item, nf) {
+        // Esta função encapsula a lógica de transação para um único item
+        await runTransaction(db, async (transaction) => {
+            const productRef = doc(db, 'produtos', item.productId);
+            const productDoc = await transaction.get(productRef);
+            if (!productDoc.exists()) {
+                throw new Error(`Produto não encontrado.`);
+            }
+
+            const productData = productDoc.data();
+
+            // 1. Calcula Estoque Atual (Total)
+            let estoqueAtual = 0;
+            if (productData.locacoes && productData.locacoes.length > 0) {
+                estoqueAtual = productData.locacoes.reduce((sum, l) => sum + (l.estoque || 0), 0);
+            } else {
+                estoqueAtual = productData.estoque || 0;
+            }
+
+            // 2. Calcula Custo Médio Atual e Novo
+            const custoMedioAtual = productData.valorMedio || 0;
+            const valorTotalAtual = estoqueAtual * custoMedioAtual;
+            const custoTotalEntrada = (item.quantidadeInformada * item.valorUnitario) + item.icms + item.ipi + item.frete;
+
+            const novoEstoqueTotal = estoqueAtual + item.quantidadeParaEstoque;
+            let novoCustoMedio = custoMedioAtual;
+
+            if (novoEstoqueTotal > 0) {
+                novoCustoMedio = (valorTotalAtual + custoTotalEntrada) / novoEstoqueTotal;
+            }
+
+            // 3. Prepara Atualização do Produto
+            const updateData = { valorMedio: novoCustoMedio };
+
+            if (item.localSelecionado) {
+                const locacoes = productData.locacoes || [];
+                const locacaoIndex = locacoes.findIndex(l => l.localId === item.localSelecionado && l.locacao === item.locacaoSelecionada);
+                if (locacaoIndex === -1) {
+                    throw new Error(`Combinação de Local/Locação não encontrada.`);
+                }
+                locacoes[locacaoIndex].estoque = (locacoes[locacaoIndex].estoque || 0) + item.quantidadeParaEstoque;
+                updateData.locacoes = locacoes;
+            } else {
+                updateData.estoque = (productData.estoque || 0) + item.quantidadeParaEstoque;
+            }
+
+            // Aplica atualização atômica no produto (Estoque + Custo Médio)
+            transaction.update(productRef, updateData);
+
+            // 4. Cria o Registro de Movimentação
+            const movementRef = doc(collection(db, 'movimentacoes'));
+            const movementData = {
+                tipo: 'entrada',
+                productId: item.productId,
+                nItem: item.nItem,
+                locacao: item.locacaoSelecionada,
+                un_compra: item.unidadeCompra,
+                data: serverTimestamp(),
+                nf: nf,
+                valor_unitario: item.valorUnitario,
+                icms: item.icms,
+                ipi: item.ipi,
+                frete: item.frete,
+                observacao: `Importado via XML da NF-e ${nf}`,
+                quantidade: item.quantidadeParaEstoque,
+                quantidade_compra: item.quantidadeInformada,
+                custo_total_entrada: custoTotalEntrada
+            };
+            transaction.set(movementRef, movementData);
+        });
+    }
+
+    function exibirModalCorrecao(itensComProblema, nf) {
+        const modal = document.getElementById('correcao-fracionada-modal');
+        const tableBody = document.getElementById('correcao-fracionada-table-body');
+        const btnConfirmar = document.getElementById('btn-confirmar-correcoes');
+        const modalClose = document.getElementById('correcao-modal-close');
+
+        tableBody.innerHTML = ''; // Limpa a tabela
+
+        itensComProblema.forEach((item, index) => {
+            const row = tableBody.insertRow();
+            row.dataset.itemIndex = index; // Referência ao item no array original
+            row.innerHTML = `
+                <td>${item.productData.codigo}</td>
+                <td>${item.productData.descricao}</td>
+                <td>${item.quantidadeCalculada.toFixed(4)}</td>
+                <td><input type="number" class="form-control" value="${Math.round(item.quantidadeCalculada)}"></td>
+                <td><button class="btn btn-delete btn-remover-item-correcao">Remover</button></td>
+            `;
+        });
+
+        modal.style.display = 'block';
+
+        // Lógica para fechar o modal
+        modalClose.onclick = () => {
+            modal.style.display = 'none';
+            // Recarrega a página para refletir importações parciais
+            location.reload();
+        };
+
+        // Lógica para o botão de remover
+        tableBody.addEventListener('click', (e) => {
+            if (e.target.classList.contains('btn-remover-item-correcao')) {
+                e.target.closest('tr').remove();
+            }
+        });
+
+        // Lógica para o botão de confirmar
+        btnConfirmar.onclick = async () => {
+            const rows = tableBody.querySelectorAll('tr');
+            let sucessoCount = 0;
+            let erroCount = 0;
+            let falhas = [];
+
+            for (const row of rows) {
+                const index = parseInt(row.dataset.itemIndex, 10);
+                const item = itensComProblema[index];
+                const novaQuantidade = parseInt(row.querySelector('input').value, 10);
+
+                if (isNaN(novaQuantidade) || novaQuantidade <= 0) {
+                    erroCount++;
+                    falhas.push(`Produto ${item.productData.codigo}: Quantidade corrigida é inválida.`);
+                    continue;
+                }
+
+                item.quantidadeParaEstoque = novaQuantidade;
+
+                try {
+                    await processarItemImportacao(item, nf);
+                    sucessoCount++;
+                } catch (error) {
+                    erroCount++;
+                    falhas.push(`Produto ${item.productData.codigo}: ${error.message}`);
+                }
+            }
+
+            let alertMessage = `Dos itens corrigidos, ${sucessoCount} foram importado(s) com sucesso!`;
             if (erroCount > 0) {
-                alertMessage += `\n\n${erroCount} produto(s) falharam:\n- ${falhas.join('\n- ')}`;
+                alertMessage += `\n\n${erroCount} falharam:\n- ${falhas.join('\n- ')}`;
             }
             alert(alertMessage);
 
-            xmlProductsTableBody.innerHTML = '';
-            xmlImportModal.style.display = 'none';
-        }
-    });
+            // Fecha o modal e recarrega a página
+            modal.style.display = 'none';
+            location.reload();
+        };
+    }
 
     // --- Lógica do Modal de Cadastro ---
     xmlProductsTableBody.addEventListener('click', (e) => {
@@ -974,11 +2151,42 @@ document.addEventListener('DOMContentLoaded', async function() {
             document.getElementById('modal-produto-codigo').value = dados.codigo || '';
             document.getElementById('modal-produto-descricao').value = dados.descricao || '';
             document.getElementById('modal-produto-un').value = dados.un || '';
+
+            // Preenche o formulário com os últimos valores usados
+            if (lastUsedValues.grupoId) {
+                document.getElementById('modal-produto-grupo').value = lastUsedValues.grupoId;
+            }
+            if (lastUsedValues.fornecedorId) {
+                document.getElementById('modal-produto-fornecedor').value = lastUsedValues.fornecedorId;
+            }
+            if (lastUsedValues.localId) {
+                document.getElementById('modal-produto-local').value = lastUsedValues.localId;
+            }
+
             cadastroProdutoModal.style.display = 'block';
         }
     });
 
     btnFecharModalCadastro.onclick = () => { cadastroProdutoModal.style.display = 'none'; };
+
+    // Adiciona a formatação para o campo de locação no modal de cadastro de produto
+    const modalLocacaoInput = document.getElementById('modal-produto-locacao');
+    const modalDefinitions = {
+        'L': {
+            mask: /[A-Z]/,
+        }
+    };
+    IMask(modalLocacaoInput, {
+        mask: [
+            { mask: '0' },
+            { mask: '0-L', definitions: modalDefinitions },
+            { mask: '0-L-00', definitions: modalDefinitions },
+            { mask: '0-L-00-L', definitions: modalDefinitions }
+        ],
+        prepare: function (str) {
+            return str.toUpperCase();
+        },
+    });
 
     formNovoProdutoModal.addEventListener('submit', async (e) => {
         e.preventDefault();
@@ -987,13 +2195,16 @@ document.addEventListener('DOMContentLoaded', async function() {
         const localId = document.getElementById('modal-produto-local').value;
         const locacoes = [];
 
-        // Apenas adiciona a locação se ambos os campos estiverem preenchidos
-        if (locacao && localId) {
+        if (localId) {
             locacoes.push({
-                locacao: locacao,
+                locacao: locacao, // Se locacao estiver vazio, será salvo como ''
                 localId: localId,
-                estoque: 0 // Estoque inicial para uma nova locação é sempre 0
+                estoque: 0
             });
+        } else if (!localId && locacao) {
+            // Se a locação está preenchida mas o local não, impede o salvamento
+            alert("Ao preencher a Locação, o Local também deve ser selecionado.");
+            return;
         }
 
         const novoProduto = {
@@ -1011,37 +2222,62 @@ document.addEventListener('DOMContentLoaded', async function() {
 
         try {
             const docRef = await addDoc(collection(db, 'produtos'), novoProduto);
+
+            // Armazena os valores para o próximo cadastro
+            lastUsedValues.grupoId = novoProduto.grupoId;
+            lastUsedValues.fornecedorId = novoProduto.fornecedorId;
+            lastUsedValues.localId = localId; // localId já está disponível nesta função
+
             alert('Produto cadastrado com sucesso!');
 
-            if (linhaAtualParaAtualizar) {
-                linhaAtualParaAtualizar.dataset.productId = docRef.id;
-                linhaAtualParaAtualizar.style.backgroundColor = '#d4edda';
-                linhaAtualParaAtualizar.cells[1].querySelector('input').value = novoProduto.descricao;
+            // Itera sobre todas as linhas da tabela para atualizar produtos correspondentes
+            const todasAsLinhas = xmlProductsTableBody.querySelectorAll('tr');
+            todasAsLinhas.forEach(linha => {
+                const codigoNaLinha = linha.cells[0].querySelector('input').value;
 
-                // Célula de Ação (10ª célula, index 9)
-                const acaoCell = linhaAtualParaAtualizar.cells[9];
-                acaoCell.innerHTML = '<span class="text-success">Cadastrado!</span>';
+                if (codigoNaLinha === novoProduto.codigo) {
+                    linha.dataset.productId = docRef.id;
+                    linha.style.backgroundColor = '#d4edda';
+                    linha.cells[1].querySelector('input').value = novoProduto.descricao;
 
-                // Célula de Locação (9ª célula, index 8)
-                const locacaoCell = linhaAtualParaAtualizar.cells[8];
-                const newLocacaoSelect = document.createElement('select');
-                newLocacaoSelect.className = 'form-control';
-                newLocacaoSelect.required = true;
+                    const acaoCell = linha.cells[10];
+                    acaoCell.innerHTML = '<span class="text-success" style="color: green; font-weight: bold;">Cadastrado!</span>';
 
-                let optionsHtml = '<option value="">Selecione...</option>';
-                if (novoProduto.locacoes && novoProduto.locacoes.length > 0) {
-                    novoProduto.locacoes.forEach(loc => {
-                        optionsHtml += `<option value="${loc.locacao}">${loc.locacao}</option>`;
+                    const localCell = linha.cells[8];
+                    const locacaoCell = linha.cells[9];
+
+                    // Habilita e popula o dropdown de Local
+                    const localSelect = localCell.querySelector('select');
+                    localSelect.disabled = false;
+                    let localOptionsHtml = '<option value="">Local...</option>';
+                    const locaisUnicos = [...new Set(novoProduto.locacoes.map(l => l.localId))];
+                    locaisUnicos.forEach(localId => {
+                        const localNome = configData.locais[localId]?.nome || 'Desconhecido';
+                        const estaSelecionado = localId === lastUsedValues.localId ? 'selected' : '';
+                        localOptionsHtml += `<option value="${localId}" ${estaSelecionado}>${localNome}</option>`;
                     });
-                } else {
-                    optionsHtml = '<option value="">Nenhuma</option>';
-                    newLocacaoSelect.disabled = true;
-                }
-                newLocacaoSelect.innerHTML = optionsHtml;
+                    localSelect.innerHTML = localOptionsHtml;
 
-                locacaoCell.innerHTML = ''; // Limpa a célula
-                locacaoCell.appendChild(newLocacaoSelect); // Adiciona o novo select
-            }
+                    // Habilita e popula o dropdown de Locação
+                    const locacaoSelect = locacaoCell.querySelector('select');
+                    locacaoSelect.disabled = false;
+                    let locacaoOptionsHtml = '<option value="">Locação...</option>';
+                    if (novoProduto.locacoes && novoProduto.locacoes.length > 0) {
+                        const locacoesDoLocal = novoProduto.locacoes.filter(l => l.localId === lastUsedValues.localId);
+                        locacoesDoLocal.forEach(loc => {
+                             if (loc.locacao) { // Apenas adiciona se a locação não for vazia
+                                locacaoOptionsHtml += `<option value="${loc.locacao}">${loc.locacao}</option>`;
+                            }
+                        });
+                    }
+                    locacaoSelect.innerHTML = locacaoOptionsHtml;
+
+                     // Dispara o evento de change para pré-selecionar a locação, se aplicável
+                    if (localSelect.value) {
+                       localSelect.dispatchEvent(new Event('change', { bubbles: true }));
+                    }
+                }
+            });
 
             productsMap[docRef.id] = { id: docRef.id, ...novoProduto };
             formNovoProdutoModal.reset();
@@ -1058,19 +2294,19 @@ document.addEventListener('DOMContentLoaded', async function() {
         const obraSelect = document.getElementById('mov-obra');
 
 
-        configData.tipos_entrada = await loadConfigToSelect(tipoEntradaSelect, 'tipos_entrada', 'nome');
-        configData.tipos_saida = await loadConfigToSelect(tipoSaidaSelect, 'tipos_saida', 'nome');
-        configData.obras = await loadConfigToSelect(obraSelect, 'obras', 'nome');
+        configData.tipos_entrada = await loadConfigToSelect(tipoEntradaSelect, 'tipos_entrada', 'nome', 'Tipo de Entrada...');
+        configData.tipos_saida = await loadConfigToSelect(tipoSaidaSelect, 'tipos_saida', 'nome', 'Tipo de Saída...');
+        configData.obras = await loadConfigToSelect(obraSelect, 'obras', 'nome', 'Obra...');
         configData.fornecedores = await loadConfigToMap('fornecedores');
         configData.grupos = await loadConfigToMap('grupos');
         configData.conversoes = await loadConfigToMap('conversoes');
         configData.locais = await loadConfigToMap('locais');
     }
 
-    async function loadConfigToSelect(selectElement, collectionName, field) {
+    async function loadConfigToSelect(selectElement, collectionName, field, placeholder = 'Selecione...') {
         const snapshot = await getDocs(collection(db, collectionName));
         const items = {};
-        selectElement.innerHTML = `<option value="">Selecione...</option>`;
+        selectElement.innerHTML = `<option value="">${placeholder}</option>`;
         snapshot.forEach(doc => {
             items[doc.id] = doc.data();
             selectElement.innerHTML += `<option value="${doc.id}">${doc.data()[field]}</option>`;
@@ -1138,7 +2374,7 @@ document.addEventListener('DOMContentLoaded', async function() {
     productSearchInput.addEventListener('focus', showAndFilterProducts);
     productSearchInput.addEventListener('input', showAndFilterProducts);
 
-    productResultsDiv.addEventListener('click', (e) => {
+    productResultsDiv.addEventListener('click', async (e) => {
         if (e.target.classList.contains('search-result-item')) {
             const productId = e.target.dataset.id;
             const product = productsMap[productId];
@@ -1149,7 +2385,7 @@ document.addEventListener('DOMContentLoaded', async function() {
             productResultsDiv.innerHTML = '';
             productResultsDiv.style.display = 'none';
 
-            updateProductInfo(); // Chama a função para atualizar o resto do formulário
+            await updateProductInfo(); // Chama a função para atualizar o resto do formulário
         }
     });
 
@@ -1163,7 +2399,16 @@ document.addEventListener('DOMContentLoaded', async function() {
     // --- FIM DA LÓGICA DE BUSCA ---
 
     document.getElementById('headers-row').addEventListener('click', e => {
-        // ... (lógica de ordenação da tabela mantida)
+        if (e.target.classList.contains('sortable')) {
+            const column = e.target.dataset.column;
+            if (sortState.column === column) {
+                sortState.direction = sortState.direction === 'asc' ? 'desc' : 'asc';
+            } else {
+                sortState.column = column;
+                sortState.direction = 'asc';
+            }
+            updateTable();
+        }
     });
 
     document.getElementById('history-filters-container').addEventListener('input', e => {
@@ -1195,6 +2440,14 @@ document.addEventListener('DOMContentLoaded', async function() {
         Object.values(configData.obras || {}).forEach(obra => {
             filtroObra.innerHTML += `<option value="${obra.nome}">${obra.nome}</option>`;
         });
+
+        // Popula Fornecedores
+        const filtroFornecedor = document.getElementById('filtro-fornecedor');
+        filtroFornecedor.innerHTML = '<option value="">Todos</option>';
+        for (const fornecedorId in configData.fornecedores) {
+            const fornecedor = configData.fornecedores[fornecedorId];
+            filtroFornecedor.innerHTML += `<option value="${fornecedorId}">${fornecedor.nome}</option>`;
+        }
     }
 
     // Listener para produtos em tempo real
@@ -1208,7 +2461,7 @@ document.addEventListener('DOMContentLoaded', async function() {
         // console.log('Products map updated in real-time.', Object.keys(productsMap).length, 'products loaded.');
     });
 
-    onSnapshot(query(collection(db, 'movimentacoes'), orderBy('data', 'desc')), (snapshot) => {
+    onSnapshot(query(collection(db, 'movimentacoes')), (snapshot) => {
         allMovements = snapshot.docs.map(doc => {
             const data = doc.data();
             return { id: doc.id, ...data };
@@ -1224,8 +2477,48 @@ document.addEventListener('DOMContentLoaded', async function() {
         updateTable();
         popularDropdownsCadastroModal();
         popularFiltros(); // Popula os filtros
+
+        // Handle URL parameters
+        const urlParams = new URLSearchParams(window.location.search);
+
+        // Handle Obra Filter
+        const obraId = urlParams.get('obraId');
+        if (obraId) {
+            const obraSelect = document.getElementById('filtro-obra');
+            if (obraSelect) {
+                // Wait for options to populate if needed, but popularFiltros() is called before
+                // Note: popularFiltros populates with Names as values?? Let's check popularFiltros implementation.
+                // In popularFiltros: `filtroObra.innerHTML += `<option value="${obra.nome}">${obra.nome}</option>`;`
+                // Wait, the existing code uses Name as value?
+                // `Object.values(configData.obras || {}).forEach(obra => { filtroObra.innerHTML += `<option value="${obra.nome}">${obra.nome}</option>`; });`
+                // This is weird. Usually IDs are used.
+                // Let's verify popularFiltros in this file.
+
+                // If it uses names, we must find the name from the ID.
+                const obraData = configData.obras ? configData.obras[obraId] : null;
+                if (obraData) {
+                    obraSelect.value = obraData.nome;
+                    filterState['obraId'] = obraData.nome; // The filter logic likely filters by the cell value which is Name.
+                    updateTable();
+                }
+            }
+        }
+
+        // Handle Action Type (Entrada/Saida)
+        const tipoAcao = urlParams.get('tipo');
+        if (tipoAcao) {
+             if (tipoAcao === 'entrada' && !toggle.checked) {
+                // Already entrada by default usually, but ensure
+                toggle.checked = true;
+                handleToggleChange();
+            } else if (tipoAcao === 'saida' && toggle.checked) {
+                toggle.click(); // Trigger change
+            }
+        }
+
         // Exibe o formulário que estava oculto por padrão
         document.getElementById('movement-wrapper').style.display = 'block';
+        loadingOverlay.style.display = 'none'; // Esconde o loader
     });
 });
 
@@ -1233,31 +2526,38 @@ document.addEventListener('DOMContentLoaded', async function() {
 async function atualizarCustoMedioProduto(produtoId) {
     if (!produtoId) return;
 
-    // A busca aqui foi corrigida para usar 'produtoId', a variável que a função recebe.
-    // Este era o ponto do erro.
-    const q = query(
-        collection(db, 'movimentacoes'),
-        where("productId", "==", produtoId), // <-- CORRIGIDO AQUI
-        where("tipo", "==", "entrada")
-    );
+    const q = query(collection(db, 'movimentacoes'), where("productId", "==", produtoId));
     const movementsSnapshot = await getDocs(q);
-
-    let totalCost = 0;
-    let totalQuantityForAvg = 0;
-
+    const productMovements = [];
     movementsSnapshot.forEach(doc => {
-        const mov = doc.data();
-        if (mov.custo_total_entrada && mov.custo_total_entrada > 0) {
-            if (mov.quantidade > 0) {
-                totalCost += mov.custo_total_entrada;
-                totalQuantityForAvg += mov.quantidade;
+        productMovements.push(doc.data());
+    });
+
+    // Ordena as movimentações por data para o cálculo correto do custo médio
+    productMovements.sort((a, b) => a.data.toMillis() - b.data.toMillis());
+
+    let totalQuantity = 0;
+    let totalCost = 0;
+
+    productMovements.forEach(mov => {
+        if (mov.tipo === 'entrada') {
+            let custoEntrada = mov.custo_total_entrada;
+            if (custoEntrada === undefined || custoEntrada === null) {
+                // Recalcula custo se não existir (compatibilidade)
+                custoEntrada = (mov.quantidade_compra * (mov.valor_unitario || 0)) + (mov.icms || 0) + (mov.ipi || 0) + (mov.frete || 0);
             }
+            totalCost += custoEntrada;
+            totalQuantity += mov.quantidade;
+        } else if (mov.tipo === 'saida') {
+            const currentAvgCost = totalQuantity > 0 ? totalCost / totalQuantity : 0;
+            totalCost -= mov.quantidade * currentAvgCost;
+            totalQuantity -= mov.quantidade;
         }
     });
 
-    const novoCustoMedio = totalQuantityForAvg > 0 ? totalCost / totalQuantityForAvg : 0;
+    const novoCustoMedio = totalQuantity > 0 ? totalCost / totalQuantity : 0;
     const productRef = doc(db, 'produtos', produtoId);
     await setDoc(productRef, { valorMedio: novoCustoMedio }, { merge: true });
 
-    console.log(`Custo médio do produto ${produtoId} atualizado para ${novoCustoMedio.toFixed(2)}`);
+    console.log(`Custo médio do produto ${produtoId} atualizado para ${novoCustoMedio.toFixed(3)}`);
 }

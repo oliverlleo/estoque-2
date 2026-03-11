@@ -1,0 +1,164 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Similares e Substitutos - Controle de Estoque</title>
+    <link rel="stylesheet" href="css/style.css">
+    <link rel="stylesheet" href="css/global-search.css">
+    <link rel="stylesheet" href="css/cadastro-relacoes.css">
+    <script src="https://cdn.jsdelivr.net/npm/feather-icons/dist/feather.min.js"></script>
+    <link href="https://cdnjs.cloudflare.com/ajax/libs/tailwindcss/2.2.19/tailwind.min.css" rel="stylesheet">
+    <link href="https://fonts.googleapis.com/icon?family=Material+Icons" rel="stylesheet">
+</head>
+<body class="flex h-screen">
+    <aside class="w-64 bg-gray-800 text-white flex flex-col">
+        <div class="p-6 text-2xl font-bold border-b border-gray-700">
+            Estoque
+        </div>
+        <nav class="flex-1 p-4 space-y-2">
+            <a href="index.html" class="flex items-center px-4 py-2 text-gray-300 hover:bg-gray-700 rounded-md">
+                <span class="material-icons mr-3">dashboard</span>
+                Dashboard
+            </a>
+            <a href="configuracoes.html" class="flex items-center px-4 py-2 text-gray-300 hover:bg-gray-700 rounded-md">
+                <span class="material-icons mr-3">settings</span>
+                Configurações
+            </a>
+            <a href="produtos.html" class="flex items-center px-4 py-2 text-gray-300 hover:bg-gray-700 rounded-md">
+                <span class="material-icons mr-3">inventory_2</span>
+                Produtos
+            </a>
+            <a href="cadastro-relacoes.html" class="flex items-center px-4 py-2 text-white bg-blue-500 rounded-md">
+                <span class="material-icons mr-3">compare_arrows</span>
+                Similares / Substitutos
+            </a>
+            <a href="movimentacoes.html" class="flex items-center px-4 py-2 text-gray-300 hover:bg-gray-700 rounded-md">
+                <span class="material-icons mr-3">sync_alt</span>
+                Movimentações
+            </a>
+            <a href="obras.html" class="flex items-center px-4 py-2 text-gray-300 hover:bg-gray-700 rounded-md">
+                <span class="material-icons mr-3">construction</span>
+                Obras
+            </a>
+            <a href="consultas.html" class="flex items-center px-4 py-2 text-gray-300 hover:bg-gray-700 rounded-md">
+                <span class="material-icons mr-3">search</span>
+                Consultas
+            </a>
+            <a href="reservas.html" class="flex items-center px-4 py-2 text-gray-300 hover:bg-gray-700 rounded-md">
+                <span class="material-icons mr-3">book_online</span>
+                Reservas
+            </a>
+            <a href="implementacao.html" class="flex items-center px-4 py-2 text-gray-300 hover:bg-gray-700 rounded-md">
+                <span class="material-icons mr-3">build</span>
+                Inventario
+            </a>
+        </nav>
+        <div class="p-4">
+            <div class="relative">
+                <span class="absolute inset-y-0 left-0 flex items-center pl-3">
+                    <span class="material-icons text-gray-400">search</span>
+                </span>
+                <input type="text" id="global-search" placeholder="Buscar em tudo..." class="w-full py-2 pl-10 pr-4 bg-gray-700 border border-gray-600 rounded-md text-white placeholder-gray-400 focus:outline-none focus:bg-gray-600 focus:ring-1 focus:ring-blue-500">
+            </div>
+        </div>
+    </aside>
+
+    <main class="main-content flex-1 overflow-y-auto">
+        <div id="loading-overlay" style="position: absolute; top: 0; left: 0; width: 100%; height: 100%; background-color: rgba(255, 255, 255, 0.8); z-index: 9999; display: flex; justify-content: center; align-items: center;">
+            <div class="loader"></div>
+        </div>
+        <header>
+            <h1>Relações de Produto</h1>
+        </header>
+        <section class="content">
+            <div class="card">
+                <div class="card-header">
+                    <h3>Cadastro de Similares e Substitutos</h3>
+                </div>
+                <div class="card-body">
+                    <div class="relacoes-container">
+
+                        <!-- Produto Base -->
+                        <div class="relationship-section" style="border-left: 4px solid #0d6efd;">
+                            <h4><span class="material-icons" style="color: #0d6efd;">inventory_2</span> Produto Base</h4>
+                            <p style="color: #6c757d; font-size: 0.9rem; margin-bottom: 15px;">Selecione o produto principal para o qual deseja vincular similares ou substitutos.</p>
+
+                            <div class="search-section" id="base-product-search-container">
+                                <input type="text" id="search-base" placeholder="Buscar Produto Base (por Código ou Descrição)..." class="form-control" autocomplete="off">
+                                <input type="hidden" id="selected-base-id">
+                                <div id="base-results" class="search-results-dropdown"></div>
+                            </div>
+
+                            <div id="base-product-card" class="selected-product-card" style="display: none;">
+                                <div class="selected-product-info">
+                                    <strong>Produto Base:</strong> <span id="base-product-display"></span>
+                                </div>
+                                <button type="button" id="btn-clear-base" class="btn btn-sm btn-secondary" style="background-color: #6c757d;">Alterar Produto Base</button>
+                            </div>
+                        </div>
+
+                        <div id="relationships-wrapper" style="opacity: 0.5; pointer-events: none; transition: opacity 0.3s ease;">
+
+                            <!-- Similares -->
+                            <div class="relationship-section" style="border-left: 4px solid #17a2b8;">
+                                <h4>
+                                    <span class="material-icons" style="color: #17a2b8;">compare_arrows</span> Produtos Similares
+                                    <span style="font-size: 0.8rem; font-weight: normal; color: #6c757d; margin-left: auto;">(Relacionamento Bidirecional)</span>
+                                </h4>
+                                <p style="color: #6c757d; font-size: 0.9rem; margin-bottom: 15px;">Se A é similar de B, então B é automaticamente similar de A.</p>
+
+                                <div class="search-section" id="similar-product-search-container">
+                                    <input type="text" id="search-similar" placeholder="Buscar e Adicionar Produto Similar..." class="form-control" autocomplete="off" disabled>
+                                    <div id="similar-results" class="search-results-dropdown"></div>
+                                </div>
+
+                                <div>
+                                    <label style="font-weight: bold; font-size: 0.9rem; color: #495057; display: block; margin-bottom: 8px;">Similares Vinculados:</label>
+                                    <div id="similar-chips-container" class="chips-container">
+                                        <!-- Chips serão renderizados aqui -->
+                                    </div>
+                                </div>
+                            </div>
+
+                            <!-- Substitutos -->
+                            <div class="relationship-section" style="border-left: 4px solid #28a745;">
+                                <h4>
+                                    <span class="material-icons" style="color: #28a745;">swap_horiz</span> Produtos Substitutos
+                                    <span style="font-size: 0.8rem; font-weight: normal; color: #6c757d; margin-left: auto;">(Relacionamento Unidirecional)</span>
+                                </h4>
+                                <p style="color: #6c757d; font-size: 0.9rem; margin-bottom: 15px;">Produtos que podem substituir o Produto Base. Esta relação será salva apenas no Produto Base.</p>
+
+                                <div class="search-section" id="substituto-product-search-container">
+                                    <input type="text" id="search-substituto" placeholder="Buscar e Adicionar Produto Substituto..." class="form-control" autocomplete="off" disabled>
+                                    <div id="substituto-results" class="search-results-dropdown"></div>
+                                </div>
+
+                                <div>
+                                    <label style="font-weight: bold; font-size: 0.9rem; color: #495057; display: block; margin-bottom: 8px;">Substitutos Vinculados:</label>
+                                    <div id="substituto-chips-container" class="chips-container">
+                                        <!-- Chips serão renderizados aqui -->
+                                    </div>
+                                </div>
+                            </div>
+
+                            <!-- Ações -->
+                            <div style="display: flex; justify-content: flex-end; margin-top: 20px;">
+                                <button type="button" id="btn-save-relations" class="btn btn-primary" style="padding: 10px 30px; font-size: 1.1rem; display: flex; align-items: center; gap: 8px;" disabled>
+                                    <span class="material-icons">save</span> Salvar Relações
+                                </button>
+                            </div>
+                        </div>
+
+                    </div>
+                </div>
+            </div>
+        </section>
+    </main>
+
+    <script type="module" src="js/main.js"></script>
+    <script type="module" src="js/cadastro-relacoes.js"></script>
+    <script type="module" src="js/global-search.js"></script>
+    <script> feather.replace() </script>
+</body>
+</html>

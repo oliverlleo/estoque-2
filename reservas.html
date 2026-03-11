@@ -5,6 +5,7 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Reservas - Controle de Estoque</title>
     <link rel="stylesheet" href="css/style.css">
+    <link rel="stylesheet" href="css/global-search.css">
     <script src="https://cdn.jsdelivr.net/npm/feather-icons/dist/feather.min.js"></script>
     <link href="https://cdnjs.cloudflare.com/ajax/libs/tailwindcss/2.2.19/tailwind.min.css" rel="stylesheet">
     <link href="https://fonts.googleapis.com/icon?family=Material+Icons" rel="stylesheet">
@@ -27,6 +28,10 @@
                 <span class="material-icons mr-3">inventory_2</span>
                 Produtos
             </a>
+            <a href="cadastro-relacoes.html" class="flex items-center px-4 py-2 text-gray-300 hover:bg-gray-700 rounded-md">
+                <span class="material-icons mr-3">compare_arrows</span>
+                Similares / Substitutos
+            </a>
             <a href="movimentacoes.html" class="flex items-center px-4 py-2 text-gray-300 hover:bg-gray-700 rounded-md">
                 <span class="material-icons mr-3">sync_alt</span>
                 Movimentações
@@ -45,9 +50,17 @@
             </a>
             <a href="implementacao.html" class="flex items-center px-4 py-2 text-gray-300 hover:bg-gray-700 rounded-md">
                 <span class="material-icons mr-3">build</span>
-                Implementação
+                Inventario
             </a>
         </nav>
+        <div class="p-4">
+            <div class="relative">
+                <span class="absolute inset-y-0 left-0 flex items-center pl-3">
+                    <span class="material-icons text-gray-400">search</span>
+                </span>
+                <input type="text" id="global-search" placeholder="Buscar em tudo..." class="w-full py-2 pl-10 pr-4 bg-gray-700 border border-gray-600 rounded-md text-white placeholder-gray-400 focus:outline-none focus:bg-gray-600 focus:ring-1 focus:ring-blue-500">
+            </div>
+        </div>
     </aside>
     <main class="main-content flex-1 overflow-y-auto">
         <header>
@@ -61,21 +74,27 @@
                         <input type="text" id="filter-codigo" class="form-control" placeholder="Filtrar por Código...">
                         <input type="text" id="filter-descricao" class="form-control" placeholder="Filtrar por Descrição...">
                         <input type="text" id="filter-obra" class="form-control" placeholder="Filtrar por Obra...">
+                        <div class="form-check" style="justify-content: center;">
+                            <input type="checkbox" id="show-cancelled" class="form-check-input">
+                            <label for="show-cancelled" class="form-check-label">Mostrar Canceladas</label>
+                        </div>
                     </div>
                     <div class="table-wrapper">
                         <table id="table-reservas" class="table">
                             <thead>
-                                <tr>
-                                    <th>Status</th>
-                                    <th>Data</th>
-                                    <th>Código</th>
-                                    <th>Descrição</th>
-                                    <th>UN</th>
-                                    <th>Cor</th>
-                                    <th>Qtde</th>
-                                    <th>Qtde em Estoque</th>
-                                    <th>Obra</th>
-                                    <th>Observação</th>
+                                <tr id="reservas-headers-row">
+                                    <th class="sortable" data-column="status">Status</th>
+                                    <th class="sortable" data-column="data">Data</th>
+                                    <th class="sortable" data-column="codigo">Código</th>
+                                    <th class="sortable" data-column="descricao">Descrição</th>
+                                    <th class="sortable" data-column="un">UN</th>
+                                    <th class="sortable" data-column="cor">Cor</th>
+                                    <th class="sortable" data-column="quantidade">Qtde</th>
+                                    <th class="sortable" data-column="estoque">Qtde em Estoque</th>
+                                    <th class="sortable" data-column="local">Local</th>
+                                    <th class="sortable" data-column="enderecamento">Endereçamento</th>
+                                    <th class="sortable" data-column="obra">Obra</th>
+                                    <th class="sortable" data-column="observacao">Observação</th>
                                     <th>Ações</th>
                                 </tr>
                             </thead>
@@ -88,8 +107,84 @@
             </div>
         </section>
     </main>
+    <!-- Modal de Confirmação de Reserva - Moderno e Minimalista -->
+    <div id="reservation-confirm-modal" class="fixed inset-0 z-50 overflow-auto bg-black bg-opacity-50 hidden flex items-center justify-center backdrop-filter backdrop-blur-sm">
+        <div class="relative bg-white rounded-xl shadow-2xl w-full max-w-lg mx-auto m-4 overflow-hidden border border-gray-100">
+            <!-- Header Minimalista com cor do sistema -->
+            <div class="px-6 py-4 border-b border-gray-100 flex justify-between items-center" style="background-color: #34495e;">
+                <h2 class="text-xl font-semibold text-white tracking-wide">Confirmar Reserva</h2>
+                <span class="cursor-pointer text-white hover:text-gray-200 transition-colors text-2xl leading-none" id="reservation-modal-close">&times;</span>
+            </div>
+
+            <div class="p-6 space-y-6">
+                <!-- Card de Informação do Produto -->
+                <div class="bg-gray-50 rounded-lg p-4 border border-gray-200">
+                    <p class="text-xs font-bold text-gray-500 uppercase tracking-wider mb-1">Produto Selecionado</p>
+                    <p class="text-lg font-medium text-gray-800 break-words" id="res-modal-produto">Product Name</p>
+                </div>
+
+                <!-- Grid de Quantidades -->
+                <div class="grid grid-cols-2 gap-4">
+                    <div class="bg-blue-50 p-4 rounded-lg border border-blue-100 text-center">
+                        <label class="block text-xs font-bold text-blue-600 uppercase mb-1">Qtd. Reservada</label>
+                        <span id="res-modal-quantidade-original" class="text-2xl font-bold text-blue-800 block">0</span>
+                    </div>
+
+                    <div>
+                        <label for="res-modal-quantidade-input" class="block text-xs font-bold text-gray-600 uppercase mb-1 ml-1">Qtd. a Confirmar</label>
+                        <input type="number" id="res-modal-quantidade-input" class="w-full text-center text-xl font-bold text-gray-800 bg-white border border-gray-300 rounded-lg py-3 focus:outline-none focus:ring-2 focus:ring-green-500 focus:border-transparent transition-all" min="0" step="any">
+                    </div>
+                </div>
+
+                <!-- Alerta de Erro -->
+                <div id="res-modal-alert" class="hidden bg-red-50 border-l-4 border-red-500 p-4 rounded-r-md">
+                    <div class="flex items-start">
+                        <span class="material-icons text-red-500 mr-2 text-sm">error_outline</span>
+                        <p id="res-modal-alert-msg" class="text-sm text-red-700 font-medium"></p>
+                    </div>
+                </div>
+
+                <!-- Seleção de Locação -->
+                <div>
+                    <label for="res-modal-locacao-select" class="block text-sm font-semibold text-gray-700 mb-2">Retirar de (Locação / Local)</label>
+                    <div class="relative">
+                        <select id="res-modal-locacao-select" class="block w-full pl-3 pr-10 py-3 text-base border-gray-300 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 rounded-lg shadow-sm bg-white text-gray-700">
+                            <!-- Options populated via JS -->
+                        </select>
+                        <div class="pointer-events-none absolute inset-y-0 right-0 flex items-center px-2 text-gray-700">
+                            <span class="material-icons text-gray-400">expand_more</span>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Footer com Botões -->
+            <div class="px-6 py-4 bg-gray-50 border-t border-gray-100 flex justify-end gap-3">
+                <button class="px-5 py-2.5 rounded-lg text-sm font-medium text-gray-600 hover:text-gray-800 hover:bg-gray-200 transition-colors focus:outline-none" id="btn-cancelar-confirmacao">
+                    Cancelar
+                </button>
+                <button class="px-5 py-2.5 rounded-lg text-sm font-medium text-white shadow-md hover:shadow-lg focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-green-600 transition-all transform hover:-translate-y-0.5" id="btn-finalizar-confirmacao" style="background-color: #198754;">
+                    Confirmar Saída
+                </button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Modal para Imagem do Produto -->
+    <div id="product-image-modal" class="modal">
+        <div class="modal-content" style="max-width: 600px; text-align: center; background-color: #fff; padding: 20px; border-radius: 8px;">
+            <div style="display: flex; justify-content: flex-end;">
+                 <span class="close-button" id="product-image-modal-close" style="font-size: 28px; cursor: pointer; color: #aaa;">&times;</span>
+            </div>
+            <h3 id="product-image-title" style="margin-top: 0; margin-bottom: 20px; color: #333;">Imagem do Produto</h3>
+            <img id="product-image-display" src="" alt="Produto" style="max-width: 100%; max-height: 500px; border-radius: 4px; box-shadow: 0 2px 10px rgba(0,0,0,0.1);">
+            <p id="product-image-placeholder" style="display: none; color: #666; margin-top: 20px;">Sem imagem cadastrada.</p>
+        </div>
+    </div>
+
     <script type="module" src="js/main.js"></script>
     <script type="module" src="js/reservas.js"></script>
+    <script type="module" src="js/global-search.js"></script>
     <script> feather.replace() </script>
 </body>
 </html>

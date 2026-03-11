@@ -1,5 +1,5 @@
 import { db } from './firebase-config.js';
-import { collection, getDocs, addDoc, onSnapshot, doc, setDoc, deleteDoc, query, where, runTransaction, serverTimestamp, getDoc } from "https://www.gstatic.com/firebasejs/9.6.1/firebase-firestore.js";
+import { collection, getDocs, addDoc, onSnapshot, doc, setDoc, deleteDoc, query, where, runTransaction, serverTimestamp, getDoc, writeBatch } from "https://www.gstatic.com/firebasejs/9.6.1/firebase-firestore.js";
 
 document.addEventListener('DOMContentLoaded', async function() {
     console.log("Página de Produtos carregada.");
@@ -7,6 +7,8 @@ document.addEventListener('DOMContentLoaded', async function() {
     const form = document.getElementById('form-produto');
     const tableBody = document.querySelector('#table-produtos tbody');
     const filterInput = document.getElementById('filter-produtos');
+    const filterSemImagem = document.getElementById('filter-sem-imagem');
+    const filterSemDescricao = document.getElementById('filter-sem-descricao');
     const formToggle = document.getElementById('form-toggle');
     const formWrapperProduto = document.getElementById('form-wrapper-produto');
     const formWrapperSobra = document.getElementById('form-wrapper-sobra');
@@ -21,9 +23,79 @@ document.addEventListener('DOMContentLoaded', async function() {
     const btnAddLocacao = document.getElementById('btn-add-locacao');
     const locacoesContainer = document.getElementById('locacoes-container');
 
+    // Elementos de Imagem
+    const imageUploadInput = document.getElementById('produto-imagem-upload');
+    const hiddenImageInput = document.getElementById('produto-imagem');
+    const previewContainer = document.getElementById('preview-container');
+    const imagePreview = document.getElementById('imagem-preview');
+    const btnRemoverImagem = document.getElementById('btn-remover-imagem');
+
+    // --- LÓGICA DE UPLOAD DE IMAGEM (BASE64) ---
+    imageUploadInput.addEventListener('change', function(e) {
+        const file = e.target.files[0];
+        if (!file) return;
+
+        // Limite simples de tamanho antes de processar (ex: 5MB)
+        if (file.size > 5 * 1024 * 1024) {
+            alert("A imagem é muito grande. Por favor, escolha uma imagem menor que 5MB.");
+            this.value = ''; // Limpa o input
+            return;
+        }
+
+        const reader = new FileReader();
+        reader.onload = function(event) {
+            const img = new Image();
+            img.onload = function() {
+                // Redimensionar e comprimir
+                const canvas = document.createElement('canvas');
+                const ctx = canvas.getContext('2d');
+
+                const MAX_WIDTH = 800;
+                const MAX_HEIGHT = 800;
+                let width = img.width;
+                let height = img.height;
+
+                if (width > height) {
+                    if (width > MAX_WIDTH) {
+                        height *= MAX_WIDTH / width;
+                        width = MAX_WIDTH;
+                    }
+                } else {
+                    if (height > MAX_HEIGHT) {
+                        width *= MAX_HEIGHT / height;
+                        height = MAX_HEIGHT;
+                    }
+                }
+
+                canvas.width = width;
+                canvas.height = height;
+                ctx.drawImage(img, 0, 0, width, height);
+
+                // Converte para JPEG com qualidade 0.7 para reduzir tamanho da string
+                const base64String = canvas.toDataURL('image/jpeg', 0.7);
+
+                hiddenImageInput.value = base64String;
+                imagePreview.src = base64String;
+                previewContainer.style.display = 'block';
+            };
+            img.src = event.target.result;
+        };
+        reader.readAsDataURL(file);
+    });
+
+    btnRemoverImagem.addEventListener('click', () => {
+        imageUploadInput.value = '';
+        hiddenImageInput.value = '';
+        imagePreview.src = '';
+        previewContainer.style.display = 'none';
+    });
+    // --- FIM DA LÓGICA DE IMAGEM ---
+
 
     function applyFilters() {
         const generalSearchTerm = filterInput.value.toLowerCase();
+        const semImagemChecked = filterSemImagem.checked;
+        const semDescricaoChecked = filterSemDescricao.checked;
 
         const filteredData = productsData.filter(product => {
             const pData = product.data;
@@ -32,6 +104,16 @@ document.addEventListener('DOMContentLoaded', async function() {
             const matchesGeneral = generalSearchTerm === '' || Object.values(pData).some(value =>
                 String(value).toLowerCase().includes(generalSearchTerm)
             );
+
+            // Filtro: Sem Imagem (se marcado, mostra SÓ quem NÃO TEM imagem)
+            if (semImagemChecked && pData.imagem) {
+                return false;
+            }
+
+            // Filtro: Sem Descrição Detalhada (se marcado, mostra SÓ quem NÃO TEM descrição ou ela é vazia)
+            if (semDescricaoChecked && pData.descricao_detalhada && pData.descricao_detalhada.trim() !== '') {
+                return false;
+            }
 
             return matchesGeneral;
         });
@@ -84,19 +166,12 @@ document.addEventListener('DOMContentLoaded', async function() {
             labelProduto.style.color = '#6c757d';
 
             // Popula o dropdown de locais da sobra, se ainda não estiver populado
-            const sobraLocalSelect = document.getElementById('sobra-local');
-            if (sobraLocalSelect.options.length <= 1) { // <= 1 para contar a opção "Selecione..."
-                for (const [id, data] of Object.entries(configData.locais)) {
-                    const option = document.createElement('option');
-                    option.value = id;
-                    option.textContent = data.nome;
-                    sobraLocalSelect.appendChild(option);
-                }
-            }
+            populateSobraLocalDropdown();
         }
     });
 
     let productsData = [];
+    let sortState = { column: 'codigo', direction: 'asc' };
     const configData = {};
 
     // 1. Fetch all configuration data for dropdowns and mapping
@@ -135,12 +210,32 @@ document.addEventListener('DOMContentLoaded', async function() {
         configData['locais'][doc.id] = doc.data();
     });
 
+    // Função dedicada para popular o dropdown de local da sobra
+    function populateSobraLocalDropdown() {
+        const sobraLocalSelect = document.getElementById('sobra-local');
+        // Só popula se os dados estiverem prontos e o dropdown estiver vazio (exceto pela primeira opção)
+        if (sobraLocalSelect.options.length <= 1 && configData.locais) {
+            for (const [id, data] of Object.entries(configData.locais)) {
+                const option = document.createElement('option');
+                option.value = id;
+                option.textContent = data.nome;
+                sobraLocalSelect.appendChild(option);
+            }
+        }
+    }
 
-    // Populate Conversions Select
+    // Popula o dropdown assim que os dados são carregados
+    populateSobraLocalDropdown();
+
+
+    // Populate Conversions Select and create a map
     const conversaoSelect = document.getElementById('produto-conversao');
+    configData['conversoes'] = {}; // Initialize the map
     const conversoesSnapshot = await getDocs(collection(db, 'conversoes'));
     conversoesSnapshot.forEach(doc => {
+        const id = doc.id;
         const conversao = doc.data();
+        configData['conversoes'][id] = conversao; // Store in the map
         const displayText = `${conversao.qtd_compra}${conversao.medida_compra} X ${conversao.qtd_padrao}${conversao.medida_padrao}`;
         conversaoSelect.innerHTML += `<option value="${doc.id}" title="${conversao.nome_regra}">${displayText}</option>`;
     });
@@ -218,19 +313,46 @@ document.addEventListener('DOMContentLoaded', async function() {
 
     // --- LÓGICA PARA GERENCIAR LOCAÇÕES DINÂMICAS ---
 
-    const addLocacaoRow = (locacao = '', localId = '') => {
+    const addLocacaoRow = (locacao = '', localId = '', originalLocacao = null, originalLocalId = null) => {
         const row = document.createElement('div');
         row.className = 'locacao-row';
         row.style.display = 'flex';
         row.style.gap = '10px';
         row.style.alignItems = 'center';
 
+        // Armazena os valores originais para preservar o estoque em caso de edição
+        // Garante que undefined não seja gravado como string "undefined"
+        if (originalLocacao !== null && originalLocacao !== undefined) {
+             row.dataset.originalLocacao = originalLocacao;
+        }
+        if (originalLocalId !== null && originalLocalId !== undefined) {
+             row.dataset.originalLocalId = originalLocalId;
+        }
+
         const locacaoInput = document.createElement('input');
         locacaoInput.type = 'text';
-        locacaoInput.placeholder = 'Locação (ex: 10-B-15-C)';
+        locacaoInput.placeholder = '1-A-01-B';
         locacaoInput.className = 'form-control locacao-input';
         locacaoInput.value = locacao;
-        locacaoInput.maxLength = 11;
+        locacaoInput.maxLength = 8;
+
+        // Apply the mask (Allows partial formats: 1, 1-A, 1-A-11, 1-A-11-B)
+        const locacaoDefinitions = {
+            'L': {
+                mask: /[A-Z]/,
+            }
+        };
+        IMask(locacaoInput, {
+            mask: [
+                { mask: '0' },
+                { mask: '0-L', definitions: locacaoDefinitions },
+                { mask: '0-L-00', definitions: locacaoDefinitions },
+                { mask: '0-L-00-L', definitions: locacaoDefinitions }
+            ],
+            prepare: function (str) {
+                return str.toUpperCase();
+            },
+        });
 
         const localSelect = document.createElement('select');
         localSelect.className = 'form-control local-select';
@@ -257,34 +379,24 @@ document.addEventListener('DOMContentLoaded', async function() {
         locacoesContainer.appendChild(row);
     };
 
-    const formatLocacaoInput = (e) => {
-        let value = e.target.value.toUpperCase().replace(/[^A-Z0-9]/g, '');
-        let formattedValue = '';
-
-        if (value.length > 0) {
-            formattedValue += value.substring(0, 2);
+    // Aplica a máscara de locação ao campo de sobra
+    const sobraLocacaoInput = document.getElementById('sobra-locacao');
+    const sobraDefinitions = {
+        'L': {
+            mask: /[A-Z]/,
         }
-        if (value.length > 2) {
-            formattedValue += '-' + value.substring(2, 3);
-        }
-        if (value.length > 3) {
-            formattedValue += '-' + value.substring(3, 5);
-        }
-        if (value.length > 5) {
-            formattedValue += '-' + value.substring(5, 6);
-        }
-
-        e.target.value = formattedValue.substring(0, 11);
     };
-
-    locacoesContainer.addEventListener('input', (e) => {
-        if (e.target.classList.contains('locacao-input')) {
-            formatLocacaoInput(e);
-        }
+    IMask(sobraLocacaoInput, {
+        mask: [
+            { mask: '0' },
+            { mask: '0-L', definitions: sobraDefinitions },
+            { mask: '0-L-00', definitions: sobraDefinitions },
+            { mask: '0-L-00-L', definitions: sobraDefinitions }
+        ],
+        prepare: function (str) {
+            return str.toUpperCase();
+        },
     });
-
-    // Formata o input de locação da sobra em tempo real
-    document.getElementById('sobra-locacao').addEventListener('input', formatLocacaoInput);
 
     btnAddLocacao.addEventListener('click', () => {
         addLocacaoRow();
@@ -293,6 +405,18 @@ document.addEventListener('DOMContentLoaded', async function() {
     locacoesContainer.addEventListener('click', (e) => {
         if (e.target.classList.contains('btn-remove-locacao')) {
             e.target.closest('.locacao-row').remove();
+        }
+    });
+
+    locacoesContainer.addEventListener('change', (e) => {
+        if (e.target.classList.contains('local-select')) {
+            const row = e.target.closest('.locacao-row');
+            const locacaoInput = row.querySelector('.locacao-input');
+            if (e.target.value) {
+                locacaoInput.required = false;
+            } else {
+                locacaoInput.required = false;
+            }
         }
     });
 
@@ -305,10 +429,12 @@ document.addEventListener('DOMContentLoaded', async function() {
         selectSobraOriginal.appendChild(firstOption);
 
         productsData.forEach(product => {
-            const option = document.createElement('option');
-            option.value = product.id;
-            option.textContent = `${product.data.codigo} - ${product.data.descricao}`;
-            selectSobraOriginal.appendChild(option);
+            if (!product.data.isSobra) { // Adiciona apenas produtos que NÃO são sobras
+                const option = document.createElement('option');
+                option.value = product.id;
+                option.textContent = `${product.data.codigo} - ${product.data.descricao}`;
+                selectSobraOriginal.appendChild(option);
+            }
         });
     }
 
@@ -354,9 +480,10 @@ document.addEventListener('DOMContentLoaded', async function() {
             return;
         }
 
-        const locacaoPattern = /^[0-9]{2}-[A-Z]{1}-[0-9]{2}-[A-Z]{1}$/;
+        // Regex permite formatos parciais: 1, 1-A, 1-A-11, 1-A-11-B
+        const locacaoPattern = /^[0-9]{1}(-[A-Z]{1}(-[0-9]{2}(-[A-Z]{1})?)?)?$/;
         if (!locacaoPattern.test(sobraLocacao)) {
-            alert(`O formato da locação "${sobraLocacao}" é inválido. Use o formato NN-L-NN-L (ex: 10-B-15-C).`);
+            alert(`O formato da locação "${sobraLocacao}" é inválido. Use formatos como 1, 1-A, 1-A-02 ou 1-A-02-B.`);
             return;
         }
 
@@ -382,9 +509,8 @@ document.addEventListener('DOMContentLoaded', async function() {
             });
             const custoMedioDaPecaOriginal = totalQuantityForAvg > 0 ? totalCost / totalQuantityForAvg : 0;
 
-            if (custoMedioDaPecaOriginal === 0) {
-                throw new Error('Não foi possível calcular o custo do produto original. Verifique se ele possui movimentações de entrada com custo.');
-            }
+            // O cálculo do custo médio foi removido daqui para permitir o cadastro mesmo sem custo.
+            // A lógica de custo será tratada na MOVIMENTAÇÃO de entrada da sobra.
 
             // --- ETAPA 2: Buscar a Regra de Conversão para achar a dimensão padrão ---
             if (!originalProductData.conversaoId) {
@@ -432,7 +558,8 @@ document.addEventListener('DOMContentLoaded', async function() {
                     isSobra: true,
                     valorMedio: custoProporcionalDaSobra,
                     conversaoId: null,
-                    locacoes: newLocacoes // Sobrescreve com a nova locação
+                    locacoes: newLocacoes, // Sobrescreve com a nova locação
+                    originalProductId: originalProductId // Adiciona a referência ao produto pai
                 };
                 delete newSobraProductData.id;
 
@@ -440,7 +567,7 @@ document.addEventListener('DOMContentLoaded', async function() {
                 transaction.set(newProductRef, newSobraProductData);
             });
 
-            alert(`Sobra cadastrada com sucesso! Custo proporcional calculado: R$ ${custoProporcionalDaSobra.toFixed(2)}`);
+            alert('Sobra cadastrada com sucesso!');
             formSobra.reset();
             selectSobraOriginal.dispatchEvent(new Event('change'));
 
@@ -480,7 +607,8 @@ document.addEventListener('DOMContentLoaded', async function() {
 
         const locacaoRows = locacoesContainer.querySelectorAll('.locacao-row');
         const locacoes = [];
-        const locacaoPattern = /^[0-9]{2}-[A-Z]{1}-[0-9]{2}-[A-Z]{1}$/;
+        // Regex permite formatos parciais: 1, 1-A, 1-A-11, 1-A-11-B
+        const locacaoPattern = /^[0-9]{1}(-[A-Z]{1}(-[0-9]{2}(-[A-Z]{1})?)?)?$/;
 
         for (const row of locacaoRows) {
             const locacaoInput = row.querySelector('.locacao-input');
@@ -488,21 +616,30 @@ document.addEventListener('DOMContentLoaded', async function() {
             const locacao = locacaoInput.value.toUpperCase();
             const localId = localSelect.value;
 
-            if (!locacao || !localId) {
-                alert('Todas as locações devem ter um código e um local selecionado. Remova as linhas não utilizadas.');
+            // Recupera as chaves originais salvas no elemento DOM
+            const originalLocacao = row.dataset.originalLocacao;
+            const originalLocalId = row.dataset.originalLocalId;
+
+            if (locacao && !localId) {
+                alert('Ao preencher uma Locação, o Local também deve ser selecionado.');
                 return;
             }
 
-            if (!locacaoPattern.test(locacao)) {
-                alert(`O formato da locação "${locacao}" é inválido. Use o formato NN-L-NN-L (ex: 10-B-15-C).`);
+            if (locacao && !locacaoPattern.test(locacao)) {
+                alert(`O formato da locação "${locacao}" é inválido. Use formatos como 1, 1-A, 1-A-02 ou 1-A-02-B.`);
                 return;
             }
 
-            locacoes.push({
-                locacao: locacao,
-                localId: localId,
-                estoque: 0 // Estoque inicial é sempre 0 ao cadastrar
-            });
+            if (localId) {
+                locacoes.push({
+                    locacao: locacao,
+                    localId: localId,
+                    estoque: 0, // Será atualizado abaixo se for edição
+                    // Salva as chaves originais no objeto temporário para uso na lógica de preservação
+                    _originalLocacao: originalLocacao,
+                    _originalLocalId: originalLocalId
+                });
+            }
         }
 
         const product = {
@@ -512,6 +649,8 @@ document.addEventListener('DOMContentLoaded', async function() {
             cor: document.getElementById('produto-cor').value,
             fornecedorId: document.getElementById('produto-fornecedor').value,
             grupoId: document.getElementById('produto-grupo').value,
+            imagem: document.getElementById('produto-imagem').value, // Salva o Base64
+            descricao_detalhada: document.getElementById('produto-descricao-detalhada').value,
             aplicacaoIds: aplicacaoSelect.getSelectedIds(),
             conjuntoIds: conjuntoSelect.getSelectedIds(),
             conversaoId: document.getElementById('produto-conversao').value,
@@ -521,19 +660,57 @@ document.addEventListener('DOMContentLoaded', async function() {
 
         try {
             if (productId) {
-                // Ao atualizar, precisamos manter o estoque existente. Esta lógica será mais complexa.
-                // Por enquanto, vamos apenas setar, mas o ideal é uma transação que preserve o estoque.
-                // Esta parte será melhorada na etapa de migração e movimentação.
+                // Ao atualizar, precisamos manter o estoque existente.
                 const originalProduct = productsData.find(p => p.id === productId)?.data;
+
                 if (originalProduct && originalProduct.locacoes) {
+                    // Mapeia as novas locações preservando o estoque das originais correspondentes
                     product.locacoes = locacoes.map(novaLoc => {
-                        const existente = originalProduct.locacoes.find(antiga => antiga.locacao === novaLoc.locacao && antiga.localId === novaLoc.localId);
-                        return existente ? existente : novaLoc; // Mantém a locação existente com seu estoque
+                        let estoque = 0;
+
+                        // 1. Tenta encontrar pela chave ORIGINAL (se o usuário editou uma linha existente)
+                        // Isso permite renomear a locação mantendo o estoque (Move o estoque)
+                        if (novaLoc._originalLocacao !== undefined && novaLoc._originalLocalId !== undefined) {
+                            const originalMatch = originalProduct.locacoes.find(antiga =>
+                                String(antiga.locacao || '') === String(novaLoc._originalLocacao || '') &&
+                                String(antiga.localId || '') === String(novaLoc._originalLocalId || '')
+                            );
+                            if (originalMatch) {
+                                estoque = originalMatch.estoque || 0;
+                            }
+                        }
+                        // 2. Fallback: Se não tem chave original (ex: apagou e criou de novo igual),
+                        // tenta casar pelo nome atual para não zerar estoque acidentalmente se a linha for recriada
+                        else {
+                            const matchByName = originalProduct.locacoes.find(antiga =>
+                                antiga.locacao === novaLoc.locacao &&
+                                antiga.localId === novaLoc.localId
+                            );
+                            if (matchByName) {
+                                estoque = matchByName.estoque || 0;
+                            }
+                        }
+
+                        // Remove as propriedades temporárias antes de salvar
+                        const { _originalLocacao, _originalLocalId, ...locData } = novaLoc;
+                        return { ...locData, estoque: estoque };
                     });
+                } else {
+                    // Se não tinha locações antes, limpa as propriedades temporárias
+                     product.locacoes = locacoes.map(l => {
+                        const { _originalLocacao, _originalLocalId, ...rest } = l;
+                        return rest;
+                     });
                 }
+
                 await setDoc(doc(db, 'produtos', productId), product, { merge: true });
                 alert('Produto atualizado com sucesso!');
             } else {
+                // Remove propriedades temporárias para novos produtos também
+                 product.locacoes = locacoes.map(l => {
+                    const { _originalLocacao, _originalLocalId, ...rest } = l;
+                    return rest;
+                 });
                 await addDoc(collection(db, 'produtos'), product);
                 alert('Produto cadastrado com sucesso!');
             }
@@ -541,6 +718,12 @@ document.addEventListener('DOMContentLoaded', async function() {
             locacoesContainer.innerHTML = ''; // Limpa as locações dinâmicas
             document.getElementById('produto-id').value = '';
             codigoInput.classList.remove('is-invalid');
+            // Limpa campos de imagem
+            document.getElementById('produto-imagem').value = '';
+            document.getElementById('produto-imagem-upload').value = '';
+            document.getElementById('preview-container').style.display = 'none';
+            document.getElementById('imagem-preview').src = '';
+
             filterInput.value = '';
             applyFilters();
 
@@ -551,6 +734,41 @@ document.addEventListener('DOMContentLoaded', async function() {
     });
 
     const renderTable = (data) => {
+        const headers = document.querySelectorAll('#product-table-headers .sortable');
+        headers.forEach(header => {
+            header.classList.remove('sort-asc', 'sort-desc');
+            if (header.dataset.column === sortState.column) {
+                header.classList.add(sortState.direction === 'asc' ? 'sort-asc' : 'sort-desc');
+            }
+        });
+
+        data.sort((a, b) => {
+            let valA = a.data[sortState.column] || '';
+            let valB = b.data[sortState.column] || '';
+
+            // Handle special cases for linked data
+            if (sortState.column === 'fornecedorId') {
+                valA = configData.fornecedores[valA]?.nome || '';
+                valB = configData.fornecedores[valB]?.nome || '';
+            } else if (sortState.column === 'grupoId') {
+                valA = configData.grupos[valA]?.nome || '';
+                valB = configData.grupos[valB]?.nome || '';
+            } else if (sortState.column === 'conversaoId') {
+                valA = configData.conversoes[valA]?.nome_regra || '';
+                valB = configData.conversoes[valB]?.nome_regra || '';
+            } else if (sortState.column === 'aplicacaoIds') {
+                valA = (a.data.aplicacaoIds || []).map(id => configData.aplicacoes[id]?.nome || '').join(', ');
+                valB = (b.data.aplicacaoIds || []).map(id => configData.aplicacoes[id]?.nome || '').join(', ');
+            } else if (sortState.column === 'local' || sortState.column === 'locacao') {
+                valA = a.data.locacoes && a.data.locacoes.length > 0 ? (sortState.column === 'local' ? configData.locais[a.data.locacoes[0].localId]?.nome : a.data.locacoes[0].locacao) || '' : '';
+                valB = b.data.locacoes && b.data.locacoes.length > 0 ? (sortState.column === 'local' ? configData.locais[b.data.locacoes[0].localId]?.nome : b.data.locacoes[0].locacao) || '' : '';
+            }
+
+            if (valA < valB) return sortState.direction === 'asc' ? -1 : 1;
+            if (valA > valB) return sortState.direction === 'asc' ? 1 : -1;
+            return 0;
+        });
+
         tableBody.innerHTML = '';
         data.forEach(product => {
             const row = document.createElement('tr');
@@ -558,13 +776,17 @@ document.addEventListener('DOMContentLoaded', async function() {
 
             const fornecedor = configData.fornecedores[pData.fornecedorId]?.nome || 'N/A';
             const grupo = configData.grupos[pData.grupoId]?.nome || 'N/A';
+            const conversao = configData.conversoes[pData.conversaoId]?.nome_regra || 'N/A';
 
-            let locacaoCompleta = 'N/A';
+            let locaisHtml = 'N/A';
+            let locacoesHtml = 'N/A';
             if (pData.locacoes && pData.locacoes.length > 0) {
-                locacaoCompleta = pData.locacoes.map(loc => {
-                    const localNome = configData.locais[loc.localId]?.nome || 'Local desconhecido';
-                    return `${loc.locacao} (${localNome})`;
+                locaisHtml = pData.locacoes.map(loc => {
+                    const localName = configData.locais[loc.localId]?.nome || 'Desconhecido';
+                    const estoque = loc.estoque !== undefined ? loc.estoque : 0;
+                    return `<span title="Estoque: ${estoque}">${localName}</span>`;
                 }).join('<br>');
+                locacoesHtml = pData.locacoes.map(loc => loc.locacao).join('<br>');
             }
 
             const aplicacoesNomes = (pData.aplicacaoIds || [])
@@ -579,8 +801,10 @@ document.addEventListener('DOMContentLoaded', async function() {
                 <td>${pData.cor}</td>
                 <td>${fornecedor}</td>
                 <td>${grupo}</td>
+                <td>${conversao}</td>
                 <td>${aplicacoesNomes}</td>
-                <td>${locacaoCompleta}</td>
+                <td>${locaisHtml}</td>
+                <td>${locacoesHtml}</td>
                 <td>${pData.medida_sobra || '-'}</td>
             `;
             tableBody.appendChild(row);
@@ -593,6 +817,19 @@ document.addEventListener('DOMContentLoaded', async function() {
         productsData = snapshot.docs.map(doc => ({ id: doc.id, data: doc.data() }));
         renderTable(productsData);
         populateSobraSelect();
+    });
+
+    document.getElementById('product-table-headers').addEventListener('click', (e) => {
+        if (e.target.classList.contains('sortable')) {
+            const column = e.target.dataset.column;
+            if (sortState.column === column) {
+                sortState.direction = sortState.direction === 'asc' ? 'desc' : 'asc';
+            } else {
+                sortState.column = column;
+                sortState.direction = 'asc';
+            }
+            renderTable(productsData);
+        }
     });
 
 
@@ -681,6 +918,20 @@ document.addEventListener('DOMContentLoaded', async function() {
             document.getElementById('produto-cor').value = product.data.cor;
             document.getElementById('produto-fornecedor').value = product.data.fornecedorId;
             document.getElementById('produto-grupo').value = product.data.grupoId;
+
+            // Preenche e exibe a imagem se existir
+            const imagemBase64 = product.data.imagem || "";
+            document.getElementById('produto-imagem').value = imagemBase64;
+            if (imagemBase64) {
+                document.getElementById('imagem-preview').src = imagemBase64;
+                document.getElementById('preview-container').style.display = 'block';
+            } else {
+                document.getElementById('preview-container').style.display = 'none';
+                document.getElementById('imagem-preview').src = '';
+            }
+            document.getElementById('produto-imagem-upload').value = ''; // Reseta o input file
+
+            document.getElementById('produto-descricao-detalhada').value = product.data.descricao_detalhada || "";
             document.getElementById('produto-conversao').value = product.data.conversaoId || "";
 
             aplicacaoSelect.setSelectedIds(product.data.aplicacaoIds);
@@ -689,7 +940,8 @@ document.addEventListener('DOMContentLoaded', async function() {
             // Preenche as locações dinâmicas
             if (product.data.locacoes && Array.isArray(product.data.locacoes)) {
                 product.data.locacoes.forEach(loc => {
-                    addLocacaoRow(loc.locacao, loc.localId);
+                    // Passa também os valores originais para rastreamento
+                    addLocacaoRow(loc.locacao, loc.localId, loc.locacao, loc.localId);
                 });
             }
 
@@ -698,6 +950,8 @@ document.addEventListener('DOMContentLoaded', async function() {
     });
 
     filterInput.addEventListener('input', applyFilters);
+    filterSemImagem.addEventListener('change', applyFilters);
+    filterSemDescricao.addEventListener('change', applyFilters);
 
     document.getElementById('btn-gerar-etiquetas').addEventListener('click', (e) => {
         e.preventDefault(); // Previne o comportamento padrão do link
@@ -709,24 +963,37 @@ document.addEventListener('DOMContentLoaded', async function() {
 
         const idsSelecionados = Array.from(checkboxesMarcados).map(cb => cb.dataset.id);
 
-        // Filtra os dados dos produtos com base nos IDs selecionados
+        // Filtra os dados dos produtos e expande com base na localização
         const dadosParaEtiqueta = productsData
             .filter(product => idsSelecionados.includes(product.id))
-            .map(product => {
+            .flatMap(product => {
                 const pData = product.data;
-                let locacaoCompleta = 'N/A';
-                if (pData.locacoes && pData.locacoes.length > 0) {
-                    locacaoCompleta = pData.locacoes.map(loc => {
-                        const localNome = configData.locais[loc.localId]?.nome || 'Local desconhecido';
-                        return `${loc.locacao} (${localNome})`;
-                    }).join(', ');
+                const fornecedorNome = configData.fornecedores[pData.fornecedorId]?.nome || 'N/A';
+
+                // Se não houver locações, gera uma etiqueta padrão com "N/A"
+                if (!pData.locacoes || pData.locacoes.length === 0) {
+                    return [{
+                        labelId: `${product.id}-0`, // ID único para a etiqueta
+                        productId: product.id,      // ID original do produto
+                        data: pData,
+                        enderecamento: 'N/A',
+                        fornecedor: fornecedorNome
+                    }];
                 }
 
-                return {
-                    id: product.id,
-                    data: pData,
-                    enderecamento: locacaoCompleta
-                };
+                // Se houver locações, cria uma etiqueta para cada uma
+                return pData.locacoes.map((loc, index) => {
+                    const localNome = configData.locais[loc.localId]?.nome || 'Local desconhecido';
+                    const locacaoCompleta = `${loc.locacao} (${localNome})`;
+                    return {
+                        labelId: `${product.id}-${index}`, // ID único para a etiqueta
+                        productId: product.id,         // ID original do produto
+                        locacaoId: loc.locacao,        // <<< ADICIONADO
+                        data: pData,
+                        enderecamento: locacaoCompleta,
+                        fornecedor: fornecedorNome
+                    };
+                });
             });
 
         if (dadosParaEtiqueta.length > 0) {
@@ -893,6 +1160,222 @@ document.addEventListener('DOMContentLoaded', async function() {
         };
         reader.readAsArrayBuffer(file);
     }
+
+    // --- LÓGICA DE ADICIONAR LOCAÇÃO EM LOTE ---
+    const btnBulkAddLocation = document.getElementById('btn-bulk-add-location');
+    const bulkLocationModal = document.getElementById('bulk-location-modal');
+    const bulkLocationModalClose = document.getElementById('bulk-location-modal-close');
+    const bulkLocationCodesInput = document.getElementById('bulk-location-codes');
+    const btnCheckBulkLocation = document.getElementById('btn-check-bulk-location');
+    const bulkLocationResultsContainer = document.getElementById('bulk-location-results-container');
+    const bulkLocationTableBody = document.querySelector('#bulk-location-table tbody');
+    const bulkLocationLocalSelect = document.getElementById('bulk-location-local');
+    const bulkLocationInput = document.getElementById('bulk-location-input');
+    const btnConfirmBulkLocation = document.getElementById('btn-confirm-bulk-location');
+
+    // --- VIEW PRODUCT MODAL LOGIC ---
+    const viewProductModal = document.getElementById('view-product-modal');
+    const viewProductModalClose = document.getElementById('view-product-modal-close');
+    const viewProductImage = document.getElementById('view-product-image');
+    const viewProductDescription = document.getElementById('view-product-description');
+    const viewProductTitle = document.getElementById('view-product-title');
+
+    viewProductModalClose.addEventListener('click', () => {
+        viewProductModal.style.display = 'none';
+    });
+
+    window.addEventListener('click', (event) => {
+        if (event.target == viewProductModal) {
+            viewProductModal.style.display = 'none';
+        }
+    });
+
+    // Delegate click event on the table to open the modal
+    tableBody.addEventListener('click', (e) => {
+        // Ignora cliques no checkbox ou no cabeçalho (se houver propagação estranha)
+        if (e.target.classList.contains('produto-checkbox') || e.target.tagName === 'INPUT') {
+            return;
+        }
+
+        const row = e.target.closest('tr');
+        if (!row) return;
+
+        // Pega o ID do produto a partir do checkbox dentro da linha
+        const checkbox = row.querySelector('.produto-checkbox');
+        if (!checkbox) return;
+
+        const productId = checkbox.dataset.id;
+        const product = productsData.find(p => p.id === productId);
+
+        if (product) {
+            const pData = product.data;
+            viewProductTitle.textContent = `${pData.codigo} - ${pData.descricao}`;
+
+            if (pData.imagem) {
+                viewProductImage.src = pData.imagem;
+                viewProductImage.style.display = 'block';
+            } else {
+                viewProductImage.style.display = 'none';
+                viewProductImage.src = '';
+            }
+
+            viewProductDescription.textContent = pData.descricao_detalhada || 'Nenhuma descrição detalhada disponível.';
+
+            viewProductModal.style.display = 'block';
+        }
+    });
+    // --- END VIEW PRODUCT MODAL LOGIC ---
+
+    let bulkFoundProducts = []; // Armazena os produtos encontrados para uso na confirmação
+
+    btnBulkAddLocation.addEventListener('click', (e) => {
+        e.preventDefault();
+        // Popula o dropdown de locais
+        bulkLocationLocalSelect.innerHTML = '<option value="">Selecione o Local...</option>';
+        if (configData.locais) {
+            for (const [id, data] of Object.entries(configData.locais)) {
+                const option = document.createElement('option');
+                option.value = id;
+                option.textContent = data.nome;
+                bulkLocationLocalSelect.appendChild(option);
+            }
+        }
+        bulkLocationModal.style.display = 'block';
+    });
+
+    bulkLocationModalClose.addEventListener('click', () => {
+        bulkLocationModal.style.display = 'none';
+        resetBulkLocationForm();
+    });
+
+    window.addEventListener('click', (event) => {
+        if (event.target == bulkLocationModal) {
+            bulkLocationModal.style.display = 'none';
+            resetBulkLocationForm();
+        }
+    });
+
+    function resetBulkLocationForm() {
+        bulkLocationCodesInput.value = '';
+        bulkLocationResultsContainer.style.display = 'none';
+        bulkLocationTableBody.innerHTML = '';
+        bulkLocationLocalSelect.value = '';
+        bulkLocationInput.value = '';
+        btnConfirmBulkLocation.disabled = true;
+        bulkFoundProducts = [];
+    }
+
+    // Máscara para o input de locação em lote
+    const bulkLocacaoDefinitions = {
+        'L': { mask: /[A-Z]/ }
+    };
+    IMask(bulkLocationInput, {
+        mask: [
+            { mask: '0' },
+            { mask: '0-L', definitions: bulkLocacaoDefinitions },
+            { mask: '0-L-00', definitions: bulkLocacaoDefinitions },
+            { mask: '0-L-00-L', definitions: bulkLocacaoDefinitions }
+        ],
+        prepare: function (str) {
+            return str.toUpperCase();
+        },
+    });
+
+    btnCheckBulkLocation.addEventListener('click', () => {
+        const input = bulkLocationCodesInput.value;
+        if (!input.trim()) return;
+
+        const codes = input.split(/[\s,]+/).filter(c => c.trim() !== '');
+        bulkLocationTableBody.innerHTML = '';
+        bulkFoundProducts = [];
+        let hasValidItems = false;
+
+        codes.forEach(code => {
+            const product = productsData.find(p => p.data.codigo.toLowerCase() === code.toLowerCase());
+            const row = document.createElement('tr');
+
+            if (!product) {
+                row.innerHTML = `
+                    <td>${code}</td>
+                    <td>-</td>
+                    <td style="color: #dc3545; font-weight: bold;">Não encontrado</td>
+                `;
+            } else {
+                hasValidItems = true;
+                bulkFoundProducts.push(product);
+                row.innerHTML = `
+                    <td>${product.data.codigo}</td>
+                    <td>${product.data.descricao}</td>
+                    <td style="color: #198754; font-weight: bold;">Encontrado</td>
+                `;
+            }
+            bulkLocationTableBody.appendChild(row);
+        });
+
+        bulkLocationResultsContainer.style.display = 'block';
+        btnConfirmBulkLocation.disabled = !hasValidItems;
+    });
+
+    btnConfirmBulkLocation.addEventListener('click', async () => {
+        const localId = bulkLocationLocalSelect.value;
+        const locacao = bulkLocationInput.value.toUpperCase();
+
+        if (!localId || !locacao) {
+            alert('Por favor, selecione o Local e preencha a Locação.');
+            return;
+        }
+
+        const locacaoPattern = /^[0-9]{1}(-[A-Z]{1}(-[0-9]{2}(-[A-Z]{1})?)?)?$/;
+        if (!locacaoPattern.test(locacao)) {
+            alert(`O formato da locação "${locacao}" é inválido. Use formatos como 1, 1-A, 1-A-02 ou 1-A-02-B.`);
+            return;
+        }
+
+        if (bulkFoundProducts.length === 0) {
+            alert('Nenhum produto válido para adicionar locação.');
+            return;
+        }
+
+        if (!confirm(`Confirma adicionar a locação "${locacao}" para ${bulkFoundProducts.length} produto(s)?`)) {
+            return;
+        }
+
+        try {
+            const batch = writeBatch(db);
+            let updateCount = 0;
+
+            bulkFoundProducts.forEach(product => {
+                const productRef = doc(db, 'produtos', product.id);
+                const currentLocacoes = product.data.locacoes || [];
+
+                // Verifica se já existe essa combinação de local e locação
+                const exists = currentLocacoes.some(l => l.localId === localId && l.locacao === locacao);
+
+                if (!exists) {
+                    const newLocacoes = [...currentLocacoes, {
+                        localId: localId,
+                        locacao: locacao,
+                        estoque: 0
+                    }];
+                    batch.update(productRef, { locacoes: newLocacoes });
+                    updateCount++;
+                }
+            });
+
+            if (updateCount > 0) {
+                await batch.commit();
+                alert(`Locação adicionada com sucesso para ${updateCount} produtos!`);
+                bulkLocationModal.style.display = 'none';
+                resetBulkLocationForm();
+            } else {
+                alert('Todos os produtos selecionados já possuem esta locação.');
+            }
+
+        } catch (error) {
+            console.error("Erro ao adicionar locação em lote:", error);
+            alert(`Erro ao processar: ${error.message}`);
+        }
+    });
 });
 
 // Substitua a função exportarModeloExcel antiga por esta

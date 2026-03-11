@@ -5,6 +5,7 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Análise de Custos por Obra - Controle de Estoque</title>
     <link rel="stylesheet" href="css/style.css">
+    <link rel="stylesheet" href="css/global-search.css">
     <script src="https://cdn.jsdelivr.net/npm/feather-icons/dist/feather.min.js"></script>
     <link href="https://cdnjs.cloudflare.com/ajax/libs/tailwindcss/2.2.19/tailwind.min.css" rel="stylesheet">
     <link href="https://fonts.googleapis.com/icon?family=Material+Icons" rel="stylesheet">
@@ -37,6 +38,51 @@
             text-decoration: none;
             font-weight: bold;
         }
+        .valor-coluna {
+            cursor: pointer;
+        }
+        .modal {
+            display: none;
+            position: fixed;
+            z-index: 1000;
+            left: 0;
+            top: 0;
+            width: 100%;
+            height: 100%;
+            overflow: auto;
+            background-color: rgba(0,0,0,0.4);
+        }
+        .modal-content {
+            background-color: #fefefe;
+            margin: 15% auto;
+            padding: 20px;
+            border: 1px solid #888;
+            width: 80%;
+            max-width: 500px;
+        }
+        .close-button {
+            color: #aaa;
+            float: right;
+            font-size: 28px;
+            font-weight: bold;
+        }
+        .close-button:hover,
+        .close-button:focus {
+            color: black;
+            text-decoration: none;
+            cursor: pointer;
+        }
+        .btn {
+            padding: 10px 15px;
+            border: none;
+            border-radius: 5px;
+            cursor: pointer;
+            font-size: 16px;
+        }
+        .btn-primary {
+            background-color: #007bff;
+            color: white;
+        }
     </style>
 </head>
 <body class="flex h-screen">
@@ -57,6 +103,10 @@
                 <span class="material-icons mr-3">inventory_2</span>
                 Produtos
             </a>
+            <a href="cadastro-relacoes.html" class="flex items-center px-4 py-2 text-gray-300 hover:bg-gray-700 rounded-md">
+                <span class="material-icons mr-3">compare_arrows</span>
+                Similares / Substitutos
+            </a>
             <a href="movimentacoes.html" class="flex items-center px-4 py-2 text-gray-300 hover:bg-gray-700 rounded-md">
                 <span class="material-icons mr-3">sync_alt</span>
                 Movimentações
@@ -75,13 +125,25 @@
             </a>
             <a href="implementacao.html" class="flex items-center px-4 py-2 text-gray-300 hover:bg-gray-700 rounded-md">
                 <span class="material-icons mr-3">build</span>
-                Implementação
+                Inventario
             </a>
         </nav>
+        <div class="p-4">
+            <div class="relative">
+                <span class="absolute inset-y-0 left-0 flex items-center pl-3">
+                    <span class="material-icons text-gray-400">search</span>
+                </span>
+                <input type="text" id="global-search" placeholder="Buscar em tudo..." class="w-full py-2 pl-10 pr-4 bg-gray-700 border border-gray-600 rounded-md text-white placeholder-gray-400 focus:outline-none focus:bg-gray-600 focus:ring-1 focus:ring-blue-500">
+            </div>
+        </div>
     </aside>
     <main class="main-content flex-1 overflow-y-auto">
-        <header>
+        <header style="display: flex; justify-content: space-between; align-items: center;">
             <h1>Análise de Custos por Obra</h1>
+            <a href="etiquetas-obra.html" class="btn btn-primary" style="text-decoration: none; color: white;">
+                <span class="material-icons" style="vertical-align: middle; font-size: 20px; margin-right: 5px;">qr_code</span>
+                Gerar Etiquetas
+            </a>
         </header>
         <section class="content">
             <div class="card">
@@ -96,9 +158,20 @@
                 </div>
             </div>
         </section>
+        <div id="valor-modal" class="modal">
+            <div class="modal-content">
+                <span class="close-button">&times;</span>
+                <h3 id="modal-title"></h3>
+                <form id="modal-form">
+                    <div id="modal-fields"></div>
+                    <button type="submit" class="btn btn-primary">Salvar</button>
+                </form>
+            </div>
+        </div>
     </main>
     <script type="module" src="js/main.js"></script>
     <script type="module" src="js/obras.js"></script>
+    <script type="module" src="js/global-search.js"></script>
     <script> feather.replace() </script>
 </body>
 </html>

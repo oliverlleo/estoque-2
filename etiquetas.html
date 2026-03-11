@@ -17,10 +17,12 @@
             position: fixed; top: 10px; left: 10px; z-index: 100;
             background-color: white; padding: 10px; border-radius: 5px; box-shadow: 0 2px 5px rgba(0,0,0,0.2);
         }
-        .controls button { font-size: 16px; padding: 10px 20px; cursor: pointer; }
+        .controls button { font-size: 16px; padding: 10px 20px; cursor: pointer; border: 1px solid #ccc; background-color: #f0f0f0; }
+        .controls button.active { background-color: #007bff; color: white; border-color: #007bff; }
+        .format-options { margin-top: 10px; }
 
         /* ESTRUTURA RÍGIDA DA ETIQUETA */
-        .etiqueta {
+        .etiqueta-50x100 {
             background-color: white;
             width: 100mm;
             height: 50mm;
@@ -36,8 +38,7 @@
             display: flex;
             gap: 3mm;
             flex: 1; /* Ocupa todo o espaço vertical disponível */
-            min-height: 0; /* Correção para flexbox em alguns navegadores */
-            margin-bottom: 2mm; /* Adicione esta linha para criar o espaço */
+            min-height: 0;
         }
         .qr-code {
             width: 38mm;
@@ -47,92 +48,179 @@
             justify-content: center;
         }
         .produto-info {
-            flex: 1; /* Ocupa o restante da largura */
+            flex: 1;
             display: flex;
             flex-direction: column;
-            min-width: 0; /* Correção para flexbox */
+            min-width: 0;
         }
 
-        .info-bloco {
-            display: flex;
-            align-items: center;
+        /* Classes de conteúdo específicas */
+        .descricao-produto {
+            font-size: 12pt;
+            font-weight: bold;
+            line-height: 1.2;
             text-transform: uppercase;
+            margin-bottom: 1mm;
+            overflow: hidden;
         }
-        .info-bloco .header {
-            background-color: #333;
-            color: white;
+
+        .detalhe-produto {
+             font-size: 10pt;
+             line-height: 1.2;
+             text-transform: uppercase;
+        }
+
+        .codigo-container {
+            margin-top: auto; /* Empurra para o final do espaço disponível */
+            padding-top: 1mm;
+        }
+
+        .codigo-produto {
+            font-size: 14pt;
             font-weight: bold;
-            padding: 4px 8px;
-            font-size: 10pt;
+            white-space: nowrap;
+            background-color: #333 !important;
+            color: white !important;
             text-align: center;
-            flex-shrink: 0;
+            padding: 4px 8px;
+            width: 100%;
+            box-sizing: border-box;
         }
-        .info-bloco .valor {
-            font-weight: bold;
-            padding-left: 10px;
-            white-space: normal; /* Permite quebra de linha */
-            overflow: hidden; /* Esconde o estouro */
-            line-height: 1.1;
-        }
-
-        .info-bloco.produto {
-            flex-direction: column;
-            align-items: stretch;
-            flex-shrink: 1;
-            flex-grow: 1;
-            min-height: 0;
-            margin-bottom: 2mm;
-        }
-        .info-bloco.produto .header { font-size: 12pt; text-align: left; }
-        .info-bloco.produto .valor { font-size: 16pt; padding-left: 0; padding-top: 2px; }
-
-        .info-bloco.codigo, .info-bloco.codigo-padrao {
-            margin-top: 1.5mm;
-        }
-        .info-bloco.codigo .header, .info-bloco.codigo-padrao .header { width: 90px; }
-        .info-bloco.codigo .valor, .info-bloco.codigo-padrao .valor { font-size: 16pt; white-space: nowrap; }
 
         .etiqueta-footer {
             text-align: center;
             font-weight: bold;
-            font-size: 12pt;
+            font-size: 14pt;
             border-top: 3px solid black;
             padding-top: 1.5mm;
-            margin-top: auto; /* Empurra para o rodapé */
+            margin-top: 2mm; /* Espaçamento entre o corpo e o rodapé */
             flex-shrink: 0;
         }
 
         /* ESTILOS DE IMPRESSÃO */
+        .etiqueta-50x25-container {
+            width: 106mm;
+            height: 25mm;
+            display: flex;
+            justify-content: flex-start; /* Alinha as etiquetas à esquerda */
+            align-items: stretch;
+            border: 1px dashed #ccc;
+            margin: 20px auto;
+            padding: 0; /* O padding será controlado pelas margens */
+            box-sizing: border-box;
+        }
+
+        .etiqueta-50x25 {
+            width: 50mm;
+            height: 25mm;
+            box-sizing: border-box;
+            padding: 1.5mm;
+            display: flex; /* Changed from column to row */
+            flex-direction: row;
+            overflow: hidden;
+            gap: 0.5mm; /* Space between QR code and info */
+        }
+
+        /* Aplica as margens e espaçamento para caber em 106mm.
+           (0.5mm margem esq) + (50mm etiq1) + (5mm vão) + (50mm etiq2) + (0.5mm margem dir) = 106mm */
+        .etiqueta-50x25:first-child {
+            margin-left: 0.5mm;
+            margin-right: 5mm; /* Espaço entre as etiquetas */
+        }
+
+        .etiqueta-50x25:last-child {
+            margin-right: 0.5mm;
+        }
+
+        .etiqueta-50x25 .qr-code {
+            width: 19.8mm; /* Adjust width to maintain aspect ratio */
+            height: 19.8mm; /* Match the parent's height minus padding */
+            flex-shrink: 0;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            margin-top: 1mm;
+        }
+        .etiqueta-50x25 .qr-code img {
+            width: 100%;
+            height: 100%;
+        }
+        .etiqueta-50x25 .produto-info { text-align: left; flex: 1; display: flex; flex-direction: column; overflow: hidden; min-width: 0;}
+        .etiqueta-50x25 .descricao-produto { font-size: 7pt; font-weight: bold; margin-bottom: 0.5mm; white-space: normal; }
+        .etiqueta-50x25 .detalhe-produto { font-size: 6pt; }
+        .etiqueta-50x25 .codigo-container {
+            margin-top: auto; /* Push to the bottom */
+            display: flex;
+            flex-direction: column; /* Stack vertically */
+            align-items: flex-start; /* Align to the left */
+            border-top: none; /* Remove the old footer line */
+        }
+        .etiqueta-50x25 .codigo-produto {
+            font-size: 8pt;
+            font-weight: bold;
+            background-color: transparent !important;
+            color: black !important;
+            padding: 1px 0;
+            margin-bottom: 0.5mm; /* Space between code and location */
+            width: 100%; /* Make the background full width */
+            text-align: left;
+            box-sizing: border-box;
+            white-space: nowrap;
+        }
+        .etiqueta-50x25 .locacao-produto {
+            font-size: 6pt;
+            font-weight: bold;
+            width: 100%;
+            text-align: left;
+            white-space: nowrap;
+            padding: 1px 0;
+        }
+        .etiqueta-50x25 .local-produto {
+            font-size: 5pt; /* Smaller font size */
+            width: 100%;
+            text-align: left;
+        }
+
+
+        /* ESTILOS DE IMPRESSÃO */
         @media print {
             body { background-color: white; padding: 0; margin: 0; }
+            .controls { display: none !important; }
 
-            /* 1. Força o botão a desaparecer, sem chance de erro */
-            .controls {
-                display: none !important;
-            }
-
-            .etiqueta {
+            .etiqueta-50x100, .etiqueta-50x25-container {
                 margin: 0;
                 border: none;
                 page-break-after: always;
             }
-            .etiqueta:last-child {
+            .etiqueta-50x100:last-child, .etiqueta-50x25-container:last-child {
                 page-break-after: avoid;
             }
 
-            /* 2. Força os fundos pretos a serem impressos */
-            .info-bloco .header {
-                background-color: #333 !important;
+            .codigo-produto {
                 print-color-adjust: exact;
                 -webkit-print-color-adjust: exact;
             }
         }
-        @page { size: 100mm 50mm; margin: 0; }
+
+        /* O @page é complexo de dinamizar com JS, então definimos ambos e a classe do body controla qual layout é usado */
+        @media screen {
+            body.format-50x100 .etiqueta-50x25-container { display: none; }
+            body.format-50x25 .etiqueta-50x100 { display: none; }
+        }
+
+        @page {
+            size: 100mm 50mm;
+            margin: 0;
+        }
     </style>
 </head>
 <body>
     <div class="controls">
         <button onclick="window.print()">Imprimir Etiquetas</button>
+        <div class="format-options">
+            <button id="btn-50x100" class="active">Tamanho 50x100</button>
+            <button id="btn-50x25">Tamanho 50x25</button>
+        </div>
     </div>
     <div id="etiquetas-container">
         </div>

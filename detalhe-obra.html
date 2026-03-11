@@ -5,69 +5,195 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Detalhes da Obra - Controle de Estoque</title>
     <link rel="stylesheet" href="css/style.css">
+    <link rel="stylesheet" href="css/dashboard.css">
+    <link rel="stylesheet" href="css/global-search.css">
+    <link rel="stylesheet" href="css/detalhe-obra-toggle.css">
+    <link href="https://cdnjs.cloudflare.com/ajax/libs/tailwindcss/2.2.19/tailwind.min.css" rel="stylesheet">
+    <link href="https://fonts.googleapis.com/icon?family=Material+Icons" rel="stylesheet">
     <script src="https://cdn.jsdelivr.net/npm/feather-icons/dist/feather.min.js"></script>
     <script src="https://cdn.sheetjs.com/xlsx-latest/package/dist/xlsx.full.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
 </head>
-<body>
-    <aside class="sidebar">
-        <div class="sidebar-header">
-            <h2><i data-feather="archive"></i> Estoque</h2>
+<body class="flex h-screen">
+    <aside class="w-64 bg-gray-800 text-white flex flex-col">
+        <div class="p-6 text-2xl font-bold border-b border-gray-700">
+            Estoque
         </div>
-        <nav>
-            <ul>
-                <li><a href="index.html"><i data-feather="home"></i>Dashboard</a></li>
-                <li><a href="configuracoes.html"><i data-feather="settings"></i>Configurações</a></li>
-                <li><a href="produtos.html"><i data-feather="box"></i>Produtos</a></li>
-                <li><a href="movimentacoes.html"><i data-feather="git-commit"></i>Movimentações</a></li>
-                <li><a href="obras.html" class="active"><i data-feather="briefcase"></i>Obras</a></li>
-                <li><a href="consultas.html"><i data-feather="search"></i>Consultas</a></li>
-                <li><a href="reservas.html"><i data-feather="clipboard"></i>Reservas</a></li>
-            </ul>
+        <nav class="flex-1 p-4 space-y-2">
+            <a href="index.html" class="flex items-center px-4 py-2 text-gray-300 hover:bg-gray-700 rounded-md">
+                <span class="material-icons mr-3">dashboard</span>
+                Dashboard
+            </a>
+            <a href="configuracoes.html" class="flex items-center px-4 py-2 text-gray-300 hover:bg-gray-700 rounded-md">
+                <span class="material-icons mr-3">settings</span>
+                Configurações
+            </a>
+            <a href="produtos.html" class="flex items-center px-4 py-2 text-gray-300 hover:bg-gray-700 rounded-md">
+                <span class="material-icons mr-3">inventory_2</span>
+                Produtos
+            </a>
+            <a href="movimentacoes.html" class="flex items-center px-4 py-2 text-gray-300 hover:bg-gray-700 rounded-md">
+                <span class="material-icons mr-3">sync_alt</span>
+                Movimentações
+            </a>
+            <a href="obras.html" class="flex items-center px-4 py-2 text-white bg-blue-500 rounded-md">
+                <span class="material-icons mr-3">construction</span>
+                Obras
+            </a>
+            <a href="consultas.html" class="flex items-center px-4 py-2 text-gray-300 hover:bg-gray-700 rounded-md">
+                <span class="material-icons mr-3">search</span>
+                Consultas
+            </a>
+            <a href="reservas.html" class="flex items-center px-4 py-2 text-gray-300 hover:bg-gray-700 rounded-md">
+                <span class="material-icons mr-3">book_online</span>
+                Reservas
+            </a>
+             <a href="implementacao.html" class="flex items-center px-4 py-2 text-gray-300 hover:bg-gray-700 rounded-md">
+                <span class="material-icons mr-3">build</span>
+                Inventario
+            </a>
         </nav>
+        <div class="p-4">
+            <div class="relative">
+                <span class="absolute inset-y-0 left-0 flex items-center pl-3">
+                    <span class="material-icons text-gray-400">search</span>
+                </span>
+                <input type="text" id="global-search" placeholder="Buscar em tudo..." class="w-full py-2 pl-10 pr-4 bg-gray-700 border border-gray-600 rounded-md text-white placeholder-gray-400 focus:outline-none focus:bg-gray-600 focus:ring-1 focus:ring-blue-500">
+            </div>
+        </div>
     </aside>
-    <main class="main-content">
-        <header>
-            <h1 id="obra-titulo">Carregando...</h1>
-            <h3 id="obra-custo-total"></h3>
-        </header>
-        <section class="content">
-            <div class="card">
-                <div class="card-header" style="display: flex; justify-content: space-between; align-items: center;">
-                    <h3>Itens Utilizados na Obra</h3>
-                    <button id="btn-export-excel" class="btn" style="background-color: #198754;">Exportar para Excel</button>
+    <main class="flex-1 p-6 lg:p-12 overflow-y-auto bg-gray-50">
+        <header class="flex justify-between items-center mb-8">
+            <div>
+                <h1 id="obra-titulo" class="text-3xl font-bold text-gray-800 mb-2">Carregando...</h1>
+                <div class="flex flex-wrap gap-x-8 gap-y-1 text-lg text-gray-500">
+                    <div id="obra-negociado-total" class="flex items-center">Negociado: <span class="font-semibold text-yellow-600 ml-2">R$ 0,00</span></div>
+                    <div id="obra-orcamento" class="flex items-center"></div>
                 </div>
-                <div class="card-body">
-                    <div class="filters-container" style="display: flex; gap: 10px; margin-bottom: 20px;">
-                        <input type="text" id="filter-codigo-produto" class="form-control" placeholder="Filtrar por Código do Produto...">
-                        <input type="text" id="filter-descricao-produto" class="form-control" placeholder="Filtrar por Descrição...">
+                <div class="flex flex-wrap gap-x-8 gap-y-1 text-lg text-gray-500">
+                    <div id="obra-vendido-total" class="flex items-center">Vendido: <span class="font-semibold text-green-600 ml-2">R$ 0,00</span></div>
+                    <div id="obra-custo-total" class="flex items-center">Custo Total: <span class="font-semibold text-blue-600 ml-2">R$ 0,00</span></div>
+                </div>
+            </div>
+            <div class="flex items-center space-x-4">
+                <div class="flex items-center space-x-2">
+                    <div class="relative">
+                        <span class="material-icons absolute left-3 top-1/2 -translate-y-1/2 text-gray-400">search</span>
+                        <input id="filter-codigo-produto" class="w-full pl-10 pr-4 py-3 border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent bg-white shadow-sm" placeholder="Código do produto" type="text"/>
                     </div>
-                    <div class="table-wrapper">
-                        <table id="table-itens-obra" class="table">
-                            <thead>
+                    <div class="relative">
+                        <input id="filter-descricao-produto" class="w-full px-4 py-3 border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent bg-white shadow-sm" placeholder="Descrição" type="text"/>
+                    </div>
+                </div>
+                <button id="btn-export-excel" class="bg-green-500 hover:bg-green-600 text-white font-bold py-3 px-4 rounded-lg shadow-sm flex items-center transition-all duration-300 transform hover:scale-105">
+                    <span class="material-icons">download</span>
+                    <span class="ml-2 hidden lg:inline">Exportar</span>
+                </button>
+            </div>
+        </header>
+        <div class="space-y-8">
+            <div class="bg-white rounded-2xl shadow-lg p-6">
+                <div class="flex justify-between items-center mb-4">
+                    <h2 class="text-2xl font-semibold text-gray-700">Resumo Financeiro</h2>
+                    <div class="toggle-container" style="margin-bottom: 0;">
+                        <span id="toggle-label-grafico" style="font-weight: bold; color: #0d6efd; cursor: pointer;">Gráfico</span>
+                        <label class="toggle-switch">
+                            <input type="checkbox" id="financial-view-toggle">
+                            <span class="slider"></span>
+                        </label>
+                        <span id="toggle-label-dados" style="font-weight: normal; color: #6c757d; cursor: pointer;">Dados</span>
+                    </div>
+                </div>
+
+                <div id="financial-charts-view">
+                    <div class="grid grid-cols-1 lg:grid-cols-3 gap-8">
+                        <div class="lg:col-span-1">
+                            <h3 class="text-xl font-semibold text-gray-700 mb-4 flex items-center">
+                                <span class="material-icons mr-2 text-blue-500">pie_chart</span> Custo por Grupo
+                            </h3>
+                            <div class="chart-container relative">
+                                <canvas id="groupChart"></canvas>
+                            </div>
+                        </div>
+                        <div class="lg:col-span-2">
+                            <h3 class="text-xl font-semibold text-gray-700 mb-4 flex items-center">
+                                <span class="material-icons mr-2 text-blue-500">bar_chart</span> Custo por Fornecedor
+                            </h3>
+                            <div class="chart-container relative">
+                                <canvas id="supplierChart"></canvas>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <div id="financial-data-view" class="hidden">
+                    <div class="overflow-x-auto">
+                        <table class="w-full text-sm text-left text-gray-500" id="table-financial-details">
+                            <thead class="text-xs text-black uppercase bg-gray-100">
                                 <tr>
-                                    <th>Código</th>
-                                    <th>Descrição</th>
-                                    <th>UN</th>
-                                    <th>Cor</th>
-                                    <th>Fornecedor</th>
-                                    <th>Grupo</th>
-                                    <th>Aplicações</th>
-                                    <th>Qtde</th>
-                                    <th>Observação</th>
-                                    <th>Valor Médio</th>
-                                    <th>Valor Total</th>
+                                    <th class="px-6 py-3 text-black">Categoria</th>
+                                    <th class="px-6 py-3 text-right text-black">Orçado</th>
+                                    <th class="px-6 py-3 text-center text-black">% (Neg/Orc)</th>
+                                    <th class="px-6 py-3 text-right text-black">Negociado</th>
+                                    <th class="px-6 py-3 text-center text-black">% (Real/Neg)</th>
+                                    <th class="px-6 py-3 text-right text-black">Realizado</th>
+                                    <th class="px-6 py-3 text-center text-black">% (Real/Vend)</th>
+                                    <th class="px-6 py-3 text-right text-black">Vendido</th>
                                 </tr>
                             </thead>
-                            <tbody id="detalhe-obra-table-body">
-                                </tbody>
+                            <tbody id="financial-details-body">
+                                <!-- Rows will be inserted here -->
+                            </tbody>
+                            <tfoot id="financial-details-footer" class="bg-gray-100 font-bold text-gray-900">
+                                <!-- Total row -->
+                            </tfoot>
                         </table>
                     </div>
                 </div>
             </div>
-        </section>
+
+            <div class="flex justify-end">
+                <div class="toggle-container" style="margin-bottom: 0;">
+                    <span id="toggle-label-itens" style="font-weight: bold; color: #dc3545;">Itens</span>
+                    <label class="toggle-switch">
+                        <input type="checkbox" id="view-toggle">
+                        <span class="slider"></span>
+                    </label>
+                    <span id="toggle-label-reservas" style="font-weight: normal; color: #6c757d;">Reservas</span>
+                </div>
+            </div>
+
+            <div class="bg-white rounded-2xl shadow-lg overflow-hidden">
+                <div class="overflow-x-auto">
+                    <div class="max-h-[60vh] overflow-y-auto">
+                        <table class="w-full text-sm text-left text-gray-500" id="table-itens-obra">
+                            <thead class="text-xs text-gray-700 uppercase bg-gray-100" style="position: sticky; top: 0; z-index: 10;" id="detalhe-obra-headers">
+                                <tr>
+                                    <th class="px-6 py-3 sortable" scope="col" data-column="codigo">Código</th>
+                                    <th class="px-6 py-3 sortable" scope="col" data-column="descricao">Descrição</th>
+                                    <th class="px-6 py-3 sortable" scope="col" data-column="un">UN</th>
+                                    <th class="px-6 py-3 sortable" scope="col" data-column="cor">Cor</th>
+                                    <th class="px-6 py-3 sortable" scope="col" data-column="fornecedor">Fornecedor</th>
+                                    <th class="px-6 py-3 sortable" scope="col" data-column="grupo">Grupo</th>
+                                    <th class="px-6 py-3 sortable" scope="col" data-column="aplicacoes">Aplicações</th>
+                                    <th class="px-6 py-3 sortable" scope="col" data-column="qtde">Qtde</th>
+                                    <th class="px-6 py-3 sortable" scope="col" data-column="observacao">Observação</th>
+                                    <th class="px-6 py-3 sortable" scope="col" data-column="valorMedio">Valor Médio</th>
+                                    <th class="px-6 py-3 sortable" scope="col" data-column="valorTotal">Valor Total</th>
+                                </tr>
+                            </thead>
+                            <tbody id="detalhe-obra-table-body">
+                                <!-- Rows will be inserted here by detalhe-obra.js -->
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+            </div>
+        </div>
     </main>
     <script type="module" src="js/main.js"></script>
     <script type="module" src="js/detalhe-obra.js"></script>
+    <script type="module" src="js/global-search.js"></script>
     <script> feather.replace() </script>
 </body>
 </html>

@@ -280,3 +280,8 @@
     padding: 20px;
     color: #6c757d;
 }
+
+.chart-canvas-wrapper {
+    position: relative;
+    height: 280px;
+}

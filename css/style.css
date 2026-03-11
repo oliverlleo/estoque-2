@@ -61,9 +61,10 @@ body {
 
 /* Main Content */
 .main-content {
-    padding: 30px;
+    padding: 30px 30px 30px 12px;
     display: flex;
     flex-direction: column;
+    position: relative; /* Adicionado para ser o contêiner de referência do loader */
 }
 
 .main-content header h1 {
@@ -134,12 +135,25 @@ body {
     cursor: pointer;
 }
 
+.btn-primary {
+    background-color: #0d6efd;
+}
+
 .btn-success {
     background-color: #198754;
 }
 
 .btn-danger {
     background-color: #dc3545;
+}
+
+.btn-secondary {
+    background-color: #6c757d;
+}
+
+.btn-sm {
+    padding: 0.25rem 0.5rem;
+    font-size: 0.875rem;
 }
 /* Legacy styles from previous implementation might need to be adapted or replaced */
 /* For example, table styles can be generalized */
@@ -297,6 +311,34 @@ body {
 }
 
 /* Estilos para filtros e ordenação da tabela */
+#product-table-headers th.sortable {
+    cursor: pointer;
+    position: relative;
+}
+
+#product-table-headers th.sortable:hover {
+    background-color: #e9ecef;
+}
+
+#product-table-headers th.sortable::after {
+    content: '';
+    position: absolute;
+    right: 8px;
+    top: 50%;
+    margin-top: -8px;
+    border: 4px solid transparent;
+}
+
+#product-table-headers th.sortable.sort-asc::after {
+    content: ' ▲';
+    border-bottom-color: #212529;
+}
+
+#product-table-headers th.sortable.sort-desc::after {
+    content: ' ▼';
+    border-top-color: #212529;
+}
+
 #filters-row .form-control {
     padding: 0.25rem 0.5rem;
     font-size: 0.8rem;
@@ -409,7 +451,9 @@ input:checked + .slider:before {
 /* Estilos para Célula de Tipo na Tabela de Movimentações (VERSÃO CORRIGIDA) */
 
 #table-movimentacoes td.entrada,
-#table-movimentacoes td.saida {
+#table-movimentacoes td.saida,
+#table-history-modal td.entrada,
+#table-history-modal td.saida {
     color: white;
     text-align: center;
     font-weight: 600;
@@ -417,16 +461,19 @@ input:checked + .slider:before {
     border-bottom: 2px solid #fff;
 }
 
-#table-movimentacoes td.entrada {
+#table-movimentacoes td.entrada,
+#table-history-modal td.entrada {
     background-color: #198754; /* Verde (btn-success) */
 }
 
-#table-movimentacoes td.saida {
+#table-movimentacoes td.saida,
+#table-history-modal td.saida {
     background-color: #dc3545; /* Vermelho (btn-danger) */
 }
 
 /* Estilo para Reservas Pendentes na Tabela de Movimentações */
-#table-movimentacoes td.reserva {
+#table-movimentacoes td.reserva,
+#table-history-modal td.reserva {
     background-color: #0d6efd; /* Azul informativo do Bootstrap */
     color: white;
     text-align: center;
@@ -438,15 +485,18 @@ input:checked + .slider:before {
 /* Mantém a cor da célula mesmo com o efeito hover da linha da tabela.
   Esta regra é mais específica e por isso prevalece sobre a regra de hover genérica.
 */
-#table-movimentacoes tr:hover td.entrada {
+#table-movimentacoes tr:hover td.entrada,
+#table-history-modal tr:hover td.entrada {
     background-color: #198754;
 }
 
-#table-movimentacoes tr:hover td.saida {
+#table-movimentacoes tr:hover td.saida,
+#table-history-modal tr:hover td.saida {
     background-color: #dc3545;
 }
 
-#table-movimentacoes tr:hover td.reserva {
+#table-movimentacoes tr:hover td.reserva,
+#table-history-modal tr:hover td.reserva {
     background-color: #0b5ed7; /* Azul um pouco mais escuro no hover */
 }
 
@@ -902,7 +952,12 @@ input:checked + .slider:before {
 #table-movimentacoes tr,
 #table-consultas tr,
 #table-reservas tr,
-#table-implementacao tr {
+#table-implementacao tr,
+#table-history-modal tr,
+#correcao-fracionada-modal table tr,
+#bulk-transfer-table tr,
+#bulk-location-table tr,
+#table-locacao-mode tr {
     display: table-row; /* Força o elemento a se comportar como uma linha de tabela */
 }
 
@@ -910,7 +965,12 @@ input:checked + .slider:before {
 #table-movimentacoes th, #table-movimentacoes td,
 #table-consultas th, #table-consultas td,
 #table-reservas th, #table-reservas td,
-#table-implementacao th, #table-implementacao td {
+#table-implementacao th, #table-implementacao td,
+#table-history-modal th, #table-history-modal td,
+#correcao-fracionada-modal table th, #correcao-fracionada-modal table td,
+#bulk-transfer-table th, #bulk-transfer-table td,
+#bulk-location-table th, #bulk-location-table td,
+#table-locacao-mode th, #table-locacao-mode td {
     display: table-cell; /* Força o elemento a se comportar como uma célula de tabela */
 }
 
@@ -967,8 +1027,8 @@ input:checked + .slider:before {
 /* 2. Aplica um layout de Grid para a tabela de produtos da NF-e */
 #xml-products-table tr {
     display: grid;
-    /* Definição das 10 colunas: Descrição (1.8fr) ocupa o maior espaço. */
-    grid-template-columns: 150px 1.8fr 80px 80px 100px 100px 100px 120px 150px 120px;
+    /* Definição das 11 colunas: Descrição (2fr) ocupa o maior espaço. */
+    grid-template-columns: 120px 2fr 60px 80px 100px 80px 80px 100px 140px 140px 110px;
     gap: 10px;
     align-items: center;
     border-bottom: 1px solid #dee2e6;
@@ -986,4 +1046,173 @@ input:checked + .slider:before {
     padding: 0;
     border: none;
     text-align: left;
+}
+
+/* ======================================================= */
+/* ESTILOS PARA O LOADER DE CARREGAMENTO DA PÁGINA         */
+/* ======================================================= */
+
+#loading-overlay {
+    position: fixed;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    background-color: rgba(255, 255, 255, 0.9);
+    z-index: 9999;
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    flex-direction: column;
+    gap: 15px;
+    transition: opacity 0.3s ease;
+}
+
+.loader {
+    border: 5px solid #f3f3f3;
+    border-radius: 50%;
+    border-top: 5px solid #3498db;
+    width: 50px;
+    height: 50px;
+    animation: spin 1s linear infinite;
+}
+
+@keyframes spin {
+    0% { transform: rotate(0deg); }
+    100% { transform: rotate(360deg); }
+}
+
+/* --- Modern Transfer Modal Styles --- */
+#transferencia-modal .modal-content {
+    border-radius: 12px;
+    box-shadow: 0 10px 30px rgba(0,0,0,0.15);
+    border: none;
+    overflow: hidden;
+}
+
+#transferencia-modal .modal-header {
+    background-color: #34495e; /* System Standard Modal Header Color */
+    color: white;
+    padding: 1.5rem 2rem;
+    border-bottom: 1px solid #dee2e6;
+}
+
+#transferencia-modal .modal-body {
+    padding: 2rem;
+    background-color: #f8f9fa;
+}
+
+.transfer-section {
+    background-color: white;
+    padding: 1.5rem;
+    border-radius: 8px;
+    box-shadow: 0 2px 8px rgba(0,0,0,0.05);
+    margin-bottom: 1.5rem;
+    border: 1px solid #e9ecef;
+}
+
+.transfer-section-title {
+    font-size: 0.9rem;
+    text-transform: uppercase;
+    color: #6c757d;
+    font-weight: 700;
+    margin-bottom: 1rem;
+    letter-spacing: 0.5px;
+    border-bottom: 2px solid #f1f3f5;
+    padding-bottom: 0.5rem;
+}
+
+.product-summary-card {
+    display: flex;
+    gap: 2rem;
+    background-color: #f8f9fa;
+    padding: 1rem 1.5rem;
+    border-radius: 6px;
+    border-left: 4px solid #0d6efd;
+    margin-top: 1rem;
+    flex-wrap: wrap;
+    align-items: center;
+}
+
+.product-info-item {
+    display: flex;
+    flex-direction: column;
+}
+
+.product-info-label {
+    font-size: 0.75rem;
+    color: #6c757d;
+    font-weight: 600;
+    text-transform: uppercase;
+}
+
+.product-info-value {
+    font-size: 1.1rem;
+    color: #212529;
+    font-weight: 600;
+}
+
+.origin-stock-badge {
+    background-color: #198754;
+    color: white;
+    padding: 0.25rem 0.6rem;
+    border-radius: 4px;
+    font-size: 0.9rem;
+    font-weight: bold;
+    margin-left: 0.5rem;
+}
+
+.destination-header-row {
+    display: grid;
+    grid-template-columns: 1fr 140px 60px; /* Location, Qty, Action */
+    gap: 15px;
+    padding: 0 0.5rem 0.5rem 0.5rem;
+    font-size: 0.85rem;
+    font-weight: 600;
+    color: #495057;
+}
+
+.destination-row {
+    display: grid;
+    grid-template-columns: 1fr 140px 60px;
+    gap: 15px;
+    align-items: center;
+    margin-bottom: 0.75rem;
+    background-color: white;
+    padding: 0.5rem;
+    border-radius: 6px;
+    border: 1px solid #dee2e6;
+    transition: all 0.2s ease;
+}
+
+.destination-row:hover {
+    border-color: #0d6efd;
+    box-shadow: 0 2px 4px rgba(13, 110, 253, 0.1);
+}
+
+.total-transfer-container {
+    background-color: #212529;
+    color: white;
+    padding: 1rem 1.5rem;
+    border-radius: 8px;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    font-size: 1.1rem;
+    margin-top: 1rem;
+}
+
+.total-transfer-value {
+    font-size: 1.4rem;
+    font-weight: 700;
+    color: #ffc107; /* Warning yellow for contrast */
+}
+
+.modal-footer-custom {
+    display: flex;
+    justify-content: flex-end;
+    gap: 1rem;
+    margin-top: 2rem;
+    border-top: 1px solid #dee2e6;
+    padding-top: 1.5rem;
 }
