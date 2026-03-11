@@ -265,9 +265,10 @@ document.addEventListener('DOMContentLoaded', async function() {
 
         try {
             await runTransaction(db, async (transaction) => {
-                const baseRef = doc(db, 'produtos', baseProduct.id);
+                // --- FASE 1: TODAS AS LEITURAS (READS) ---
 
                 // Read base product state to ensure consistency
+                const baseRef = doc(db, 'produtos', baseProduct.id);
                 const baseDocSnap = await transaction.get(baseRef);
                 if (!baseDocSnap.exists()) {
                     throw new Error("O produto base não existe mais no banco de dados.");
@@ -277,35 +278,49 @@ document.addEventListener('DOMContentLoaded', async function() {
                 const similarsAdded = similarIds.filter(id => !originalSimilarIds.includes(id));
                 const similarsRemoved = originalSimilarIds.filter(id => !similarIds.includes(id));
 
+                // Arrays to hold fetched target data for later writes
+                const addedTargetsData = [];
+                const removedTargetsData = [];
+
+                // Read added targets
+                for (const targetId of similarsAdded) {
+                    const targetRef = doc(db, 'produtos', targetId);
+                    const targetSnap = await transaction.get(targetRef);
+                    if (targetSnap.exists()) {
+                        addedTargetsData.push({ ref: targetRef, data: targetSnap.data() });
+                    }
+                }
+
+                // Read removed targets
+                for (const targetId of similarsRemoved) {
+                    const targetRef = doc(db, 'produtos', targetId);
+                    const targetSnap = await transaction.get(targetRef);
+                    if (targetSnap.exists()) {
+                        removedTargetsData.push({ ref: targetRef, data: targetSnap.data() });
+                    }
+                }
+
+                // --- FASE 2: TODAS AS GRAVAÇÕES (WRITES) ---
+
                 // 1. Update Base Product
                 transaction.update(baseRef, {
                     similarIds: similarIds,
                     substitutoIds: substitutoIds
                 });
 
-                // 2. Handle Bidirectional Similars
-                for (const targetId of similarsAdded) {
-                    const targetRef = doc(db, 'produtos', targetId);
-                    const targetSnap = await transaction.get(targetRef);
-                    if (targetSnap.exists()) {
-                        const targetData = targetSnap.data();
-                        let targetSimilars = targetData.similarIds || [];
-                        if (!targetSimilars.includes(baseProduct.id)) {
-                            targetSimilars.push(baseProduct.id);
-                            transaction.update(targetRef, { similarIds: targetSimilars });
-                        }
+                // 2. Update Bidirectional Similars
+                for (const target of addedTargetsData) {
+                    let targetSimilars = target.data.similarIds || [];
+                    if (!targetSimilars.includes(baseProduct.id)) {
+                        targetSimilars.push(baseProduct.id);
+                        transaction.update(target.ref, { similarIds: targetSimilars });
                     }
                 }
 
-                for (const targetId of similarsRemoved) {
-                    const targetRef = doc(db, 'produtos', targetId);
-                    const targetSnap = await transaction.get(targetRef);
-                    if (targetSnap.exists()) {
-                        const targetData = targetSnap.data();
-                        let targetSimilars = targetData.similarIds || [];
-                        targetSimilars = targetSimilars.filter(id => id !== baseProduct.id);
-                        transaction.update(targetRef, { similarIds: targetSimilars });
-                    }
+                for (const target of removedTargetsData) {
+                    let targetSimilars = target.data.similarIds || [];
+                    targetSimilars = targetSimilars.filter(id => id !== baseProduct.id);
+                    transaction.update(target.ref, { similarIds: targetSimilars });
                 }
             });
 
