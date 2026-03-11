@@ -390,6 +390,57 @@ document.addEventListener('DOMContentLoaded', async function() {
         renderHistoryTable(currentProductHistory);
     }
 
+    function createRelationListItem(product) {
+        const li = document.createElement('li');
+        li.style.marginBottom = '6px';
+        const estoqueTotalStr = (product.estoque || 0).toString().replace('.', ',');
+
+        // Verifica se há locações ativas (>0) para exibir os detalhes
+        const activeLocations = (product.locacoes || []).filter(loc => (loc.estoque || 0) > 0);
+
+        let detailsHtml = '';
+        let buttonHtml = '';
+
+        if (activeLocations.length > 0) {
+            const detailsId = `loc-details-${product.id}-${Math.random().toString(36).substr(2, 9)}`;
+
+            buttonHtml = `
+                <span style="cursor: pointer; display: inline-flex; align-items: center; justify-content: center; width: 16px; height: 16px; background-color: #e9ecef; border-radius: 4px; margin-left: 5px;" onclick="
+                    const el = document.getElementById('${detailsId}');
+                    if (el.style.display === 'none') {
+                        el.style.display = 'block';
+                        this.textContent = '-';
+                    } else {
+                        el.style.display = 'none';
+                        this.textContent = '+';
+                    }
+                ">+</span>
+            `;
+
+            const linesHtml = activeLocations.map(loc => {
+                const localNome = configData.locais[loc.localId]?.nome || 'Desconhecido';
+                const qtdStr = (loc.estoque || 0).toString().replace('.', ',');
+                return `<div style="margin-bottom: 2px;">• ${loc.locacao} (${localNome}): ${qtdStr}</div>`;
+            }).join('');
+
+            detailsHtml = `
+                <div id="${detailsId}" style="display: none; font-size: 0.8em; color: #6c757d; margin-top: 4px; padding-left: 10px; border-left: 2px solid #dee2e6;">
+                    ${linesHtml}
+                </div>
+            `;
+        }
+
+        li.innerHTML = `
+            <div style="display: flex; align-items: center;">
+                ${product.codigo} - ${product.descricao}
+                <strong style="color:#28a745; margin-left: 5px;">[Estoque: ${estoqueTotalStr}]</strong>
+                ${buttonHtml}
+            </div>
+            ${detailsHtml}
+        `;
+        return li;
+    }
+
     function renderRelationsLists(productItem) {
         historyModalSimilares.innerHTML = '';
         historyModalSubstitutos.innerHTML = '';
@@ -401,11 +452,7 @@ document.addEventListener('DOMContentLoaded', async function() {
         similaresIds.forEach(id => {
             const product = consolidatedData.find(p => p.id === id);
             if (product && !product.arquivado) {
-                const estoqueTotal = (product.estoque || 0).toString().replace('.', ',');
-                const li = document.createElement('li');
-                li.innerHTML = `${product.codigo} - ${product.descricao} <strong style="color:#28a745;">[Estoque: ${estoqueTotal}]</strong>`;
-                li.style.marginBottom = '4px';
-                historyModalSimilares.appendChild(li);
+                historyModalSimilares.appendChild(createRelationListItem(product));
                 countSimilares++;
             }
         });
@@ -418,11 +465,7 @@ document.addEventListener('DOMContentLoaded', async function() {
         substitutosIds.forEach(id => {
             const product = consolidatedData.find(p => p.id === id);
             if (product && !product.arquivado) {
-                const estoqueTotal = (product.estoque || 0).toString().replace('.', ',');
-                const li = document.createElement('li');
-                li.innerHTML = `${product.codigo} - ${product.descricao} <strong style="color:#28a745;">[Estoque: ${estoqueTotal}]</strong>`;
-                li.style.marginBottom = '4px';
-                historyModalSubstitutos.appendChild(li);
+                historyModalSubstitutos.appendChild(createRelationListItem(product));
                 countSubstitutos++;
             }
         });
