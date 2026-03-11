@@ -401,8 +401,9 @@ document.addEventListener('DOMContentLoaded', async function() {
         similaresIds.forEach(id => {
             const product = consolidatedData.find(p => p.id === id);
             if (product && !product.arquivado) {
+                const estoqueTotal = (product.estoque || 0).toString().replace('.', ',');
                 const li = document.createElement('li');
-                li.textContent = `${product.codigo} - ${product.descricao}`;
+                li.innerHTML = `${product.codigo} - ${product.descricao} <strong style="color:#28a745;">[Estoque: ${estoqueTotal}]</strong>`;
                 li.style.marginBottom = '4px';
                 historyModalSimilares.appendChild(li);
                 countSimilares++;
@@ -417,8 +418,9 @@ document.addEventListener('DOMContentLoaded', async function() {
         substitutosIds.forEach(id => {
             const product = consolidatedData.find(p => p.id === id);
             if (product && !product.arquivado) {
+                const estoqueTotal = (product.estoque || 0).toString().replace('.', ',');
                 const li = document.createElement('li');
-                li.textContent = `${product.codigo} - ${product.descricao}`;
+                li.innerHTML = `${product.codigo} - ${product.descricao} <strong style="color:#28a745;">[Estoque: ${estoqueTotal}]</strong>`;
                 li.style.marginBottom = '4px';
                 historyModalSubstitutos.appendChild(li);
                 countSubstitutos++;
