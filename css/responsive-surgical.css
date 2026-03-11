@@ -1,0 +1,126 @@
+/*
+  ======================================================
+  RESPONSIVE SURGICAL OVERRIDES
+  ======================================================
+  Objetivo: Corrigir responsividade (mobile-first approach e graceful degradation)
+  sem afetar visual do desktop. Carregar sempre POR ÚLTIMO.
+*/
+
+/* 1. Shell Principal (Sidebar -> Header Stack) */
+@media (max-width: 768px) {
+    /* O body original usa flex h-screen */
+    body.flex {
+        flex-direction: column !important;
+        height: 100vh !important;
+        overflow: hidden !important;
+    }
+
+    /* O aside usa w-64, forçamos a largura total e empilhamento vertical */
+    aside.w-64 {
+        width: 100% !important;
+        height: auto !important;
+        flex: 0 0 auto !important;
+    }
+
+    /* Para não ocupar a tela inteira, a navegação rola no mobile */
+    aside nav {
+        display: flex;
+        flex-direction: row !important;
+        overflow-x: auto !important;
+        white-space: nowrap !important;
+        padding-bottom: 0.5rem !important;
+    }
+
+    aside nav a {
+        flex: 0 0 auto !important;
+    }
+
+    /* O main content usa flex-1 e overflow-y-auto no html atual */
+    .main-content,
+    body > main,
+    body > div:not(aside):not(#loading-overlay) {
+        width: 100% !important;
+        flex: 1 1 auto !important;
+        overflow-y: auto !important;
+        padding: 1rem !important;
+    }
+}
+
+/* 2. Utilitários Locais de Responsividade */
+
+/* Força quebra de linha em flex containers inline problemáticos */
+.mob-wrap {
+    /* No desktop segue a estrutura, no mobile quebra */
+}
+@media (max-width: 768px) {
+    .mob-wrap {
+        flex-wrap: wrap !important;
+    }
+}
+
+/* Força empilhamento completo de itens (vira coluna) */
+.mob-stack {
+}
+@media (max-width: 768px) {
+    .mob-stack {
+        flex-direction: column !important;
+        align-items: stretch !important;
+    }
+
+    .mob-stack > * {
+        width: 100% !important;
+    }
+}
+
+/* Scroll horizontal local para tabelas e containers largos */
+.mob-scroll-x {
+}
+@media (max-width: 768px) {
+    .mob-scroll-x {
+        width: 100% !important;
+        overflow-x: auto !important;
+        display: block !important;
+        -webkit-overflow-scrolling: touch;
+    }
+
+    /* Garante que a tabela dentro não esmague */
+    .mob-scroll-x table {
+        min-width: 600px !important;
+    }
+}
+
+/* Modais: Ajusta largura para caber no celular mas mantém desktop */
+.mob-modal-fit {
+}
+@media (max-width: 768px) {
+    .mob-modal-fit {
+        width: 95% !important;
+        max-width: none !important;
+        margin: 10px auto !important;
+    }
+}
+
+/* Grids: transforma grids de 2+ colunas em 1 coluna */
+.mob-grid-1 {
+}
+@media (max-width: 768px) {
+    .mob-grid-1,
+    form[style*="display: grid"],
+    .form-grid-4-col {
+        grid-template-columns: 1fr !important;
+    }
+
+    .mob-grid-1 > div,
+    form[style*="display: grid"] > div {
+        grid-column: 1 / -1 !important;
+    }
+}
+
+/* Inputs, Selects e botões que devem ocupar 100% no mobile */
+.mob-full-width {
+}
+@media (max-width: 768px) {
+    .mob-full-width {
+        width: 100% !important;
+    }
+}

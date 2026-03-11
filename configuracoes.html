@@ -9,6 +9,7 @@
     <script src="https://cdn.jsdelivr.net/npm/feather-icons/dist/feather.min.js"></script>
     <link href="https://cdnjs.cloudflare.com/ajax/libs/tailwindcss/2.2.19/tailwind.min.css" rel="stylesheet">
     <link href="https://fonts.googleapis.com/icon?family=Material+Icons" rel="stylesheet">
+    <link rel="stylesheet" href="css/responsive-surgical.css">
 </head>
 <body class="flex h-screen">
     <aside class="w-64 bg-gray-800 text-white flex flex-col">
@@ -72,8 +73,8 @@
         </div>
 
         <!-- Modal Principal -->
-        <div id="config-modal" class="fixed inset-0 bg-gray-900 bg-opacity-60 hidden justify-center items-start z-50 pt-10 pb-10">
-            <div id="modal-content-container" class="bg-white rounded-lg shadow-2xl w-full max-w-5xl">
+        <div id="config-modal" class="fixed inset-0 bg-gray-900 bg-opacity-60 hidden justify-center items-start z-50 pt-10 pb-10 overflow-y-auto">
+            <div id="modal-content-container" class="bg-white rounded-lg shadow-2xl w-full max-w-5xl mob-modal-fit m-4">
                 <!-- Modal Header -->
                 <div class="px-6 py-4 bg-gray-50 border-b border-gray-200 flex justify-between items-center">
                     <h2 id="modal-title" class="text-xl font-semibold text-gray-800"></h2>

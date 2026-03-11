@@ -9,6 +9,7 @@
     <script src="https://cdn.jsdelivr.net/npm/feather-icons/dist/feather.min.js"></script>
     <link href="https://cdnjs.cloudflare.com/ajax/libs/tailwindcss/2.2.19/tailwind.min.css" rel="stylesheet">
     <link href="https://fonts.googleapis.com/icon?family=Material+Icons" rel="stylesheet">
+    <link rel="stylesheet" href="css/responsive-surgical.css">
 </head>
 <body class="flex h-screen">
     <aside class="w-64 bg-gray-800 text-white flex flex-col">
@@ -63,19 +64,19 @@
         </div>
     </aside>
     <main class="main-content flex-1 overflow-y-auto">
-        <header style="display: flex; justify-content: space-between; align-items: center;">
-            <h1>Consulta de Estoque</h1>
-            <div style="margin-right: 20px;">
-                <a href="etiquetas-locacao.html" target="_blank" class="btn btn-primary" style="display: flex; align-items: center; justify-content: center; text-decoration: none; padding: 10px 20px;">
+        <header class="mob-stack" style="display: flex; justify-content: space-between; align-items: center; gap: 10px; margin-bottom: 20px;">
+            <h1 style="margin-bottom: 0;">Consulta de Estoque</h1>
+            <div class="mob-full-width" style="margin-right: 20px;">
+                <a href="etiquetas-locacao.html" target="_blank" class="btn btn-primary mob-full-width" style="display: flex; align-items: center; justify-content: center; text-decoration: none; padding: 10px 20px;">
                     <span class="material-icons mr-2">qr_code</span> Etiqueta
                 </a>
             </div>
         </header>
         <section class="content">
             <div class="card">
-                <div class="card-header" style="display: flex; justify-content: space-between; align-items: center;">
+                <div class="card-header mob-stack" style="display: flex; justify-content: space-between; align-items: center; gap: 10px;">
                     <h3 id="page-title-mode">Consulta de Estoque e Valores</h3>
-                    <div class="export-buttons">
+                    <div class="export-buttons mob-wrap" style="display: flex; gap: 10px;">
                         <button id="btn-export-excel" class="btn btn-success" style="background-color: #198754; color: white; margin-right: 10px;">
                              <span class="material-icons" style="font-size: 16px; vertical-align: middle; margin-right: 5px;">table_view</span> Excel
                         </button>
@@ -153,17 +154,17 @@
 
     <!-- Modal de Histórico de Movimentações -->
     <div id="history-modal" class="modal">
-        <div class="modal-content" style="max-width: 1600px; width: 98%; background-color: #fff;">
+        <div class="modal-content mob-modal-fit" style="max-width: 1600px; width: 98%; background-color: #fff;">
             <div class="modal-header">
                 <h3>Histórico de Movimentações - <span id="history-modal-product-title"></span></h3>
                 <span class="close-button" id="history-modal-close">&times;</span>
             </div>
 
             <!-- Flex container for Image + Content -->
-            <div class="modal-body" style="display: flex; gap: 20px;">
+            <div class="modal-body mob-stack" style="display: flex; gap: 20px;">
 
                 <!-- Left: Product Image -->
-                <div style="flex-shrink: 0; width: 300px; display: flex; flex-direction: column; align-items: center;">
+                <div class="mob-full-width" style="flex-shrink: 0; width: 300px; display: flex; flex-direction: column; align-items: center; margin: 0 auto;">
                      <div style="width: 100%; height: 300px; background-color: #f8f9fa; border: 1px solid #dee2e6; border-radius: 8px; overflow: hidden; display: flex; align-items: center; justify-content: center; cursor: pointer;">
                         <img id="history-product-image" src="" alt="Imagem do Produto" style="width: 100%; height: 100%; object-fit: contain; display: none;">
                         <span id="history-product-image-placeholder" style="color: #adb5bd; font-size: 0.9em; text-align: center; padding: 10px;">Sem Imagem</span>
@@ -175,7 +176,7 @@
                 <div style="flex-grow: 1; display: flex; flex-direction: column; overflow: hidden;">
 
                     <!-- Novo bloco: Similares e Substitutos -->
-                    <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 20px; margin-bottom: 20px; background-color: #f8f9fa; padding: 15px; border-radius: 8px; border: 1px solid #e9ecef;">
+                    <div class="mob-grid-1" style="display: grid; grid-template-columns: 1fr 1fr; gap: 20px; margin-bottom: 20px; background-color: #f8f9fa; padding: 15px; border-radius: 8px; border: 1px solid #e9ecef;">
                         <div>
                             <h4 style="font-size: 1rem; color: #495057; margin-bottom: 10px; display: flex; align-items: center; gap: 5px;">
                                 <span class="material-icons" style="color: #17a2b8; font-size: 18px;">compare_arrows</span> Similares
@@ -225,7 +226,7 @@
                         </div>
                     </div>
 
-                    <div class="table-wrapper" style="max-height: 500px; overflow: auto;">
+                    <div class="table-wrapper mob-scroll-x" style="max-height: 500px; overflow: auto;">
                         <table id="table-history-modal" class="table">
                             <thead>
                                 <tr>
@@ -256,7 +257,7 @@
 
     <!-- Modal Zoom Imagem -->
     <div id="image-zoom-modal" class="modal" style="z-index: 2000;">
-        <div class="modal-content" style="max-width: 90%; max-height: 90%; width: auto; height: auto; background-color: transparent; border: none; box-shadow: none; display: flex; align-items: center; justify-content: center;">
+        <div class="modal-content mob-modal-fit" style="max-width: 90%; max-height: 90%; width: auto; height: auto; background-color: transparent; border: none; box-shadow: none; display: flex; align-items: center; justify-content: center;">
             <span class="close-button" id="image-zoom-modal-close" style="position: absolute; top: 10px; right: 20px; color: white; font-size: 40px; text-shadow: 0 0 5px black;">&times;</span>
             <img id="image-zoom-full" src="" alt="Imagem Ampliada" style="max-width: 100%; max-height: 90vh; border-radius: 8px; box-shadow: 0 4px 15px rgba(0,0,0,0.5);">
         </div>
@@ -264,7 +265,7 @@
 
     <!-- Modal Exportar PDF (Selecionar Colunas) -->
     <div id="pdf-columns-modal" class="modal" style="display: none; z-index: 2000;">
-        <div class="modal-content" style="max-width: 500px;">
+        <div class="modal-content mob-modal-fit" style="max-width: 500px;">
             <div class="modal-header">
                 <h3>Exportar PDF - Selecionar Colunas</h3>
                 <span class="close-button" id="pdf-columns-modal-close">&times;</span>

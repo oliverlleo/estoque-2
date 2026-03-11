@@ -9,6 +9,7 @@
     <script src="https://cdn.jsdelivr.net/npm/feather-icons/dist/feather.min.js"></script>
     <link href="https://cdnjs.cloudflare.com/ajax/libs/tailwindcss/2.2.19/tailwind.min.css" rel="stylesheet">
     <link href="https://fonts.googleapis.com/icon?family=Material+Icons" rel="stylesheet">
+    <link rel="stylesheet" href="css/responsive-surgical.css">
 </head>
 <body class="flex h-screen">
     <aside class="w-64 bg-gray-800 text-white flex flex-col">
@@ -79,7 +80,7 @@
                             <label for="show-cancelled" class="form-check-label">Mostrar Canceladas</label>
                         </div>
                     </div>
-                    <div class="table-wrapper">
+                    <div class="table-wrapper mob-scroll-x">
                         <table id="table-reservas" class="table">
                             <thead>
                                 <tr id="reservas-headers-row">
@@ -172,7 +173,7 @@
 
     <!-- Modal para Imagem do Produto -->
     <div id="product-image-modal" class="modal">
-        <div class="modal-content" style="max-width: 600px; text-align: center; background-color: #fff; padding: 20px; border-radius: 8px;">
+        <div class="modal-content mob-modal-fit" style="max-width: 600px; text-align: center; background-color: #fff; padding: 20px; border-radius: 8px;">
             <div style="display: flex; justify-content: flex-end;">
                  <span class="close-button" id="product-image-modal-close" style="font-size: 28px; cursor: pointer; color: #aaa;">&times;</span>
             </div>
