@@ -156,9 +156,20 @@ document.addEventListener('DOMContentLoaded', async function() {
             let reservedQuantity = 0;
 
             productMovements.forEach(mov => {
-                if (mov.tipo === 'entrada' && mov.custo_total_entrada) {
-                    totalCost += mov.custo_total_entrada;
-                    totalQuantity += mov.quantidade;
+                if (mov.tipo === 'entrada') {
+                    // Tenta pegar o custo total salvo
+                    let custoEntrada = mov.custo_total_entrada;
+
+                    // PLANO B: Se não tiver custo total salvo, calcula agora (igual ao movimentacoes.js)
+                    if (custoEntrada === undefined || custoEntrada === null) {
+                        custoEntrada = (mov.quantidade_compra * (mov.valor_unitario || 0)) + (mov.icms || 0) + (mov.ipi || 0) + (mov.frete || 0);
+                    }
+
+                    // Só soma se tiver valor
+                    if (custoEntrada > 0 || mov.quantidade > 0) {
+                        totalCost += (custoEntrada || 0);
+                        totalQuantity += mov.quantidade;
+                    }
                 } else if (mov.tipo === 'saida') {
                     const currentAvgCost = totalQuantity > 0 ? totalCost / totalQuantity : 0;
                     totalCost -= mov.quantidade * currentAvgCost;
