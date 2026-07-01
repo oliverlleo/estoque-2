@@ -7,7 +7,8 @@ import {
     doc,
     runTransaction,
     getDocs,
-    updateDoc
+    updateDoc,
+    serverTimestamp
 } from "https://www.gstatic.com/firebasejs/9.6.1/firebase-firestore.js";
 
 document.addEventListener('DOMContentLoaded', () => {
@@ -454,6 +455,11 @@ document.addEventListener('DOMContentLoaded', () => {
                 transaction.update(movRef, {
                     tipo: 'saida',
                     reserva_confirmada: true,
+                    // Preserva a data original da reserva e registra a data efetiva da baixa.
+                    // O custo médio e os históricos devem ordenar pela confirmação, não pela criação da reserva.
+                    dataReserva: movData.data || null,
+                    confirmadaEm: serverTimestamp(),
+                    dataSaida: serverTimestamp(),
                     locacao: targetLocacao, // Atualiza para a locação REAL utilizada (apenas a string)
                     valorMedioHistorico: valorMedio,
                     custoTotal: custoTotal, // Salva o custo total

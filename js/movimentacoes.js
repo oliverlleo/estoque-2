@@ -5,7 +5,7 @@ function showInfoModal(message) {
 
 import { db } from './firebase-config.js';
 import { collection, addDoc, getDocs, onSnapshot, runTransaction, doc, serverTimestamp, query, where, getDoc, orderBy } from "https://www.gstatic.com/firebasejs/9.6.1/firebase-firestore.js";
-import { calcularCustoMedioAposEntrada, normalizarTexto, recalcularCustoMedioProduto as recalcularCustoMedioProdutoCentral } from './custo-medio.js';
+import { calcularCustoMedioAposEntrada, normalizarTexto, obterDataEfetivaMovimento, obterTimestampMillis, recalcularCustoMedioProduto as recalcularCustoMedioProdutoCentral } from './custo-medio.js';
 
 document.addEventListener('DOMContentLoaded', async function() {
     const loadingOverlay = document.getElementById('loading-overlay');
@@ -352,6 +352,9 @@ document.addEventListener('DOMContentLoaded', async function() {
     function updateTable() {
         let processedMovements = allMovements.map(mov => {
             const product = productsMap[mov.productId] || {};
+            const dataEfetiva = obterDataEfetivaMovimento(mov);
+            const dataEfetivaMillis = obterTimestampMillis(dataEfetiva);
+            const dataEfetivaDate = dataEfetivaMillis ? new Date(dataEfetivaMillis) : null;
             let custoUnitario = 0;
             if (mov.tipo === 'entrada' && mov.quantidade > 0) {
                 let valorTotal;
@@ -396,6 +399,8 @@ document.addEventListener('DOMContentLoaded', async function() {
 
             const processedMov = {
                 ...mov,
+                _dataEfetivaMillis: dataEfetivaMillis,
+                _dataEfetivaDate: dataEfetivaDate,
                 valorUnitEstoque: valorUnitEstoque,
                 custoUnitario: custoUnitario,
                 custoTotal: custoTotal,
@@ -403,7 +408,7 @@ document.addEventListener('DOMContentLoaded', async function() {
                 ipiUnit: ipiUnit,
                 freteUnit: freteUnit,
                 _search_data: {
-                    data: mov.data ? new Date(mov.data.seconds * 1000).toLocaleString('pt-BR') : '',
+                    data: dataEfetivaDate ? dataEfetivaDate.toLocaleString('pt-BR') : '',
                     tipo: mov.tipo || '',
                     subTipo: subTipo,
                     codigo: product.codigo || '',
@@ -431,7 +436,7 @@ document.addEventListener('DOMContentLoaded', async function() {
             // Lógica de filtro de data (CORRIGIDA)
             const startDateString = filterState['data-inicio'];
             const endDateString = filterState['data-fim'];
-            const moveDate = mov.data ? mov.data.toDate() : null;
+            const moveDate = mov._dataEfetivaDate || null;
 
             if (startDateString || endDateString) {
                 if (!moveDate) return false; // Se há filtro de data, mas o movimento não tem data, ele é filtrado.
@@ -483,8 +488,8 @@ document.addEventListener('DOMContentLoaded', async function() {
             let valA = a._search_data[sortState.column];
             let valB = b._search_data[sortState.column];
             if (sortState.column === 'data') {
-                valA = a.data ? a.data.toMillis() : 0;
-                valB = b.data ? b.data.toMillis() : 0;
+                valA = a._dataEfetivaMillis || 0;
+                valB = b._dataEfetivaMillis || 0;
             }
             const numericColumns = ['quantidade', 'valor_unitario', 'icms', 'ipi', 'frete', 'custoUnitario', 'custoTotal'];
             if (numericColumns.includes(sortState.column)) {

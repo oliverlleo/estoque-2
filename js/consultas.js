@@ -1,6 +1,6 @@
 import { db } from './firebase-config.js';
 import { collection, getDocs, doc, updateDoc, query, where } from "https://www.gstatic.com/firebasejs/9.6.1/firebase-firestore.js";
-import { calcularCustoMedioMovel, obterIdsInventario } from './custo-medio.js';
+import { calcularCustoMedioMovel, obterIdsInventario, obterDataEfetivaMovimento, obterTimestampMillis } from './custo-medio.js';
 
 document.addEventListener('DOMContentLoaded', async function() {
     console.log("Página de Consultas carregada.");
@@ -154,7 +154,7 @@ document.addEventListener('DOMContentLoaded', async function() {
             const productId = productDoc.id;
             const productMovements = globalMovementsByProduct[productId] || [];
 
-            productMovements.sort((a, b) => a.data.toMillis() - b.data.toMillis());
+            productMovements.sort((a, b) => obterTimestampMillis(obterDataEfetivaMovimento(a)) - obterTimestampMillis(obterDataEfetivaMovimento(b)));
 
             const calculoCusto = calcularCustoMedioMovel(productMovements, idsInventario);
             const averageCost = calculoCusto.custoMedio;
@@ -458,7 +458,7 @@ document.addEventListener('DOMContentLoaded', async function() {
     }
 
     function processMovementsForHistory(movements, productItem) {
-        movements.sort((a, b) => a.data.toMillis() - b.data.toMillis());
+        movements.sort((a, b) => obterTimestampMillis(obterDataEfetivaMovimento(a)) - obterTimestampMillis(obterDataEfetivaMovimento(b)));
         const calculoHistorico = calcularCustoMedioMovel(movements, {
             idsInventarioEntrada: obterIdsInventario(configData.tipos_entrada),
             idsInventarioSaida: obterIdsInventario(configData.tipos_saida)
@@ -471,6 +471,8 @@ document.addEventListener('DOMContentLoaded', async function() {
 
         return movements.map(mov => {
             const linhaCusto = linhasPorId.get(mov.id);
+            const dataEfetiva = obterDataEfetivaMovimento(mov);
+            const dataEfetivaMillis = obterTimestampMillis(dataEfetiva);
             const custoUnitarioMedio = linhaCusto?.custoUnitarioMovimento || 0;
             const custoTotalMov = linhaCusto?.custoTotalMovimento || 0;
 
@@ -487,7 +489,7 @@ document.addEventListener('DOMContentLoaded', async function() {
             const obraNome = configData.obras?.[mov.obraId]?.nome || '-';
             return {
                 raw: mov,
-                data: mov.data ? new Date(mov.data.seconds * 1000).toLocaleString('pt-BR') : '',
+                data: dataEfetivaMillis ? new Date(dataEfetivaMillis).toLocaleString('pt-BR') : '',
                 tipo: mov.tipo,
                 subTipo: subTipo,
                 codigo: productItem.codigo,

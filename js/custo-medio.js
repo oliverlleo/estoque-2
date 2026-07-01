@@ -36,6 +36,15 @@ export function obterTimestampMillis(data) {
     return Number.isFinite(parsed) ? parsed : 0;
 }
 
+/**
+ * Retorna a data contábil efetiva da movimentação.
+ * Reservas confirmadas devem ser processadas na data da baixa real,
+ * preservando `data`/`dataReserva` apenas como data de criação da reserva.
+ */
+export function obterDataEfetivaMovimento(movimento = {}) {
+    return movimento.confirmadaEm || movimento.dataSaida || movimento.data;
+}
+
 function numeroPositivo(valor) {
     const numero = Number(valor);
     return Number.isFinite(numero) && numero > 0 ? numero : 0;
@@ -104,7 +113,7 @@ export function calcularCustoMedioMovel(movimentacoes = [], opcoes = {}) {
     const gerarCorrecoes = opcoes.gerarCorrecoes === true;
 
     const ordenadas = [...movimentacoes].sort(
-        (a, b) => obterTimestampMillis(a.data) - obterTimestampMillis(b.data)
+        (a, b) => obterTimestampMillis(obterDataEfetivaMovimento(a)) - obterTimestampMillis(obterDataEfetivaMovimento(b))
     );
 
     let quantidade = 0;
