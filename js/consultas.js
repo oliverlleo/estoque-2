@@ -1,5 +1,6 @@
 import { db } from './firebase-config.js';
 import { collection, getDocs, doc, updateDoc, query, where } from "https://www.gstatic.com/firebasejs/9.6.1/firebase-firestore.js";
+import { calcularCustoMedioMovel, obterIdsInventario } from './custo-medio.js';
 
 document.addEventListener('DOMContentLoaded', async function() {
     console.log("Página de Consultas carregada.");
@@ -136,12 +137,17 @@ document.addEventListener('DOMContentLoaded', async function() {
 
         globalMovementsByProduct = {};
         movementsSnapshot.forEach(doc => {
-            const mov = doc.data();
+            const mov = { id: doc.id, ...doc.data() };
             if (!globalMovementsByProduct[mov.productId]) {
                 globalMovementsByProduct[mov.productId] = [];
             }
             globalMovementsByProduct[mov.productId].push(mov);
         });
+
+        const idsInventario = {
+            idsInventarioEntrada: obterIdsInventario(configData.tipos_entrada),
+            idsInventarioSaida: obterIdsInventario(configData.tipos_saida)
+        };
 
         consolidatedData = productsSnapshot.docs.map(productDoc => {
             const product = productDoc.data();
@@ -150,25 +156,15 @@ document.addEventListener('DOMContentLoaded', async function() {
 
             productMovements.sort((a, b) => a.data.toMillis() - b.data.toMillis());
 
-            let totalQuantity = 0;
-            let totalCost = 0;
-            let averageCost = 0;
+            const calculoCusto = calcularCustoMedioMovel(productMovements, idsInventario);
+            const averageCost = calculoCusto.custoMedio;
             let reservedQuantity = 0;
 
             productMovements.forEach(mov => {
-                if (mov.tipo === 'entrada' && mov.custo_total_entrada) {
-                    totalCost += mov.custo_total_entrada;
-                    totalQuantity += mov.quantidade;
-                } else if (mov.tipo === 'saida') {
-                    const currentAvgCost = totalQuantity > 0 ? totalCost / totalQuantity : 0;
-                    totalCost -= mov.quantidade * currentAvgCost;
-                    totalQuantity -= mov.quantidade;
-                } else if (mov.tipo === 'reserva') {
-                    reservedQuantity += mov.quantidade;
+                if (mov.tipo === 'reserva') {
+                    reservedQuantity += Number(mov.quantidade) || 0;
                 }
             });
-
-            averageCost = totalQuantity > 0 ? totalCost / totalQuantity : 0;
 
             let estoqueAtual = 0;
             let locacaoCompleta = 'N/A';
@@ -463,30 +459,20 @@ document.addEventListener('DOMContentLoaded', async function() {
 
     function processMovementsForHistory(movements, productItem) {
         movements.sort((a, b) => a.data.toMillis() - b.data.toMillis());
-        let totalQuantity = 0;
-        let totalCost = 0;
+        const calculoHistorico = calcularCustoMedioMovel(movements, {
+            idsInventarioEntrada: obterIdsInventario(configData.tipos_entrada),
+            idsInventarioSaida: obterIdsInventario(configData.tipos_saida)
+        });
+        const linhasPorId = new Map(
+            calculoHistorico.linhas
+                .filter(linha => linha.movimentoId)
+                .map(linha => [linha.movimentoId, linha])
+        );
 
         return movements.map(mov => {
-            let custoUnitarioMedio = 0;
-            let custoTotalMov = 0;
-
-            if (mov.tipo === 'entrada' && mov.quantidade > 0) {
-                let valorTotalEntrada = mov.custo_total_entrada;
-                if (valorTotalEntrada === undefined) {
-                    valorTotalEntrada = (mov.quantidade_compra * (mov.valor_unitario || 0)) + (mov.icms || 0) + (mov.ipi || 0) + (mov.frete || 0);
-                }
-                totalCost += valorTotalEntrada;
-                totalQuantity += mov.quantidade;
-                custoUnitarioMedio = valorTotalEntrada / mov.quantidade;
-                custoTotalMov = valorTotalEntrada;
-
-            } else if (mov.tipo === 'saida') {
-                const currentAvgCost = totalQuantity > 0 ? totalCost / totalQuantity : 0;
-                custoUnitarioMedio = currentAvgCost;
-                custoTotalMov = mov.quantidade * currentAvgCost;
-                totalCost -= custoTotalMov;
-                totalQuantity -= mov.quantidade;
-            }
+            const linhaCusto = linhasPorId.get(mov.id);
+            const custoUnitarioMedio = linhaCusto?.custoUnitarioMovimento || 0;
+            const custoTotalMov = linhaCusto?.custoTotalMovimento || 0;
 
             let subTipo = '-';
             const isXmlImport = mov.observacao && mov.observacao.includes('Importado via XML');

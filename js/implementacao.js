@@ -1,38 +1,6 @@
 import { db } from './firebase-config.js';
-import { collection, getDocs, query, where, doc, serverTimestamp, runTransaction, setDoc } from "https://www.gstatic.com/firebasejs/9.6.1/firebase-firestore.js";
-
-// --- Custo Médio ---
-// Função copiada de 'movimentacoes.js' para manter a consistência da regra de negócio.
-async function atualizarCustoMedioProduto(produtoId) {
-    if (!produtoId) return;
-
-    const q = query(
-        collection(db, 'movimentacoes'),
-        where("productId", "==", produtoId),
-        where("tipo", "==", "entrada")
-    );
-    const movementsSnapshot = await getDocs(q);
-
-    let totalCost = 0;
-    let totalQuantityForAvg = 0;
-
-    movementsSnapshot.forEach(doc => {
-        const mov = doc.data();
-        // Apenas movimentações com custo e quantidade válidos entram no cálculo.
-        if (mov.custo_total_entrada && mov.custo_total_entrada > 0 && mov.quantidade > 0) {
-            totalCost += mov.custo_total_entrada;
-            totalQuantityForAvg += mov.quantidade;
-        }
-    });
-
-    const novoCustoMedio = totalQuantityForAvg > 0 ? totalCost / totalQuantityForAvg : 0;
-    const productRef = doc(db, 'produtos', produtoId);
-
-    // Usando set com merge:true para criar ou atualizar o campo 'valorMedio'.
-    await setDoc(productRef, { valorMedio: novoCustoMedio }, { merge: true });
-
-    console.log(`Custo médio do produto ${produtoId} atualizado para ${novoCustoMedio.toFixed(2)}`);
-}
+import { collection, getDocs, query, where, limit, doc, serverTimestamp, runTransaction } from "https://www.gstatic.com/firebasejs/9.6.1/firebase-firestore.js";
+import { obterIdsInventario, recalcularCustoMedioProduto } from './custo-medio.js';
 
 
 document.addEventListener('DOMContentLoaded', async function() {
@@ -403,6 +371,37 @@ document.addEventListener('DOMContentLoaded', async function() {
             const conversoesMap = new Map();
             conversoesSnapshot.forEach(doc => conversoesMap.set(doc.id, doc.data()));
 
+            // Confirma se o produto realmente nunca teve movimentação. Uma localização vazia
+            // não significa implementação inicial, e um produto que já teve histórico deve
+            // continuar sendo tratado como ajuste de inventário mesmo quando o saldo total
+            // e o custo atual estiverem zerados.
+            const productHistoryExists = new Map();
+            const uniqueProductIds = [...new Set(
+                rowsToProcess
+                    .map(row => row.dataset.productId)
+                    .filter(Boolean)
+            )];
+
+            for (const productId of uniqueProductIds) {
+                const cachedProduct = allProducts.find(product => product.id === productId);
+                const totalStock = (cachedProduct?.locacoes || []).reduce(
+                    (total, local) => total + (Number(local.estoque) || 0),
+                    0
+                );
+                const currentAverageCost = Number(cachedProduct?.valorMedio) || 0;
+
+                if (totalStock <= 0 && currentAverageCost <= 0) {
+                    const movementSnapshot = await getDocs(query(
+                        collection(db, 'movimentacoes'),
+                        where('productId', '==', productId),
+                        limit(1)
+                    ));
+                    productHistoryExists.set(productId, !movementSnapshot.empty);
+                } else {
+                    productHistoryExists.set(productId, true);
+                }
+            }
+
             await runTransaction(db, async (transaction) => {
                 const productsToUpdate = new Map();
 
@@ -439,10 +438,20 @@ document.addEventListener('DOMContentLoaded', async function() {
 
                     const key = `${productId}-${locacaoStr}`;
 
-                    // --- LOGIC IMPLEMENTATION ---
+                    // --- LÓGICA DE IMPLEMENTAÇÃO / INVENTÁRIO ---
+                    const estoqueTotalAtual = (productData.locacoes || []).reduce(
+                        (total, local) => total + (Number(local.estoque) || 0),
+                        0
+                    );
+                    const custoMedioAtual = Number(productData.valorMedio) || 0;
+                    const possuiHistorico = productHistoryExists.get(productId) === true;
+                    const ehImplementacaoInicial =
+                        estoqueTotalAtual <= 0 &&
+                        custoMedioAtual <= 0 &&
+                        !possuiHistorico;
 
-                    if (saldoAtual === 0) {
-                        // Scenario 1: Initial Implementation
+                    if (ehImplementacaoInicial) {
+                        // Primeira valorização real do produto: exige custo informado.
                         if (valorUnit <= 0) {
                             // Don't process, but keep qtde in localStorage
                             continue;
@@ -483,7 +492,7 @@ document.addEventListener('DOMContentLoaded', async function() {
                         keysToClearFromStorage.push(key);
 
                     } else {
-                        // Scenario 2: Inventory Adjustment
+                        // Ajuste por diferença: altera a quantidade, mas preserva o custo médio vigente.
                         const diff = qtde - saldoAtual;
                         if (diff === 0) {
                             keysToClearFromStorage.push(key); // Clear storage if user sets qtde to current saldo
@@ -493,29 +502,48 @@ document.addEventListener('DOMContentLoaded', async function() {
                         // Update stock
                         productData.locacoes[locacaoIndex].estoque = qtde;
 
-                        // Create adjustment movement (no cost)
+                        if (custoMedioAtual <= 0) {
+                            const motivo = possuiHistorico
+                                ? 'já possui histórico de movimentações'
+                                : 'possui estoque cadastrado';
+                            throw new Error(
+                                `O produto ${productData.codigo} ${motivo}, mas está sem custo médio válido. ` +
+                                `Execute a Migração de Custo Médio antes de lançar o inventário.`
+                            );
+                        }
+
                         const newMovementRef = doc(collection(db, 'movimentacoes'));
                         if (diff > 0) {
-                            // Positive adjustment -> ENTRADA
+                            const custoTotalInventario = diff * custoMedioAtual;
                             transaction.set(newMovementRef, {
                                 productId,
                                 tipo: 'entrada',
                                 tipo_entradaId: inventarioEntryType.id,
                                 quantidade: diff,
+                                quantidade_compra: diff,
+                                valor_unitario: custoMedioAtual,
+                                valorMedioHistorico: custoMedioAtual,
+                                custo_total_entrada: custoTotalInventario,
+                                ajuste_inventario: true,
+                                preserva_custo_medio: true,
                                 locacao: locacaoStr,
                                 data: serverTimestamp(),
-                                observacao: `Ajuste de inventário (Entrada). Saldo anterior: ${saldoAtual}.`
+                                observacao: `Ajuste de inventário (Entrada). Saldo anterior: ${saldoAtual}. Custo preservado: ${custoMedioAtual.toFixed(3)}.`
                             });
                         } else {
-                            // Negative adjustment -> SAIDA
+                            const quantidadeSaida = Math.abs(diff);
                             transaction.set(newMovementRef, {
                                 productId,
                                 tipo: 'saida',
                                 tipo_saidaId: inventarioExitType.id,
-                                quantidade: Math.abs(diff),
+                                quantidade: quantidadeSaida,
+                                valorMedioHistorico: custoMedioAtual,
+                                custoTotal: quantidadeSaida * custoMedioAtual,
+                                ajuste_inventario: true,
+                                preserva_custo_medio: true,
                                 locacao: locacaoStr,
                                 data: serverTimestamp(),
-                                observacao: `Ajuste de inventário (Saída). Saldo anterior: ${saldoAtual}.`
+                                observacao: `Ajuste de inventário (Saída). Saldo anterior: ${saldoAtual}. Custo preservado: ${custoMedioAtual.toFixed(3)}.`
                             });
                         }
                         keysToClearFromStorage.push(key);
@@ -534,7 +562,13 @@ document.addEventListener('DOMContentLoaded', async function() {
             // Recalculate average cost only for affected products
             if (productsToUpdateCost.size > 0 && implementacaoEntryType.recalcula_custo_medio) {
                 console.log("Recalculando custo médio para produtos de implementação...");
-                const costUpdatePromises = Array.from(productsToUpdateCost).map(id => atualizarCustoMedioProduto(id));
+                const idsInventario = {
+                    idsInventarioEntrada: obterIdsInventario(tiposEntradaMap),
+                    idsInventarioSaida: obterIdsInventario(tiposSaidaMap)
+                };
+                const costUpdatePromises = Array.from(productsToUpdateCost).map(
+                    id => recalcularCustoMedioProduto(db, id, idsInventario)
+                );
                 await Promise.all(costUpdatePromises);
             }
 

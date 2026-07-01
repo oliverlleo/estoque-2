@@ -1,5 +1,8 @@
 {
   "dependencies": {
     "@playwright/test": "^1.57.0"
+  },
+  "scripts": {
+    "test:custo-medio": "node tests/custo-medio-inventario.test.cjs"
   }
 }
