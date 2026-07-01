@@ -37,3 +37,13 @@ A decisão agora exige simultaneamente:
 - inexistência de qualquer movimentação anterior do produto.
 
 Se o produto já tiver histórico, mesmo com estoque total e custo zerados, o sistema não permite tratá-lo como primeira implementação. Nesse caso, solicita a migração/correção do custo antes de um novo ajuste de inventário.
+
+
+## Versão 4 — último custo conhecido com estoque zero
+
+- O campo `valorMedio` não é apagado quando o saldo chega a zero.
+- A Consulta e o Dashboard exibem o último custo médio conhecido mesmo com estoque zero.
+- O valor total do estoque permanece `0,00` quando a quantidade é zero.
+- Para produtos antigos, a exibição usa primeiro o custo já salvo no produto; se ele estiver zerado, usa o último custo válido reconstruído das movimentações.
+- Uma nova compra com saldo anterior zero define um novo custo médio somente pelo custo da nova entrada.
+- O recálculo e a migração não substituem um último custo válido por zero quando o histórico não contém base suficiente.

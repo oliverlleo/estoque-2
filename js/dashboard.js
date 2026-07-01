@@ -1,6 +1,6 @@
 import { db } from './firebase-config.js';
 import { collection, getDocs, query, where, orderBy, limit, Timestamp, collectionGroup } from "https://www.gstatic.com/firebasejs/9.6.1/firebase-firestore.js";
-import { calcularCustoMedioMovel, obterIdsInventario } from './custo-medio.js';
+import { calcularCustoMedioMovel, obterIdsInventario, resolverCustoMedioProduto } from './custo-medio.js';
 
 document.addEventListener('DOMContentLoaded', () => {
     // --- Armazenamento de Dados e Estado ---
@@ -311,13 +311,18 @@ document.addEventListener('DOMContentLoaded', () => {
                 const productId = product.id;
                 const productMovements = movementsByProduct[productId] || [];
 
-                const valorMedio = calcularCustoMedioMovel(
+                const calculoCusto = calcularCustoMedioMovel(
                     productMovements,
                     idsInventario
-                ).custoMedio;
+                );
 
                 // Usa as locações que já vêm no objeto do produto
                 const estoqueAtual = (product.locacoes || []).reduce((acc, loc) => acc + (loc.estoque || 0), 0);
+                const valorMedio = resolverCustoMedioProduto({
+                    estoqueAtual,
+                    custoCadastrado: product.valorMedio,
+                    calculo: calculoCusto
+                });
 
                 // Atribui os valores recalculados ao objeto do produto
                 product.valorMedio = valorMedio;

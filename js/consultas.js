@@ -1,6 +1,6 @@
 import { db } from './firebase-config.js';
 import { collection, getDocs, doc, updateDoc, query, where } from "https://www.gstatic.com/firebasejs/9.6.1/firebase-firestore.js";
-import { calcularCustoMedioMovel, obterIdsInventario, obterDataEfetivaMovimento, obterTimestampMillis } from './custo-medio.js';
+import { calcularCustoMedioMovel, obterIdsInventario, obterDataEfetivaMovimento, obterTimestampMillis, resolverCustoMedioProduto } from './custo-medio.js';
 
 document.addEventListener('DOMContentLoaded', async function() {
     console.log("Página de Consultas carregada.");
@@ -157,7 +157,6 @@ document.addEventListener('DOMContentLoaded', async function() {
             productMovements.sort((a, b) => obterTimestampMillis(obterDataEfetivaMovimento(a)) - obterTimestampMillis(obterDataEfetivaMovimento(b)));
 
             const calculoCusto = calcularCustoMedioMovel(productMovements, idsInventario);
-            const averageCost = calculoCusto.custoMedio;
             let reservedQuantity = 0;
 
             productMovements.forEach(mov => {
@@ -181,6 +180,12 @@ document.addEventListener('DOMContentLoaded', async function() {
                     locacaoCompleta = '-';
                 }
             }
+
+            const averageCost = resolverCustoMedioProduto({
+                estoqueAtual,
+                custoCadastrado: product.valorMedio,
+                calculo: calculoCusto
+            });
 
             return {
                 id: productId,

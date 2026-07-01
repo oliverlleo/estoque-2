@@ -1,6 +1,7 @@
 import {
     collection,
     doc,
+    getDoc,
     getDocs,
     query,
     setDoc,
@@ -48,6 +49,34 @@ export function obterDataEfetivaMovimento(movimento = {}) {
 function numeroPositivo(valor) {
     const numero = Number(valor);
     return Number.isFinite(numero) && numero > 0 ? numero : 0;
+}
+
+/**
+ * Define o custo exibido/persistido sem apagar a última referência válida.
+ *
+ * - Com estoque positivo, prioriza o custo reconstruído do histórico.
+ * - Com estoque zerado, prioriza o último custo salvo no produto.
+ * - Se uma das fontes estiver vazia, utiliza a outra.
+ *
+ * O custo unitário pode permanecer conhecido com saldo zero; o valor total do
+ * estoque continua sendo zero porque depende da quantidade atual.
+ */
+export function resolverCustoMedioProduto({
+    estoqueAtual = 0,
+    custoCadastrado = 0,
+    calculo = null
+} = {}) {
+    const estoque = Number(estoqueAtual) || 0;
+    const cadastrado = numeroPositivo(custoCadastrado);
+    const calculado =
+        numeroPositivo(calculo?.custoMedio) ||
+        numeroPositivo(calculo?.ultimoCustoMedioValido);
+
+    if (estoque <= EPSILON) {
+        return cadastrado || calculado || 0;
+    }
+
+    return calculado || cadastrado || 0;
 }
 
 
@@ -267,16 +296,32 @@ export async function recalcularCustoMedioProduto(db, produtoId, idsInventario =
     if (!produtoId) return { custoMedio: 0, quantidade: 0, valorEstoque: 0 };
 
     const ids = idsInventario || await carregarIdsInventario(db);
-    const movimentosSnapshot = await getDocs(
-        query(collection(db, 'movimentacoes'), where('productId', '==', produtoId))
-    );
+    const produtoRef = doc(db, 'produtos', produtoId);
+    const [produtoSnapshot, movimentosSnapshot] = await Promise.all([
+        getDoc(produtoRef),
+        getDocs(query(collection(db, 'movimentacoes'), where('productId', '==', produtoId)))
+    ]);
+
+    const produto = produtoSnapshot.exists() ? produtoSnapshot.data() : {};
+    const estoqueAtual = Array.isArray(produto.locacoes)
+        ? produto.locacoes.reduce((total, local) => total + (Number(local.estoque) || 0), 0)
+        : (Number(produto.estoque) || 0);
     const movimentos = movimentosSnapshot.docs.map(item => ({ id: item.id, ...item.data() }));
     const resultado = calcularCustoMedioMovel(movimentos, ids);
+    const custoResolvido = resolverCustoMedioProduto({
+        estoqueAtual,
+        custoCadastrado: produto.valorMedio,
+        calculo: resultado
+    });
 
-    await setDoc(doc(db, 'produtos', produtoId), {
-        valorMedio: resultado.custoMedio,
+    await setDoc(produtoRef, {
+        valorMedio: custoResolvido,
         custoMedioRecalculadoEm: new Date().toISOString()
     }, { merge: true });
 
-    return resultado;
+    return {
+        ...resultado,
+        custoMedio: custoResolvido,
+        custoMedioCalculado: resultado.custoMedio
+    };
 }

@@ -8,7 +8,8 @@ import {
 } from "https://www.gstatic.com/firebasejs/9.6.1/firebase-firestore.js";
 import {
     calcularCustoMedioMovel,
-    carregarIdsInventario
+    carregarIdsInventario,
+    resolverCustoMedioProduto
 } from './custo-medio.js';
 
 const btnSimular = document.getElementById('btn-simular');
@@ -81,12 +82,18 @@ btnSimular.addEventListener('click', async () => {
             const temAlertaCritico = calculo.alertas.length > 0;
             const saldoConfere = Math.abs(diferencaSaldo) <= 0.001;
             const pronto = saldoConfere && !temAlertaCritico;
+            const custoCorrigido = resolverCustoMedioProduto({
+                estoqueAtual,
+                custoCadastrado: produto.valorMedio,
+                calculo
+            });
 
             return {
                 produto,
                 estoqueAtual,
                 movimentos,
                 calculo,
+                custoCorrigido,
                 pronto,
                 status: pronto ? 'PRONTO' : 'REVISÃO MANUAL'
             };
@@ -109,7 +116,7 @@ btnSimular.addEventListener('click', async () => {
         document.getElementById('kpi-movimentos').textContent = movimentosACorrigir;
 
         const relevantes = resultados
-            .filter(r => r.calculo.correcoesMovimentos.length > 0 || Math.abs((r.produto.valorMedio || 0) - r.calculo.custoMedio) > 0.001 || !r.pronto)
+            .filter(r => r.calculo.correcoesMovimentos.length > 0 || Math.abs((r.produto.valorMedio || 0) - r.custoCorrigido) > 0.001 || !r.pronto)
             .sort((a, b) => Number(a.pronto) - Number(b.pronto));
 
         body.innerHTML = relevantes.map(r => {
@@ -121,7 +128,7 @@ btnSimular.addEventListener('click', async () => {
                     <td class="p-3 text-right">${formatarNumero(r.estoqueAtual)}</td>
                     <td class="p-3 text-right">${formatarNumero(r.calculo.quantidade)}</td>
                     <td class="p-3 text-right">R$ ${formatarNumero(r.produto.valorMedio)}</td>
-                    <td class="p-3 text-right font-semibold">R$ ${formatarNumero(r.calculo.custoMedio)}</td>
+                    <td class="p-3 text-right font-semibold">R$ ${formatarNumero(r.custoCorrigido)}</td>
                     <td class="p-3 text-right">${r.calculo.correcoesMovimentos.length}</td>
                     <td class="p-3 ${statusClass}">${r.status}</td>
                 </tr>`;
@@ -169,7 +176,7 @@ btnAplicar.addEventListener('click', async () => {
         const produtosProntos = simulacao.resultados.filter(r =>
             r.pronto && (
                 r.calculo.correcoesMovimentos.length > 0 ||
-                Math.abs((Number(r.produto.valorMedio) || 0) - r.calculo.custoMedio) > 0.001
+                Math.abs((Number(r.produto.valorMedio) || 0) - r.custoCorrigido) > 0.001
             )
         );
 
@@ -185,9 +192,9 @@ btnAplicar.addEventListener('click', async () => {
             operacoes.push(lote => lote.set(
                 doc(db, 'produtos', resultado.produto.id),
                 {
-                    valorMedio: resultado.calculo.custoMedio,
+                    valorMedio: resultado.custoCorrigido,
                     custoMedioMigradoEm: serverTimestamp(),
-                    custoMedioMigracaoVersao: 1
+                    custoMedioMigracaoVersao: 2
                 },
                 { merge: true }
             ));
