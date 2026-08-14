@@ -3,6 +3,25 @@ function showInfoModal(message) {
     document.getElementById('info-modal').style.display = 'block';
 }
 
+function normalizarUnidade(unidade) {
+    return String(unidade || '')
+        .trim()
+        .toUpperCase()
+        .normalize('NFD')
+        .replace(/[\u0300-\u036f]/g, '')
+        .replace(/\./g, '')
+        .replace(/\s+/g, '');
+}
+
+function unidadeExigeQuantidadeInteira(unidade) {
+    const unidadeNormalizada = normalizarUnidade(unidade);
+    return unidadeNormalizada === 'PC' || unidadeNormalizada === 'UN';
+}
+
+function quantidadeEhInteira(quantidade) {
+    return Number.isFinite(quantidade) && Math.abs(quantidade - Math.round(quantidade)) < 1e-9;
+}
+
 import { db } from './firebase-config.js';
 import { collection, addDoc, getDocs, onSnapshot, runTransaction, doc, serverTimestamp, query, where, getDoc, orderBy } from "https://www.gstatic.com/firebasejs/9.6.1/firebase-firestore.js";
 import { calcularCustoMedioAposEntrada, normalizarTexto, obterDataEfetivaMovimento, obterTimestampMillis, recalcularCustoMedioProduto as recalcularCustoMedioProdutoCentral } from './custo-medio.js';
@@ -1928,18 +1947,34 @@ document.addEventListener('DOMContentLoaded', async function() {
 
                 const produto = productsMap[productId];
                 const quantidadeInformada = parseFloat(row.cells[3].querySelector('input').value);
+                const unidadeCompraXml = row.dataset.unidadeCompra;
                 let quantidadeParaEstoque = quantidadeInformada;
+                let unidadeEstoque = produto.un || unidadeCompraXml || '';
 
-                // Lógica de Conversão
+                // A regra de conversão só se aplica quando a unidade informada na NF-e
+                // corresponde à unidade de compra configurada. Se a NF-e já vier na
+                // unidade padrão (ex.: M2), a quantidade deve entrar como informada.
                 if (produto.conversaoId) {
                     const regra = configData.conversoes[produto.conversaoId];
                     if (regra) {
-                        const fator_qtd_compra = parseFloat(String(regra.qtd_compra).replace(',', '.'));
-                        const fator_qtd_padrao = parseFloat(String(regra.qtd_padrao).replace(',', '.'));
-                        if (fator_qtd_compra > 0) {
-                            quantidadeParaEstoque = (quantidadeInformada / fator_qtd_compra) * fator_qtd_padrao;
+                        const unidadeCompraRegra = normalizarUnidade(regra.medida_compra);
+                        const unidadeCompraNfe = normalizarUnidade(unidadeCompraXml);
+
+                        if (unidadeCompraRegra && unidadeCompraNfe === unidadeCompraRegra) {
+                            const fator_qtd_compra = parseFloat(String(regra.qtd_compra).replace(',', '.'));
+                            const fator_qtd_padrao = parseFloat(String(regra.qtd_padrao).replace(',', '.'));
+                            if (fator_qtd_compra > 0) {
+                                quantidadeParaEstoque = (quantidadeInformada / fator_qtd_compra) * fator_qtd_padrao;
+                                unidadeEstoque = regra.medida_padrao || unidadeEstoque;
+                            }
                         }
                     }
+                }
+
+                // Evita que imprecisão de ponto flutuante transforme, por exemplo,
+                // 3 unidades em 2.999999999 e dispare uma correção indevida.
+                if (quantidadeEhInteira(quantidadeParaEstoque)) {
+                    quantidadeParaEstoque = Math.round(quantidadeParaEstoque);
                 }
 
                 const itemData = {
@@ -1953,11 +1988,14 @@ document.addEventListener('DOMContentLoaded', async function() {
                     frete: parseFloat(row.cells[7].querySelector('input').value) || 0,
                     localSelecionado: row.cells[8].querySelector('select').value,
                     locacaoSelecionada: row.cells[9].querySelector('select').value,
-                    unidadeCompra: row.dataset.unidadeCompra,
+                    unidadeCompra: unidadeCompraXml,
+                    unidadeEstoque: unidadeEstoque,
                     nItem: row.dataset.nItem
                 };
 
-                if (quantidadeParaEstoque % 1 !== 0) {
+                // Quantidade inteira só é obrigatória para unidades discretas de estoque.
+                // M2 e outras unidades contínuas podem receber valores fracionados normalmente.
+                if (unidadeExigeQuantidadeInteira(unidadeEstoque) && !quantidadeEhInteira(quantidadeParaEstoque)) {
                     itemData.quantidadeCalculada = quantidadeParaEstoque;
                     itensComProblema.push(itemData);
                 } else {
