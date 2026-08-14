@@ -1,5 +1,6 @@
 import { db } from './firebase-config.js';
 import { collection, getDocs, query, where, orderBy, limit, Timestamp, collectionGroup } from "https://www.gstatic.com/firebasejs/9.6.1/firebase-firestore.js";
+import { calcularCustoMedioMovel, obterIdsInventario, resolverCustoMedioProduto } from './custo-medio.js';
 
 document.addEventListener('DOMContentLoaded', () => {
     // --- Armazenamento de Dados e Estado ---
@@ -274,12 +275,23 @@ document.addEventListener('DOMContentLoaded', () => {
         // very large datasets. A future optimization could involve server-side aggregation.
         try {
             kpiValorTotalEl.textContent = 'Carregando...';
-            const [productsSnap, movementsSnap, groupsSnap, obrasSnap] = await Promise.all([
+            const [productsSnap, movementsSnap, groupsSnap, obrasSnap, tiposEntradaSnap, tiposSaidaSnap] = await Promise.all([
                 getDocs(query(collection(db, 'produtos'), where("arquivado", "!=", true))),
                 getDocs(collection(db, 'movimentacoes')),
                 getDocs(collection(db, 'grupos')),
-                getDocs(collection(db, 'obras'))
+                getDocs(collection(db, 'obras')),
+                getDocs(collection(db, 'tipos_entrada')),
+                getDocs(collection(db, 'tipos_saida'))
             ]);
+
+            const tiposEntrada = {};
+            const tiposSaida = {};
+            tiposEntradaSnap.forEach(item => { tiposEntrada[item.id] = item.data(); });
+            tiposSaidaSnap.forEach(item => { tiposSaida[item.id] = item.data(); });
+            const idsInventario = {
+                idsInventarioEntrada: obterIdsInventario(tiposEntrada),
+                idsInventarioSaida: obterIdsInventario(tiposSaida)
+            };
 
             // 1. Processa movimentações para fácil acesso
             const movementsByProduct = {};
@@ -299,27 +311,18 @@ document.addEventListener('DOMContentLoaded', () => {
                 const productId = product.id;
                 const productMovements = movementsByProduct[productId] || [];
 
-                // Ordena as movimentações por data
-                productMovements.sort((a, b) => (a.data?.toMillis() || 0) - (b.data?.toMillis() || 0));
-
-                let totalQuantity = 0;
-                let totalCost = 0;
-
-                productMovements.forEach(mov => {
-                    if (mov.tipo === 'entrada' && mov.custo_total_entrada) {
-                        totalCost += mov.custo_total_entrada;
-                        totalQuantity += mov.quantidade;
-                    } else if (mov.tipo === 'saida') {
-                        const currentAvgCost = totalQuantity > 0 ? totalCost / totalQuantity : 0;
-                        totalCost -= mov.quantidade * currentAvgCost;
-                        totalQuantity -= mov.quantidade;
-                    }
-                });
-
-                const valorMedio = totalQuantity > 0 ? totalCost / totalQuantity : 0;
+                const calculoCusto = calcularCustoMedioMovel(
+                    productMovements,
+                    idsInventario
+                );
 
                 // Usa as locações que já vêm no objeto do produto
                 const estoqueAtual = (product.locacoes || []).reduce((acc, loc) => acc + (loc.estoque || 0), 0);
+                const valorMedio = resolverCustoMedioProduto({
+                    estoqueAtual,
+                    custoCadastrado: product.valorMedio,
+                    calculo: calculoCusto
+                });
 
                 // Atribui os valores recalculados ao objeto do produto
                 product.valorMedio = valorMedio;

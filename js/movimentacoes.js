@@ -4,34 +4,8 @@ function showInfoModal(message) {
 }
 
 import { db } from './firebase-config.js';
-import { collection, addDoc, getDocs, onSnapshot, runTransaction, doc, serverTimestamp, query, where, getDoc, setDoc, orderBy } from "https://www.gstatic.com/firebasejs/9.6.1/firebase-firestore.js";
-
-// Adicione esta função em js/movimentacoes.js
-async function calcularCustoMedioProduto(produtoId) {
-    const q = query(collection(db, 'movimentacoes'), where("productId", "==", produtoId));
-    const movementsSnapshot = await getDocs(q);
-    const productMovements = [];
-    movementsSnapshot.forEach(doc => {
-        productMovements.push(doc.data());
-    });
-
-    const entryMovements = productMovements.filter(m => m.tipo === 'entrada' && (m.custo_total_entrada || 0) > 0);
-    let totalCost = 0;
-    let totalQuantityForAvg = 0;
-
-    entryMovements.forEach(m => {
-        let custoEntrada = m.custo_total_entrada;
-        if (custoEntrada === undefined || custoEntrada === null) {
-            // Fallback para entradas antigas
-            custoEntrada = (m.quantidade_compra * (m.valor_unitario || 0)) + (m.icms || 0) + (m.ipi || 0) + (m.frete || 0);
-        }
-        totalCost += custoEntrada;
-        totalQuantityForAvg += m.quantidade;
-    });
-
-    return totalQuantityForAvg > 0 ? totalCost / totalQuantityForAvg : 0;
-}
-
+import { collection, addDoc, getDocs, onSnapshot, runTransaction, doc, serverTimestamp, query, where, getDoc, orderBy } from "https://www.gstatic.com/firebasejs/9.6.1/firebase-firestore.js";
+import { calcularCustoMedioAposEntrada, normalizarTexto, obterDataEfetivaMovimento, obterTimestampMillis, recalcularCustoMedioProduto as recalcularCustoMedioProdutoCentral } from './custo-medio.js';
 
 document.addEventListener('DOMContentLoaded', async function() {
     const loadingOverlay = document.getElementById('loading-overlay');
@@ -378,6 +352,9 @@ document.addEventListener('DOMContentLoaded', async function() {
     function updateTable() {
         let processedMovements = allMovements.map(mov => {
             const product = productsMap[mov.productId] || {};
+            const dataEfetiva = obterDataEfetivaMovimento(mov);
+            const dataEfetivaMillis = obterTimestampMillis(dataEfetiva);
+            const dataEfetivaDate = dataEfetivaMillis ? new Date(dataEfetivaMillis) : null;
             let custoUnitario = 0;
             if (mov.tipo === 'entrada' && mov.quantidade > 0) {
                 let valorTotal;
@@ -422,6 +399,8 @@ document.addEventListener('DOMContentLoaded', async function() {
 
             const processedMov = {
                 ...mov,
+                _dataEfetivaMillis: dataEfetivaMillis,
+                _dataEfetivaDate: dataEfetivaDate,
                 valorUnitEstoque: valorUnitEstoque,
                 custoUnitario: custoUnitario,
                 custoTotal: custoTotal,
@@ -429,7 +408,7 @@ document.addEventListener('DOMContentLoaded', async function() {
                 ipiUnit: ipiUnit,
                 freteUnit: freteUnit,
                 _search_data: {
-                    data: mov.data ? new Date(mov.data.seconds * 1000).toLocaleString('pt-BR') : '',
+                    data: dataEfetivaDate ? dataEfetivaDate.toLocaleString('pt-BR') : '',
                     tipo: mov.tipo || '',
                     subTipo: subTipo,
                     codigo: product.codigo || '',
@@ -457,7 +436,7 @@ document.addEventListener('DOMContentLoaded', async function() {
             // Lógica de filtro de data (CORRIGIDA)
             const startDateString = filterState['data-inicio'];
             const endDateString = filterState['data-fim'];
-            const moveDate = mov.data ? mov.data.toDate() : null;
+            const moveDate = mov._dataEfetivaDate || null;
 
             if (startDateString || endDateString) {
                 if (!moveDate) return false; // Se há filtro de data, mas o movimento não tem data, ele é filtrado.
@@ -509,8 +488,8 @@ document.addEventListener('DOMContentLoaded', async function() {
             let valA = a._search_data[sortState.column];
             let valB = b._search_data[sortState.column];
             if (sortState.column === 'data') {
-                valA = a.data ? a.data.toMillis() : 0;
-                valB = b.data ? b.data.toMillis() : 0;
+                valA = a._dataEfetivaMillis || 0;
+                valB = b._dataEfetivaMillis || 0;
             }
             const numericColumns = ['quantidade', 'valor_unitario', 'icms', 'ipi', 'frete', 'custoUnitario', 'custoTotal'];
             if (numericColumns.includes(sortState.column)) {
@@ -745,12 +724,24 @@ document.addEventListener('DOMContentLoaded', async function() {
                         }
                     }
 
-                    // Cálculo de custo (mantido)
-                    const valorUnitario = parseFloat(document.getElementById('mov-valor-unitario').value) || 0;
+                    // Cálculo de custo. Inventário sempre herda o custo médio vigente.
+                    const ehInventario = normalizarTexto(tipoEntradaConfig?.nome) === 'inventario';
+                    let valorUnitario = parseFloat(document.getElementById('mov-valor-unitario').value) || 0;
                     const icms = parseFloat(document.getElementById('mov-icms').value) || 0;
                     const ipi = parseFloat(document.getElementById('mov-ipi').value) || 0;
                     const frete = parseFloat(document.getElementById('mov-frete').value) || 0;
-                    let custoTotalEntrada = (quantidade * valorUnitario) + icms + ipi + frete;
+
+                    if (ehInventario) {
+                        valorUnitario = Number(productData.valorMedio) || 0;
+                        if (valorUnitario <= 0) {
+                            throw new Error('Inventário não pode ser lançado sem custo médio válido. Execute a migração ou informe uma implementação inicial.');
+                        }
+                    }
+
+                    const quantidadeCompraMovimento = ehInventario ? quantidadeParaEstoque : quantidade;
+                    let custoTotalEntrada = ehInventario
+                        ? quantidadeParaEstoque * valorUnitario
+                        : (quantidade * valorUnitario) + icms + ipi + frete;
 
                     // Criação do documento de movimentação
                     const selectedUnit = document.getElementById('mov-unidade-selecao').value;
@@ -769,8 +760,13 @@ document.addEventListener('DOMContentLoaded', async function() {
                         frete: frete,
                         observacao: document.getElementById('mov-observacao-entrada').value,
                         quantidade: quantidadeParaEstoque,
-                        quantidade_compra: quantidade,
-                        custo_total_entrada: custoTotalEntrada
+                        quantidade_compra: quantidadeCompraMovimento,
+                        custo_total_entrada: custoTotalEntrada,
+                        ...(ehInventario ? {
+                            valorMedioHistorico: valorUnitario,
+                            ajuste_inventario: true,
+                            preserva_custo_medio: true
+                        } : {})
                     };
                     transaction.set(movementRef, movementData);
                 });
@@ -880,6 +876,8 @@ document.addEventListener('DOMContentLoaded', async function() {
                         }
 
                         const movementRef = doc(collection(db, 'movimentacoes'));
+                        const custoMedioSaida = Number(pData.valorMedio) || 0;
+                        const ehInventarioSaida = normalizarTexto(tipoSaidaConfig?.nome) === 'inventario';
                         transaction.set(movementRef, {
                             tipo: 'saida',
                             productId,
@@ -890,7 +888,12 @@ document.addEventListener('DOMContentLoaded', async function() {
                             requisitante: document.getElementById('mov-requisitante').value,
                             obraId: document.getElementById('mov-obra').value,
                             observacao: document.getElementById('mov-observacao-saida').value,
-                            valorMedioHistorico: pData.valorMedio || 0
+                            valorMedioHistorico: custoMedioSaida,
+                            custoTotal: quantidade * custoMedioSaida,
+                            ...(ehInventarioSaida ? {
+                                ajuste_inventario: true,
+                                preserva_custo_medio: true
+                            } : {})
                         });
                     });
                     alert('Saída registrada com sucesso!');
@@ -2015,15 +2018,14 @@ document.addEventListener('DOMContentLoaded', async function() {
 
             // 2. Calcula Custo Médio Atual e Novo
             const custoMedioAtual = productData.valorMedio || 0;
-            const valorTotalAtual = estoqueAtual * custoMedioAtual;
             const custoTotalEntrada = (item.quantidadeInformada * item.valorUnitario) + item.icms + item.ipi + item.frete;
 
-            const novoEstoqueTotal = estoqueAtual + item.quantidadeParaEstoque;
-            let novoCustoMedio = custoMedioAtual;
-
-            if (novoEstoqueTotal > 0) {
-                novoCustoMedio = (valorTotalAtual + custoTotalEntrada) / novoEstoqueTotal;
-            }
+            const novoCustoMedio = calcularCustoMedioAposEntrada({
+                estoqueAtual,
+                custoMedioAtual,
+                quantidadeEntrada: item.quantidadeParaEstoque,
+                custoTotalEntrada
+            });
 
             // 3. Prepara Atualização do Produto
             const updateData = { valorMedio: novoCustoMedio };
@@ -2522,42 +2524,8 @@ document.addEventListener('DOMContentLoaded', async function() {
     });
 });
 
-// Substitua a função inteira em js/movimentacoes.js por esta versão CORRIGIDA:
+// Recalcula usando a regra central de custo médio móvel.
 async function atualizarCustoMedioProduto(produtoId) {
-    if (!produtoId) return;
-
-    const q = query(collection(db, 'movimentacoes'), where("productId", "==", produtoId));
-    const movementsSnapshot = await getDocs(q);
-    const productMovements = [];
-    movementsSnapshot.forEach(doc => {
-        productMovements.push(doc.data());
-    });
-
-    // Ordena as movimentações por data para o cálculo correto do custo médio
-    productMovements.sort((a, b) => a.data.toMillis() - b.data.toMillis());
-
-    let totalQuantity = 0;
-    let totalCost = 0;
-
-    productMovements.forEach(mov => {
-        if (mov.tipo === 'entrada') {
-            let custoEntrada = mov.custo_total_entrada;
-            if (custoEntrada === undefined || custoEntrada === null) {
-                // Recalcula custo se não existir (compatibilidade)
-                custoEntrada = (mov.quantidade_compra * (mov.valor_unitario || 0)) + (mov.icms || 0) + (mov.ipi || 0) + (mov.frete || 0);
-            }
-            totalCost += custoEntrada;
-            totalQuantity += mov.quantidade;
-        } else if (mov.tipo === 'saida') {
-            const currentAvgCost = totalQuantity > 0 ? totalCost / totalQuantity : 0;
-            totalCost -= mov.quantidade * currentAvgCost;
-            totalQuantity -= mov.quantidade;
-        }
-    });
-
-    const novoCustoMedio = totalQuantity > 0 ? totalCost / totalQuantity : 0;
-    const productRef = doc(db, 'produtos', produtoId);
-    await setDoc(productRef, { valorMedio: novoCustoMedio }, { merge: true });
-
-    console.log(`Custo médio do produto ${produtoId} atualizado para ${novoCustoMedio.toFixed(3)}`);
+    const resultado = await recalcularCustoMedioProdutoCentral(db, produtoId);
+    console.log(`Custo médio do produto ${produtoId} atualizado para ${resultado.custoMedio.toFixed(3)}`);
 }

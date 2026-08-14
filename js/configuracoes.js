@@ -140,6 +140,16 @@ document.addEventListener('DOMContentLoaded', function() {
         buttonsContainer.appendChild(card);
     });
 
+    const migrationCard = document.createElement('a');
+    migrationCard.href = 'migracao-custo-medio.html';
+    migrationCard.className = 'bg-white p-6 rounded-lg shadow-md hover:shadow-lg transition-shadow flex flex-col items-center text-center border-2 border-red-200';
+    migrationCard.innerHTML = `
+        <span class="material-icons text-4xl text-red-500 mb-4">calculate</span>
+        <h2 class="text-lg font-semibold text-gray-800">Migração de Custo Médio</h2>
+        <p class="text-gray-500 text-sm mt-1">Simule, faça backup e corrija inventários antigos.</p>
+    `;
+    buttonsContainer.appendChild(migrationCard);
+
     function openConfigModal(config) {
         modalTitle.textContent = `Cadastro de ${config.name}`;
         modalBody.innerHTML = generateModalContent(config);
