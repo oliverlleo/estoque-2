@@ -60,6 +60,29 @@ document.addEventListener('DOMContentLoaded', async function() {
     let sortState = { column: 'data', direction: 'desc' };
     let filterState = {};
 
+    function normalizarCodigoProduto(codigo) {
+        return String(codigo || '').trim().toUpperCase();
+    }
+
+    async function garantirCodigoProdutoUnicoNoBanco(codigo, ignorarProdutoId = '') {
+        const codigoNormalizado = normalizarCodigoProduto(codigo);
+        if (!codigoNormalizado) {
+            throw new Error('O código do produto é obrigatório.');
+        }
+
+        // Consulta todos os produtos, inclusive arquivados, para não permitir
+        // reutilização silenciosa do mesmo código por outra rota de cadastro.
+        const snapshot = await getDocs(collection(db, 'produtos'));
+        const duplicado = snapshot.docs.find(item => {
+            if (item.id === ignorarProdutoId) return false;
+            return normalizarCodigoProduto(item.data()?.codigo) === codigoNormalizado;
+        });
+
+        if (duplicado) {
+            throw new Error(`O código "${String(codigo).trim()}" já está cadastrado em outro produto.`);
+        }
+    }
+
     function saveLembrarValues() {
         const checkbox = document.getElementById('lembrar-registro-mov');
         if (!checkbox.checked) {
@@ -628,8 +651,19 @@ document.addEventListener('DOMContentLoaded', async function() {
     document.getElementById('mov-tipo-saida').addEventListener('change', toggleObraRequirement);
     document.getElementById('mov-tipo-entrada').addEventListener('change', toggleValorUnitarioRequirement);
 
+    let movimentacaoEmProcessamento = false;
+
     formMovimentacao.addEventListener('submit', async (e) => {
         e.preventDefault();
+
+        if (movimentacaoEmProcessamento) {
+            return;
+        }
+
+        movimentacaoEmProcessamento = true;
+        btnMovimentacao.disabled = true;
+
+        try {
         const isEntrada = toggle.checked;
         const productId = document.getElementById('mov-produto-id').value;
         const rawLocacao = document.getElementById('mov-locacao').value;
@@ -671,6 +705,22 @@ document.addEventListener('DOMContentLoaded', async function() {
                 alert('Por favor, selecione o Tipo de Entrada.');
                 return;
             }
+
+            const tipoEntradaConfig = configData.tipos_entrada[tipoEntradaId];
+            const ehImplementacao = normalizarTexto(tipoEntradaConfig?.nome) === 'implementacao';
+
+            // Implementação é exclusivamente a primeira entrada do produto.
+            // A checagem histórica cobre produtos antigos que ainda não possuem a flag teveEntrada.
+            if (ehImplementacao) {
+                const movimentosProduto = await getDocs(
+                    query(collection(db, 'movimentacoes'), where('productId', '==', productId))
+                );
+                const jaPossuiEntrada = movimentosProduto.docs.some(item => item.data()?.tipo === 'entrada');
+                if (jaPossuiEntrada) {
+                    throw new Error('Entrada de Implementação bloqueada: este produto já possui uma entrada registrada no histórico.');
+                }
+            }
+
             // LÓGICA DE ENTRADA NORMAL (a lógica de sobra foi ignorada por enquanto)
             try {
                 await runTransaction(db, async (transaction) => {
@@ -704,9 +754,15 @@ document.addEventListener('DOMContentLoaded', async function() {
                         }
                     }
 
-                    const tipoEntradaId = document.getElementById('mov-tipo-entrada').value;
-                    const tipoEntradaConfig = configData.tipos_entrada[tipoEntradaId];
+                    // Segunda barreira, dentro da transação: impede corrida com outra
+                    // entrada salva entre a validação histórica acima e este commit.
+                    if (ehImplementacao && productData.teveEntrada === true) {
+                        throw new Error('Entrada de Implementação bloqueada: este produto já possui uma entrada registrada.');
+                    }
 
+                    // Toda entrada passa a marcar o produto atomicamente. Isso torna a
+                    // regra de Implementação segura também contra submissões concorrentes.
+                    const updateProdutoEntrada = { teveEntrada: true };
                     if (tipoEntradaConfig && tipoEntradaConfig.movimenta_estoque == true) {
                         const localSelecionado = document.getElementById('mov-local').value;
                         if (localSelecionado) {
@@ -716,13 +772,13 @@ document.addEventListener('DOMContentLoaded', async function() {
                                 throw new Error("A combinação de Local e Locação selecionada não foi encontrada no cadastro do produto.");
                             }
                             locacoes[locacaoIndex].estoque = (locacoes[locacaoIndex].estoque || 0) + quantidadeParaEstoque;
-                            transaction.update(productRef, { locacoes: locacoes });
+                            updateProdutoEntrada.locacoes = locacoes;
                         } else {
                             // Se nenhum local for selecionado, atualiza o estoque geral (sem locação)
-                            const novoEstoque = (productData.estoque || 0) + quantidadeParaEstoque;
-                            transaction.update(productRef, { estoque: novoEstoque });
+                            updateProdutoEntrada.estoque = (productData.estoque || 0) + quantidadeParaEstoque;
                         }
                     }
+                    transaction.update(productRef, updateProdutoEntrada);
 
                     // Cálculo de custo. Inventário sempre herda o custo médio vigente.
                     const ehInventario = normalizarTexto(tipoEntradaConfig?.nome) === 'inventario';
@@ -773,8 +829,6 @@ document.addEventListener('DOMContentLoaded', async function() {
                 alert('Entrada registrada com sucesso!');
 
                 // Após a transação, verifica se precisa atualizar o custo médio
-                const tipoEntradaId = document.getElementById('mov-tipo-entrada').value;
-                const tipoEntradaConfig = configData.tipos_entrada[tipoEntradaId];
                 if (tipoEntradaConfig && tipoEntradaConfig.recalcula_custo_medio) {
                     await atualizarCustoMedioProduto(productId);
                 }
@@ -914,6 +968,10 @@ document.addEventListener('DOMContentLoaded', async function() {
                     showInfoModal(error.message);
                 }
             }
+        }
+        } finally {
+            movimentacaoEmProcessamento = false;
+            btnMovimentacao.disabled = false;
         }
     });
 
@@ -2223,6 +2281,7 @@ document.addEventListener('DOMContentLoaded', async function() {
         };
 
         try {
+            await garantirCodigoProdutoUnicoNoBanco(novoProduto.codigo);
             const docRef = await addDoc(collection(db, 'produtos'), novoProduto);
 
             // Armazena os valores para o próximo cadastro
