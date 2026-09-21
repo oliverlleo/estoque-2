@@ -25,3 +25,5 @@ console.log('AUDIT_COUNT', auditSnap.size);
 for (const d of auditSnap.docs) console.log('AUDIT_DOC', d.id, JSON.stringify(d.data()));
 const mov = await getDoc(doc(db, 'movimentacoes', movementId));
 console.log('MOVEMENT', JSON.stringify(mov.data()));
+
+process.exit(0);
