@@ -1,0 +1,17 @@
+name: A104 type audit
+on:
+  push:
+    branches:
+      - feat/editar-movimentacao-integrada
+    paths:
+      - .github/workflows/a104-type-audit.yml
+jobs:
+  inspect:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+      - run: npm install --no-save firebase@12
+      - run: node .github/a104-type-audit.mjs
