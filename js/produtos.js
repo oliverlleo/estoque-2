@@ -23,6 +23,58 @@ document.addEventListener('DOMContentLoaded', async function() {
     const btnAddLocacao = document.getElementById('btn-add-locacao');
     const locacoesContainer = document.getElementById('locacoes-container');
 
+    function normalizarCodigoProduto(codigo) {
+        return String(codigo || '').trim().toUpperCase();
+    }
+
+    function idTravaCodigoProduto(codigo) {
+        return encodeURIComponent(normalizarCodigoProduto(codigo));
+    }
+
+    async function garantirCodigoProdutoUnicoNoBanco(codigo, ignorarProdutoId = '') {
+        const codigoNormalizado = normalizarCodigoProduto(codigo);
+        if (!codigoNormalizado) {
+            throw new Error('O código do produto é obrigatório.');
+        }
+
+        // Inclui produtos ativos e arquivados. A regra é global para a coleção.
+        const snapshot = await getDocs(collection(db, 'produtos'));
+        const duplicado = snapshot.docs.find(item => {
+            if (item.id === ignorarProdutoId) return false;
+            return normalizarCodigoProduto(item.data()?.codigo) === codigoNormalizado;
+        });
+
+        if (duplicado) {
+            throw new Error(`O código "${codigoNormalizado}" já está cadastrado em outro produto.`);
+        }
+
+        return codigoNormalizado;
+    }
+
+    async function criarProdutoComCodigoUnico(dadosProduto) {
+        const codigoNormalizado = await garantirCodigoProdutoUnicoNoBanco(dadosProduto.codigo);
+        const productRef = doc(collection(db, 'produtos'));
+        const codigoRef = doc(db, 'produto_codigos', idTravaCodigoProduto(codigoNormalizado));
+
+        await runTransaction(db, async transaction => {
+            const codigoSnap = await transaction.get(codigoRef);
+            if (codigoSnap.exists()) {
+                throw new Error(`O código "${codigoNormalizado}" já está reservado para outro produto.`);
+            }
+
+            transaction.set(productRef, {
+                ...dadosProduto,
+                codigo: codigoNormalizado
+            });
+            transaction.set(codigoRef, {
+                codigo: codigoNormalizado,
+                productId: productRef.id
+            });
+        });
+
+        return productRef;
+    }
+
     // Elementos de Imagem
     const imageUploadInput = document.getElementById('produto-imagem-upload');
     const hiddenImageInput = document.getElementById('produto-imagem');
@@ -557,24 +609,21 @@ document.addEventListener('DOMContentLoaded', async function() {
                 estoque: 0 // Estoque inicial na locação é sempre 0
             }];
 
-            // --- ETAPA 4: Executar a Criação em uma Transação ---
-            await runTransaction(db, async (transaction) => {
-                const newSobraProductData = {
-                    ...originalProductData,
-                    codigo: `${originalProductData.codigo}-S${medidaSobraStr}`,
-                    medida_sobra: medidaSobraStr,
-                    estoque: 0,
-                    isSobra: true,
-                    valorMedio: custoProporcionalDaSobra,
-                    conversaoId: null,
-                    locacoes: newLocacoes, // Sobrescreve com a nova locação
-                    originalProductId: originalProductId // Adiciona a referência ao produto pai
-                };
-                delete newSobraProductData.id;
+            // --- ETAPA 4: Executar a Criação com código único ---
+            const newSobraProductData = {
+                ...originalProductData,
+                codigo: `${originalProductData.codigo}-S${medidaSobraStr}`,
+                medida_sobra: medidaSobraStr,
+                estoque: 0,
+                isSobra: true,
+                valorMedio: custoProporcionalDaSobra,
+                conversaoId: null,
+                locacoes: newLocacoes,
+                originalProductId: originalProductId
+            };
+            delete newSobraProductData.id;
 
-                const newProductRef = doc(collection(db, 'produtos'));
-                transaction.set(newProductRef, newSobraProductData);
-            });
+            await criarProdutoComCodigoUnico(newSobraProductData);
 
             alert('Sobra cadastrada com sucesso!');
             formSobra.reset();
@@ -588,8 +637,14 @@ document.addEventListener('DOMContentLoaded', async function() {
 
 
     // 2. Handle Product Form Submission (Create/Update)
+    let salvandoProduto = false;
+
     form.addEventListener('submit', async (e) => {
         e.preventDefault();
+
+        if (salvandoProduto) {
+            return;
+        }
 
         // --- BLOQUEIO DE SUBMISSÃO ---
         // Se o campo de código está marcado como inválido, exibe um alerta e impede o envio.
@@ -652,7 +707,7 @@ document.addEventListener('DOMContentLoaded', async function() {
         }
 
         const product = {
-            codigo: document.getElementById('produto-codigo').value,
+            codigo: normalizarCodigoProduto(document.getElementById('produto-codigo').value),
             descricao: document.getElementById('produto-descricao').value,
             un: document.getElementById('produto-un').value,
             cor: document.getElementById('produto-cor').value,
@@ -667,7 +722,13 @@ document.addEventListener('DOMContentLoaded', async function() {
             arquivado: false
         };
 
+        salvandoProduto = true;
+        const submitProduto = form.querySelector('button[type="submit"]');
+        if (submitProduto) submitProduto.disabled = true;
+
         try {
+            await garantirCodigoProdutoUnicoNoBanco(product.codigo, productId);
+
             if (productId) {
                 // A edição cadastral nunca pode alterar quantidades.
                 // Lê o documento mais recente dentro de uma transação para evitar sobrescrever
@@ -678,6 +739,22 @@ document.addEventListener('DOMContentLoaded', async function() {
                     if (!latestDoc.exists()) throw new Error('Produto não encontrado.');
 
                     const originalProduct = latestDoc.data();
+                    const codigoOriginal = normalizarCodigoProduto(originalProduct.codigo);
+                    const codigoNovo = normalizarCodigoProduto(product.codigo);
+                    const codigoNovoRef = doc(db, 'produto_codigos', idTravaCodigoProduto(codigoNovo));
+                    const codigoNovoSnap = await transaction.get(codigoNovoRef);
+
+                    let codigoOriginalRef = null;
+                    let codigoOriginalSnap = null;
+                    if (codigoOriginal && codigoOriginal !== codigoNovo) {
+                        codigoOriginalRef = doc(db, 'produto_codigos', idTravaCodigoProduto(codigoOriginal));
+                        codigoOriginalSnap = await transaction.get(codigoOriginalRef);
+                    }
+
+                    if (codigoNovoSnap.exists() && codigoNovoSnap.data()?.productId !== productId) {
+                        throw new Error(`O código "${codigoNovo}" já está reservado para outro produto.`);
+                    }
+
                     const originalLocacoes = Array.isArray(originalProduct.locacoes) ? originalProduct.locacoes : [];
                     const chave = (localId, locacao) => `${String(localId || '')}::${String(locacao || '').toUpperCase()}`;
                     const originaisPorChave = new Map(originalLocacoes.map(loc => [chave(loc.localId, loc.locacao), loc]));
@@ -730,7 +807,15 @@ document.addEventListener('DOMContentLoaded', async function() {
                         throw new Error('A edição foi bloqueada porque alteraria o estoque total sem gerar uma movimentação.');
                     }
 
-                    transaction.set(productRef, product, { merge: true });
+                    transaction.set(productRef, { ...product, codigo: codigoNovo }, { merge: true });
+                    transaction.set(codigoNovoRef, {
+                        codigo: codigoNovo,
+                        productId
+                    });
+
+                    if (codigoOriginalRef && codigoOriginalSnap?.exists() && codigoOriginalSnap.data()?.productId === productId) {
+                        transaction.delete(codigoOriginalRef);
+                    }
                 });
                 alert('Produto atualizado com sucesso!');
             } else {
@@ -739,7 +824,7 @@ document.addEventListener('DOMContentLoaded', async function() {
                     const { _originalLocacao, _originalLocalId, ...rest } = l;
                     return rest;
                  });
-                await addDoc(collection(db, 'produtos'), product);
+                await criarProdutoComCodigoUnico(product);
                 alert('Produto cadastrado com sucesso!');
             }
             form.reset();
@@ -758,6 +843,9 @@ document.addEventListener('DOMContentLoaded', async function() {
         } catch (error) {
             console.error("Erro ao salvar produto:", error);
             alert(`Erro ao salvar: ${error.message}`);
+        } finally {
+            salvandoProduto = false;
+            if (submitProduto) submitProduto.disabled = false;
         }
     });
 
@@ -1165,7 +1253,7 @@ document.addEventListener('DOMContentLoaded', async function() {
                         arquivado: false
                     };
 
-                    await addDoc(collection(db, 'produtos'), product);
+                    await criarProdutoComCodigoUnico(product);
                     successCount++;
 
                 } catch (error) {
