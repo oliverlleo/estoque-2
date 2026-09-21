@@ -79,8 +79,34 @@ document.addEventListener('DOMContentLoaded', async function() {
         });
 
         if (duplicado) {
-            throw new Error(`O código "${String(codigo).trim()}" já está cadastrado em outro produto.`);
+            throw new Error(`O código "${codigoNormalizado}" já está cadastrado em outro produto.`);
         }
+
+        return codigoNormalizado;
+    }
+
+    async function criarProdutoComCodigoUnicoNoBanco(dadosProduto) {
+        const codigoNormalizado = await garantirCodigoProdutoUnicoNoBanco(dadosProduto.codigo);
+        const productRef = doc(collection(db, 'produtos'));
+        const codigoRef = doc(db, 'produto_codigos', encodeURIComponent(codigoNormalizado));
+
+        await runTransaction(db, async transaction => {
+            const codigoSnap = await transaction.get(codigoRef);
+            if (codigoSnap.exists()) {
+                throw new Error(`O código "${codigoNormalizado}" já está reservado para outro produto.`);
+            }
+
+            transaction.set(productRef, {
+                ...dadosProduto,
+                codigo: codigoNormalizado
+            });
+            transaction.set(codigoRef, {
+                codigo: codigoNormalizado,
+                productId: productRef.id
+            });
+        });
+
+        return productRef;
     }
 
     function saveLembrarValues() {
@@ -969,6 +995,9 @@ document.addEventListener('DOMContentLoaded', async function() {
                 }
             }
         }
+        } catch (error) {
+            console.error('Erro ao processar movimentação:', error);
+            showInfoModal(error.message || 'Falha ao processar movimentação.');
         } finally {
             movimentacaoEmProcessamento = false;
             btnMovimentacao.disabled = false;
@@ -2248,8 +2277,14 @@ document.addEventListener('DOMContentLoaded', async function() {
         },
     });
 
+    let cadastroRapidoProdutoEmProcessamento = false;
+
     formNovoProdutoModal.addEventListener('submit', async (e) => {
         e.preventDefault();
+
+        if (cadastroRapidoProdutoEmProcessamento) {
+            return;
+        }
 
         const locacao = document.getElementById('modal-produto-locacao').value;
         const localId = document.getElementById('modal-produto-local').value;
@@ -2280,9 +2315,12 @@ document.addEventListener('DOMContentLoaded', async function() {
             // O campo 'estoque' não é mais um campo de nível superior
         };
 
+        cadastroRapidoProdutoEmProcessamento = true;
+        const submitCadastroRapido = formNovoProdutoModal.querySelector('button[type="submit"]');
+        if (submitCadastroRapido) submitCadastroRapido.disabled = true;
+
         try {
-            await garantirCodigoProdutoUnicoNoBanco(novoProduto.codigo);
-            const docRef = await addDoc(collection(db, 'produtos'), novoProduto);
+            const docRef = await criarProdutoComCodigoUnicoNoBanco(novoProduto);
 
             // Armazena os valores para o próximo cadastro
             lastUsedValues.grupoId = novoProduto.grupoId;
@@ -2346,6 +2384,9 @@ document.addEventListener('DOMContentLoaded', async function() {
         } catch (error) {
             console.error("Erro ao cadastrar novo produto:", error);
             alert("Falha ao cadastrar produto: " + error.message);
+        } finally {
+            cadastroRapidoProdutoEmProcessamento = false;
+            if (submitCadastroRapido) submitCadastroRapido.disabled = false;
         }
     });
 
