@@ -24,7 +24,8 @@ let cache = {
     obras: {},
     tiposEntrada: {},
     tiposSaida: {},
-    locais: {}
+    locais: {},
+    conversoes: {}
 };
 let cacheCarregadoEm = 0;
 let movimentoAtual = null;
@@ -59,6 +60,37 @@ function escapeHtml(valor) {
         .replace(/'/g, '&#039;');
 }
 
+function movimentoTemConversaoReal(mov, produto = null) {
+    if (!mov || mov.tipo !== 'entrada') return false;
+
+    const produtoMov = produto || cache.produtos[mov.productId] || {};
+    const conversaoId = texto(produtoMov.conversaoId);
+    if (!conversaoId) return false;
+
+    const regra = cache.conversoes?.[conversaoId];
+    if (!regra) return false;
+
+    const qtdCompraMov = numeroPositivo(mov.quantidade_compra);
+    const qtdEstoqueMov = numeroPositivo(mov.quantidade);
+    const qtdCompraRegra = numeroPositivo(regra.qtd_compra);
+    const qtdPadraoRegra = numeroPositivo(regra.qtd_padrao);
+    if (!qtdCompraMov || !qtdEstoqueMov || !qtdCompraRegra || !qtdPadraoRegra) return false;
+
+    const unCompraMov = texto(mov.un_compra).toLowerCase();
+    const unCompraRegra = texto(regra.medida_compra).toLowerCase();
+    const unEstoqueProduto = texto(produtoMov.un).toLowerCase();
+    const unPadraoRegra = texto(regra.medida_padrao).toLowerCase();
+
+    if (unCompraMov && unCompraRegra && unCompraMov !== unCompraRegra) return false;
+    if (unEstoqueProduto && unPadraoRegra && unEstoqueProduto !== unPadraoRegra) return false;
+
+    // Apenas reconhece a conversão que já existia na movimentação.
+    // O editor NÃO usa essa fórmula para recalcular uma nova quantidade.
+    const esperadoNoEstoque = (qtdCompraMov / qtdCompraRegra) * qtdPadraoRegra;
+    const tolerancia = Math.max(1e-6, Math.abs(qtdEstoqueMov) * 1e-6);
+    return quaseIgual(esperadoNoEstoque, qtdEstoqueMov, tolerancia);
+}
+
 function formatarDataMovimento(mov) {
     const millis = obterTimestampMillis(obterDataEfetivaMovimento(mov));
     return millis ? new Date(millis).toLocaleString('pt-BR') : '';
@@ -72,20 +104,22 @@ function tipoVisual(tipo) {
 async function carregarCache(forcar = false) {
     if (!forcar && Date.now() - cacheCarregadoEm < 30000 && Object.keys(cache.produtos).length) return;
 
-    const [produtosSnap, obrasSnap, entradasSnap, saidasSnap, locaisSnap] = await Promise.all([
+    const [produtosSnap, obrasSnap, entradasSnap, saidasSnap, locaisSnap, conversoesSnap] = await Promise.all([
         getDocs(collection(db, 'produtos')),
         getDocs(collection(db, 'obras')),
         getDocs(collection(db, 'tipos_entrada')),
         getDocs(collection(db, 'tipos_saida')),
-        getDocs(collection(db, 'locais'))
+        getDocs(collection(db, 'locais')),
+        getDocs(collection(db, 'conversoes'))
     ]);
 
-    cache = { produtos: {}, obras: {}, tiposEntrada: {}, tiposSaida: {}, locais: {} };
+    cache = { produtos: {}, obras: {}, tiposEntrada: {}, tiposSaida: {}, locais: {}, conversoes: {} };
     produtosSnap.forEach(item => { cache.produtos[item.id] = { id: item.id, ...item.data() }; });
     obrasSnap.forEach(item => { cache.obras[item.id] = { id: item.id, ...item.data() }; });
     entradasSnap.forEach(item => { cache.tiposEntrada[item.id] = { id: item.id, ...item.data() }; });
     saidasSnap.forEach(item => { cache.tiposSaida[item.id] = { id: item.id, ...item.data() }; });
     locaisSnap.forEach(item => { cache.locais[item.id] = { id: item.id, ...item.data() }; });
+    conversoesSnap.forEach(item => { cache.conversoes[item.id] = { id: item.id, ...item.data() }; });
     cacheCarregadoEm = Date.now();
 }
 
@@ -220,6 +254,7 @@ function garantirModal() {
 
     const total = modal.querySelector('#editor-custo-total');
     const unitario = modal.querySelector('#editor-valor-unitario');
+    const qtdEstoque = modal.querySelector('#editor-quantidade');
     const qtdCompra = modal.querySelector('#editor-quantidade-compra');
     const icms = modal.querySelector('#editor-icms');
     const ipi = modal.querySelector('#editor-ipi');
@@ -241,6 +276,17 @@ function garantirModal() {
     };
 
     [unitario, qtdCompra, icms, ipi, frete].forEach(el => el.addEventListener('input', recalcularTotal));
+
+    // Em uma entrada sem conversão histórica real, existe uma única quantidade.
+    // Ao corrigir a quantidade no estoque, mantém quantidade_compra idêntica e
+    // recalcula apenas o custo pelos valores digitados — nunca por regra de conversão.
+    qtdEstoque.addEventListener('input', () => {
+        if (!movimentoAtual || movimentoAtual.tipo !== 'entrada') return;
+        if (modal.dataset.conversaoReal === '1') return;
+        qtdCompra.value = qtdEstoque.value;
+        recalcularTotal();
+    });
+
     total.addEventListener('input', recalcularUnitario);
 
     return modal;
@@ -392,23 +438,34 @@ function configurarCamposPorTipo(mov) {
     const entrada = mov.tipo === 'entrada';
     const saidaOuReserva = ['saida', 'reserva', 'reserva_cancelada'].includes(mov.tipo);
     const inventario = entrada && entradaEhInventario(mov);
+    const conversaoReal = entrada && movimentoTemConversaoReal(mov, produtoAtual);
 
-    ['editor-qtd-compra-wrap','editor-total-wrap','editor-unitario-wrap','editor-icms-wrap','editor-ipi-wrap','editor-frete-wrap','editor-nf-wrap']
+    modal.dataset.conversaoReal = conversaoReal ? '1' : '0';
+
+    modal.querySelector('#editor-qtd-compra-wrap').style.display = entrada && conversaoReal ? '' : 'none';
+    ['editor-total-wrap','editor-unitario-wrap','editor-icms-wrap','editor-ipi-wrap','editor-frete-wrap','editor-nf-wrap']
         .forEach(id => modal.querySelector(`#${id}`).style.display = entrada ? '' : 'none');
     ['editor-requisitante-wrap','editor-obra-wrap']
         .forEach(id => modal.querySelector(`#${id}`).style.display = saidaOuReserva ? '' : 'none');
 
+    const qtdCompra = modal.querySelector('#editor-quantidade-compra');
     const total = modal.querySelector('#editor-custo-total');
     const unit = modal.querySelector('#editor-valor-unitario');
     const icms = modal.querySelector('#editor-icms');
     const ipi = modal.querySelector('#editor-ipi');
     const frete = modal.querySelector('#editor-frete');
+
+    qtdCompra.disabled = entrada && !conversaoReal;
     [total, unit, icms, ipi, frete].forEach(el => el.disabled = inventario);
 
     if (inventario) {
         mostrarMensagem('Esta é uma entrada de Inventário. O custo é derivado do custo médio vigente e será recalculado automaticamente; os campos financeiros ficam bloqueados para não quebrar a cadeia de custos.');
+    } else if (entrada && conversaoReal) {
+        mostrarMensagem('Esta movimentação já possui uma conversão real registrada. O editor preserva as quantidades históricas informadas e não executa novamente nenhuma fórmula de conversão.');
+    } else if (entrada) {
+        mostrarMensagem('Esta entrada não possui conversão. Ao editar a quantidade, a quantidade de compra será mantida igual à quantidade no estoque para preservar histórico, custos e consultas.');
     } else {
-        mostrarMensagem('O tipo principal e o produto não podem ser trocados por segurança. Quantidade, valores, subtipo, locação, NF, obra e observações são reconciliados com as telas dependentes.');
+        mostrarMensagem('O tipo principal e o produto não podem ser trocados por segurança. Quantidade, subtipo, locação, obra e observações são reconciliados com as telas dependentes.');
     }
 }
 
@@ -429,8 +486,12 @@ async function abrirEditor(mov) {
 
     modal.querySelector('#editor-produto').value = `${produtoAtual.codigo || ''} - ${produtoAtual.descricao || ''}`;
     modal.querySelector('#editor-tipo').value = tipoVisual(movimentoAtual.tipo);
-    modal.querySelector('#editor-quantidade').value = numeroPositivo(movimentoAtual.quantidade) || '';
-    modal.querySelector('#editor-quantidade-compra').value = numeroPositivo(movimentoAtual.quantidade_compra) || numeroPositivo(movimentoAtual.quantidade) || '';
+    const quantidadeAtual = numeroPositivo(movimentoAtual.quantidade);
+    const conversaoReal = movimentoTemConversaoReal(movimentoAtual, produtoAtual);
+    modal.querySelector('#editor-quantidade').value = quantidadeAtual || '';
+    modal.querySelector('#editor-quantidade-compra').value = conversaoReal
+        ? (numeroPositivo(movimentoAtual.quantidade_compra) || quantidadeAtual || '')
+        : (quantidadeAtual || '');
     modal.querySelector('#editor-valor-unitario').value = numero(movimentoAtual.valor_unitario) || 0;
     modal.querySelector('#editor-icms').value = numero(movimentoAtual.icms) || 0;
     modal.querySelector('#editor-ipi').value = numero(movimentoAtual.ipi) || 0;
@@ -570,7 +631,11 @@ function camposDoFormulario(mov) {
     if (!modal.querySelector('#editor-locacao').value) throw new Error('Selecione a locação correta.');
 
     if (mov.tipo === 'entrada') {
-        const quantidadeCompra = numeroPositivo(modal.querySelector('#editor-quantidade-compra').value) || quantidade;
+        const produtoMov = cache.produtos[mov.productId] || produtoAtual || {};
+        const conversaoReal = movimentoTemConversaoReal(mov, produtoMov);
+        const quantidadeCompra = conversaoReal
+            ? (numeroPositivo(modal.querySelector('#editor-quantidade-compra').value) || numeroPositivo(mov.quantidade_compra) || quantidade)
+            : quantidade;
         const icms = numero(modal.querySelector('#editor-icms').value);
         const ipi = numero(modal.querySelector('#editor-ipi').value);
         const frete = numero(modal.querySelector('#editor-frete').value);
@@ -632,16 +697,26 @@ async function reconciliarEdicao(movId, novosDados) {
             productData.locacoes = productData.locacoes.map(l => ({ ...l }));
         }
 
+        // O editor corrige os valores armazenados; ele nunca reaplica conversão.
+        // Se a movimentação original não representa uma conversão real já registrada,
+        // quantidade e quantidade_compra devem permanecer iguais.
+        const dadosEfetivos = { ...novosDados };
+        const conversaoRealOriginal = movimentoTemConversaoReal(atual, productData);
+        if (atual.tipo === 'entrada' && !conversaoRealOriginal) {
+            dadosEfetivos.quantidade_compra = numeroPositivo(dadosEfetivos.quantidade);
+            dadosEfetivos.un_compra = productData.un || atual.un_compra || '';
+        }
+
         const antigoLocal = resolverLocalMovimento(productData, atual);
-        const novoLocal = novosDados.localId || novosDados.locacao !== undefined
-            ? { tipo: Array.isArray(productData.locacoes) && productData.locacoes.length ? 'locacao' : 'geral', localId: novosDados.localId || '', locacao: novosDados.locacao ?? '' }
+        const novoLocal = dadosEfetivos.localId || dadosEfetivos.locacao !== undefined
+            ? { tipo: Array.isArray(productData.locacoes) && productData.locacoes.length ? 'locacao' : 'geral', localId: dadosEfetivos.localId || '', locacao: dadosEfetivos.locacao ?? '' }
             : antigoLocal;
 
-        const movNovo = { ...atual, ...novosDados };
+        const movNovo = { ...atual, ...dadosEfetivos };
         const efeitoAntigo = efeitoEstoque(atual);
         const efeitoNovo = efeitoEstoque(movNovo);
         const qtdAntiga = numeroPositivo(atual.quantidade);
-        const qtdNova = numeroPositivo(novosDados.quantidade);
+        const qtdNova = numeroPositivo(dadosEfetivos.quantidade);
         const mexeEstoque = efeitoAntigo !== 0 || efeitoNovo !== 0;
         const localMudou = antigoLocal.tipo !== novoLocal.tipo || antigoLocal.localId !== novoLocal.localId || antigoLocal.locacao !== novoLocal.locacao;
         const qtdMudou = !quaseIgual(qtdAntiga, qtdNova);
@@ -661,9 +736,9 @@ async function reconciliarEdicao(movId, novosDados) {
         }
 
         const antes = snapshotEdicao(atual);
-        const depoisPrevisto = snapshotEdicao({ ...atual, ...novosDados });
+        const depoisPrevisto = snapshotEdicao({ ...atual, ...dadosEfetivos });
         transaction.update(movRef, {
-            ...novosDados,
+            ...dadosEfetivos,
             editadoEm: serverTimestamp(),
             editadoPorEditorIntegrado: true
         });
@@ -807,6 +882,7 @@ async function salvarEdicao(event) {
 
     try {
         await carregarCache(true);
+        produtoAtual = cache.produtos[movimentoAtual.productId] || produtoAtual;
         const dados = camposDoFormulario(movimentoAtual);
         const productId = await reconciliarEdicao(movimentoAtual.id, dados);
         const resultado = await recalcularCadeiaProduto(productId);
