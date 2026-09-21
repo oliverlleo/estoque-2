@@ -1,0 +1,19 @@
+name: Validate integrated editor fix
+on:
+  push:
+    branches:
+      - feat/editar-movimentacao-integrada
+    paths:
+      - .github/workflows/validate-editor-fix.yml
+jobs:
+  validate:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+      - run: node --check js/editar-movimentacao.js
+      - run: node --check js/main.js
+      - run: node --check js/movimentacoes.js
+      - run: node --check js/consultas.js
