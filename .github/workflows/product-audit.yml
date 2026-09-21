@@ -1,0 +1,17 @@
+name: Product audit
+on:
+  push:
+    branches:
+      - feat/qrcode-estoque
+    paths:
+      - .github/workflows/product-audit.yml
+jobs:
+  inspect:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+      - run: npm install --no-save firebase@12
+      - run: node .github/firebase-product-audit.mjs
