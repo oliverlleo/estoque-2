@@ -35,6 +35,8 @@ document.addEventListener('DOMContentLoaded', async function() {
 
     // --- DATA FETCHING ---
     const normalizeStr = (str) => str ? str.toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g, "") : "";
+    const getLocationKey = (productId, localId = '', locacao = '') =>
+        `${productId}::${localId || '_NO_LOCAL_'}::${String(locacao || '') || '_EMPTY_'}`;
 
     async function fetchAllData() {
         btnListItems.disabled = true;
@@ -113,15 +115,14 @@ document.addEventListener('DOMContentLoaded', async function() {
                 });
             });
 
-            // Group movements by product-location key for easy lookup in renderTable
+            // Agrupa por produto + Local + Endereçamento. Endereçamento vazio também é válido.
             allRelevantMovements.forEach(mov => {
-                if (mov.productId && mov.locacao) {
-                    const key = `${mov.productId}-${mov.locacao}`;
-                    if (!implementationMovements[key]) {
-                        implementationMovements[key] = [];
-                    }
-                    implementationMovements[key].push(mov);
+                if (!mov.productId) return;
+                const key = getLocationKey(mov.productId, mov.localId || '', mov.locacao || '');
+                if (!implementationMovements[key]) {
+                    implementationMovements[key] = [];
                 }
+                implementationMovements[key].push(mov);
             });
 
             console.log(`Carregados ${allRelevantMovements.length} movimentos de inventário/implementação.`);
@@ -157,7 +158,7 @@ document.addEventListener('DOMContentLoaded', async function() {
         items.forEach(item => {
             const product = item;
             const loc = item.locacao;
-            const key = `${product.id}-${loc.locacao}`;
+            const key = getLocationKey(product.id, loc.localId || '', loc.locacao || '');
 
             const row = document.createElement('tr');
             row.dataset.productId = product.id;
@@ -169,7 +170,11 @@ document.addEventListener('DOMContentLoaded', async function() {
 
             // --- Status Column Logic ---
             let statusCellHtml = '';
-            const movementsForItem = implementationMovements[key] || [];
+            let movementsForItem = implementationMovements[key] || [];
+            if (movementsForItem.length === 0) {
+                // Compatibilidade com movimentos antigos que não gravavam localId.
+                movementsForItem = implementationMovements[getLocationKey(product.id, '', loc.locacao || '')] || [];
+            }
             if (movementsForItem.length > 0) {
                 movementsForItem.sort((a, b) => b.data.toMillis() - a.data.toMillis());
                 const lastMovement = movementsForItem[0];
@@ -273,12 +278,21 @@ document.addEventListener('DOMContentLoaded', async function() {
         const selectedLocalId = document.getElementById('filter-local').value;
         const addressPattern = /^\d{1}-[A-Z]-\d{2}-[A-Z]$/;
 
-        if (!startAddress || !endAddress) {
-            alert("Por favor, preencha os endereçamentos inicial e final.");
+        const hasStartAddress = !!startAddress;
+        const hasEndAddress = !!endAddress;
+        const hasAddressRange = hasStartAddress && hasEndAddress;
+
+        if (!selectedLocalId && !hasStartAddress && !hasEndAddress) {
+            alert("Selecione um Local ou informe o endereçamento inicial e final.");
             return;
         }
 
-        if (!addressPattern.test(startAddress) || !addressPattern.test(endAddress)) {
+        if (hasStartAddress !== hasEndAddress) {
+            alert("Para filtrar por endereçamento, preencha o endereço inicial e o final.");
+            return;
+        }
+
+        if (hasAddressRange && (!addressPattern.test(startAddress) || !addressPattern.test(endAddress))) {
             alert("O formato do endereço deve ser N-L-NN-L (Ex: 1-A-01-A).");
             return;
         }
@@ -288,10 +302,12 @@ document.addEventListener('DOMContentLoaded', async function() {
             if (product.locacoes && product.locacoes.length > 0) {
                 // First, filter locations based on the criteria
                 const matchingLocacoes = product.locacoes.filter(loc => {
-                    const currentLoc = loc.locacao.toUpperCase();
-                    const isInAddressRange = currentLoc >= startAddress && currentLoc <= endAddress;
+                    const currentLoc = String(loc.locacao || '').toUpperCase();
                     const matchesLocal = !selectedLocalId || loc.localId === selectedLocalId;
-                    return isInAddressRange && matchesLocal;
+                    const isInAddressRange = !hasAddressRange ||
+                        (currentLoc >= startAddress && currentLoc <= endAddress);
+
+                    return matchesLocal && isInAddressRange;
                 });
 
                 // Then, if there are any matching locations, add them to the render list
@@ -309,8 +325,8 @@ document.addEventListener('DOMContentLoaded', async function() {
         // 2. Sort the flattened list
         itemsToRender.sort((a, b) => {
             // Primary sort by address (locacao)
-            const locacaoA = a.locacao.locacao.toUpperCase();
-            const locacaoB = b.locacao.locacao.toUpperCase();
+            const locacaoA = String(a.locacao.locacao || '').toUpperCase();
+            const locacaoB = String(b.locacao.locacao || '').toUpperCase();
             if (locacaoA < locacaoB) return -1;
             if (locacaoA > locacaoB) return 1;
 
@@ -425,7 +441,8 @@ document.addEventListener('DOMContentLoaded', async function() {
                     }
 
                     const productId = row.dataset.productId;
-                    const locacaoStr = row.dataset.locacao;
+                    const locacaoStr = row.dataset.locacao || '';
+                    const localId = row.dataset.localId || '';
                     const saldoAtual = parseFloat(row.querySelector('.saldo-atual').textContent) || 0;
                     const qtde = parseFloat(qtdeInput.value);
                     const valorUnit = parseFloat(row.querySelector('.value-input').value) || 0;
@@ -433,10 +450,15 @@ document.addEventListener('DOMContentLoaded', async function() {
                     const productData = productsToUpdate.get(productId);
                     if (!productData) continue;
 
-                    const locacaoIndex = productData.locacoes.findIndex(l => l.locacao === locacaoStr);
-                    if (locacaoIndex === -1) throw new Error(`Locação ${locacaoStr} não encontrada no produto ${productData.codigo}.`);
+                    const locacaoIndex = productData.locacoes.findIndex(
+                        l => String(l.locacao || '') === locacaoStr && (l.localId || '') === localId
+                    );
+                    if (locacaoIndex === -1) {
+                        const origem = locacaoStr || 'sem endereçamento';
+                        throw new Error(`Origem ${origem} não encontrada no Local selecionado para o produto ${productData.codigo}.`);
+                    }
 
-                    const key = `${productId}-${locacaoStr}`;
+                    const key = getLocationKey(productId, localId, locacaoStr);
 
                     // --- LÓGICA DE IMPLEMENTAÇÃO / INVENTÁRIO ---
                     const estoqueTotalAtual = (productData.locacoes || []).reduce(
@@ -480,6 +502,7 @@ document.addEventListener('DOMContentLoaded', async function() {
                             tipo_entradaId: implementacaoEntryType.id,
                             quantidade: quantidade, // This is the quantity in the standard unit
                             quantidade_compra: quantidade, // For consistency, as no conversion happened
+                            localId,
                             locacao: locacaoStr,
                             data: serverTimestamp(),
                             observacao: `Inventário inicial.`,
@@ -526,6 +549,7 @@ document.addEventListener('DOMContentLoaded', async function() {
                                 custo_total_entrada: custoTotalInventario,
                                 ajuste_inventario: true,
                                 preserva_custo_medio: true,
+                                localId,
                                 locacao: locacaoStr,
                                 data: serverTimestamp(),
                                 observacao: `Ajuste de inventário (Entrada). Saldo anterior: ${saldoAtual}. Custo preservado: ${custoMedioAtual.toFixed(3)}.`
@@ -541,6 +565,7 @@ document.addEventListener('DOMContentLoaded', async function() {
                                 custoTotal: quantidadeSaida * custoMedioAtual,
                                 ajuste_inventario: true,
                                 preserva_custo_medio: true,
+                                localId,
                                 locacao: locacaoStr,
                                 data: serverTimestamp(),
                                 observacao: `Ajuste de inventário (Saída). Saldo anterior: ${saldoAtual}. Custo preservado: ${custoMedioAtual.toFixed(3)}.`
