@@ -44,10 +44,14 @@ function render50x100(produto) {
 
     document.getElementById('etiquetas-container').appendChild(etiquetaDiv);
 
-    let url = `${window.location.origin}/detalhe-produto.html?id=${produto.productId}`;
-    if (produto.locacaoId) {
-        url += `&locId=${produto.locacaoId}`;
+    const urlParams = new URLSearchParams({ id: produto.productId });
+    if (produto.localId) {
+        urlParams.set('localId', produto.localId);
     }
+    if (Object.prototype.hasOwnProperty.call(produto, 'locacaoId')) {
+        urlParams.set('locId', produto.locacaoId === '' ? '_EMPTY_' : produto.locacaoId);
+    }
+    const url = `${window.location.origin}/detalhe-produto.html?${urlParams.toString()}`;
     new QRCode(document.getElementById(`qr-${produto.labelId}`), {
         text: url,
         width: 120,
@@ -88,10 +92,14 @@ function render50x25(produto, side) {
         </div>
     `;
 
-    let url = `${window.location.origin}/detalhe-produto.html?id=${produto.productId}`;
-    if (produto.locacaoId) {
-        url += `&locId=${produto.locacaoId}`;
+    const urlParams = new URLSearchParams({ id: produto.productId });
+    if (produto.localId) {
+        urlParams.set('localId', produto.localId);
     }
+    if (Object.prototype.hasOwnProperty.call(produto, 'locacaoId')) {
+        urlParams.set('locId', produto.locacaoId === '' ? '_EMPTY_' : produto.locacaoId);
+    }
+    const url = `${window.location.origin}/detalhe-produto.html?${urlParams.toString()}`;
 
     return { element: subEtiqueta, qrId: `qr-${labelId}`, qrUrl: url };
 }

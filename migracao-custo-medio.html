@@ -1,0 +1,65 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Migração de Custo Médio - Controle de Estoque</title>
+    <link rel="stylesheet" href="css/style.css">
+    <link href="https://cdnjs.cloudflare.com/ajax/libs/tailwindcss/2.2.19/tailwind.min.css" rel="stylesheet">
+    <link href="https://fonts.googleapis.com/icon?family=Material+Icons" rel="stylesheet">
+</head>
+<body class="bg-gray-100 min-h-screen">
+    <main class="max-w-7xl mx-auto p-6">
+        <div class="flex items-center justify-between mb-6">
+            <div>
+                <h1 class="text-3xl font-bold text-gray-800">Migração de Custo Médio</h1>
+                <p class="text-gray-600 mt-1">Corrige inventários antigos e recalcula o custo médio móvel.</p>
+            </div>
+            <a href="configuracoes.html" class="px-4 py-2 bg-gray-700 text-white rounded hover:bg-gray-800">Voltar</a>
+        </div>
+
+        <section class="bg-yellow-50 border border-yellow-300 rounded p-4 mb-6">
+            <h2 class="font-bold text-yellow-900">Execução segura</h2>
+            <p class="text-yellow-800 mt-1">Primeiro execute a simulação e baixe o backup JSON. A gravação só é liberada depois da simulação e da confirmação explícita.</p>
+        </section>
+
+        <section class="bg-white rounded shadow p-5 mb-6">
+            <div class="flex flex-wrap gap-3 items-center">
+                <button id="btn-simular" class="px-5 py-2 bg-blue-600 text-white rounded hover:bg-blue-700">1. Simular correção</button>
+                <button id="btn-backup" class="px-5 py-2 bg-indigo-600 text-white rounded hover:bg-indigo-700 disabled:opacity-40" disabled>2. Baixar backup JSON</button>
+                <input id="confirmacao" type="text" placeholder="Digite CORRIGIR" class="border rounded px-3 py-2">
+                <button id="btn-aplicar" class="px-5 py-2 bg-red-600 text-white rounded hover:bg-red-700 disabled:opacity-40" disabled>3. Aplicar no Firestore</button>
+            </div>
+            <div id="status" class="mt-4 text-sm text-gray-700"></div>
+        </section>
+
+        <section class="grid grid-cols-1 md:grid-cols-4 gap-4 mb-6">
+            <div class="bg-white rounded shadow p-4"><div class="text-gray-500">Produtos analisados</div><div id="kpi-produtos" class="text-2xl font-bold">0</div></div>
+            <div class="bg-white rounded shadow p-4"><div class="text-gray-500">Prontos para corrigir</div><div id="kpi-prontos" class="text-2xl font-bold text-green-700">0</div></div>
+            <div class="bg-white rounded shadow p-4"><div class="text-gray-500">Revisão manual</div><div id="kpi-revisao" class="text-2xl font-bold text-yellow-700">0</div></div>
+            <div class="bg-white rounded shadow p-4"><div class="text-gray-500">Movimentos a corrigir</div><div id="kpi-movimentos" class="text-2xl font-bold text-blue-700">0</div></div>
+        </section>
+
+        <section class="bg-white rounded shadow overflow-hidden">
+            <div class="overflow-x-auto">
+                <table class="min-w-full text-sm">
+                    <thead class="bg-gray-800 text-white">
+                        <tr>
+                            <th class="p-3 text-left">Código</th>
+                            <th class="p-3 text-left">Descrição</th>
+                            <th class="p-3 text-right">Estoque atual</th>
+                            <th class="p-3 text-right">Saldo histórico</th>
+                            <th class="p-3 text-right">Custo atual</th>
+                            <th class="p-3 text-right">Custo corrigido</th>
+                            <th class="p-3 text-right">Inventários</th>
+                            <th class="p-3 text-left">Status</th>
+                        </tr>
+                    </thead>
+                    <tbody id="resultado-body"></tbody>
+                </table>
+            </div>
+        </section>
+    </main>
+    <script type="module" src="js/migracao-custo-medio.js"></script>
+</body>
+</html>

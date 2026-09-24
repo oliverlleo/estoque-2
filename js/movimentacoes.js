@@ -4,34 +4,8 @@ function showInfoModal(message) {
 }
 
 import { db } from './firebase-config.js';
-import { collection, addDoc, getDocs, onSnapshot, runTransaction, doc, serverTimestamp, query, where, getDoc, setDoc, orderBy } from "https://www.gstatic.com/firebasejs/9.6.1/firebase-firestore.js";
-
-// Adicione esta função em js/movimentacoes.js
-async function calcularCustoMedioProduto(produtoId) {
-    const q = query(collection(db, 'movimentacoes'), where("productId", "==", produtoId));
-    const movementsSnapshot = await getDocs(q);
-    const productMovements = [];
-    movementsSnapshot.forEach(doc => {
-        productMovements.push(doc.data());
-    });
-
-    const entryMovements = productMovements.filter(m => m.tipo === 'entrada' && (m.custo_total_entrada || 0) > 0);
-    let totalCost = 0;
-    let totalQuantityForAvg = 0;
-
-    entryMovements.forEach(m => {
-        let custoEntrada = m.custo_total_entrada;
-        if (custoEntrada === undefined || custoEntrada === null) {
-            // Fallback para entradas antigas
-            custoEntrada = (m.quantidade_compra * (m.valor_unitario || 0)) + (m.icms || 0) + (m.ipi || 0) + (m.frete || 0);
-        }
-        totalCost += custoEntrada;
-        totalQuantityForAvg += m.quantidade;
-    });
-
-    return totalQuantityForAvg > 0 ? totalCost / totalQuantityForAvg : 0;
-}
-
+import { collection, addDoc, getDocs, onSnapshot, runTransaction, doc, serverTimestamp, query, where, getDoc, orderBy } from "https://www.gstatic.com/firebasejs/9.6.1/firebase-firestore.js";
+import { calcularCustoMedioAposEntrada, normalizarTexto, obterDataEfetivaMovimento, obterTimestampMillis, recalcularCustoMedioProduto as recalcularCustoMedioProdutoCentral } from './custo-medio.js';
 
 document.addEventListener('DOMContentLoaded', async function() {
     const loadingOverlay = document.getElementById('loading-overlay');
@@ -85,6 +59,55 @@ document.addEventListener('DOMContentLoaded', async function() {
     // --- Table State ---
     let sortState = { column: 'data', direction: 'desc' };
     let filterState = {};
+
+    function normalizarCodigoProduto(codigo) {
+        return String(codigo || '').trim().toUpperCase();
+    }
+
+    async function garantirCodigoProdutoUnicoNoBanco(codigo, ignorarProdutoId = '') {
+        const codigoNormalizado = normalizarCodigoProduto(codigo);
+        if (!codigoNormalizado) {
+            throw new Error('O código do produto é obrigatório.');
+        }
+
+        // Consulta todos os produtos, inclusive arquivados, para não permitir
+        // reutilização silenciosa do mesmo código por outra rota de cadastro.
+        const snapshot = await getDocs(collection(db, 'produtos'));
+        const duplicado = snapshot.docs.find(item => {
+            if (item.id === ignorarProdutoId) return false;
+            return normalizarCodigoProduto(item.data()?.codigo) === codigoNormalizado;
+        });
+
+        if (duplicado) {
+            throw new Error(`O código "${codigoNormalizado}" já está cadastrado em outro produto.`);
+        }
+
+        return codigoNormalizado;
+    }
+
+    async function criarProdutoComCodigoUnicoNoBanco(dadosProduto) {
+        const codigoNormalizado = await garantirCodigoProdutoUnicoNoBanco(dadosProduto.codigo);
+        const productRef = doc(collection(db, 'produtos'));
+        const codigoRef = doc(db, 'produto_codigos', encodeURIComponent(codigoNormalizado));
+
+        await runTransaction(db, async transaction => {
+            const codigoSnap = await transaction.get(codigoRef);
+            if (codigoSnap.exists()) {
+                throw new Error(`O código "${codigoNormalizado}" já está reservado para outro produto.`);
+            }
+
+            transaction.set(productRef, {
+                ...dadosProduto,
+                codigo: codigoNormalizado
+            });
+            transaction.set(codigoRef, {
+                codigo: codigoNormalizado,
+                productId: productRef.id
+            });
+        });
+
+        return productRef;
+    }
 
     function saveLembrarValues() {
         const checkbox = document.getElementById('lembrar-registro-mov');
@@ -378,6 +401,9 @@ document.addEventListener('DOMContentLoaded', async function() {
     function updateTable() {
         let processedMovements = allMovements.map(mov => {
             const product = productsMap[mov.productId] || {};
+            const dataEfetiva = obterDataEfetivaMovimento(mov);
+            const dataEfetivaMillis = obterTimestampMillis(dataEfetiva);
+            const dataEfetivaDate = dataEfetivaMillis ? new Date(dataEfetivaMillis) : null;
             let custoUnitario = 0;
             if (mov.tipo === 'entrada' && mov.quantidade > 0) {
                 let valorTotal;
@@ -422,6 +448,8 @@ document.addEventListener('DOMContentLoaded', async function() {
 
             const processedMov = {
                 ...mov,
+                _dataEfetivaMillis: dataEfetivaMillis,
+                _dataEfetivaDate: dataEfetivaDate,
                 valorUnitEstoque: valorUnitEstoque,
                 custoUnitario: custoUnitario,
                 custoTotal: custoTotal,
@@ -429,7 +457,7 @@ document.addEventListener('DOMContentLoaded', async function() {
                 ipiUnit: ipiUnit,
                 freteUnit: freteUnit,
                 _search_data: {
-                    data: mov.data ? new Date(mov.data.seconds * 1000).toLocaleString('pt-BR') : '',
+                    data: dataEfetivaDate ? dataEfetivaDate.toLocaleString('pt-BR') : '',
                     tipo: mov.tipo || '',
                     subTipo: subTipo,
                     codigo: product.codigo || '',
@@ -457,7 +485,7 @@ document.addEventListener('DOMContentLoaded', async function() {
             // Lógica de filtro de data (CORRIGIDA)
             const startDateString = filterState['data-inicio'];
             const endDateString = filterState['data-fim'];
-            const moveDate = mov.data ? mov.data.toDate() : null;
+            const moveDate = mov._dataEfetivaDate || null;
 
             if (startDateString || endDateString) {
                 if (!moveDate) return false; // Se há filtro de data, mas o movimento não tem data, ele é filtrado.
@@ -509,8 +537,8 @@ document.addEventListener('DOMContentLoaded', async function() {
             let valA = a._search_data[sortState.column];
             let valB = b._search_data[sortState.column];
             if (sortState.column === 'data') {
-                valA = a.data ? a.data.toMillis() : 0;
-                valB = b.data ? b.data.toMillis() : 0;
+                valA = a._dataEfetivaMillis || 0;
+                valB = b._dataEfetivaMillis || 0;
             }
             const numericColumns = ['quantidade', 'valor_unitario', 'icms', 'ipi', 'frete', 'custoUnitario', 'custoTotal'];
             if (numericColumns.includes(sortState.column)) {
@@ -649,8 +677,19 @@ document.addEventListener('DOMContentLoaded', async function() {
     document.getElementById('mov-tipo-saida').addEventListener('change', toggleObraRequirement);
     document.getElementById('mov-tipo-entrada').addEventListener('change', toggleValorUnitarioRequirement);
 
+    let movimentacaoEmProcessamento = false;
+
     formMovimentacao.addEventListener('submit', async (e) => {
         e.preventDefault();
+
+        if (movimentacaoEmProcessamento) {
+            return;
+        }
+
+        movimentacaoEmProcessamento = true;
+        btnMovimentacao.disabled = true;
+
+        try {
         const isEntrada = toggle.checked;
         const productId = document.getElementById('mov-produto-id').value;
         const rawLocacao = document.getElementById('mov-locacao').value;
@@ -692,6 +731,22 @@ document.addEventListener('DOMContentLoaded', async function() {
                 alert('Por favor, selecione o Tipo de Entrada.');
                 return;
             }
+
+            const tipoEntradaConfig = configData.tipos_entrada[tipoEntradaId];
+            const ehImplementacao = normalizarTexto(tipoEntradaConfig?.nome) === 'implementacao';
+
+            // Implementação é exclusivamente a primeira entrada do produto.
+            // A checagem histórica cobre produtos antigos que ainda não possuem a flag teveEntrada.
+            if (ehImplementacao) {
+                const movimentosProduto = await getDocs(
+                    query(collection(db, 'movimentacoes'), where('productId', '==', productId))
+                );
+                const jaPossuiEntrada = movimentosProduto.docs.some(item => item.data()?.tipo === 'entrada');
+                if (jaPossuiEntrada) {
+                    throw new Error('Entrada de Implementação bloqueada: este produto já possui uma entrada registrada no histórico.');
+                }
+            }
+
             // LÓGICA DE ENTRADA NORMAL (a lógica de sobra foi ignorada por enquanto)
             try {
                 await runTransaction(db, async (transaction) => {
@@ -725,9 +780,15 @@ document.addEventListener('DOMContentLoaded', async function() {
                         }
                     }
 
-                    const tipoEntradaId = document.getElementById('mov-tipo-entrada').value;
-                    const tipoEntradaConfig = configData.tipos_entrada[tipoEntradaId];
+                    // Segunda barreira, dentro da transação: impede corrida com outra
+                    // entrada salva entre a validação histórica acima e este commit.
+                    if (ehImplementacao && productData.teveEntrada === true) {
+                        throw new Error('Entrada de Implementação bloqueada: este produto já possui uma entrada registrada.');
+                    }
 
+                    // Toda entrada passa a marcar o produto atomicamente. Isso torna a
+                    // regra de Implementação segura também contra submissões concorrentes.
+                    const updateProdutoEntrada = { teveEntrada: true };
                     if (tipoEntradaConfig && tipoEntradaConfig.movimenta_estoque == true) {
                         const localSelecionado = document.getElementById('mov-local').value;
                         if (localSelecionado) {
@@ -737,20 +798,32 @@ document.addEventListener('DOMContentLoaded', async function() {
                                 throw new Error("A combinação de Local e Locação selecionada não foi encontrada no cadastro do produto.");
                             }
                             locacoes[locacaoIndex].estoque = (locacoes[locacaoIndex].estoque || 0) + quantidadeParaEstoque;
-                            transaction.update(productRef, { locacoes: locacoes });
+                            updateProdutoEntrada.locacoes = locacoes;
                         } else {
                             // Se nenhum local for selecionado, atualiza o estoque geral (sem locação)
-                            const novoEstoque = (productData.estoque || 0) + quantidadeParaEstoque;
-                            transaction.update(productRef, { estoque: novoEstoque });
+                            updateProdutoEntrada.estoque = (productData.estoque || 0) + quantidadeParaEstoque;
                         }
                     }
+                    transaction.update(productRef, updateProdutoEntrada);
 
-                    // Cálculo de custo (mantido)
-                    const valorUnitario = parseFloat(document.getElementById('mov-valor-unitario').value) || 0;
+                    // Cálculo de custo. Inventário sempre herda o custo médio vigente.
+                    const ehInventario = normalizarTexto(tipoEntradaConfig?.nome) === 'inventario';
+                    let valorUnitario = parseFloat(document.getElementById('mov-valor-unitario').value) || 0;
                     const icms = parseFloat(document.getElementById('mov-icms').value) || 0;
                     const ipi = parseFloat(document.getElementById('mov-ipi').value) || 0;
                     const frete = parseFloat(document.getElementById('mov-frete').value) || 0;
-                    let custoTotalEntrada = (quantidade * valorUnitario) + icms + ipi + frete;
+
+                    if (ehInventario) {
+                        valorUnitario = Number(productData.valorMedio) || 0;
+                        if (valorUnitario <= 0) {
+                            throw new Error('Inventário não pode ser lançado sem custo médio válido. Execute a migração ou informe uma implementação inicial.');
+                        }
+                    }
+
+                    const quantidadeCompraMovimento = ehInventario ? quantidadeParaEstoque : quantidade;
+                    let custoTotalEntrada = ehInventario
+                        ? quantidadeParaEstoque * valorUnitario
+                        : (quantidade * valorUnitario) + icms + ipi + frete;
 
                     // Criação do documento de movimentação
                     const selectedUnit = document.getElementById('mov-unidade-selecao').value;
@@ -769,16 +842,19 @@ document.addEventListener('DOMContentLoaded', async function() {
                         frete: frete,
                         observacao: document.getElementById('mov-observacao-entrada').value,
                         quantidade: quantidadeParaEstoque,
-                        quantidade_compra: quantidade,
-                        custo_total_entrada: custoTotalEntrada
+                        quantidade_compra: quantidadeCompraMovimento,
+                        custo_total_entrada: custoTotalEntrada,
+                        ...(ehInventario ? {
+                            valorMedioHistorico: valorUnitario,
+                            ajuste_inventario: true,
+                            preserva_custo_medio: true
+                        } : {})
                     };
                     transaction.set(movementRef, movementData);
                 });
                 alert('Entrada registrada com sucesso!');
 
                 // Após a transação, verifica se precisa atualizar o custo médio
-                const tipoEntradaId = document.getElementById('mov-tipo-entrada').value;
-                const tipoEntradaConfig = configData.tipos_entrada[tipoEntradaId];
                 if (tipoEntradaConfig && tipoEntradaConfig.recalcula_custo_medio) {
                     await atualizarCustoMedioProduto(productId);
                 }
@@ -880,6 +956,8 @@ document.addEventListener('DOMContentLoaded', async function() {
                         }
 
                         const movementRef = doc(collection(db, 'movimentacoes'));
+                        const custoMedioSaida = Number(pData.valorMedio) || 0;
+                        const ehInventarioSaida = normalizarTexto(tipoSaidaConfig?.nome) === 'inventario';
                         transaction.set(movementRef, {
                             tipo: 'saida',
                             productId,
@@ -890,7 +968,12 @@ document.addEventListener('DOMContentLoaded', async function() {
                             requisitante: document.getElementById('mov-requisitante').value,
                             obraId: document.getElementById('mov-obra').value,
                             observacao: document.getElementById('mov-observacao-saida').value,
-                            valorMedioHistorico: pData.valorMedio || 0
+                            valorMedioHistorico: custoMedioSaida,
+                            custoTotal: quantidade * custoMedioSaida,
+                            ...(ehInventarioSaida ? {
+                                ajuste_inventario: true,
+                                preserva_custo_medio: true
+                            } : {})
                         });
                     });
                     alert('Saída registrada com sucesso!');
@@ -911,6 +994,13 @@ document.addEventListener('DOMContentLoaded', async function() {
                     showInfoModal(error.message);
                 }
             }
+        }
+        } catch (error) {
+            console.error('Erro ao processar movimentação:', error);
+            showInfoModal(error.message || 'Falha ao processar movimentação.');
+        } finally {
+            movimentacaoEmProcessamento = false;
+            btnMovimentacao.disabled = false;
         }
     });
 
@@ -2015,15 +2105,14 @@ document.addEventListener('DOMContentLoaded', async function() {
 
             // 2. Calcula Custo Médio Atual e Novo
             const custoMedioAtual = productData.valorMedio || 0;
-            const valorTotalAtual = estoqueAtual * custoMedioAtual;
             const custoTotalEntrada = (item.quantidadeInformada * item.valorUnitario) + item.icms + item.ipi + item.frete;
 
-            const novoEstoqueTotal = estoqueAtual + item.quantidadeParaEstoque;
-            let novoCustoMedio = custoMedioAtual;
-
-            if (novoEstoqueTotal > 0) {
-                novoCustoMedio = (valorTotalAtual + custoTotalEntrada) / novoEstoqueTotal;
-            }
+            const novoCustoMedio = calcularCustoMedioAposEntrada({
+                estoqueAtual,
+                custoMedioAtual,
+                quantidadeEntrada: item.quantidadeParaEstoque,
+                custoTotalEntrada
+            });
 
             // 3. Prepara Atualização do Produto
             const updateData = { valorMedio: novoCustoMedio };
@@ -2188,8 +2277,14 @@ document.addEventListener('DOMContentLoaded', async function() {
         },
     });
 
+    let cadastroRapidoProdutoEmProcessamento = false;
+
     formNovoProdutoModal.addEventListener('submit', async (e) => {
         e.preventDefault();
+
+        if (cadastroRapidoProdutoEmProcessamento) {
+            return;
+        }
 
         const locacao = document.getElementById('modal-produto-locacao').value;
         const localId = document.getElementById('modal-produto-local').value;
@@ -2220,8 +2315,12 @@ document.addEventListener('DOMContentLoaded', async function() {
             // O campo 'estoque' não é mais um campo de nível superior
         };
 
+        cadastroRapidoProdutoEmProcessamento = true;
+        const submitCadastroRapido = formNovoProdutoModal.querySelector('button[type="submit"]');
+        if (submitCadastroRapido) submitCadastroRapido.disabled = true;
+
         try {
-            const docRef = await addDoc(collection(db, 'produtos'), novoProduto);
+            const docRef = await criarProdutoComCodigoUnicoNoBanco(novoProduto);
 
             // Armazena os valores para o próximo cadastro
             lastUsedValues.grupoId = novoProduto.grupoId;
@@ -2285,6 +2384,9 @@ document.addEventListener('DOMContentLoaded', async function() {
         } catch (error) {
             console.error("Erro ao cadastrar novo produto:", error);
             alert("Falha ao cadastrar produto: " + error.message);
+        } finally {
+            cadastroRapidoProdutoEmProcessamento = false;
+            if (submitCadastroRapido) submitCadastroRapido.disabled = false;
         }
     });
 
@@ -2522,42 +2624,8 @@ document.addEventListener('DOMContentLoaded', async function() {
     });
 });
 
-// Substitua a função inteira em js/movimentacoes.js por esta versão CORRIGIDA:
+// Recalcula usando a regra central de custo médio móvel.
 async function atualizarCustoMedioProduto(produtoId) {
-    if (!produtoId) return;
-
-    const q = query(collection(db, 'movimentacoes'), where("productId", "==", produtoId));
-    const movementsSnapshot = await getDocs(q);
-    const productMovements = [];
-    movementsSnapshot.forEach(doc => {
-        productMovements.push(doc.data());
-    });
-
-    // Ordena as movimentações por data para o cálculo correto do custo médio
-    productMovements.sort((a, b) => a.data.toMillis() - b.data.toMillis());
-
-    let totalQuantity = 0;
-    let totalCost = 0;
-
-    productMovements.forEach(mov => {
-        if (mov.tipo === 'entrada') {
-            let custoEntrada = mov.custo_total_entrada;
-            if (custoEntrada === undefined || custoEntrada === null) {
-                // Recalcula custo se não existir (compatibilidade)
-                custoEntrada = (mov.quantidade_compra * (mov.valor_unitario || 0)) + (mov.icms || 0) + (mov.ipi || 0) + (mov.frete || 0);
-            }
-            totalCost += custoEntrada;
-            totalQuantity += mov.quantidade;
-        } else if (mov.tipo === 'saida') {
-            const currentAvgCost = totalQuantity > 0 ? totalCost / totalQuantity : 0;
-            totalCost -= mov.quantidade * currentAvgCost;
-            totalQuantity -= mov.quantidade;
-        }
-    });
-
-    const novoCustoMedio = totalQuantity > 0 ? totalCost / totalQuantity : 0;
-    const productRef = doc(db, 'produtos', produtoId);
-    await setDoc(productRef, { valorMedio: novoCustoMedio }, { merge: true });
-
-    console.log(`Custo médio do produto ${produtoId} atualizado para ${novoCustoMedio.toFixed(3)}`);
+    const resultado = await recalcularCustoMedioProdutoCentral(db, produtoId);
+    console.log(`Custo médio do produto ${produtoId} atualizado para ${resultado.custoMedio.toFixed(3)}`);
 }

@@ -84,6 +84,7 @@
             color: white;
         }
     </style>
+    <link rel="stylesheet" href="css/responsive-surgical.css">
 </head>
 <body class="flex h-screen">
     <aside class="w-64 bg-gray-800 text-white flex flex-col">
@@ -138,9 +139,9 @@
         </div>
     </aside>
     <main class="main-content flex-1 overflow-y-auto">
-        <header style="display: flex; justify-content: space-between; align-items: center;">
-            <h1>Análise de Custos por Obra</h1>
-            <a href="etiquetas-obra.html" class="btn btn-primary" style="text-decoration: none; color: white;">
+        <header class="mob-stack" style="display: flex; justify-content: space-between; align-items: center; gap: 10px; margin-bottom: 20px;">
+            <h1 style="margin-bottom: 0;">Análise de Custos por Obra</h1>
+            <a href="etiquetas-obra.html" class="btn btn-primary mob-full-width" style="text-decoration: none; color: white; display: flex; justify-content: center;">
                 <span class="material-icons" style="vertical-align: middle; font-size: 20px; margin-right: 5px;">qr_code</span>
                 Gerar Etiquetas
             </a>
@@ -148,7 +149,7 @@
         <section class="content">
             <div class="card">
                 <div class="card-body">
-                    <div class="filters-container" style="display: flex; gap: 10px; margin-bottom: 20px;">
+                    <div class="filters-container mob-stack" style="display: flex; gap: 10px; margin-bottom: 20px;">
                         <input type="text" id="filter-codigo" class="form-control" placeholder="Filtrar por Código...">
                         <input type="text" id="filter-obra" class="form-control" placeholder="Filtrar por Obra...">
                     </div>

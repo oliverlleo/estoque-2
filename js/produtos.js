@@ -23,6 +23,58 @@ document.addEventListener('DOMContentLoaded', async function() {
     const btnAddLocacao = document.getElementById('btn-add-locacao');
     const locacoesContainer = document.getElementById('locacoes-container');
 
+    function normalizarCodigoProduto(codigo) {
+        return String(codigo || '').trim().toUpperCase();
+    }
+
+    function idTravaCodigoProduto(codigo) {
+        return encodeURIComponent(normalizarCodigoProduto(codigo));
+    }
+
+    async function garantirCodigoProdutoUnicoNoBanco(codigo, ignorarProdutoId = '') {
+        const codigoNormalizado = normalizarCodigoProduto(codigo);
+        if (!codigoNormalizado) {
+            throw new Error('O código do produto é obrigatório.');
+        }
+
+        // Inclui produtos ativos e arquivados. A regra é global para a coleção.
+        const snapshot = await getDocs(collection(db, 'produtos'));
+        const duplicado = snapshot.docs.find(item => {
+            if (item.id === ignorarProdutoId) return false;
+            return normalizarCodigoProduto(item.data()?.codigo) === codigoNormalizado;
+        });
+
+        if (duplicado) {
+            throw new Error(`O código "${codigoNormalizado}" já está cadastrado em outro produto.`);
+        }
+
+        return codigoNormalizado;
+    }
+
+    async function criarProdutoComCodigoUnico(dadosProduto) {
+        const codigoNormalizado = await garantirCodigoProdutoUnicoNoBanco(dadosProduto.codigo);
+        const productRef = doc(collection(db, 'produtos'));
+        const codigoRef = doc(db, 'produto_codigos', idTravaCodigoProduto(codigoNormalizado));
+
+        await runTransaction(db, async transaction => {
+            const codigoSnap = await transaction.get(codigoRef);
+            if (codigoSnap.exists()) {
+                throw new Error(`O código "${codigoNormalizado}" já está reservado para outro produto.`);
+            }
+
+            transaction.set(productRef, {
+                ...dadosProduto,
+                codigo: codigoNormalizado
+            });
+            transaction.set(codigoRef, {
+                codigo: codigoNormalizado,
+                productId: productRef.id
+            });
+        });
+
+        return productRef;
+    }
+
     // Elementos de Imagem
     const imageUploadInput = document.getElementById('produto-imagem-upload');
     const hiddenImageInput = document.getElementById('produto-imagem');
@@ -313,7 +365,7 @@ document.addEventListener('DOMContentLoaded', async function() {
 
     // --- LÓGICA PARA GERENCIAR LOCAÇÕES DINÂMICAS ---
 
-    const addLocacaoRow = (locacao = '', localId = '', originalLocacao = null, originalLocalId = null) => {
+    const addLocacaoRow = (locacao = '', localId = '', originalLocacao = null, originalLocalId = null, originalEstoque = null) => {
         const row = document.createElement('div');
         row.className = 'locacao-row';
         row.style.display = 'flex';
@@ -327,6 +379,9 @@ document.addEventListener('DOMContentLoaded', async function() {
         }
         if (originalLocalId !== null && originalLocalId !== undefined) {
              row.dataset.originalLocalId = originalLocalId;
+        }
+        if (originalEstoque !== null && originalEstoque !== undefined) {
+             row.dataset.originalEstoque = String(Number(originalEstoque) || 0);
         }
 
         const locacaoInput = document.createElement('input');
@@ -404,7 +459,13 @@ document.addEventListener('DOMContentLoaded', async function() {
 
     locacoesContainer.addEventListener('click', (e) => {
         if (e.target.classList.contains('btn-remove-locacao')) {
-            e.target.closest('.locacao-row').remove();
+            const row = e.target.closest('.locacao-row');
+            const estoqueOriginal = Number(row?.dataset?.originalEstoque) || 0;
+            if (estoqueOriginal > 0) {
+                alert(`Esta locação possui ${estoqueOriginal.toLocaleString('pt-BR')} unidade(s). Transfira ou ajuste o estoque pela tela de Movimentações antes de remover a locação.`);
+                return;
+            }
+            row.remove();
         }
     });
 
@@ -548,24 +609,21 @@ document.addEventListener('DOMContentLoaded', async function() {
                 estoque: 0 // Estoque inicial na locação é sempre 0
             }];
 
-            // --- ETAPA 4: Executar a Criação em uma Transação ---
-            await runTransaction(db, async (transaction) => {
-                const newSobraProductData = {
-                    ...originalProductData,
-                    codigo: `${originalProductData.codigo}-S${medidaSobraStr}`,
-                    medida_sobra: medidaSobraStr,
-                    estoque: 0,
-                    isSobra: true,
-                    valorMedio: custoProporcionalDaSobra,
-                    conversaoId: null,
-                    locacoes: newLocacoes, // Sobrescreve com a nova locação
-                    originalProductId: originalProductId // Adiciona a referência ao produto pai
-                };
-                delete newSobraProductData.id;
+            // --- ETAPA 4: Executar a Criação com código único ---
+            const newSobraProductData = {
+                ...originalProductData,
+                codigo: `${originalProductData.codigo}-S${medidaSobraStr}`,
+                medida_sobra: medidaSobraStr,
+                estoque: 0,
+                isSobra: true,
+                valorMedio: custoProporcionalDaSobra,
+                conversaoId: null,
+                locacoes: newLocacoes,
+                originalProductId: originalProductId
+            };
+            delete newSobraProductData.id;
 
-                const newProductRef = doc(collection(db, 'produtos'));
-                transaction.set(newProductRef, newSobraProductData);
-            });
+            await criarProdutoComCodigoUnico(newSobraProductData);
 
             alert('Sobra cadastrada com sucesso!');
             formSobra.reset();
@@ -579,8 +637,14 @@ document.addEventListener('DOMContentLoaded', async function() {
 
 
     // 2. Handle Product Form Submission (Create/Update)
+    let salvandoProduto = false;
+
     form.addEventListener('submit', async (e) => {
         e.preventDefault();
+
+        if (salvandoProduto) {
+            return;
+        }
 
         // --- BLOQUEIO DE SUBMISSÃO ---
         // Se o campo de código está marcado como inválido, exibe um alerta e impede o envio.
@@ -643,7 +707,7 @@ document.addEventListener('DOMContentLoaded', async function() {
         }
 
         const product = {
-            codigo: document.getElementById('produto-codigo').value,
+            codigo: normalizarCodigoProduto(document.getElementById('produto-codigo').value),
             descricao: document.getElementById('produto-descricao').value,
             un: document.getElementById('produto-un').value,
             cor: document.getElementById('produto-cor').value,
@@ -658,52 +722,101 @@ document.addEventListener('DOMContentLoaded', async function() {
             arquivado: false
         };
 
+        salvandoProduto = true;
+        const submitProduto = form.querySelector('button[type="submit"]');
+        if (submitProduto) submitProduto.disabled = true;
+
         try {
+            await garantirCodigoProdutoUnicoNoBanco(product.codigo, productId);
+
             if (productId) {
-                // Ao atualizar, precisamos manter o estoque existente.
-                const originalProduct = productsData.find(p => p.id === productId)?.data;
+                // A edição cadastral nunca pode alterar quantidades.
+                // Lê o documento mais recente dentro de uma transação para evitar sobrescrever
+                // uma movimentação de estoque realizada enquanto o formulário estava aberto.
+                await runTransaction(db, async (transaction) => {
+                    const productRef = doc(db, 'produtos', productId);
+                    const latestDoc = await transaction.get(productRef);
+                    if (!latestDoc.exists()) throw new Error('Produto não encontrado.');
 
-                if (originalProduct && originalProduct.locacoes) {
-                    // Mapeia as novas locações preservando o estoque das originais correspondentes
+                    const originalProduct = latestDoc.data();
+                    const codigoOriginal = normalizarCodigoProduto(originalProduct.codigo);
+                    const codigoNovo = normalizarCodigoProduto(product.codigo);
+                    const codigoNovoRef = doc(db, 'produto_codigos', idTravaCodigoProduto(codigoNovo));
+                    const codigoNovoSnap = await transaction.get(codigoNovoRef);
+
+                    let codigoOriginalRef = null;
+                    let codigoOriginalSnap = null;
+                    if (codigoOriginal && codigoOriginal !== codigoNovo) {
+                        codigoOriginalRef = doc(db, 'produto_codigos', idTravaCodigoProduto(codigoOriginal));
+                        codigoOriginalSnap = await transaction.get(codigoOriginalRef);
+                    }
+
+                    if (codigoNovoSnap.exists() && codigoNovoSnap.data()?.productId !== productId) {
+                        throw new Error(`O código "${codigoNovo}" já está reservado para outro produto.`);
+                    }
+
+                    const originalLocacoes = Array.isArray(originalProduct.locacoes) ? originalProduct.locacoes : [];
+                    const chave = (localId, locacao) => `${String(localId || '')}::${String(locacao || '').toUpperCase()}`;
+                    const originaisPorChave = new Map(originalLocacoes.map(loc => [chave(loc.localId, loc.locacao), loc]));
+                    const originaisUsadas = new Set();
+                    const destinosUsados = new Set();
+
                     product.locacoes = locacoes.map(novaLoc => {
+                        const destinoKey = chave(novaLoc.localId, novaLoc.locacao);
+                        if (destinosUsados.has(destinoKey)) {
+                            throw new Error(`A locação ${novaLoc.locacao || '(sem endereço)'} foi informada mais de uma vez para o mesmo local.`);
+                        }
+                        destinosUsados.add(destinoKey);
+
+                        const temOrigem = novaLoc._originalLocacao !== undefined && novaLoc._originalLocalId !== undefined;
+                        const origemKey = temOrigem
+                            ? chave(novaLoc._originalLocalId, novaLoc._originalLocacao)
+                            : destinoKey;
+                        const originalMatch = originaisPorChave.get(origemKey);
+
                         let estoque = 0;
-
-                        // 1. Tenta encontrar pela chave ORIGINAL (se o usuário editou uma linha existente)
-                        // Isso permite renomear a locação mantendo o estoque (Move o estoque)
-                        if (novaLoc._originalLocacao !== undefined && novaLoc._originalLocalId !== undefined) {
-                            const originalMatch = originalProduct.locacoes.find(antiga =>
-                                String(antiga.locacao || '') === String(novaLoc._originalLocacao || '') &&
-                                String(antiga.localId || '') === String(novaLoc._originalLocalId || '')
-                            );
-                            if (originalMatch) {
-                                estoque = originalMatch.estoque || 0;
+                        if (originalMatch) {
+                            if (originaisUsadas.has(origemKey)) {
+                                throw new Error('Uma mesma locação original foi duplicada no formulário.');
                             }
-                        }
-                        // 2. Fallback: Se não tem chave original (ex: apagou e criou de novo igual),
-                        // tenta casar pelo nome atual para não zerar estoque acidentalmente se a linha for recriada
-                        else {
-                            const matchByName = originalProduct.locacoes.find(antiga =>
-                                antiga.locacao === novaLoc.locacao &&
-                                antiga.localId === novaLoc.localId
-                            );
-                            if (matchByName) {
-                                estoque = matchByName.estoque || 0;
+                            originaisUsadas.add(origemKey);
+                            estoque = Number(originalMatch.estoque) || 0;
+
+                            // Alterar o endereço de uma locação com estoque seria uma transferência silenciosa.
+                            if (estoque > 0 && origemKey !== destinoKey) {
+                                throw new Error(`A locação ${originalMatch.locacao || '-'} possui ${estoque.toLocaleString('pt-BR')} unidade(s). Use a tela de Transferência para mover esse estoque antes de alterar o local ou endereço.`);
                             }
                         }
 
-                        // Remove as propriedades temporárias antes de salvar
                         const { _originalLocacao, _originalLocalId, ...locData } = novaLoc;
-                        return { ...locData, estoque: estoque };
+                        return { ...locData, estoque };
                     });
-                } else {
-                    // Se não tinha locações antes, limpa as propriedades temporárias
-                     product.locacoes = locacoes.map(l => {
-                        const { _originalLocacao, _originalLocalId, ...rest } = l;
-                        return rest;
-                     });
-                }
 
-                await setDoc(doc(db, 'produtos', productId), product, { merge: true });
+                    // Nenhuma locação com saldo pode desaparecer durante uma edição cadastral.
+                    const removidaComEstoque = originalLocacoes.find(loc => {
+                        const estoque = Number(loc.estoque) || 0;
+                        return estoque > 0 && !originaisUsadas.has(chave(loc.localId, loc.locacao));
+                    });
+                    if (removidaComEstoque) {
+                        throw new Error(`A locação ${removidaComEstoque.locacao || '-'} possui ${(Number(removidaComEstoque.estoque) || 0).toLocaleString('pt-BR')} unidade(s). Transfira ou ajuste o estoque antes de removê-la.`);
+                    }
+
+                    const estoqueAntes = originalLocacoes.reduce((total, loc) => total + (Number(loc.estoque) || 0), 0);
+                    const estoqueDepois = product.locacoes.reduce((total, loc) => total + (Number(loc.estoque) || 0), 0);
+                    if (Math.abs(estoqueAntes - estoqueDepois) > 0.000001) {
+                        throw new Error('A edição foi bloqueada porque alteraria o estoque total sem gerar uma movimentação.');
+                    }
+
+                    transaction.set(productRef, { ...product, codigo: codigoNovo }, { merge: true });
+                    transaction.set(codigoNovoRef, {
+                        codigo: codigoNovo,
+                        productId
+                    });
+
+                    if (codigoOriginalRef && codigoOriginalSnap?.exists() && codigoOriginalSnap.data()?.productId === productId) {
+                        transaction.delete(codigoOriginalRef);
+                    }
+                });
                 alert('Produto atualizado com sucesso!');
             } else {
                 // Remove propriedades temporárias para novos produtos também
@@ -711,7 +824,7 @@ document.addEventListener('DOMContentLoaded', async function() {
                     const { _originalLocacao, _originalLocalId, ...rest } = l;
                     return rest;
                  });
-                await addDoc(collection(db, 'produtos'), product);
+                await criarProdutoComCodigoUnico(product);
                 alert('Produto cadastrado com sucesso!');
             }
             form.reset();
@@ -730,6 +843,9 @@ document.addEventListener('DOMContentLoaded', async function() {
         } catch (error) {
             console.error("Erro ao salvar produto:", error);
             alert(`Erro ao salvar: ${error.message}`);
+        } finally {
+            salvandoProduto = false;
+            if (submitProduto) submitProduto.disabled = false;
         }
     });
 
@@ -941,7 +1057,7 @@ document.addEventListener('DOMContentLoaded', async function() {
             if (product.data.locacoes && Array.isArray(product.data.locacoes)) {
                 product.data.locacoes.forEach(loc => {
                     // Passa também os valores originais para rastreamento
-                    addLocacaoRow(loc.locacao, loc.localId, loc.locacao, loc.localId);
+                    addLocacaoRow(loc.locacao, loc.localId, loc.locacao, loc.localId, loc.estoque || 0);
                 });
             }
 
@@ -984,11 +1100,13 @@ document.addEventListener('DOMContentLoaded', async function() {
                 // Se houver locações, cria uma etiqueta para cada uma
                 return pData.locacoes.map((loc, index) => {
                     const localNome = configData.locais[loc.localId]?.nome || 'Local desconhecido';
-                    const locacaoCompleta = `${loc.locacao} (${localNome})`;
+                    const locacaoNome = String(loc.locacao || '').trim();
+                    const locacaoCompleta = locacaoNome ? `${locacaoNome} (${localNome})` : localNome;
                     return {
                         labelId: `${product.id}-${index}`, // ID único para a etiqueta
                         productId: product.id,         // ID original do produto
-                        locacaoId: loc.locacao,        // <<< ADICIONADO
+                        localId: loc.localId || '',    // Local físico do estoque
+                        locacaoId: loc.locacao ?? '',  // Endereçamento dentro do local (pode ser vazio)
                         data: pData,
                         enderecamento: locacaoCompleta,
                         fornecedor: fornecedorNome
@@ -1137,7 +1255,7 @@ document.addEventListener('DOMContentLoaded', async function() {
                         arquivado: false
                     };
 
-                    await addDoc(collection(db, 'produtos'), product);
+                    await criarProdutoComCodigoUnico(product);
                     successCount++;
 
                 } catch (error) {

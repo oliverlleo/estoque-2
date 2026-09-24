@@ -9,6 +9,7 @@
     <script src="https://cdn.jsdelivr.net/npm/feather-icons/dist/feather.min.js"></script>
     <link href="https://cdnjs.cloudflare.com/ajax/libs/tailwindcss/2.2.19/tailwind.min.css" rel="stylesheet">
     <link href="https://fonts.googleapis.com/icon?family=Material+Icons" rel="stylesheet">
+    <link rel="stylesheet" href="css/responsive-surgical.css">
 </head>
 <body class="flex h-screen">
     <aside class="w-64 bg-gray-800 text-white flex flex-col">
@@ -72,7 +73,7 @@
                     <h3>Filtrar por Endereçamento</h3>
                 </div>
                 <div class="card-body">
-                    <div class="filters-container" style="display: flex; gap: 15px; align-items: flex-end; margin-bottom: 20px;">
+                    <div class="filters-container mob-stack" style="display: flex; gap: 15px; align-items: flex-end; margin-bottom: 20px;">
                         <div style="flex-grow: 1;">
                             <label for="filter-local">Local</label>
                             <select id="filter-local" class="form-control">
@@ -87,25 +88,25 @@
                             <label for="end-address">Endereçamento Final</label>
                             <input type="text" id="end-address" class="form-control" placeholder="Ex: 9-Z-99-Z">
                         </div>
-                        <button id="btn-list-items" class="btn btn-primary">Listar Itens</button>
+                        <button id="btn-list-items" class="btn btn-primary mob-full-width">Listar Itens</button>
                     </div>
                 </div>
             </div>
 
             <div class="card">
                 <div class="card-header">
-                    <div style="display: flex; justify-content: space-between; align-items: center;">
+                    <div class="mob-stack" style="display: flex; justify-content: space-between; align-items: center; gap: 10px;">
                         <h3>Itens de inventario</h3>
-                        <div class="filters-container" style="display: flex; gap: 15px; align-items: center;">
+                        <div class="filters-container mob-wrap" style="display: flex; gap: 15px; align-items: center;">
                             <label><input type="checkbox" id="filter-no-quantity"> Sem Qtde. Digitada</label>
                             <label><input type="checkbox" id="filter-no-value"> Sem Valor</label>
                             <label><input type="checkbox" id="filter-hide-updated"> Ocultar Atualizados</label>
-                            <button id="btn-confirm-movement" class="btn btn-success">Confirmar Movimentação</button>
+                            <button id="btn-confirm-movement" class="btn btn-success mob-full-width">Confirmar Movimentação</button>
                         </div>
                     </div>
                 </div>
                 <div class="card-body">
-                    <div class="table-wrapper">
+                    <div class="table-wrapper mob-scroll-x">
                         <table id="table-implementacao" class="table">
                             <thead>
                                 <tr>
