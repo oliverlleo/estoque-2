@@ -1100,11 +1100,13 @@ document.addEventListener('DOMContentLoaded', async function() {
                 // Se houver locações, cria uma etiqueta para cada uma
                 return pData.locacoes.map((loc, index) => {
                     const localNome = configData.locais[loc.localId]?.nome || 'Local desconhecido';
-                    const locacaoCompleta = `${loc.locacao} (${localNome})`;
+                    const locacaoNome = String(loc.locacao || '').trim();
+                    const locacaoCompleta = locacaoNome ? `${locacaoNome} (${localNome})` : localNome;
                     return {
                         labelId: `${product.id}-${index}`, // ID único para a etiqueta
                         productId: product.id,         // ID original do produto
-                        locacaoId: loc.locacao,        // <<< ADICIONADO
+                        localId: loc.localId || '',    // Local físico do estoque
+                        locacaoId: loc.locacao ?? '',  // Endereçamento dentro do local (pode ser vazio)
                         data: pData,
                         enderecamento: locacaoCompleta,
                         fornecedor: fornecedorNome

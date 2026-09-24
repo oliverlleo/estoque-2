@@ -48,9 +48,12 @@ document.addEventListener('DOMContentLoaded', async function() {
 
     const getUrlParams = () => {
         const params = new URLSearchParams(window.location.search);
+        const rawLocacaoId = params.get('locId');
         return {
             productId: params.get('id'),
-            locacaoId: params.get('locId')
+            locacaoId: rawLocacaoId === '_EMPTY_' ? '' : rawLocacaoId,
+            localId: params.get('localId'),
+            hasLocacaoParam: params.has('locId')
         };
     };
 
@@ -71,7 +74,7 @@ document.addEventListener('DOMContentLoaded', async function() {
     };
 
     async function loadProductDetails() {
-        const { productId, locacaoId } = getUrlParams();
+        const { productId, locacaoId, localId, hasLocacaoParam } = getUrlParams();
         if (!productId) {
             detailsContainer.innerHTML = '<p style="color: red;">ID do produto não fornecido.</p>';
             return;
@@ -86,8 +89,34 @@ document.addEventListener('DOMContentLoaded', async function() {
 
         currentProduct = { id: productSnap.id, ...productSnap.data() };
 
-        if (locacaoId) {
-            currentLocacao = currentProduct.locacoes?.find(l => l.locacao === locacaoId) || null;
+        const locacoesProduto = currentProduct.locacoes || [];
+
+        // QR novo: identifica a origem pelo Local + Endereçamento, inclusive quando
+        // o endereçamento está vazio (locId=_EMPTY_).
+        if (localId) {
+            currentLocacao = locacoesProduto.find(l => {
+                if (l.localId !== localId) return false;
+                if (!hasLocacaoParam) return true;
+                return String(l.locacao || '') === String(locacaoId || '');
+            }) || null;
+        }
+
+        // Compatibilidade com etiquetas antigas que carregavam apenas locId.
+        if (!currentLocacao && !localId && hasLocacaoParam) {
+            currentLocacao = locacoesProduto.find(
+                l => String(l.locacao || '') === String(locacaoId || '')
+            ) || null;
+        }
+
+        // Etiquetas antigas de produtos com endereçamento vazio não carregavam locId.
+        // Só inferimos a origem quando existe uma única possibilidade segura.
+        if (!currentLocacao && !localId && !hasLocacaoParam) {
+            const locacoesComEstoque = locacoesProduto.filter(l => Number(l.estoque || 0) > 0);
+            if (locacoesComEstoque.length === 1) {
+                currentLocacao = locacoesComEstoque[0];
+            } else if (locacoesProduto.length === 1) {
+                currentLocacao = locacoesProduto[0];
+            }
         }
 
         await renderDetails();
@@ -123,7 +152,8 @@ document.addEventListener('DOMContentLoaded', async function() {
 
         if (currentLocacao) {
             const localNome = configData.locais[currentLocacao.localId]?.nome || 'Desconhecido';
-            locacaoCompletaEl.textContent = `${currentLocacao.locacao} (${localNome})`;
+            const locacaoNome = String(currentLocacao.locacao || '').trim();
+            locacaoCompletaEl.textContent = locacaoNome ? `${locacaoNome} (${localNome})` : localNome;
             locacaoEstoqueEl.textContent = `${currentLocacao.estoque || 0} ${pData.un}`;
         } else {
             locacaoCompletaEl.textContent = 'N/A';
@@ -172,7 +202,11 @@ document.addEventListener('DOMContentLoaded', async function() {
             obrasOptions += `<option value="${id}">${obra.nome}</option>`;
         }
 
-        const locacaoInfo = currentLocacao ? `da locação ${currentLocacao.locacao}` : '';
+        const localNomeAtual = currentLocacao ? (configData.locais[currentLocacao.localId]?.nome || 'Desconhecido') : '';
+        const locacaoNomeAtual = currentLocacao ? String(currentLocacao.locacao || '').trim() : '';
+        const locacaoInfo = currentLocacao
+            ? (locacaoNomeAtual ? `da locação ${locacaoNomeAtual} (${localNomeAtual})` : `do local ${localNomeAtual}`)
+            : '';
 
         formContainer.innerHTML = `
             <div id="modal-product-info" style="grid-column: 1 / -1; margin-bottom: 15px; padding-bottom: 15px; border-bottom: 1px solid var(--border-color);">
@@ -369,7 +403,7 @@ document.addEventListener('DOMContentLoaded', async function() {
 
     btnAbrirModalBaixa.addEventListener('click', () => {
         if (!currentLocacao) {
-            alert("Não é possível dar baixa pois nenhuma locação específica foi identificada pela etiqueta.");
+            alert("Não é possível dar baixa pois a origem específica do estoque não pôde ser identificada pela etiqueta.");
             return;
         }
         baixaModal.style.display = 'block';
@@ -418,7 +452,10 @@ document.addEventListener('DOMContentLoaded', async function() {
             return alert('Por favor, insira uma quantidade válida.');
         }
         if (quantidade > currentLocacao.estoque) {
-            return alert(`Estoque insuficiente! A locação ${currentLocacao.locacao} possui apenas ${currentLocacao.estoque}.`);
+            const origemNome = String(currentLocacao.locacao || '').trim()
+                || configData.locais[currentLocacao.localId]?.nome
+                || 'selecionada';
+            return alert(`Estoque insuficiente! A origem ${origemNome} possui apenas ${currentLocacao.estoque}.`);
         }
 
         try {
