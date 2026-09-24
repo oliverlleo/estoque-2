@@ -101,6 +101,15 @@
                             <label><input type="checkbox" id="filter-no-quantity"> Sem Qtde. Digitada</label>
                             <label><input type="checkbox" id="filter-no-value"> Sem Valor</label>
                             <label><input type="checkbox" id="filter-hide-updated"> Ocultar Atualizados</label>
+                            <button id="btn-export-excel" class="btn btn-primary mob-full-width" type="button">
+                                <span class="material-icons" style="font-size:18px; vertical-align:middle;">file_download</span>
+                                Exportar Excel
+                            </button>
+                            <button id="btn-import-excel" class="btn btn-secondary mob-full-width" type="button">
+                                <span class="material-icons" style="font-size:18px; vertical-align:middle;">file_upload</span>
+                                Importar Excel
+                            </button>
+                            <input id="input-import-excel" type="file" accept=".xlsx,.xls" style="display:none;">
                             <button id="btn-confirm-movement" class="btn btn-success mob-full-width">Confirmar Movimentação</button>
                         </div>
                     </div>
@@ -132,6 +141,7 @@
         </section>
     </main>
     <script src="https://unpkg.com/imask"></script>
+    <script src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js"></script>
     <script type="module" src="js/main.js"></script>
     <script type="module" src="js/implementacao.js"></script>
     <script type="module" src="js/global-search.js"></script>
