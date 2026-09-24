@@ -26,12 +26,16 @@ document.addEventListener('DOMContentLoaded', async function() {
     const filterNoQuantity = document.getElementById('filter-no-quantity');
     const filterNoValue = document.getElementById('filter-no-value');
     const filterHideUpdated = document.getElementById('filter-hide-updated');
+    const btnExportExcel = document.getElementById('btn-export-excel');
+    const btnImportExcel = document.getElementById('btn-import-excel');
+    const inputImportExcel = document.getElementById('input-import-excel');
     const btnConfirmMovement = document.getElementById('btn-confirm-movement');
 
     let allProducts = [];
     let implementationMovements = {};
     let tiposEntradaMap = {};
     let tiposSaidaMap = {}; // Armazena as configurações dos tipos de saída
+    let locaisMap = {};
 
     // --- DATA FETCHING ---
     const normalizeStr = (str) => str ? str.toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g, "") : "";
@@ -66,6 +70,7 @@ document.addEventListener('DOMContentLoaded', async function() {
 
             // Fetch 'Locais' to populate the new filter dropdown
             const locaisSnapshot = await getDocs(collection(db, 'locais'));
+            locaisMap = {};
             const localSelect = document.getElementById('filter-local');
             // Add a "Todos" option first
             const allOption = document.createElement('option');
@@ -74,6 +79,7 @@ document.addEventListener('DOMContentLoaded', async function() {
             localSelect.appendChild(allOption);
             // Populate with other locations
             locaisSnapshot.forEach(doc => {
+                locaisMap[doc.id] = { id: doc.id, ...doc.data() };
                 const option = document.createElement('option');
                 option.value = doc.id;
                 option.textContent = doc.data().nome;
@@ -341,6 +347,210 @@ document.addEventListener('DOMContentLoaded', async function() {
 
         renderTable(itemsToRender);
         applyFilters();
+    });
+
+    // --- EXCEL EXPORT / IMPORT ---
+    const getCellInputValue = (row, selector) => row.querySelector(selector)?.value ?? '';
+
+    const getRowsFromCurrentTable = () =>
+        Array.from(tableBody.querySelectorAll('tr')).filter(row => row.dataset.productId);
+
+    function exportInventoryToExcel() {
+        if (typeof XLSX === 'undefined') {
+            alert('Não foi possível carregar o recurso de Excel. Atualize a página e tente novamente.');
+            return;
+        }
+
+        const rows = getRowsFromCurrentTable();
+        if (rows.length === 0) {
+            alert('Liste os itens do inventário antes de exportar.');
+            return;
+        }
+
+        const exportData = rows.map(row => {
+            const productId = row.dataset.productId || '';
+            const localId = row.dataset.localId || '';
+            const locacao = row.dataset.locacao || '';
+            const product = allProducts.find(item => item.id === productId);
+            const localNome = locaisMap[localId]?.nome || '';
+            const statusText = row.cells[9]?.innerText?.replace(/\s+/g, ' ').trim() || '';
+
+            return {
+                'Produto ID': productId,
+                'Local ID': localId,
+                'Código': product?.codigo || row.cells[0]?.innerText || '',
+                'Descrição': product?.descricao || row.cells[1]?.innerText || '',
+                'Local': localNome,
+                'Endereçamento': locacao,
+                'Saldo Atual': Number(row.querySelector('.saldo-atual')?.textContent || 0),
+                'Qtde': getCellInputValue(row, '.qtde-input'),
+                'Valor Unit.': getCellInputValue(row, '.value-input'),
+                'ICMS': getCellInputValue(row, '.icms-input'),
+                'IPI': getCellInputValue(row, '.ipi-input'),
+                'Frete': getCellInputValue(row, '.frete-input'),
+                'Status': statusText
+            };
+        });
+
+        const worksheet = XLSX.utils.json_to_sheet(exportData);
+        worksheet['!cols'] = [
+            { hidden: true, wch: 18 },
+            { hidden: true, wch: 18 },
+            { wch: 18 },
+            { wch: 45 },
+            { wch: 24 },
+            { wch: 18 },
+            { wch: 14 },
+            { wch: 14 },
+            { wch: 14 },
+            { wch: 12 },
+            { wch: 12 },
+            { wch: 12 },
+            { wch: 24 }
+        ];
+
+        const workbook = XLSX.utils.book_new();
+        XLSX.utils.book_append_sheet(workbook, worksheet, 'Inventário');
+
+        const today = new Date();
+        const fileDate = [
+            String(today.getFullYear()),
+            String(today.getMonth() + 1).padStart(2, '0'),
+            String(today.getDate()).padStart(2, '0')
+        ].join('-');
+
+        XLSX.writeFile(workbook, `inventario-${fileDate}.xlsx`);
+    }
+
+    const normalizeExcelText = value => String(value ?? '').trim();
+    const normalizeExcelNumber = value => {
+        if (value === '' || value === null || value === undefined) return '';
+        if (typeof value === 'number') return String(value);
+        return String(value).trim().replace(',', '.');
+    };
+
+    async function importInventoryFromExcel(file) {
+        if (typeof XLSX === 'undefined') {
+            alert('Não foi possível carregar o recurso de Excel. Atualize a página e tente novamente.');
+            return;
+        }
+
+        const data = await file.arrayBuffer();
+        const workbook = XLSX.read(data, { type: 'array' });
+        const firstSheetName = workbook.SheetNames[0];
+        if (!firstSheetName) throw new Error('O arquivo não possui nenhuma planilha.');
+
+        const rows = XLSX.utils.sheet_to_json(workbook.Sheets[firstSheetName], { defval: '' });
+        if (rows.length === 0) throw new Error('A planilha está vazia.');
+
+        const requiredColumns = ['Produto ID', 'Local ID', 'Endereçamento'];
+        const missingColumns = requiredColumns.filter(column => !(column in rows[0]));
+        if (missingColumns.length > 0) {
+            throw new Error(`Arquivo inválido. Colunas obrigatórias ausentes: ${missingColumns.join(', ')}.`);
+        }
+
+        const itemsToRender = [];
+        const importedByKey = new Map();
+        const errors = [];
+
+        rows.forEach((excelRow, index) => {
+            const productId = normalizeExcelText(excelRow['Produto ID']);
+            const localId = normalizeExcelText(excelRow['Local ID']);
+            const locacao = normalizeExcelText(excelRow['Endereçamento']);
+            const codigo = normalizeExcelText(excelRow['Código']);
+
+            let product = allProducts.find(item => item.id === productId);
+            if (!product && codigo) {
+                const matches = allProducts.filter(item => normalizeExcelText(item.codigo) === codigo);
+                if (matches.length === 1) product = matches[0];
+            }
+
+            if (!product) {
+                errors.push(`Linha ${index + 2}: produto não encontrado.`);
+                return;
+            }
+
+            const loc = (product.locacoes || []).find(item =>
+                (item.localId || '') === localId &&
+                String(item.locacao || '').trim() === locacao
+            );
+
+            if (!loc) {
+                errors.push(`Linha ${index + 2}: Local/Endereçamento não encontrado para o produto ${product.codigo}.`);
+                return;
+            }
+
+            const key = getLocationKey(product.id, loc.localId || '', loc.locacao || '');
+            if (importedByKey.has(key)) {
+                errors.push(`Linha ${index + 2}: item duplicado no arquivo (${product.codigo}).`);
+                return;
+            }
+
+            const productCopy = { ...product };
+            delete productCopy.locacoes;
+            itemsToRender.push({ ...productCopy, locacao: loc });
+            importedByKey.set(key, excelRow);
+        });
+
+        if (errors.length > 0) {
+            throw new Error(errors.slice(0, 8).join('\n') + (errors.length > 8 ? `\n... e mais ${errors.length - 8} erro(s).` : ''));
+        }
+
+        renderTable(itemsToRender);
+
+        getRowsFromCurrentTable().forEach(row => {
+            const key = getLocationKey(
+                row.dataset.productId || '',
+                row.dataset.localId || '',
+                row.dataset.locacao || ''
+            );
+            const excelRow = importedByKey.get(key);
+            if (!excelRow) return;
+
+            const fields = [
+                ['.qtde-input', 'Qtde'],
+                ['.value-input', 'Valor Unit.'],
+                ['.icms-input', 'ICMS'],
+                ['.ipi-input', 'IPI'],
+                ['.frete-input', 'Frete']
+            ];
+
+            fields.forEach(([selector, column]) => {
+                const input = row.querySelector(selector);
+                if (!input) return;
+                input.value = normalizeExcelNumber(excelRow[column]);
+                input.dispatchEvent(new Event('input', { bubbles: true }));
+            });
+        });
+
+        filterNoQuantity.checked = false;
+        filterNoValue.checked = false;
+        filterHideUpdated.checked = false;
+        applyFilters();
+
+        alert(`Excel importado com sucesso: ${itemsToRender.length} item(ns) carregado(s) e preenchido(s).`);
+    }
+
+    btnExportExcel.addEventListener('click', exportInventoryToExcel);
+    btnImportExcel.addEventListener('click', () => {
+        inputImportExcel.value = '';
+        inputImportExcel.click();
+    });
+    inputImportExcel.addEventListener('change', async () => {
+        const file = inputImportExcel.files?.[0];
+        if (!file) return;
+
+        try {
+            btnImportExcel.disabled = true;
+            btnImportExcel.textContent = 'Importando...';
+            await importInventoryFromExcel(file);
+        } catch (error) {
+            console.error('Erro ao importar Excel:', error);
+            alert('Não foi possível importar o Excel: ' + error.message);
+        } finally {
+            btnImportExcel.disabled = false;
+            btnImportExcel.innerHTML = '<span class="material-icons" style="font-size:18px; vertical-align:middle;">file_upload</span> Importar Excel';
+        }
     });
 
     // --- CONFIRM MOVEMENT LOGIC (REBUILT) ---
