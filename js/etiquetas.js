@@ -1,3 +1,95 @@
+import { db } from './firebase-config.js';
+import { doc, getDoc, setDoc, serverTimestamp } from "https://www.gstatic.com/firebasejs/9.6.1/firebase-firestore.js";
+
+const shortQrCache = new Map();
+let shortQrWarningShown = false;
+
+function buildLegacyQrUrl(produto) {
+    const urlParams = new URLSearchParams({ id: produto.productId });
+    if (produto.localId) {
+        urlParams.set('localId', produto.localId);
+    }
+    if (Object.prototype.hasOwnProperty.call(produto, 'locacaoId')) {
+        urlParams.set('locId', produto.locacaoId === '' ? '_EMPTY_' : produto.locacaoId);
+    }
+    return `${window.location.origin}/detalhe-produto.html?${urlParams.toString()}`;
+}
+
+function buildQrOriginKey(produto) {
+    const hasLocacao = Object.prototype.hasOwnProperty.call(produto, 'locacaoId');
+    return [
+        produto.productId || '',
+        produto.localId || '',
+        hasLocacao ? String(produto.locacaoId ?? '') : '__NO_LOCACAO_PARAM__'
+    ].join('|');
+}
+
+async function createShortCode(originKey, bytesCount = 7) {
+    const bytes = new TextEncoder().encode(originKey);
+    const digest = new Uint8Array(await crypto.subtle.digest('SHA-256', bytes));
+    const selected = digest.slice(0, bytesCount);
+    const binary = Array.from(selected, byte => String.fromCharCode(byte)).join('');
+    return btoa(binary)
+        .replace(/\+/g, '-')
+        .replace(/\//g, '_')
+        .replace(/=+$/g, '');
+}
+
+function sameQrTarget(data, produto) {
+    const hasLocacao = Object.prototype.hasOwnProperty.call(produto, 'locacaoId');
+    return data?.productId === (produto.productId || '') &&
+        (data?.localId || '') === (produto.localId || '') &&
+        Boolean(data?.hasLocacaoParam) === hasLocacao &&
+        String(data?.locacao ?? '') === (hasLocacao ? String(produto.locacaoId ?? '') : '');
+}
+
+async function ensureShortQrMapping(produto) {
+    const originKey = buildQrOriginKey(produto);
+    if (shortQrCache.has(originKey)) return shortQrCache.get(originKey);
+
+    let code = await createShortCode(originKey, 7);
+    let qrRef = doc(db, 'qr_links', code);
+    let snapshot = await getDoc(qrRef);
+
+    if (snapshot.exists() && !sameQrTarget(snapshot.data(), produto)) {
+        code = await createShortCode(originKey, 10);
+        qrRef = doc(db, 'qr_links', code);
+        snapshot = await getDoc(qrRef);
+
+        if (snapshot.exists() && !sameQrTarget(snapshot.data(), produto)) {
+            throw new Error('Colisão de código curto detectada.');
+        }
+    }
+
+    if (!snapshot.exists()) {
+        const hasLocacao = Object.prototype.hasOwnProperty.call(produto, 'locacaoId');
+        await setDoc(qrRef, {
+            productId: produto.productId || '',
+            localId: produto.localId || '',
+            locacao: hasLocacao ? String(produto.locacaoId ?? '') : '',
+            hasLocacaoParam: hasLocacao,
+            createdAt: serverTimestamp()
+        });
+    }
+
+    const shortUrl = `${window.location.origin}/q.html#${code}`;
+    shortQrCache.set(originKey, shortUrl);
+    return shortUrl;
+}
+
+async function getQrUrl(produto) {
+    try {
+        return await ensureShortQrMapping(produto);
+    } catch (error) {
+        console.error('Falha ao criar QR curto; usando URL completa como fallback.', error);
+        if (!shortQrWarningShown) {
+            shortQrWarningShown = true;
+            alert('Não foi possível criar o código curto no Firebase. As etiquetas continuarão funcionando, mas usarão o QR antigo nesta impressão.');
+        }
+        return buildLegacyQrUrl(produto);
+    }
+}
+
 let currentFormat = '50x100'; // '50x100' or '50x25'
 
 function adjustFontSizeToFit(element) {
@@ -44,19 +136,11 @@ function render50x100(produto) {
 
     document.getElementById('etiquetas-container').appendChild(etiquetaDiv);
 
-    const urlParams = new URLSearchParams({ id: produto.productId });
-    if (produto.localId) {
-        urlParams.set('localId', produto.localId);
-    }
-    if (Object.prototype.hasOwnProperty.call(produto, 'locacaoId')) {
-        urlParams.set('locId', produto.locacaoId === '' ? '_EMPTY_' : produto.locacaoId);
-    }
-    const url = `${window.location.origin}/detalhe-produto.html?${urlParams.toString()}`;
     new QRCode(document.getElementById(`qr-${produto.labelId}`), {
-        text: url,
+        text: produto.qrUrl,
         width: 120,
         height: 120,
-        correctLevel: QRCode.CorrectLevel.H
+        correctLevel: QRCode.CorrectLevel.Q
     });
 }
 
@@ -92,16 +176,7 @@ function render50x25(produto, side) {
         </div>
     `;
 
-    const urlParams = new URLSearchParams({ id: produto.productId });
-    if (produto.localId) {
-        urlParams.set('localId', produto.localId);
-    }
-    if (Object.prototype.hasOwnProperty.call(produto, 'locacaoId')) {
-        urlParams.set('locId', produto.locacaoId === '' ? '_EMPTY_' : produto.locacaoId);
-    }
-    const url = `${window.location.origin}/detalhe-produto.html?${urlParams.toString()}`;
-
-    return { element: subEtiqueta, qrId: `qr-${labelId}`, qrUrl: url };
+    return { element: subEtiqueta, qrId: `qr-${labelId}`, qrUrl: produto.qrUrl };
 }
 
 async function processarEtiquetas() {
@@ -116,9 +191,15 @@ async function processarEtiquetas() {
     const produtos = JSON.parse(dadosJSON);
     container.innerHTML = '';
 
+    const produtosComQr = await Promise.all(
+        produtos.map(async produto => ({
+            ...produto,
+            qrUrl: await getQrUrl(produto)
+        }))
+    );
+
     if (currentFormat === '50x100') {
-        // For the 50x100, the QR code generation is synchronous enough
-        produtos.forEach(produto => render50x100(produto));
+        produtosComQr.forEach(produto => render50x100(produto));
         // We still need to adjust fonts here as well
         requestAnimationFrame(() => {
             document.querySelectorAll('.descricao-produto').forEach(el => adjustFontSizeToFit(el));
@@ -130,11 +211,11 @@ async function processarEtiquetas() {
     const qrCodePromises = [];
     const elementsToProcess = [];
 
-    for (let i = 0; i < produtos.length; i += 2) {
+    for (let i = 0; i < produtosComQr.length; i += 2) {
         const etiquetaPai = document.createElement('div');
         etiquetaPai.className = 'etiqueta-50x25-container';
 
-        const produto1 = produtos[i];
+        const produto1 = produtosComQr[i];
         if (produto1) {
             const { element, qrUrl } = render50x25(produto1, 'left');
             etiquetaPai.appendChild(element);
@@ -142,7 +223,7 @@ async function processarEtiquetas() {
             qrCodePromises.push(generateQrCode(element, qrUrl));
         }
 
-        const produto2 = produtos[i + 1];
+        const produto2 = produtosComQr[i + 1];
         if (produto2) {
             const { element, qrUrl } = render50x25(produto2, 'right');
             etiquetaPai.appendChild(element);
@@ -173,7 +254,7 @@ function generateQrCode(element, url) {
             text: url,
             width: 256,
             height: 256,
-            correctLevel: QRCode.CorrectLevel.H,
+            correctLevel: QRCode.CorrectLevel.Q,
         });
 
         // Use a MutationObserver to wait for the <img> to be added
