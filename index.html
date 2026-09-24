@@ -3,6 +3,14 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <script>
+        (() => {
+            const code = decodeURIComponent(window.location.hash.slice(1).trim());
+            if (/^[A-Za-z0-9_-]{6,32}$/.test(code)) {
+                window.location.replace('q.html#' + code);
+            }
+        })();
+    </script>
     <title>Dashboard - Controle de Estoque</title>
     <link rel="stylesheet" href="css/style.css">
     <link rel="stylesheet" href="css/dashboard.css">
