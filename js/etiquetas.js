@@ -24,7 +24,7 @@ function buildQrOriginKey(produto) {
     ].join('|');
 }
 
-async function createShortCode(originKey, bytesCount = 7) {
+async function createShortCode(originKey, bytesCount = 4) {
     const bytes = new TextEncoder().encode(originKey);
     const digest = new Uint8Array(await crypto.subtle.digest('SHA-256', bytes));
     const selected = digest.slice(0, bytesCount);
@@ -47,17 +47,23 @@ async function ensureShortQrMapping(produto) {
     const originKey = buildQrOriginKey(produto);
     if (shortQrCache.has(originKey)) return shortQrCache.get(originKey);
 
-    let code = await createShortCode(originKey, 7);
+    let code = await createShortCode(originKey, 4);
     let qrRef = doc(db, 'qr_links', code);
     let snapshot = await getDoc(qrRef);
 
     if (snapshot.exists() && !sameQrTarget(snapshot.data(), produto)) {
-        code = await createShortCode(originKey, 10);
+        code = await createShortCode(originKey, 6);
         qrRef = doc(db, 'qr_links', code);
         snapshot = await getDoc(qrRef);
 
         if (snapshot.exists() && !sameQrTarget(snapshot.data(), produto)) {
-            throw new Error('Colisão de código curto detectada.');
+            code = await createShortCode(originKey, 10);
+            qrRef = doc(db, 'qr_links', code);
+            snapshot = await getDoc(qrRef);
+
+            if (snapshot.exists() && !sameQrTarget(snapshot.data(), produto)) {
+                throw new Error('Colisão de código curto detectada.');
+            }
         }
     }
 
@@ -72,7 +78,7 @@ async function ensureShortQrMapping(produto) {
         });
     }
 
-    const shortUrl = `${window.location.origin}/q.html#${code}`;
+    const shortUrl = `${window.location.origin}#${code}`;
     shortQrCache.set(originKey, shortUrl);
     return shortUrl;
 }
@@ -140,7 +146,7 @@ function render50x100(produto) {
         text: produto.qrUrl,
         width: 120,
         height: 120,
-        correctLevel: QRCode.CorrectLevel.Q
+        correctLevel: QRCode.CorrectLevel.L
     });
 }
 
@@ -254,7 +260,7 @@ function generateQrCode(element, url) {
             text: url,
             width: 256,
             height: 256,
-            correctLevel: QRCode.CorrectLevel.Q,
+            correctLevel: QRCode.CorrectLevel.L,
         });
 
         // Use a MutationObserver to wait for the <img> to be added
