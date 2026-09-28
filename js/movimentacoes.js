@@ -24,6 +24,7 @@ document.addEventListener('DOMContentLoaded', async function() {
     const formMovimentacao = document.getElementById('form-movimentacao');
     const toggle = document.getElementById('movement-toggle');
     const btnMovimentacao = document.getElementById('btn-movimentacao');
+    const btnExportarMovimentacoes = document.getElementById('btn-exportar-movimentacoes');
     const tableBody = document.querySelector('#table-movimentacoes tbody');
 
     // --- Elementos do Modal XML ---
@@ -59,6 +60,7 @@ document.addEventListener('DOMContentLoaded', async function() {
     // --- Table State ---
     let sortState = { column: 'data', direction: 'desc' };
     let filterState = {};
+    let currentFilteredMovements = [];
 
     function normalizarCodigoProduto(codigo) {
         return String(codigo || '').trim().toUpperCase();
@@ -397,6 +399,238 @@ document.addEventListener('DOMContentLoaded', async function() {
         }
     }
 
+    function dataExcel(valor) {
+        const millis = obterTimestampMillis(valor);
+        return millis ? new Date(millis) : null;
+    }
+
+    function numeroExcel(valor) {
+        if (valor === null || valor === undefined || valor === '') return null;
+        const n = Number(valor);
+        return Number.isFinite(n) ? n : null;
+    }
+
+    function resolverLocalExportacao(mov, product) {
+        const locacao = mov.locacao ?? '';
+        let localId = mov.localId || '';
+
+        if (!localId && Array.isArray(product.locacoes)) {
+            const candidatos = product.locacoes.filter(l => (l.locacao ?? '') === locacao);
+            if (candidatos.length === 1) {
+                localId = candidatos[0].localId || '';
+            }
+        }
+
+        return {
+            localId,
+            localNome: localId ? (configData.locais?.[localId]?.nome || '') : '',
+            locacao
+        };
+    }
+
+    function custoTotalEntradaExportacao(mov) {
+        if (mov.custo_total_entrada !== undefined && mov.custo_total_entrada !== null) {
+            return numeroExcel(mov.custo_total_entrada) ?? 0;
+        }
+
+        const quantidadeCompra = numeroExcel(mov.quantidade_compra ?? mov.quantidade) ?? 0;
+        const valorUnitario = numeroExcel(mov.valor_unitario) ?? 0;
+        return (quantidadeCompra * valorUnitario)
+            + (numeroExcel(mov.icms) ?? 0)
+            + (numeroExcel(mov.ipi) ?? 0)
+            + (numeroExcel(mov.frete) ?? 0);
+    }
+
+    function linhaBaseExportacao(mov) {
+        const product = productsMap[mov.productId] || {};
+        const local = resolverLocalExportacao(mov, product);
+        const fornecedorId = product.fornecedorId || '';
+
+        return {
+            Data: mov._dataEfetivaDate || dataExcel(obterDataEfetivaMovimento(mov)),
+            Código: product.codigo || '',
+            Descrição: product.descricao || '',
+            Local: local.localNome,
+            Locação: local.locacao,
+            Fornecedor: fornecedorId ? (configData.fornecedores?.[fornecedorId]?.nome || '') : '',
+            Observação: mov.observacao || '',
+            'ID movimentação': mov.id || '',
+            'ID produto': mov.productId || '',
+            'ID local': local.localId,
+            'ID fornecedor': fornecedorId,
+            'Editado em': dataExcel(mov.editadoEm),
+            'Editado pelo editor integrado': mov.editadoPorEditorIntegrado ? 'Sim' : 'Não',
+            'Ajuste de inventário': mov.ajuste_inventario ? 'Sim' : 'Não',
+            'Preserva custo médio': mov.preserva_custo_medio ? 'Sim' : 'Não'
+        };
+    }
+
+    function montarLinhaEntrada(mov) {
+        const product = productsMap[mov.productId] || {};
+        const base = linhaBaseExportacao(mov);
+
+        return {
+            Data: base.Data,
+            Tipo: 'ENTRADA',
+            Subtipo: mov._search_data?.subTipo || '',
+            Código: base.Código,
+            Descrição: base.Descrição,
+            'Unidade de compra': mov.un_compra || product.un || '',
+            'Quantidade de compra': numeroExcel(mov.quantidade_compra ?? mov.quantidade),
+            'Unidade de estoque': product.un || mov._search_data?.un || '',
+            'Quantidade no estoque': numeroExcel(mov.quantidade),
+            Local: base.Local,
+            Locação: base.Locação,
+            Fornecedor: base.Fornecedor,
+            'Nº NF': mov.nf || '',
+            'Item NF-e': mov.nItem || '',
+            'Valor unitário de entrada': numeroExcel(mov.valor_unitario),
+            'Valor unitário no estoque': numeroExcel(mov.valorUnitEstoque),
+            'ICMS total': numeroExcel(mov.icms),
+            'IPI total': numeroExcel(mov.ipi),
+            'Frete total': numeroExcel(mov.frete),
+            'Custo total da entrada': custoTotalEntradaExportacao(mov),
+            'Custo médio unitário': numeroExcel(mov.custoUnitario),
+            'Custo total da movimentação': numeroExcel(mov.custoTotal),
+            Observação: base.Observação,
+            'ID movimentação': base['ID movimentação'],
+            'ID produto': base['ID produto'],
+            'ID local': base['ID local'],
+            'ID fornecedor': base['ID fornecedor'],
+            'ID subtipo': mov.tipo_entradaId || '',
+            'Editado em': base['Editado em'],
+            'Editado pelo editor integrado': base['Editado pelo editor integrado'],
+            'Ajuste de inventário': base['Ajuste de inventário'],
+            'Preserva custo médio': base['Preserva custo médio']
+        };
+    }
+
+    function montarLinhaSaida(mov) {
+        const product = productsMap[mov.productId] || {};
+        const base = linhaBaseExportacao(mov);
+
+        return {
+            Data: base.Data,
+            Tipo: 'SAÍDA',
+            Subtipo: mov._search_data?.subTipo || '',
+            Código: base.Código,
+            Descrição: base.Descrição,
+            Unidade: product.un || mov._search_data?.un || '',
+            Quantidade: numeroExcel(mov.quantidade),
+            Local: base.Local,
+            Locação: base.Locação,
+            Requisitante: mov.requisitante || '',
+            Obra: mov._search_data?.obraId || '',
+            'Custo médio unitário': numeroExcel(mov.custoUnitario),
+            'Custo total da movimentação': numeroExcel(mov.custoTotal),
+            Observação: base.Observação,
+            'ID movimentação': base['ID movimentação'],
+            'ID produto': base['ID produto'],
+            'ID local': base['ID local'],
+            'ID subtipo': mov.tipo_saidaId || '',
+            'ID obra': mov.obraId || '',
+            'Editado em': base['Editado em'],
+            'Editado pelo editor integrado': base['Editado pelo editor integrado'],
+            'Ajuste de inventário': base['Ajuste de inventário'],
+            'Preserva custo médio': base['Preserva custo médio']
+        };
+    }
+
+    function prepararAbaExcel(rows, larguras) {
+        const worksheet = XLSX.utils.json_to_sheet(rows, { cellDates: true });
+
+        if (worksheet['!ref']) {
+            worksheet['!autofilter'] = { ref: worksheet['!ref'] };
+            const range = XLSX.utils.decode_range(worksheet['!ref']);
+            for (let row = 1; row <= range.e.r; row += 1) {
+                const dataCell = worksheet[XLSX.utils.encode_cell({ r: row, c: 0 })];
+                if (dataCell && dataCell.t === 'd') {
+                    dataCell.z = 'dd/mm/yyyy hh:mm';
+                }
+            }
+        }
+
+        worksheet['!cols'] = larguras.map(wch => ({ wch }));
+        return worksheet;
+    }
+
+    function exportarMovimentacoesExcel() {
+        if (typeof XLSX === 'undefined') {
+            showInfoModal('Não foi possível carregar o gerador de Excel. Atualize a página e tente novamente.');
+            return;
+        }
+
+        const entradas = currentFilteredMovements
+            .filter(mov => mov.tipo === 'entrada')
+            .map(montarLinhaEntrada);
+
+        const saidas = currentFilteredMovements
+            .filter(mov => mov.tipo === 'saida')
+            .map(montarLinhaSaida);
+
+        if (!entradas.length && !saidas.length) {
+            showInfoModal('Não há movimentações de entrada ou saída para exportar com os filtros atuais.');
+            return;
+        }
+
+        const workbook = XLSX.utils.book_new();
+
+        if (entradas.length) {
+            const wsEntradas = prepararAbaExcel(
+                entradas,
+                [20, 11, 22, 16, 46, 18, 20, 18, 20, 22, 18, 26, 14, 12, 22, 22, 16, 16, 16, 22, 21, 24, 40, 24, 24, 22, 22, 22, 20, 26, 20, 20]
+            );
+            XLSX.utils.book_append_sheet(workbook, wsEntradas, 'Entradas');
+        }
+
+        if (saidas.length) {
+            const wsSaidas = prepararAbaExcel(
+                saidas,
+                [20, 11, 22, 16, 46, 14, 14, 22, 18, 24, 26, 21, 24, 40, 24, 24, 22, 22, 22, 20, 26, 20, 20]
+            );
+            XLSX.utils.book_append_sheet(workbook, wsSaidas, 'Saídas');
+        }
+
+        const totalEntradas = entradas.reduce((acc, row) => acc + (row['Custo total da movimentação'] || 0), 0);
+        const totalSaidas = saidas.reduce((acc, row) => acc + (row['Custo total da movimentação'] || 0), 0);
+        const resumo = [
+            { Indicador: 'Entradas exportadas', Valor: entradas.length },
+            { Indicador: 'Saídas exportadas', Valor: saidas.length },
+            { Indicador: 'Valor total das entradas', Valor: totalEntradas },
+            { Indicador: 'Valor total das saídas', Valor: totalSaidas },
+            { Indicador: 'Exportado em', Valor: new Date() }
+        ];
+        const wsResumo = XLSX.utils.json_to_sheet(resumo, { cellDates: true });
+        wsResumo['!cols'] = [{ wch: 30 }, { wch: 24 }];
+        XLSX.utils.book_append_sheet(workbook, wsResumo, 'Resumo');
+
+        workbook.Props = {
+            Title: 'Movimentações de estoque',
+            Subject: 'Entradas e saídas filtradas na tela de Movimentações',
+            Author: 'Sistema de Controle de Estoque',
+            CreatedDate: new Date()
+        };
+
+        const agora = new Date();
+        const stamp = [
+            agora.getFullYear(),
+            String(agora.getMonth() + 1).padStart(2, '0'),
+            String(agora.getDate()).padStart(2, '0')
+        ].join('-') + '_' + [
+            String(agora.getHours()).padStart(2, '0'),
+            String(agora.getMinutes()).padStart(2, '0')
+        ].join('-');
+
+        XLSX.writeFile(workbook, `movimentacoes_entrada_saida_${stamp}.xlsx`, {
+            compression: true,
+            cellDates: true
+        });
+    }
+
+    if (btnExportarMovimentacoes) {
+        btnExportarMovimentacoes.addEventListener('click', exportarMovimentacoesExcel);
+    }
+
     // --- Lógica da Tabela de Histórico ---
     function updateTable() {
         let processedMovements = allMovements.map(mov => {
@@ -549,6 +783,11 @@ document.addEventListener('DOMContentLoaded', async function() {
             if (valA > valB) return sortState.direction === 'asc' ? 1 : -1;
             return 0;
         });
+
+        currentFilteredMovements = filteredMovements;
+        if (btnExportarMovimentacoes) {
+            btnExportarMovimentacoes.disabled = !filteredMovements.some(mov => mov.tipo === 'entrada' || mov.tipo === 'saida');
+        }
 
         renderTable(filteredMovements);
     }
