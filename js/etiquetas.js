@@ -166,7 +166,7 @@ function render50x25(produto, side) {
     }
 
     const subEtiqueta = document.createElement('div');
-    subEtiqueta.className = 'etiqueta-50x25';
+    subEtiqueta.className = `etiqueta-50x25 etiqueta-${side}`;
     subEtiqueta.innerHTML = `
         <div class="etiqueta-main">
             <div class="qr-code"></div>
