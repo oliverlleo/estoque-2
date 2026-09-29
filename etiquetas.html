@@ -214,6 +214,40 @@
         }
     </style>
     <link rel="stylesheet" href="css/responsive-surgical.css">
+    <style>
+        /* Correção de impressão 106x25:
+           o CSS responsivo mobile é carregado depois do CSS desta página e,
+           em uma página de impressão estreita, acabava adicionando padding ao
+           #etiquetas-container. Isso aumentava a altura útil e empurrava a
+           última linha (ex.: "Recebimento") para uma segunda etiqueta. */
+        @media print {
+            body.format-50x25 #etiquetas-container {
+                width: 106mm !important;
+                padding: 0 !important;
+                margin: 0 !important;
+                overflow: visible !important;
+                display: block !important;
+            }
+
+            body.format-50x25 .etiqueta-50x25-container {
+                width: 106mm !important;
+                height: 25mm !important;
+                margin: 0 !important;
+                padding: 0 !important;
+                overflow: hidden !important;
+                box-sizing: border-box !important;
+                break-inside: avoid !important;
+                page-break-inside: avoid !important;
+                break-after: page;
+                page-break-after: always;
+            }
+
+            body.format-50x25 .etiqueta-50x25-container:last-child {
+                break-after: auto;
+                page-break-after: auto;
+            }
+        }
+    </style>
 </head>
 <body>
     <div class="controls">
