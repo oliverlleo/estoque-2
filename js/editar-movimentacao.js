@@ -142,7 +142,10 @@ function instalarEstilo() {
         #${EDITOR_ID} .editor-btn { border:0; border-radius:7px; padding:10px 16px; font-weight:700; cursor:pointer; }
         #${EDITOR_ID} .editor-cancelar { background:#e5e7eb; color:#111827; }
         #${EDITOR_ID} .editor-salvar { background:#2563eb; color:#fff; }
-        #${EDITOR_ID} .editor-salvar:disabled { opacity:.6; cursor:not-allowed; }
+        #${EDITOR_ID} .editor-excluir { background:#dc2626; color:#fff; margin-right:auto; }
+        #${EDITOR_ID} .editor-excluir:hover { background:#b91c1c; }
+        #${EDITOR_ID} .editor-salvar:disabled,
+        #${EDITOR_ID} .editor-excluir:disabled { opacity:.6; cursor:not-allowed; }
         #${EDITOR_ID} .editor-modal-content { max-width:850px; width:94%; max-height:92%; overflow:auto; }
         #${EDITOR_ID} .editor-subtitle { font-size:.78rem; color:#64748b; margin-top:3px; }
         @media (max-width:700px) {
@@ -237,6 +240,7 @@ function garantirModal() {
                         </div>
                     </div>
                     <div class="editor-actions">
+                        <button type="button" class="editor-btn editor-excluir" id="editor-mov-excluir">Apagar movimentação</button>
                         <button type="button" class="editor-btn editor-cancelar" data-editor-fechar>Cancelar</button>
                         <button type="submit" class="editor-btn editor-salvar" id="editor-mov-salvar">Salvar e recalcular tudo</button>
                     </div>
@@ -251,6 +255,7 @@ function garantirModal() {
         if (event.target === modal) fecharModal();
     });
     modal.querySelector('#editor-mov-form').addEventListener('submit', salvarEdicao);
+    modal.querySelector('#editor-mov-excluir').addEventListener('click', excluirMovimentacaoAtual);
 
     const total = modal.querySelector('#editor-custo-total');
     const unitario = modal.querySelector('#editor-valor-unitario');
@@ -509,6 +514,13 @@ async function abrirEditor(mov) {
     preencherObras(movimentoAtual);
     configurarCamposPorTipo(movimentoAtual);
 
+    const botaoExcluir = modal.querySelector('#editor-mov-excluir');
+    const botaoSalvar = modal.querySelector('#editor-mov-salvar');
+    botaoExcluir.disabled = false;
+    botaoExcluir.textContent = 'Apagar movimentação';
+    botaoSalvar.disabled = false;
+    botaoSalvar.textContent = 'Salvar e recalcular tudo';
+
     const resumo = modal.querySelector('#editor-mov-resumo');
     resumo.innerHTML = `<strong>${escapeHtml(formatarDataMovimento(movimentoAtual))}</strong><br>${escapeHtml(tipoVisual(movimentoAtual.tipo))} · ID ${escapeHtml(movimentoAtual.id)}${localAtual.ambiguo ? '<br><span style="color:#b45309">A locação histórica é ambígua; selecione a correta antes de alterar quantidade ou locação.</span>' : ''}`;
 
@@ -754,6 +766,143 @@ async function reconciliarEdicao(movId, novosDados) {
     });
 
     return productId;
+}
+
+
+async function reconciliarExclusao(movId) {
+    const movRef = doc(db, 'movimentacoes', movId);
+    let productId = null;
+
+    await runTransaction(db, async transaction => {
+        const movSnap = await transaction.get(movRef);
+        if (!movSnap.exists()) throw new Error('A movimentação já foi removida por outro usuário.');
+
+        const atual = { id: movSnap.id, ...movSnap.data() };
+        if (atual.tipo === 'transferencia') {
+            throw new Error('Transferências não podem ser apagadas por este editor porque o registro atual não guarda origem e destinos de forma estruturada o suficiente para uma reversão segura.');
+        }
+        if (!movimentoAtual || atual.productId !== movimentoAtual.productId || atual.tipo !== movimentoAtual.tipo) {
+            throw new Error('A movimentação foi alterada por outro usuário. Feche e abra novamente antes de apagar.');
+        }
+
+        productId = atual.productId;
+        const productRef = doc(db, 'produtos', productId);
+        const productSnap = await transaction.get(productRef);
+        if (!productSnap.exists()) throw new Error('Produto da movimentação não encontrado.');
+
+        const productData = { ...productSnap.data() };
+        if (Array.isArray(productData.locacoes)) {
+            productData.locacoes = productData.locacoes.map(l => ({ ...l }));
+        }
+
+        const efeito = efeitoEstoque(atual);
+        const quantidade = numeroPositivo(atual.quantidade);
+        const local = resolverLocalMovimento(productData, atual);
+
+        if (efeito !== 0 && local.ambiguo) {
+            throw new Error('A locação histórica desta movimentação é ambígua no cadastro atual. Não é seguro apagar sem identificar exatamente de qual local o estoque deve ser devolvido ou retirado.');
+        }
+
+        if (efeito !== 0 && quantidade > 0) {
+            // Apagar precisa desfazer exatamente o efeito que a movimentação teve:
+            // entrada (+) vira retirada; saída (-) vira devolução.
+            aplicarDeltaEstoque(productData, local, -efeito * quantidade);
+
+            const updateProduto = {};
+            if (Array.isArray(productData.locacoes)) updateProduto.locacoes = productData.locacoes;
+            if (productData.estoque !== undefined) updateProduto.estoque = productData.estoque;
+            transaction.update(productRef, updateProduto);
+        }
+
+        // Mantém uma trilha fora da coleção principal. As telas do sistema continuam
+        // lendo somente "movimentacoes", portanto a exclusão não deixa registros
+        // fantasmas em Consultas, Obras ou Reservas.
+        const auditoriaRef = doc(collection(db, 'movimentacoes_edicoes'));
+        transaction.set(auditoriaRef, {
+            acao: 'exclusao',
+            movimentacaoId: movId,
+            productId,
+            data: serverTimestamp(),
+            antes: snapshotEdicao(atual),
+            antesCompleto: movSnap.data(),
+            depois: null,
+            efeitoEstoqueRevertido: efeito !== 0,
+            quantidadeRevertida: efeito !== 0 ? quantidade : 0,
+            exclusaoPeloEditorIntegrado: true
+        });
+
+        transaction.delete(movRef);
+    });
+
+    return productId;
+}
+
+async function excluirMovimentacaoAtual() {
+    if (!movimentoAtual || !modal) return;
+
+    if (movimentoAtual.tipo === 'transferencia') {
+        mostrarMensagem('Transferências não podem ser apagadas por este editor porque a reversão segura exige origem e destinos estruturados.');
+        return;
+    }
+
+    const produto = produtoAtual || cache.produtos[movimentoAtual.productId] || {};
+    const descricao = [produto.codigo, produto.descricao].filter(Boolean).join(' - ') || movimentoAtual.productId;
+    const quantidade = numeroPositivo(movimentoAtual.quantidade).toLocaleString('pt-BR');
+    const confirmado = window.confirm(
+        'APAGAR ESTA MOVIMENTAÇÃO?\n\n' +
+        `${tipoVisual(movimentoAtual.tipo)} | ${descricao}\nQuantidade: ${quantidade}\nData: ${formatarDataMovimento(movimentoAtual)}\n\n` +
+        'O sistema vai desfazer o efeito no estoque, remover a movimentação das consultas/obras/reservas e recalcular o custo médio, valor médio e custos históricos dependentes.\n\n' +
+        'Esta ação não pode ser desfeita pela tela.'
+    );
+    if (!confirmado) return;
+
+    const botaoExcluir = modal.querySelector('#editor-mov-excluir');
+    const botaoSalvar = modal.querySelector('#editor-mov-salvar');
+    botaoExcluir.disabled = true;
+    botaoSalvar.disabled = true;
+    botaoExcluir.textContent = 'Apagando e recalculando...';
+    mostrarMensagem('Revertendo o efeito da movimentação no estoque e recalculando toda a cadeia de custos. Não feche esta janela.');
+
+    let productIdExcluido = null;
+
+    try {
+        await carregarCache(true);
+        produtoAtual = cache.produtos[movimentoAtual.productId] || produtoAtual;
+
+        productIdExcluido = await reconciliarExclusao(movimentoAtual.id);
+
+        let resultado;
+        try {
+            resultado = await recalcularCadeiaProduto(productIdExcluido);
+        } catch (primeiroErro) {
+            console.warn('[Editor de movimentação] Primeira tentativa de recálculo após exclusão falhou; tentando novamente.', primeiroErro);
+            await carregarCache(true);
+            resultado = await recalcularCadeiaProduto(productIdExcluido);
+        }
+
+        await carregarCache(true);
+        mostrarMensagem(
+            `Movimentação apagada com segurança. Estoque reconciliado e custo médio atual recalculado para ${resultado.custoFinal.toLocaleString('pt-BR', { minimumFractionDigits: 3, maximumFractionDigits: 3 })}. ${resultado.movimentosRecalculados} movimentação(ões) dependente(s) foi/foram atualizada(s).`,
+            'ok'
+        );
+        botaoExcluir.textContent = 'Movimentação apagada';
+        setTimeout(fecharModal, 1600);
+    } catch (error) {
+        console.error('[Editor de movimentação] Falha ao excluir:', error);
+
+        if (productIdExcluido) {
+            mostrarMensagem(
+                'A movimentação já foi removida e o estoque foi revertido, mas o recálculo de custos não conseguiu terminar após duas tentativas. Abra novamente o histórico deste produto e faça uma edição para forçar o recálculo antes de continuar movimentando este item. Erro: ' + error.message
+            );
+            botaoExcluir.textContent = 'Movimentação apagada';
+            botaoExcluir.disabled = true;
+        } else {
+            mostrarMensagem(`Não foi possível apagar a movimentação: ${error.message}`);
+            botaoExcluir.textContent = 'Apagar movimentação';
+            botaoExcluir.disabled = false;
+            botaoSalvar.disabled = false;
+        }
+    }
 }
 
 async function recalcularCadeiaProduto(productId) {
