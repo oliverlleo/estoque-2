@@ -514,6 +514,13 @@ async function abrirEditor(mov) {
     preencherObras(movimentoAtual);
     configurarCamposPorTipo(movimentoAtual);
 
+    const botaoExcluir = modal.querySelector('#editor-mov-excluir');
+    const botaoSalvar = modal.querySelector('#editor-mov-salvar');
+    botaoExcluir.disabled = false;
+    botaoExcluir.textContent = 'Apagar movimentação';
+    botaoSalvar.disabled = false;
+    botaoSalvar.textContent = 'Salvar e recalcular tudo';
+
     const resumo = modal.querySelector('#editor-mov-resumo');
     resumo.innerHTML = `<strong>${escapeHtml(formatarDataMovimento(movimentoAtual))}</strong><br>${escapeHtml(tipoVisual(movimentoAtual.tipo))} · ID ${escapeHtml(movimentoAtual.id)}${localAtual.ambiguo ? '<br><span style="color:#b45309">A locação histórica é ambígua; selecione a correta antes de alterar quantidade ou locação.</span>' : ''}`;
 
